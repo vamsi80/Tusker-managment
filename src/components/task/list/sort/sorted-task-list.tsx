@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
@@ -44,7 +44,7 @@ export function SortedTaskList({
         setLocalTasks(sortedTasks);
     }, [sortedTasks]);
 
-    // IntersectionObserver lives here — guaranteed DOM access to sentinel
+    // IntersectionObserver lives here â€” guaranteed DOM access to sentinel
     useEffect(() => {
         const sentinel = sentinelRef.current;
         if (!sentinel || !hasMore) return;
@@ -81,7 +81,7 @@ export function SortedTaskList({
                 />
             ))}
 
-            {/* Sentinel — always mounted so the observer can re-attach */}
+            {/* Sentinel â€” always mounted so the observer can re-attach */}
             <TableRow
                 className="hover:bg-transparent border-0"
                 ref={sentinelRef}
@@ -89,7 +89,7 @@ export function SortedTaskList({
                 <TableCell colSpan={visibleColumnsCount} className="py-3">
                     {isLoadingMore && (
                         <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="size-4 animate-spin" />
                             <span>Loading more...</span>
                         </div>
                     )}
@@ -98,3 +98,4 @@ export function SortedTaskList({
         </>
     );
 }
+

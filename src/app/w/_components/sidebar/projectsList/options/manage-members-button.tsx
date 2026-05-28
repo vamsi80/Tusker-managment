@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Users } from "lucide-react";
@@ -48,7 +48,7 @@ export const ManageMembersButton = ({
                 onClick={() => setDialogOpen(true)}
                 className={className}
             >
-                <Users className="h-4 w-4 mr-2" />
+                <Users className="size-4 mr-2" />
                 Manage Members
             </Button>
 
@@ -63,3 +63,4 @@ export const ManageMembersButton = ({
         </>
     );
 };
+

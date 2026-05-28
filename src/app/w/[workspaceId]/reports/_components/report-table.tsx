@@ -321,7 +321,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 p-0 hover:bg-muted/60 text-muted-foreground hover:text-foreground shrink-0"
+                            className="size-6 p-0 hover:bg-muted/60 text-muted-foreground hover:text-foreground shrink-0"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 toggleAll();
@@ -345,13 +345,13 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-4 w-4 p-0 shrink-0"
+                                className="size-4 p-0 shrink-0"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     toggleDate(data.date);
                                 }}
                             >
-                                {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                             </Button>
                             <CalendarIcon className="h-3.5 w-3.5 text-primary shrink-0" />
                             <span className="font-bold text-sm text-foreground">
@@ -373,17 +373,17 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-4 w-4 p-0 shrink-0"
+                                className="size-4 p-0 shrink-0"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     toggleReport(report.id);
                                 }}
                             >
-                                {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                             </Button>
-                            <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border shadow-sm">
+                            <div className="size-6 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border shadow-sm">
                                 {user?.image ? (
-                                    <img src={user.image} alt={user.surname} className="w-full h-full object-cover" />
+                                    <img src={user.image} alt={user.surname} className="size-full object-cover" />
                                 ) : (
                                     <span className="text-[10px] font-medium text-secondary-foreground">
                                         {user?.surname?.charAt(0) || "U"}
@@ -433,7 +433,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                     <div className="flex flex-col gap-1 pb-1 items-start justify-start min-h-[40px] ml-0">
                         <div className="flex items-center gap-2">
                             <div
-                                className="w-2 h-2 rounded-full shrink-0 shadow-sm"
+                                className="size-2 rounded-full shrink-0 shadow-sm"
                                 style={{ backgroundColor: entry.task?.project?.color || "#cbd5e1" }}
                             />
                             <span className="font-normal text-xs truncate leading-tight text-foreground/80">
@@ -443,7 +443,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                         <div className="pl-4 flex items-center gap-2">
                             {submittedAt && (
                                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60 font-mono">
-                                    <Clock className="h-2 w-2" />
+                                    <Clock className="size-2" />
                                     {formatIST(submittedAt, "h:mm a")}
                                 </div>
                             )}
@@ -479,7 +479,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
             {/* Top Toolbar */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
                         placeholder="Search assignees, tasks, or logs..."
                         value={searchQuery}
@@ -502,9 +502,9 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                                     )}
                                 >
                                     {isMembersLoading ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
                                     ) : (
-                                        <UserIcon className="mr-2 h-4 w-4" />
+                                        <UserIcon className="mr-2 size-4" />
                                     )}
                                     {isMembersLoading ? "Loading Members..." : (selectedMember ? `${selectedMember.surname || ""}` : "All Assignees")}
                                 </Button>
@@ -545,7 +545,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                                     !initialDate && "text-muted-foreground"
                                 )}
                             >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="mr-2 size-4" />
                                 {initialDate ? formatIST(new Date(`${initialDate}T12:00:00`)) : "Any date"}
                             </Button>
                         </PopoverTrigger>
@@ -566,7 +566,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             onClick={() => updateFilters({ date: undefined, userId: undefined })}
                             className="h-9 px-2 text-muted-foreground hover:text-foreground"
                         >
-                            <X className="mr-1 h-4 w-4" />
+                            <X className="mr-1 size-4" />
                             Clear
                         </Button>
                     )}
@@ -598,7 +598,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
 
                 {isLoadingMore ? (
                     <div className="flex justify-center p-8 border-t border-border/10 bg-muted/5">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
+                        <Loader2 className="size-6 animate-spin text-primary/60" />
                     </div>
                 ) : (hasMore && data.length > 0) ? (
                     <div ref={observerRef} className="h-12 flex items-center justify-center border-t border-border/5" />
@@ -611,7 +611,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 bg-muted/5 text-center flex-1">
                         <div className="p-4 rounded-2xl bg-muted/50 mb-4 border border-border/40">
-                            <Search className="h-8 w-8 text-muted-foreground/40" />
+                            <Search className="size-8 text-muted-foreground/40" />
                         </div>
                         <h3 className="font-semibold text-lg">No reports found</h3>
                         <p className="text-sm text-muted-foreground max-w-xs mx-auto">

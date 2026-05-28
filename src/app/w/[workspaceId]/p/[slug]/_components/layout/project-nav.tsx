@@ -81,7 +81,7 @@ export function ProjectNav({
             <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
                 <div className="flex items-center gap-2 px-3 border-r border-border/50 h-full flex-shrink-0">
                     <div 
-                        className="h-3 w-3 rounded-full border shadow-sm shrink-0" 
+                        className="size-3 rounded-full border shadow-sm shrink-0" 
                         style={{ backgroundColor: projectColor || '#888' }}
                     />
                     <span className="text-sm font-bold truncate max-w-[150px]">{projectName}</span>
@@ -109,7 +109,7 @@ export function ProjectNav({
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
-                            <Icon className="h-3 w-3" />
+                            <Icon className="size-3" />
                             <span className="text-xs sm:text-xs">{tab.name}</span>
                         </Link>
                     );

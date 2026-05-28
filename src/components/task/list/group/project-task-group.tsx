@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback } from "react";
 import { Plus } from "lucide-react";
@@ -229,7 +229,7 @@ export function ProjectTaskGroup({
                 <TableLoadingSkeleton visibleColumnsCount={visibleColumnsCount} />
             )}
 
-            {/* 🎯 Hydration Sentinel: Triggers the first fetch for an empty expanded project when it enters view */}
+            {/* ðŸŽ¯ Hydration Sentinel: Triggers the first fetch for an empty expanded project when it enters view */}
             {isExpanded && !paginationState.isLoading && tasks.length === 0 && paginationState.hasMore && (
                 <TableRow
                     key={`sentinel-init-${filtersActive}-${tasks.length}`}
@@ -284,7 +284,7 @@ export function ProjectTaskGroup({
                     >
                         <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 pl-8">
                             <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
-                                <Plus className="h-4 w-4" />
+                                <Plus className="size-4" />
                                 <span>Add Task</span>
                             </div>
                         </TableCell>
@@ -294,3 +294,4 @@ export function ProjectTaskGroup({
         </ProjectRow>
     );
 }
+

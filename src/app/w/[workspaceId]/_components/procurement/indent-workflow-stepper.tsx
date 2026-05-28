@@ -64,14 +64,14 @@ export function IndentWorkflowStepper({ status }: IndentWorkflowStepperProps) {
             <div key={step.value} className="flex flex-col items-center">
               <div
                 className={cn(
-                  "h-6 w-6 rounded-full flex items-center justify-center border-2 text-[10px] font-bold transition-all duration-300 shadow-sm",
+                  "size-6 rounded-full flex items-center justify-center border-2 text-[10px] font-bold transition-all duration-300 shadow-sm",
                   isCompleted && "bg-primary border-primary text-primary-foreground",
                   isActive && "bg-background border-primary text-primary ring-2 ring-primary/20 scale-110",
                   isPending && "bg-background border-muted text-muted-foreground"
                 )}
               >
                 {isCompleted ? (
-                  <Check className="h-3 w-3 stroke-[3]" />
+                  <Check className="size-3 stroke-[3]" />
                 ) : (
                   <span>{index + 1}</span>
                 )}

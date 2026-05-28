@@ -65,11 +65,11 @@ export function ChatPanel({
             href={`/w/${workspaceId}/myspace/conversations`}
             className="lg:hidden p-1 -ml-2 rounded-full hover:bg-muted"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="size-5" />
           </Link>
 
           <div className="relative">
-            <Avatar className="h-10 w-10 rounded-full">
+            <Avatar className="size-10 rounded-full">
               <AvatarFallback className="rounded-full bg-primary/10 text-primary font-semibold uppercase">
                 {otherUser?.surname?.[0]}
               </AvatarFallback>
@@ -104,11 +104,11 @@ export function ChatPanel({
           <div className="flex flex-col gap-2 max-w-4xl mx-auto">
             {isLoading && messages.length === 0 ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-primary/20" />
+                <Loader2 className="size-6 animate-spin text-primary/20" />
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
-                <MessageSquare className="h-12 w-12 mb-4" />
+                <MessageSquare className="size-12 mb-4" />
                 <p className="text-sm font-semibold">Wave to {otherUser?.name}!</p>
                 <p className="text-xs mt-1">Start your conversation now.</p>
               </div>
@@ -178,9 +178,9 @@ export function ChatPanel({
             type="submit"
             size="icon"
             disabled={!content.trim() || isSending}
-            className="h-11 w-11 rounded-full shrink-0 shadow-lg active:scale-90 transition-all"
+            className="size-11 rounded-full shrink-0 shadow-lg active:scale-90 transition-all"
           >
-            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {isSending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
           </Button>
         </form>
       </div>

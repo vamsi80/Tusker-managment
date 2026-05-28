@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -34,8 +34,8 @@ function VerifyEmailContent() {
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
                 {/* Icon */}
                 <div className="flex justify-center mb-6">
-                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Mail className="w-10 h-10 text-blue-600" />
+                    <div className="size-20 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Mail className="size-10 text-blue-600" />
                     </div>
                 </div>
 
@@ -47,7 +47,7 @@ function VerifyEmailContent() {
                 {/* Error Message */}
                 {error === "email-not-verified" && (
                     <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <AlertCircle className="size-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <div>
                             <p className="text-sm font-medium text-amber-900">
                                 Email Verification Required
@@ -67,7 +67,7 @@ function VerifyEmailContent() {
 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <p className="text-sm text-blue-900 font-medium mb-2">
-                            📧 Check your inbox
+                            ðŸ“§ Check your inbox
                         </p>
                         <p className="text-xs text-blue-700">
                             The email may take a few minutes to arrive. Don't forget to check your spam folder!
@@ -83,14 +83,14 @@ function VerifyEmailContent() {
                         className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
                     >
                         {resendStatus === "loading" && (
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <div className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         )}
                         {resendStatus === "success" ? "Email Sent!" : "Resend Verification Email"}
                     </button>
 
                     {resendStatus === "success" && (
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <CheckCircle className="size-5 text-green-600" />
                             <p className="text-sm text-green-800">
                                 Verification email sent successfully! Please check your inbox.
                             </p>
@@ -99,7 +99,7 @@ function VerifyEmailContent() {
 
                     {resendStatus === "error" && (
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-red-600" />
+                            <AlertCircle className="size-5 text-red-600" />
                             <p className="text-sm text-red-800">
                                 Failed to send email. Please try again later.
                             </p>
@@ -135,3 +135,4 @@ export default function VerifyEmailPage() {
         </Suspense>
     );
 }
+

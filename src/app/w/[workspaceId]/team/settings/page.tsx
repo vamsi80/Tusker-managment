@@ -23,7 +23,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
         return (
             <div className="flex h-[60vh] w-full flex-col items-center justify-center space-y-4 rounded-xl border-2 border-dashed border-red-200 bg-red-50/50 p-12 text-center animate-in fade-in zoom-in duration-300">
                 <div className="rounded-full bg-red-100 p-4">
-                    <ShieldAlert className="h-10 w-10 text-red-600" />
+                    <ShieldAlert className="size-10 text-red-600" />
                 </div>
                 <div className="space-y-2">
                     <h2 className="text-2xl font-bold tracking-tight text-red-900">Access Denied</h2>
@@ -41,11 +41,11 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
             <Tabs defaultValue="attendance" className="w-full">
                 <TabsList className="bg-muted/50 p-1 h-12 rounded-xl mb-6 border border-border/50">
                     <TabsTrigger value="attendance" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 h-full gap-2 transition-all">
-                        <Clock className="h-4 w-4" />
+                        <Clock className="size-4" />
                         Attendance
                     </TabsTrigger>
                     <TabsTrigger value="leaves" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 h-full gap-2 transition-all">
-                        <Calendar className="h-4 w-4" />
+                        <Calendar className="size-4" />
                         Leaves
                     </TabsTrigger>
                 </TabsList>
@@ -62,7 +62,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4 p-12 rounded-2xl border-2 border-dashed border-muted-foreground/10 bg-muted/5 text-center flex-col justify-center min-h-[300px]">
                             <div className="p-4 rounded-full bg-primary/10">
-                                <Calendar className="h-10 w-10 text-primary" />
+                                <Calendar className="size-10 text-primary" />
                             </div>
                             <div className="space-y-2">
                                 <h2 className="text-xl font-bold">Leave Policies</h2>

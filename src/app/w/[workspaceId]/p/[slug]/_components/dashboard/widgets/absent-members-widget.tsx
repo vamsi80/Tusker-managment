@@ -70,7 +70,7 @@ export function AbsentMembersWidget({ allMembers, absentRecords }: AbsentMembers
               return (
                 <div key={member.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="size-9">
                       <AvatarImage src={user.image || ""} alt={displayName} />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {displayName.substring(0, 2).toUpperCase()}

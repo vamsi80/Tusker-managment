@@ -62,7 +62,7 @@ export function SettingsNav({ workspaceId }: SettingsNavProps) {
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
-                            <Icon className="h-3 w-3" />
+                            <Icon className="size-3" />
                             <span className="text-xs sm:text-xs">{tab.name}</span>
                         </Link>
                     );
@@ -70,7 +70,7 @@ export function SettingsNav({ workspaceId }: SettingsNavProps) {
 
                 <div className="ml-auto flex items-center gap-3 pr-2 flex-shrink-0">
                     <div className={cn(
-                        "flex items-center justify-center h-8 w-8 rounded-md border border-border/60 bg-background/50 transition-all duration-500 flex-shrink-0",
+                        "flex items-center justify-center size-8 rounded-md border border-border/60 bg-background/50 transition-all duration-500 flex-shrink-0",
                         isPending && "border-primary/40 bg-primary/5 shadow-sm ring-1 ring-primary/10"
                     )}>
                         <RefreshCw className={cn("h-3.5 w-3.5 transition-all duration-500", isPending ? "text-primary animate-spin" : "text-muted-foreground/40")} />

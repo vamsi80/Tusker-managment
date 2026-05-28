@@ -148,7 +148,7 @@ export const CreateTaskForm = ({
                                                         {projects.map((project) => (
                                                             <SelectItem key={project.id} value={project.id}>
                                                                 <div className="flex items-center gap-2">
-                                                                    <div className="h-2 w-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
+                                                                    <div className="size-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
                                                                     {project.name}
                                                                 </div>
                                                             </SelectItem>
@@ -167,7 +167,7 @@ export const CreateTaskForm = ({
                                             Pending ? (
                                                 <>
                                                     Creating...
-                                                    <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                                    <Loader2 className="ml-1 size-4 animate-spin" />
                                                 </>
                                             ) : (
                                                 <>

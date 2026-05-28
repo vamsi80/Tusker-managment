@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   LayoutDashboard,
@@ -68,7 +68,7 @@ export function NavMain({
   return (
     <SidebarGroup className={isPending ? "opacity-70 pointer-events-none" : ""}>
       <div className="flex items-center gap-3 px-3 py-2 mb-2">
-        <Avatar className="h-9 w-9 rounded-xl border shadow-sm">
+        <Avatar className="size-9 rounded-xl border shadow-sm">
           <AvatarImage src="/icon.png" alt="Tusker" />
           <AvatarFallback className="bg-primary text-primary-foreground">T</AvatarFallback>
         </Avatar>
@@ -117,3 +117,4 @@ export function NavMain({
     </SidebarGroup>
   )
 }
+

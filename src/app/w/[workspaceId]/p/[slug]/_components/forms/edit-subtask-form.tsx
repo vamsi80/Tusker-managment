@@ -315,7 +315,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 <DialogTrigger asChild>
                     {trigger || (
                         <Button variant="ghost" size="sm" className="w-full justify-start">
-                            <Pencil className="mr-2 h-4 w-4" />
+                            <Pencil className="mr-2 size-4" />
                             Edit SubTask
                         </Button>
                     )}
@@ -616,7 +616,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             <div className="flex items-center">
                                                                                 <Check
                                                                                     className={cn(
-                                                                                        "mr-2 h-4 w-4",
+                                                                                        "mr-2 size-4",
                                                                                         isSelected ? "opacity-100" : "opacity-0"
                                                                                     )}
                                                                                 />
@@ -690,7 +690,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             <div className="flex items-center">
                                                                                 <Check
                                                                                     className={cn(
-                                                                                        "mr-2 h-4 w-4",
+                                                                                        "mr-2 size-4",
                                                                                         isSelected ? "opacity-100" : "opacity-0"
                                                                                     )}
                                                                                 />
@@ -721,7 +721,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     {pending ? (
                                         <>
                                             Updating...
-                                            <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                            <Loader2 className="ml-1 size-4 animate-spin" />
                                         </>
                                     ) : (
                                         <>

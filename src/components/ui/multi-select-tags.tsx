@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
@@ -98,7 +98,7 @@ export function MultiSelectTags({
                 <span className="text-muted-foreground/60 text-xs">{placeholder}</span>
               )}
             </div>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
           </Button>
         </PopoverTrigger>
         <PopoverContent 
@@ -137,12 +137,12 @@ export function MultiSelectTags({
                       }}
                     >
                       <div className={cn(
-                        "flex h-4 w-4 items-center justify-center rounded border border-primary/30 transition-all duration-200",
+                        "flex size-4 items-center justify-center rounded border border-primary/30 transition-all duration-200",
                         isSelected ? "bg-primary border-primary" : "bg-transparent"
                       )}>
                         <Check
                           className={cn(
-                            "h-3 w-3 text-primary-foreground transition-transform duration-200",
+                            "size-3 text-primary-foreground transition-transform duration-200",
                             isSelected ? "scale-100 opacity-100" : "scale-0 opacity-0"
                           )}
                         />
@@ -159,3 +159,4 @@ export function MultiSelectTags({
     </div>
   );
 }
+

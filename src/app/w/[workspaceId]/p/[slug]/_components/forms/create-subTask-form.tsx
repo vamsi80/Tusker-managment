@@ -511,7 +511,7 @@ export const CreateSubTaskForm = ({
                                                                     >
                                                                         <Check
                                                                             className={cn(
-                                                                                "mr-2 h-4 w-4",
+                                                                                "mr-2 size-4",
                                                                                 isSelected ? "opacity-100" : "opacity-0"
                                                                             )}
                                                                         />
@@ -574,7 +574,7 @@ export const CreateSubTaskForm = ({
                                                                     >
                                                                         <Check
                                                                             className={cn(
-                                                                                "mr-2 h-4 w-4",
+                                                                                "mr-2 size-4",
                                                                                 isSelected ? "opacity-100" : "opacity-0"
                                                                             )}
                                                                         />
@@ -598,7 +598,7 @@ export const CreateSubTaskForm = ({
                                 {pending ? (
                                     <>
                                         Creating...
-                                        <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                        <Loader2 className="ml-1 size-4 animate-spin" />
                                     </>
                                 ) : (
                                     <>

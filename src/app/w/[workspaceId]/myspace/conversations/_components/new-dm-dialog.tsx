@@ -59,7 +59,7 @@ export function NewDMDialog({
 
         <div className="px-6 pb-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or email..."
               value={search}
@@ -73,11 +73,11 @@ export function NewDMDialog({
           <div className="flex flex-col p-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-primary/20" />
+                <Loader2 className="size-6 animate-spin text-primary/20" />
               </div>
             ) : filteredMembers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-                <UserPlus className="h-10 w-10 mb-2" />
+                <UserPlus className="size-10 mb-2" />
                 <p className="text-sm font-semibold">No members found</p>
               </div>
             ) : (
@@ -88,7 +88,7 @@ export function NewDMDialog({
                   disabled={isCreating}
                   className="flex items-center gap-3 p-3 rounded-2xl transition-all hover:bg-muted/60 active:scale-95 text-left group"
                 >
-                  <Avatar className="h-10 w-10 rounded-lg border border-border/10 group-hover:border-primary/20 transition-colors">
+                  <Avatar className="size-10 rounded-lg border border-border/10 group-hover:border-primary/20 transition-colors">
                     <AvatarImage src={member.user.image} />
                     <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-bold uppercase">
                       {member.user.surname?.[0] || member.user.name?.[0]}
@@ -103,7 +103,7 @@ export function NewDMDialog({
                     </span>
                   </div>
                   {isCreating && (
-                    <Loader2 className="ml-auto h-4 w-4 animate-spin text-primary" />
+                    <Loader2 className="ml-auto size-4 animate-spin text-primary" />
                   )}
                 </button>
               ))

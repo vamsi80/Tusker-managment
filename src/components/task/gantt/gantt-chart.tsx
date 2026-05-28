@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -70,7 +70,7 @@ export function GanttChart({
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-    const [isExpandAllMode, setIsExpandAllMode] = useState(false); // 🚀 Persistent expansion for lazy-loading
+    const [isExpandAllMode, setIsExpandAllMode] = useState(false); // ðŸš€ Persistent expansion for lazy-loading
     const [showDetails, setShowDetails] = useState(true);
     const [highlightedSubtaskId, setHighlightedSubtaskId] = useState<string | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +79,7 @@ export function GanttChart({
         setHighlightedSubtaskId(prev => (prev === id ? null : id));
     }, []);
 
-    // 🚀 Performance: Memoized projectMap for O(1) metadata lookups
+    // ðŸš€ Performance: Memoized projectMap for O(1) metadata lookups
     const projectMap = useMemo(() => {
         const map = new Map<string, ProjectOption>();
         projects?.forEach(p => map.set(p.id, p));
@@ -109,7 +109,7 @@ export function GanttChart({
         };
     }, [groupByProject]);
 
-    // 🚀 Performance: Virtualization & Windowing
+    // ðŸš€ Performance: Virtualization & Windowing
     const [scrollX, setScrollX] = useState(0);
     const [viewportWidth, setViewportWidth] = useState(1200);
 
@@ -275,7 +275,7 @@ export function GanttChart({
         }
     }, [onSubtaskClick, tasks, projectMap]);
 
-    // 🚀 SYNC: Persistent expansion management
+    // ðŸš€ SYNC: Persistent expansion management
     useEffect(() => {
         if (!isExpandAllMode) {
             return;
@@ -328,7 +328,7 @@ export function GanttChart({
     if (tasks.length === 0) {
         return (
             <div className={cn("flex flex-col items-center justify-center h-96 border-2 border-dashed rounded-lg", className)}>
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <Calendar className="size-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-foreground">No Tasks</h3>
                 <p className="text-sm text-muted-foreground">
                     Create tasks to see them on the timeline
@@ -528,7 +528,7 @@ export function GanttChart({
 
             <div className="flex items-center gap-6 mt-4 px-1 text-xs text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-neutral-400/50" />
+                    <div className="size-4 rounded-full bg-neutral-400/50" />
                     <span>Project</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -551,3 +551,4 @@ export function GanttChart({
         </div>
     );
 }
+

@@ -185,7 +185,7 @@ export default function CreateProjectPage() {
     if (isLoadingMembers || isLayoutLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="size-8 animate-spin text-primary" />
                 <p className="text-muted-foreground">Loading workspace information...</p>
             </div>
         );
@@ -195,11 +195,11 @@ export default function CreateProjectPage() {
     if (!canAccess) return null;
 
     return (
-        <div className="w-full h-full overflow-y-auto">
+        <div className="size-full overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
                     <div
-                        className="h-5 w-5 rounded-full shadow-inner border transition-colors"
+                        className="size-5 rounded-full shadow-inner border transition-colors"
                         style={{ backgroundColor: watchedColor || "#000000" }}
                     />
                     <div>
@@ -210,7 +210,7 @@ export default function CreateProjectPage() {
 
                 <Button variant="outline" size="sm" asChild className="h-9 gap-2">
                     <Link href={`/w/${workspaceId}`}>
-                        <ChevronLeft className="h-4 w-4" />
+                        <ChevronLeft className="size-4" />
                         Back
                     </Link>
                 </Button>
@@ -222,7 +222,7 @@ export default function CreateProjectPage() {
                         {/* Basic Info Section */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 text-primary font-semibold">
-                                <Info className="h-5 w-5" />
+                                <Info className="size-5" />
                                 <h2 className="text-md">Basic Information</h2>
                             </div>
 
@@ -270,7 +270,7 @@ export default function CreateProjectPage() {
                         {/* Team Section */}
                         <div className="space-y-6">
                             <div className="flex items-center gap-3 text-primary font-semibold">
-                                <Users className="h-5 w-5" />
+                                <Users className="size-5" />
                                 <h2 className="text-md">Team Assignment</h2>
                             </div>
 
@@ -282,7 +282,7 @@ export default function CreateProjectPage() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="flex items-center gap-1.5">
-                                                {/* <UserCircle className="h-4 w-4" /> */}
+                                                {/* <UserCircle className="size-4" /> */}
                                                 Project Manager
                                             </FormLabel>
                                             <div className="pt-1">
@@ -325,7 +325,7 @@ export default function CreateProjectPage() {
                                                                                 }
                                                                             }}
                                                                         >
-                                                                            <Check className={cn("mr-2 h-4 w-4", field.value === m.id ? "opacity-100" : "opacity-0")} />
+                                                                            <Check className={cn("mr-2 size-4", field.value === m.id ? "opacity-100" : "opacity-0")} />
                                                                             {m.surname}
                                                                         </CommandItem>
                                                                     ))}
@@ -347,7 +347,7 @@ export default function CreateProjectPage() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="flex items-center gap-1.5">
-                                                {/* <Users className="h-4 w-4" /> */}
+                                                {/* <Users className="size-4" /> */}
                                                 Team Members
                                             </FormLabel>
                                             <div className="pt-1">
@@ -391,7 +391,7 @@ export default function CreateProjectPage() {
                                                                                     }
                                                                                 }}
                                                                             >
-                                                                                <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                                                                                <Check className={cn("mr-2 size-4", isSelected ? "opacity-100" : "opacity-0")} />
                                                                                 <span className={cn(isPM && "font-semibold text-muted-foreground")}>
                                                                                     {m.surname}
                                                                                     {isPM && " (Project Manager)"}
@@ -417,7 +417,7 @@ export default function CreateProjectPage() {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-3 text-primary font-semibold">
-                                    <Briefcase className="h-5 w-5" />
+                                    <Briefcase className="size-5" />
                                     <h2 className="text-md">Client Information</h2>
                                 </div>
 
@@ -628,12 +628,12 @@ export default function CreateProjectPage() {
                         >
                             {pending ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
                                     Creating Project...
                                 </>
                             ) : (
                                 <>
-                                    <Plus className="mr-2 h-4 w-4" />
+                                    <Plus className="mr-2 size-4" />
                                     Create Project
                                 </>
                             )}

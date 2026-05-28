@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useEffect } from "react";
@@ -249,7 +249,7 @@ export const EditProjectForm = ({
                                             />
                                         </FormControl>
                                         <FormDescription className="text-xs text-muted-foreground">
-                                            {/* GST is usually 15 characters — alphanumeric. */}
+                                            {/* GST is usually 15 characters â€” alphanumeric. */}
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -334,7 +334,7 @@ export const EditProjectForm = ({
 
                                                 <PopoverContent className="p-0 w-64" align="start">
                                                     <Command>
-                                                        <CommandInput placeholder="Search managers…" />
+                                                        <CommandInput placeholder="Search managersâ€¦" />
                                                         <CommandEmpty>No workspace managers found.</CommandEmpty>
 
                                                         <CommandGroup className="max-h-64 overflow-y-auto">
@@ -350,10 +350,10 @@ export const EditProjectForm = ({
                                                                             }}
                                                                         >
                                                                             <div className={cn(
-                                                                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                                "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
                                                                                 isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                                                                             )}>
-                                                                                <Check className="h-4 w-4" />
+                                                                                <Check className="size-4" />
                                                                             </div>
                                                                             {userName}
                                                                         </CommandItem>
@@ -383,7 +383,7 @@ export const EditProjectForm = ({
                                     {pending ? (
                                         <>
                                             Saving...
-                                            <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                            <Loader2 className="ml-1 size-4 animate-spin" />
                                         </>
                                     ) : (
                                         <>
@@ -400,3 +400,4 @@ export const EditProjectForm = ({
         </Dialog>
     );
 };
+

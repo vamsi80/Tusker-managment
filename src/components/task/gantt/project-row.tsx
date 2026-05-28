@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useRef, useEffect } from "react";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
@@ -130,15 +130,15 @@ export function ProjectRow({
                             aria-label={isExpanded ? "Collapse Project" : "Expand Project"}
                         >
                             {isLoading ? (
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             ) : isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                <ChevronDown className="size-4 text-muted-foreground" />
                             ) : (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                <ChevronRight className="size-4 text-muted-foreground" />
                             )}
                         </button>
                         <Folder
-                            className="h-4 w-4 shrink-0 transition-colors"
+                            className="size-4 shrink-0 transition-colors"
                             style={{ color: color || 'currentColor' }}
                         />
                         <span className="font-semibold text-sm text-foreground truncate" title={name}>
@@ -217,3 +217,4 @@ export function ProjectRow({
         </div>
     );
 }
+

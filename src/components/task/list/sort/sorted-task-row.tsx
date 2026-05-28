@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -96,7 +96,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 <TableCell className="w-[80px] sm:w-[100px]">
                     {!isParent && assigneeUser ? (
                         <div className="flex items-center gap-2 min-w-0">
-                            <Avatar className="h-5 w-5 flex-shrink-0">
+                            <Avatar className="size-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
                                     {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                                 </AvatarFallback>
@@ -116,7 +116,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 <TableCell className="w-[80px] sm:w-[100px]">
                     {!isParent && reviewerUser ? (
                         <div className="flex items-center gap-2 min-w-0">
-                            <Avatar className="h-5 w-5 flex-shrink-0">
+                            <Avatar className="size-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
                                     {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                                 </AvatarFallback>
@@ -177,7 +177,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 min-w-0 cursor-help">
-                                    <div className={cn("h-3 w-3 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                    <div className={cn("size-3 rounded-full flex-shrink-0", delayStyles.dotColor)} />
                                     <div className={cn("text-sm truncate", delayStyles.color)}>
                                         {delayText}
                                     </div>
@@ -228,3 +228,4 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
         </TableRow>
     );
 });
+

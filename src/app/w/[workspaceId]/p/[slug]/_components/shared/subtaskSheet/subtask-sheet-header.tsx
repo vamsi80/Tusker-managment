@@ -125,7 +125,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                 </div>
                                 {assignee ? (
                                     <div className="flex items-center gap-1.5">
-                                        <Avatar className="h-5 w-5 border border-background shadow-sm">
+                                        <Avatar className="size-5 border border-background shadow-sm">
                                             <AvatarFallback className="text-[8px]">{assignee.surname?.[0]}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-xs font-semibold">{assignee.surname || ""}</span>

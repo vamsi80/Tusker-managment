@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { cn } from "@/lib/utils";
 import { use, useCallback, useEffect, useState } from "react";
@@ -279,10 +279,11 @@ export function Uploader({ value, onChange, fileTypeAcepted }: iAppProps) {
                 ? "border-primary bg-primary/10 border-solid"
                 : "border-border hover:border-primary")}
         >
-            <CardContent className="flex items-center justify-center h-full w-full p-4">
+            <CardContent className="flex items-center justify-center size-full p-4">
                 <input {...getInputProps()} />
                 {renderContent()}
             </CardContent>
         </div>
     );
 }
+

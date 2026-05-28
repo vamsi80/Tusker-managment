@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+﻿import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export function GanttChartSkeleton() {
@@ -41,7 +41,7 @@ export function GanttChartSkeleton() {
                         className="flex border-b border-neutral-200 dark:border-neutral-700 h-10"
                     >
                         <div className="w-[200px] shrink-0 px-3 py-2 border-r border-neutral-200 dark:border-neutral-700 flex items-center gap-2">
-                            <Skeleton className="h-4 w-4" />
+                            <Skeleton className="size-4" />
                             <Skeleton className="h-4 w-32" />
                         </div>
                         <div className="flex-1 flex items-center px-4">
@@ -74,3 +74,4 @@ export function GanttChartSkeleton() {
         </div>
     );
 }
+

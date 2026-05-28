@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -83,7 +83,7 @@ export function InlineTaskForm({
         });
 
         toast.promise(taskCreateCall, {
-            loading: `Creating "${taskName.trim()}"…`,
+            loading: `Creating "${taskName.trim()}"â€¦`,
             success: (res: any) => {
                 if (res.status !== "success") {
                     throw new Error(res.message || "Failed to create task");
@@ -179,27 +179,28 @@ export function InlineTaskForm({
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 hover:bg-green-100 hover:text-green-600"
+                        className="size-7 p-0 hover:bg-green-100 hover:text-green-600"
                         onClick={handleSubmit}
                         disabled={pending || taskName.trim().length < 3}
                     >
                         {pending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="size-4 animate-spin" />
                         ) : (
-                            <Check className="h-4 w-4" />
+                            <Check className="size-4" />
                         )}
                     </Button>
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
+                        className="size-7 p-0 hover:bg-red-100 hover:text-red-600"
                         onClick={onCancel}
                         disabled={pending}
                     >
-                        <X className="h-4 w-4" />
+                        <X className="size-4" />
                     </Button>
                 </div>
             </TableCell>
         </TableRow>
     );
 }
+

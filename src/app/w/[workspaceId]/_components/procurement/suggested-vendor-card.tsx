@@ -48,7 +48,7 @@ export function SuggestedVendorCard({
         {/* Checkbox indicator */}
         <div
           className={cn(
-            "mt-0.5 h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all",
+            "mt-0.5 size-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all",
             isSelected
               ? "bg-primary border-primary"
               : "border-muted-foreground/40"
@@ -104,7 +104,7 @@ export function SuggestedVendorCard({
             {/* Performance */}
             {performanceScore !== null ? (
               <div className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                <TrendingUp className="size-3 text-muted-foreground" />
                 <span className="text-[10px] font-bold text-foreground">{performanceScore}%</span>
                 <span className="text-[10px] text-muted-foreground">({totalQuotes} quotes)</span>
               </div>

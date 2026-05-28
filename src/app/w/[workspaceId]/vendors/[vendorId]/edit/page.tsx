@@ -153,7 +153,7 @@ export default function EditVendorPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
         <span className="ml-2 text-sm text-muted-foreground">Loading vendor details...</span>
       </div>
     );
@@ -165,10 +165,10 @@ export default function EditVendorPage() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full"
+          className="size-9 rounded-full"
           onClick={() => router.push(`/w/${workspaceId}/vendors`)}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="size-5" />
         </Button>
         <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground">
           Edit Vendor Profile
@@ -179,7 +179,7 @@ export default function EditVendorPage() {
         <Card className="shadow-sm border-border/50 !py-0 !gap-0">
           <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
-              <FileText className="h-4 w-4 text-muted-foreground" /> Company Details
+              <FileText className="size-4 text-muted-foreground" /> Company Details
             </CardTitle>
             <CardDescription>Update primary registry and identification details.</CardDescription>
           </CardHeader>
@@ -210,7 +210,7 @@ export default function EditVendorPage() {
             <div className="grid md:grid-cols-2 gap-6 border-t pt-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
-                  <User className="h-4 w-4 text-muted-foreground" /> Contact Person Name
+                  <User className="size-4 text-muted-foreground" /> Contact Person Name
                 </label>
                 <Input
                   value={contactPerson}
@@ -221,7 +221,7 @@ export default function EditVendorPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
-                  <Phone className="h-4 w-4 text-muted-foreground" /> Phone Number
+                  <Phone className="size-4 text-muted-foreground" /> Phone Number
                 </label>
                 <div className="flex gap-2">
                   <select
@@ -248,7 +248,7 @@ export default function EditVendorPage() {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
-                  <Mail className="h-4 w-4 text-muted-foreground" /> Email Address
+                  <Mail className="size-4 text-muted-foreground" /> Email Address
                 </label>
                 <Input
                   type="email"
@@ -274,7 +274,7 @@ export default function EditVendorPage() {
         <Card className="shadow-sm border-border/50 !py-0 !gap-0">
           <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
-              <Building className="h-4 w-4 text-muted-foreground" /> Registered Business Address
+              <Building className="size-4 text-muted-foreground" /> Registered Business Address
             </CardTitle>
             <CardDescription>Update the legal and physical location of the supplier.</CardDescription>
           </CardHeader>

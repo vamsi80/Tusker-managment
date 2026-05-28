@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -122,7 +122,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
 
         params.set("subtask", notif.taskSlug);
 
-        // 🚀 Only add tab if it's activity
+        // ðŸš€ Only add tab if it's activity
         if (notif.type === "activity") {
             params.set("tab", "activity");
         }
@@ -215,7 +215,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
         <Popover open={isOpen} onOpenChange={(open) => {
             setIsOpen(open);
             if (open) {
-                console.log("🔔 [NOTIF_CENTER] Opening Notification Center...");
+                console.log("ðŸ”” [NOTIF_CENTER] Opening Notification Center...");
                 loadNotifications();
             }
         }}>
@@ -226,7 +226,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                             variant="ghost"
                             size="icon"
                             className={cn(
-                                "relative h-9 w-9 rounded-full transition-all cursor-pointer",
+                                "relative size-9 rounded-full transition-all cursor-pointer",
                                 isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
                             )}
                         >
@@ -237,7 +237,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                             {peopleCount > 0 && (
                                 <div
                                     className={cn(
-                                        "absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-red-500 border-2 border-background shadow-sm",
+                                        "absolute top-0.5 right-0.5 size-2 rounded-full bg-red-500 border-2 border-background shadow-sm",
                                         isPulsing && "animate-pulse"
                                     )}
                                 />
@@ -286,7 +286,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                                     </div>
                                 ) : unreadNotifications.length === 0 ? (
                                     <div className="p-12 text-center">
-                                        <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
+                                        <MessageSquare className="size-8 mx-auto mb-2 text-muted-foreground/20" />
                                         <p className="text-sm font-medium text-muted-foreground">All caught up!</p>
                                         <p className="text-xs text-muted-foreground/60 mt-1">No unread messages</p>
                                     </div>
@@ -316,8 +316,8 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
                             <TabsContent value="history" className="m-0 focus-visible:outline-none">
                                 {readNotifications.length === 0 ? (
                                     <div className="p-12 text-center">
-                                        <div className="h-8 w-8 mx-auto mb-2 rounded-full bg-muted flex items-center justify-center">
-                                            <Bell className="h-4 w-4 text-muted-foreground/30" />
+                                        <div className="size-8 mx-auto mb-2 rounded-full bg-muted flex items-center justify-center">
+                                            <Bell className="size-4 text-muted-foreground/30" />
                                         </div>
                                         <p className="text-sm font-medium text-muted-foreground">No history</p>
                                         <p className="text-xs text-muted-foreground/60 mt-1">Recently read items appear here</p>
@@ -368,7 +368,7 @@ export function NotificationCenter({ workspaceId, initialUnread = [], initialRea
 function NotificationItem({ notif, isRead }: { notif: any, isRead?: boolean }) {
     return (
         <>
-            <Avatar className="h-8 w-8 shrink-0">
+            <Avatar className="size-8 shrink-0">
                 <AvatarImage src={notif.latestComment.user.image} />
                 <AvatarFallback><User size={14} /></AvatarFallback>
             </Avatar>
@@ -407,3 +407,4 @@ function NotificationItem({ notif, isRead }: { notif: any, isRead?: boolean }) {
         </>
     );
 }
+

@@ -257,7 +257,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                     {memberToView && (
                         <div className="space-y-4 py-4">
                             <div className="flex items-center gap-4">
-                                <Avatar className="h-16 w-16">
+                                <Avatar className="size-16">
                                     <AvatarFallback className="text-xl">
                                         {memberToView.name?.charAt(0) || "?"}
                                     </AvatarFallback>
@@ -495,7 +495,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                                 <Button type="submit" disabled={isUpdating}>
                                     {isUpdating ? (
                                         <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            <Loader2 className="mr-2 size-4 animate-spin" />
                                             Saving...
                                         </>
                                     ) : (
@@ -531,7 +531,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                         >
                             {isDeleting ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
                                     Removing...
                                 </>
                             ) : (

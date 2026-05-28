@@ -56,7 +56,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 pt-0 custom-scrollbar">
                     {/* User Header Section */}
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border-2 border-primary/10">
+                        <Avatar className="size-10 border-2 border-primary/10">
                             <AvatarImage src={report.user?.image} />
                             <AvatarFallback className="bg-primary/5 text-primary text-base font-bold">
                                 {report.user?.surname?.charAt(0) || "U"}
@@ -74,11 +74,11 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                 <Button
                                     variant="outline"
                                     size="icon"
-                                    className="h-8 w-8 rounded-lg"
+                                    className="size-8 rounded-lg"
                                     disabled={currentEntryIndex === 0 || !hasMultipleEntries}
                                     onClick={() => setCurrentEntryIndex(prev => prev - 1)}
                                 >
-                                    <ChevronLeft className="h-4 w-4" />
+                                    <ChevronLeft className="size-4" />
                                 </Button>
                                 <div className="flex flex-col items-center min-w-[80px]">
                                     <span className="text-sm font-bold font-mono">
@@ -90,11 +90,11 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                 <Button
                                     variant="outline"
                                     size="icon"
-                                    className="h-8 w-8 rounded-lg"
+                                    className="size-8 rounded-lg"
                                     disabled={currentEntryIndex >= (entries.length - 1) || !hasMultipleEntries}
                                     onClick={() => setCurrentEntryIndex(prev => prev + 1)}
                                 >
-                                    <ChevronRight className="h-4 w-4" />
+                                    <ChevronRight className="size-4" />
                                 </Button>
                             </div>
                         </div>
@@ -115,7 +115,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                             <div className="min-w-0">
                                                 <div className="flex items-center gap-2 mb-1.5">
                                                     {entries[currentEntryIndex].task.project?.color && (
-                                                        <div className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: entries[currentEntryIndex].task.project.color }} />
+                                                        <div className="size-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: entries[currentEntryIndex].task.project.color }} />
                                                     )}
                                                     <span className="text-[10px] font-normal text-muted-foreground uppercase tracking-wider">
                                                         {entries[currentEntryIndex].task.project?.name || "No Project"}
@@ -128,7 +128,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                             </div>
                                             <div className="flex flex-col gap-2">
                                                 <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
-                                                    <Clock className="h-4 w-4" />
+                                                    <Clock className="size-4" />
                                                     <span>
                                                         {entries[currentEntryIndex].createdAt ? formatIST(entries[currentEntryIndex].createdAt, "h:mm:ss a") : "Time unknown"}
                                                     </span>
@@ -150,7 +150,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                             </div>
                                             <div className="flex flex-col gap-2">
                                                 <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
-                                                    <Clock className="h-4 w-4" />
+                                                    <Clock className="size-4" />
                                                     <span>
                                                         {entries[currentEntryIndex].createdAt ? formatIST(entries[currentEntryIndex].createdAt, "h:mm:ss a") : "Time unknown"}
                                                     </span>

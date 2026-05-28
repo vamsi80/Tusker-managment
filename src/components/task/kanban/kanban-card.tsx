@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
@@ -146,7 +146,7 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const firstManager = assignedManagers?.[0] || null;
 
-  // 🚀 Speculative Pre-fetching for "Instant" feel
+  // ðŸš€ Speculative Pre-fetching for "Instant" feel
   const handlePrefetch = () => {
     if (!subTask?.id) return;
   };
@@ -268,7 +268,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 title={`Project: ${project?.name}`}
               >
                 <div
-                  className="h-2 w-2 rounded-full border shadow-sm shrink-0"
+                  className="size-2 rounded-full border shadow-sm shrink-0"
                   style={{
                     backgroundColor:
                       project?.color || getColorFromString(project?.name || ""),
@@ -295,7 +295,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Avatar className="h-5 w-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
+                      <Avatar className="size-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
                         {(firstManager?.image || firstManager?.user?.image) ? (
                           <AvatarImage src={firstManager?.image || firstManager?.user?.image} alt={firstManager?.surname || firstManager?.name || "Manager"} />
                         ) : null}
@@ -360,7 +360,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="size-6 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
@@ -432,7 +432,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           delayStyles.borderColor
                         )}
                       >
-                        <div className={cn("h-2 w-2 rounded-full", delayStyles.dotColor)} />
+                        <div className={cn("size-2 rounded-full", delayStyles.dotColor)} />
                         <span className={delayStyles.color}>
                           {delayText}
                         </span>
@@ -486,7 +486,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Avatar
-                      className="h-6 w-6 cursor-pointer border-2 border-background"
+                      className="size-6 cursor-pointer border-2 border-background"
                     >
                       <AvatarFallback className="text-[10px]">
                         {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
@@ -561,7 +561,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                       setIsStatusDrawerOpen(false);
                     }}
                   >
-                    <div className={cn("h-2 w-2 rounded-full", col.id === "TO_DO" ? "bg-slate-400" : col.id === "IN_PROGRESS" ? "bg-blue-500" : col.id === "REVIEW" ? "bg-purple-500" : col.id === "HOLD" ? "bg-amber-500" : col.id === "COMPLETED" ? "bg-green-500" : "bg-red-500")} />
+                    <div className={cn("size-2 rounded-full", col.id === "TO_DO" ? "bg-slate-400" : col.id === "IN_PROGRESS" ? "bg-blue-500" : col.id === "REVIEW" ? "bg-purple-500" : col.id === "HOLD" ? "bg-amber-500" : col.id === "COMPLETED" ? "bg-green-500" : "bg-red-500")} />
                     {col.title}
                   </Button>
                 );
@@ -579,3 +579,4 @@ export const KanbanCard = React.memo(function KanbanCard({
     </>
   );
 });
+

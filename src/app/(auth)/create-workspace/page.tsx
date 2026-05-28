@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -141,7 +141,7 @@ function CreateWorkspaceContent() {
                                     Pending ? (
                                         <>
                                             Creating...
-                                            <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                            <Loader2 className="ml-1 size-4 animate-spin" />
                                         </>
                                     ) : (
                                         <>
@@ -173,4 +173,5 @@ export default function CreateWorkspace() {
         </Suspense>
     );
 }
+
 

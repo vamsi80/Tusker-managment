@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { memo, useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -98,7 +98,7 @@ function TaskTable(props: TaskTableProps) {
     .length;
   const visibleColumnsCount = 2 + visiblePropsCount + 1; // Chevron + Name + Props + Actions
 
-  // Grouping logic for workspace view — skip if in subtask-first mode (filters active),
+  // Grouping logic for workspace view â€” skip if in subtask-first mode (filters active),
   // because subtasks need to be rendered flat with parent-label headers, not in ProjectTaskGroup
   const groupedTasks = useMemo(() => {
     if (props.level !== "workspace") return null;
@@ -146,7 +146,7 @@ function TaskTable(props: TaskTableProps) {
         <div className="rounded-md border overflow-hidden relative">
           {logic.isLoadingFilters && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="size-8 animate-spin text-primary" />
             </div>
           )}
           <div ref={scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>
@@ -203,3 +203,4 @@ function TaskTable(props: TaskTableProps) {
 }
 
 export default memo(TaskTable);
+

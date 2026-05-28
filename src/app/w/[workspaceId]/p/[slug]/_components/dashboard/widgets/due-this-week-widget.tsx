@@ -110,7 +110,7 @@ export function DueThisWeekWidget({ dueThisWeek, weekStart, weekEnd }: DueThisWe
                   <div className="flex items-center gap-2 shrink-0">
                     {assigneeUser ? (
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
+                        <Avatar className="size-6">
                           <AvatarFallback className="text-[10px] text-muted-foreground font-semibold">
                             {displayName.substring(0, 1).toUpperCase()}
                           </AvatarFallback>
@@ -121,7 +121,7 @@ export function DueThisWeekWidget({ dueThisWeek, weekStart, weekEnd }: DueThisWe
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 italic">
-                        <User className="h-3 w-3" />
+                        <User className="size-3" />
                         <span>Unassigned</span>
                       </div>
                     )}

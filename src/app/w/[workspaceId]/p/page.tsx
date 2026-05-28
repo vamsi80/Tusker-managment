@@ -141,7 +141,7 @@ export default function WorkspaceProjectsPage() {
             href={`/w/${workspaceId}/createProject`}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/95 hover:shadow-lg hover:shadow-primary/10 transition-all font-bold text-sm shrink-0 active:scale-95 cursor-pointer"
           >
-            <Plus className="h-4 w-4 stroke-[2.5px]" />
+            <Plus className="size-4 stroke-[2.5px]" />
             New Project
           </Link>
         )}
@@ -199,7 +199,7 @@ export default function WorkspaceProjectsPage() {
       {filteredProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-xl border border-dashed border-border bg-card/25 gap-3">
           <div className="p-4 bg-muted/50 rounded-lg text-muted-foreground/60">
-            <FolderKanban className="h-8 w-8 stroke-[1.5px]" />
+            <FolderKanban className="size-8 stroke-[1.5px]" />
           </div>
           <h3 className="text-lg font-bold text-foreground">No projects found</h3>
           <p className="text-sm text-muted-foreground max-w-xs">
@@ -225,7 +225,7 @@ export default function WorkspaceProjectsPage() {
                     className="p-2.5 rounded-lg flex items-center justify-center text-white shadow-sm transition-transform duration-200 group-hover:scale-105 shrink-0"
                     style={{ backgroundColor: projectColor }}
                   >
-                    <Building2 className="h-5 w-5" />
+                    <Building2 className="size-5" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-bold text-base text-foreground tracking-tight line-clamp-1 group-hover:text-primary transition-colors">
@@ -264,7 +264,7 @@ export default function WorkspaceProjectsPage() {
                     <div
                       className="flex items-center justify-center p-2 rounded-lg bg-muted/65 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 group-hover:translate-x-1"
                     >
-                      <ArrowRight className="h-4 w-4 stroke-[2px]" />
+                      <ArrowRight className="size-4 stroke-[2px]" />
                     </div>
                   </div>
                 </div>

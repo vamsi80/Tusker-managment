@@ -1,4 +1,4 @@
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+﻿import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AcceptInvitationLoading() {
@@ -38,9 +38,10 @@ export default function AcceptInvitationLoading() {
                 </CardContent>
                 <CardFooter className="flex justify-center flex-col gap-2">
                     <Skeleton className="h-3 w-4/5 mx-auto" />
-                    <Skeleton className="h-3 w-3/5 mx-auto" />
+                    <Skeleton className="size-3/5 mx-auto" />
                 </CardFooter>
             </Card>
         </div>
     );
 }
+

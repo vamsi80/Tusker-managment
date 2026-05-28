@@ -68,7 +68,7 @@ export default function BoardClient({ data, workspaceId }: BoardClientProps) {
                     onClick={() => openAddModal()}
                     className="gap-2 shadow-lg shadow-primary/20 h-10 px-4 rounded-lg text-sm transition-all"
                 >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="size-4" />
                     Add note
                 </Button>
             </div>

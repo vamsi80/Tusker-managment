@@ -145,7 +145,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                         <DialogTitle className="flex items-center gap-3">
                             Create New Project
                             <div
-                                className="h-5 w-5 rounded-full border shadow-sm transition-colors"
+                                className="size-5 rounded-full border shadow-sm transition-colors"
                                 style={{ backgroundColor: watchedColor || "#000000" }}
                             />
                         </DialogTitle>
@@ -379,10 +379,10 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                                 }}
                                                                             >
                                                                                 <div className={cn(
-                                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                                    "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
                                                                                     isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                                                                                 )}>
-                                                                                    <Check className="h-4 w-4" />
+                                                                                    <Check className="size-4" />
                                                                                 </div>
                                                                                 {userName}
                                                                             </CommandItem>
@@ -404,7 +404,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                         {pending ? (
                                             <>
                                                 Creating...
-                                                <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                                <Loader2 className="ml-1 size-4 animate-spin" />
                                             </>
                                         ) : (
                                             <>

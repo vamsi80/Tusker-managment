@@ -20,10 +20,10 @@ export function VendorHeader({ name, status }: VendorHeaderProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="h-9 w-9 rounded-full"
+        className="size-9 rounded-full"
         onClick={() => router.push(`/w/${workspaceId}/vendors`)}
       >
-        <ArrowLeft className="h-5 w-5" />
+        <ArrowLeft className="size-5" />
       </Button>
       <div className="flex items-center gap-2">
         <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground flex items-center gap-2">

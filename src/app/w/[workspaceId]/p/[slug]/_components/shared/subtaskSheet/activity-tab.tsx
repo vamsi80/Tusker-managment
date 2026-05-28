@@ -66,7 +66,7 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                 >
                                     {/* Author Info */}
                                     <div className="flex items-center gap-3 mb-3">
-                                        <Avatar className="h-8 w-8">
+                                        <Avatar className="size-8">
                                             <AvatarFallback className="text-xs">
                                                 {author?.surname?.[0] || "?"}
                                             </AvatarFallback>
@@ -86,7 +86,7 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                             {activity.attachment?.previousStatus && activity.attachment?.targetStatus && (
                                                 <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium bg-muted px-1.5 py-0.5 rounded-sm whitespace-nowrap border">
                                                     {activity.attachment.previousStatus.replace("_", " ")}
-                                                    <ArrowRight className="h-3 w-3" />
+                                                    <ArrowRight className="size-3" />
                                                     {activity.attachment.targetStatus.replace("_", " ")}
                                                 </span>
                                             )}
@@ -116,7 +116,7 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                         {/* Infinite Scroll Trigger */}
                         <div ref={ref} className="h-10 flex items-center justify-center">
                             {isLoadingActivity && (
-                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                <Loader2 className="size-5 animate-spin text-muted-foreground" />
                             )}
                         </div>
                     </div>

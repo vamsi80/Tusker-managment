@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -241,7 +241,7 @@ export function InlineSubTaskForm({
             const apiCall = apiClient.tasks.createSubTask(validData);
 
             toast.promise(apiCall, {
-                loading: `Creating "${validData.name}"…`,
+                loading: `Creating "${validData.name}"â€¦`,
                 success: (result: any) => {
                     const res = result as ApiResponse;
                     if (res.status !== "success") {
@@ -458,12 +458,12 @@ export function InlineSubTaskForm({
                                         <div className="flex items-center gap-2">
                                             {hex ? (
                                                 <div
-                                                    className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                    className="size-2 rounded-full border border-black/5 dark:border-white/10"
                                                     style={{ backgroundColor: hex }}
                                                 />
                                             ) : (
                                                 <div className={cn(
-                                                    "h-2 w-2 rounded-full",
+                                                    "size-2 rounded-full",
                                                     statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
                                                 )} />
                                             )}
@@ -538,13 +538,13 @@ export function InlineSubTaskForm({
                         <Button
                             size="icon"
                             variant="ghost"
-                            className="h-6 w-6 hover:bg-green-100 hover:text-green-600"
+                            className="size-6 hover:bg-green-100 hover:text-green-600"
                             onClick={handleSubmit}
                             disabled={pending}
                             title="Save (Enter)"
                         >
                             {pending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <Loader2 className="size-3 animate-spin" />
                             ) : (
                                 <Check className="h-3.5 w-3.5" />
                             )}
@@ -553,7 +553,7 @@ export function InlineSubTaskForm({
                     <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6 hover:bg-red-100 hover:text-red-600"
+                        className="size-6 hover:bg-red-100 hover:text-red-600"
                         onClick={onCancel}
                         disabled={pending}
                         title="Cancel (Esc)"
@@ -565,4 +565,5 @@ export function InlineSubTaskForm({
         </TableRow>
     );
 }
+
 

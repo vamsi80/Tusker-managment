@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -44,7 +44,7 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
         <SidebarInset className="relative flex min-h-svh flex-1 flex-col bg-background transition-all duration-300">
           <SiteHeader />
           <main className="flex flex-1 flex-col w-full max-w-full">
-            <div className="@container/main h-full w-full flex-1 flex flex-col min-w-0">
+            <div className="@container/main size-full flex-1 flex flex-col min-w-0">
               <div className="flex h-full grow flex-col gap-6 pb-6 px-2 sm:px-4 lg:px-6 w-full max-w-full animate-in fade-in duration-500 flex-1">
                 {children}
               </div>
@@ -55,3 +55,4 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
     </WorkspaceClientProviders>
   );
 }
+

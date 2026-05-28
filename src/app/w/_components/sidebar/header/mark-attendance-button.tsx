@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -15,8 +15,8 @@ export function MarkAttendanceButton({ workspaceId }: { workspaceId: string }) {
             <Tooltip>
                 <TooltipTrigger asChild>
                     <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-9 w-9 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all active:scale-95 cursor-pointer">
-                            <LogIn className="h-4 w-4" />
+                        <Button variant="outline" size="icon" className="size-9 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all active:scale-95 cursor-pointer">
+                            <LogIn className="size-4" />
                             <span className="sr-only">Mark Attendance</span>
                         </Button>
                     </DialogTrigger>
@@ -35,3 +35,4 @@ export function MarkAttendanceButton({ workspaceId }: { workspaceId: string }) {
         </Dialog>
     );
 }
+

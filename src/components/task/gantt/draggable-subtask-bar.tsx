@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { AlertCircle, GripHorizontal } from "lucide-react";
@@ -461,7 +461,7 @@ export function DraggableSubtaskBar({
 
     return (
         <div ref={containerRef} className="h-6 relative w-full group/bar">
-            <div className="relative h-full w-full">
+            <div className="relative size-full">
                 {/* Main Bar Popover (Triggers on Click) */}
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                     <PopoverTrigger asChild>
@@ -543,11 +543,11 @@ export function DraggableSubtaskBar({
                                     )}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'} ({duration} days)
+                                    {startDate ? formatDate(startDate) : 'N/A'} â€” {endDate ? formatDate(endDate) : 'N/A'} ({duration} days)
                                 </p>
                                 {isDelayed && !isSettled && (
                                     <p className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-0.5 animate-pulse">
-                                        ⚠️ Delayed by {Math.round((delayWidthPercent / 100) * totalDays)} days
+                                        âš ï¸ Delayed by {Math.round((delayWidthPercent / 100) * totalDays)} days
                                     </p>
                                 )}
                             </div>
@@ -567,7 +567,7 @@ export function DraggableSubtaskBar({
 
                             {canEdit && (
                                 <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                                    💡 Drag to move • Drag edge to resize
+                                    ðŸ’¡ Drag to move â€¢ Drag edge to resize
                                 </p>
                             )}
                         </div>
@@ -599,3 +599,4 @@ export function DraggableSubtaskBar({
         </div>
     );
 }
+
