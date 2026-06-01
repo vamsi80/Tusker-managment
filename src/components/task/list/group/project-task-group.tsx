@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback } from "react";
 import { Plus } from "lucide-react";
@@ -189,6 +189,7 @@ export function ProjectTaskGroup({
                         <SubTaskList
                             task={task}
                             tags={tags}
+                            defaultTagIds={tags.map(t => t.id)}
                             members={members}
                             workspaceId={workspaceId}
                             projectId={task.projectId || projectId}

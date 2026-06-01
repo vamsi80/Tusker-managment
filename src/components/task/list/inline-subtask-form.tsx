@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,7 @@ interface InlineSubTaskFormProps {
     parentTaskId: string;
     members: ProjectMembersType;
     tags?: { id: string; name: string; }[];
+    defaultTagIds?: string[]; // NEW: Project tags to auto-select
     columnVisibility: ColumnVisibility;
     onCancel: () => void;
     onSubTaskCreated?: (subTask: any, tempId?: string) => void;
@@ -52,6 +53,7 @@ export function InlineSubTaskForm({
     parentTaskId,
     members,
     tags = [],
+    defaultTagIds,
     columnVisibility,
     onCancel,
     onSubTaskCreated,
@@ -77,8 +79,15 @@ export function InlineSubTaskForm({
     const [dueDate, setDueDate] = useState(() => 
         (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
     );
-    const [tagIds, setTagIds] = useState<string[]>(subTask?.tags?.map(t => t.id) || []);
+    const [tagIds, setTagIds] = useState<string[]>(
+        subTask?.tags?.map(t => t.id) || defaultTagIds || []
+    );
     const [days, setDays] = useState<number>(subTask?.days || 1);
+    const [localTags, setLocalTags] = useState(tags);
+
+    useEffect(() => {
+        setLocalTags(tags);
+    }, [tags]);
 
     const handleStartDateChange = (val: string) => {
         const selectedDate = new Date(val);
@@ -523,11 +532,14 @@ export function InlineSubTaskForm({
             {columnVisibility.tag && (
                 <TableCell className="w-[180px] max-w-[180px] px-2">
                     <MultiSelectTags
-                        options={tags}
+                        options={localTags}
                         selected={tagIds}
                         onChange={setTagIds}
                         placeholder="Tags..."
                         className="w-full"
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                        onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
                     />
                 </TableCell>
             )}

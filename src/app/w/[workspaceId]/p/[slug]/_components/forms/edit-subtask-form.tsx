@@ -98,6 +98,10 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     // Usually 'subTask.projectId' or 'projectId' prop works.
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
+    const [localTags, setLocalTags] = useState(tags);
+    useEffect(() => {
+        setLocalTags(tags);
+    }, [tags]);
 
     // Resolve permissions from WorkspaceLayoutContext
     let permissions: any = null;
@@ -529,12 +533,15 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     <FormItem>
                                         <FormLabel>Tags</FormLabel>
                                         <FormControl>
-                                            <MultiSelectTags
-                                                options={tags}
-                                                selected={field.value || []}
-                                                onChange={field.onChange}
-                                                placeholder="Select tags..."
-                                            />
+                                             <MultiSelectTags
+                                                 options={localTags}
+                                                 selected={field.value || []}
+                                                 onChange={field.onChange}
+                                                 placeholder="Select tags..."
+                                                 workspaceId={workspaceId}
+                                                 projectId={projectId || selectedProjectId}
+                                                 onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
+                                             />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

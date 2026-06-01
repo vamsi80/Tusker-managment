@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback } from "react";
 import { Plus } from "lucide-react";
@@ -150,18 +150,19 @@ export function FlatTaskList({
                     <SubTaskList
                         task={task}
                         tags={tags}
+                        defaultTagIds={tags.map(t => t.id)}
                         members={members}
                         workspaceId={workspaceId}
                         projectId={task.projectId || projectId}
                         canCreateSubTask={
                             level === 'project'
-                                ? canCreateSubTask
-                                : (canCreateSubTask && task.projectId ? (
-                                    leadProjectIds?.includes(task.projectId) ||
-                                    coordinatorProjectIds?.includes(task.projectId) ||
-                                    !!isWorkspaceAdmin ||
-                                    !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                ) : false)
+                                    ? canCreateSubTask
+                                    : (canCreateSubTask && task.projectId ? (
+                                            leadProjectIds?.includes(task.projectId) ||
+                                            coordinatorProjectIds?.includes(task.projectId) ||
+                                            !!isWorkspaceAdmin ||
+                                            !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                    ) : false)
                         }
                         columnVisibility={columnVisibility}
                         isLoading={!!loadingSubTasks[task.id]}

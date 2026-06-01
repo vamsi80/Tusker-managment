@@ -66,6 +66,10 @@ export const CreateSubTaskForm = ({
     const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId);
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
+    const [localTags, setLocalTags] = useState(tags);
+    useEffect(() => {
+        setLocalTags(tags);
+    }, [tags]);
     const filteredParentTasks = useMemo(() => {
         if (level === "workspace" && selectedProjectId) {
             return parentTasks.filter(task => task.projectId === selectedProjectId);
@@ -369,10 +373,13 @@ export const CreateSubTaskForm = ({
                                     <FormLabel>Tags</FormLabel>
                                     <FormControl>
                                         <MultiSelectTags
-                                            options={tags}
+                                            options={localTags}
                                             selected={field.value || []}
                                             onChange={field.onChange}
                                             placeholder="Select tags..."
+                                            workspaceId={workspaceId}
+                                            projectId={projectId || selectedProjectId}
+                                            onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
                                         />
                                     </FormControl>
                                     <FormMessage />
