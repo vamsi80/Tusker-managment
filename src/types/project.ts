@@ -60,6 +60,7 @@ export interface FullProjectData extends MinimalProjectData {
   gstNumber?: string | null;
   contactPerson?: string | null;
   phoneNumber?: string | null;
+  tagIds?: string[];
 }
 
 export type ProjectReviewer = {

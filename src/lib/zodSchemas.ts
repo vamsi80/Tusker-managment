@@ -222,6 +222,7 @@ export const projectSchema = z.object({
         .string().optional(),
     projectManagerId: z.string().min(1, { message: "Project manager is required" }).optional(),
     memberAccess: z.array(z.string()),
+    tagIds: z.array(z.string().uuid()).optional(),
 });
 
 export const editProjectSchema = z.object({
@@ -278,6 +279,7 @@ export const editProjectSchema = z.object({
     // Team fields
     projectManagerId: z.string().optional(),
     memberAccess: z.array(z.string()).optional(),
+    tagIds: z.array(z.string().uuid()).optional(),
 });
 
 export const taskSchema = z.object({

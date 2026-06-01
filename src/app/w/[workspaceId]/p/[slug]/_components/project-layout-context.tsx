@@ -8,6 +8,8 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 
 import { ProjectLayoutContext, type ProjectLayoutContextType } from "./project-layout-context-object";
 
+import { useProjectTags } from "@/hooks/use-project-tags";
+
 export function ProjectLayoutProvider({
     children,
     workspaceId,
@@ -22,6 +24,8 @@ export function ProjectLayoutProvider({
     const [projectPermissions, setProjectPermissions] = useState<UserPermissionsType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
+
+    const projectTags = useProjectTags(workspaceId, projectId);
 
     const fetchProjectData = useCallback(async (isSilent = false) => {
         if (!projectId) return;
@@ -63,7 +67,7 @@ export function ProjectLayoutProvider({
             userSurname: null,
             projectMember: null,
         },
-        workspaceTags: workspaceData.tags || [],
+        workspaceTags: projectTags || [],
         workspaceId,
         projectId,
         isLoading,

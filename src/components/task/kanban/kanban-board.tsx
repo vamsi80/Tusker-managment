@@ -33,7 +33,7 @@ import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
 import { COLUMNS, TaskStatus } from "./kanban-constants";
@@ -63,7 +63,9 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const { data: layoutData } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
-  const tags = useWorkspaceTags(workspaceId);
+  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
+    useFilterStore();
+  const tags = useProjectTags(workspaceId, projectId || filters.projectId);
 
   const isMobile = useIsMobile();
   const [kanbanTasks, setKanbanTasks] = useState<Record<string, any[]>>({});
@@ -138,8 +140,6 @@ export function KanbanBoard({
   }, [initialData]);
 
   // ðŸ§¹ Filter Reset Logic: Ensures a clean slate when navigating between different views
-  const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } =
-    useFilterStore();
 
   useEffect(() => {
     return () => {

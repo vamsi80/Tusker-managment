@@ -127,6 +127,7 @@ export class ProjectMapper {
       gstNumber: project.clint?.gstNumber || null,
       contactPerson: project.clint?.clintMembers[0]?.name || null,
       phoneNumber: project.clint?.clintMembers[0]?.phoneNumber || null,
+      tagIds: project.tags?.map((t: any) => t.id) || [],
     };
   }
 

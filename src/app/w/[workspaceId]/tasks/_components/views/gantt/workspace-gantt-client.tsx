@@ -18,7 +18,7 @@ import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useWorkspaceLayout } from "../../../../_components/workspace-layout-context";
-import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
 interface WorkspaceGanttClientProps {
@@ -44,11 +44,9 @@ export function WorkspaceGanttClient({
 }: WorkspaceGanttClientProps) {
   const { data: layoutData } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
-  const tags = useWorkspaceTags(workspaceId);
-
   const permissions = layoutData.permissions;
-
   const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
+  const tags = useProjectTags(workspaceId, filters.projectId);
 
   const filteredProjects = useMemo(
     () =>

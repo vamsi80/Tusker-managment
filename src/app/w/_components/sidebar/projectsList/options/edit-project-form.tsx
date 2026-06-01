@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useEffect } from "react";
@@ -44,6 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 import { projectsClient } from "@/lib/api-client/projects";
 import { type WorkspaceMembersResult } from "@/types/workspace";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 
 interface EditProjectFormProps {
@@ -78,8 +79,11 @@ export const EditProjectForm = ({
             phoneNumber: project.phoneNumber || "",
             projectManagerId: project.projectManagerId || "",
             memberAccess: project.memberAccess || [],
+            tagIds: project.tagIds || [],
         },
     });
+
+    const { data: layoutData, revalidate } = useWorkspaceLayout();
 
     const watchedName = useWatch({
         control: form.control,
@@ -112,6 +116,7 @@ export const EditProjectForm = ({
 
             if (result.success) {
                 toast.success(result.message || "Project updated successfully!");
+                revalidate(true);
                 onOpenChange(false);
                 router.refresh();
             } else {
@@ -364,6 +369,78 @@ export const EditProjectForm = ({
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Project Tags Selection */}
+                            <FormField
+                                control={form.control}
+                                name="tagIds"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Project Tags</FormLabel>
+                                        <FormDescription className="text-xs text-muted-foreground mb-2">
+                                            Select workspace tags that will be available for tasks in this project.
+                                        </FormDescription>
+                                        <div className="space-y-2">
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between font-normal h-auto min-h-[40px] py-2">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {field.value && field.value.length > 0 ? (
+                                                                field.value.map(id => {
+                                                                    const t = layoutData?.tags?.find((tag: any) => tag.id === id);
+                                                                    return (
+                                                                        <Badge key={id} variant="secondary" className="px-1 font-normal">
+                                                                            {t?.name || "Tag"}
+                                                                        </Badge>
+                                                                    );
+                                                                })
+                                                            ) : (
+                                                                <span className="text-muted-foreground">Select project tags</span>
+                                                            )}
+                                                        </div>
+                                                    </Button>
+                                                </PopoverTrigger>
+
+                                                <PopoverContent className="p-0 w-64" align="start">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search tags..." />
+                                                        <CommandEmpty>No tags found.</CommandEmpty>
+
+                                                            <CommandGroup className="max-h-64 overflow-y-auto">
+                                                                {(layoutData?.tags || []).map((t: any) => {
+                                                                    const isSelected = field.value?.includes(t.id);
+
+                                                                    return (
+                                                                        <CommandItem
+                                                                            key={t.id}
+                                                                            onSelect={() => {
+                                                                                const current = field.value || [];
+                                                                                if (isSelected) {
+                                                                                    field.onChange(current.filter(id => id !== t.id));
+                                                                                } else {
+                                                                                    field.onChange([...current, t.id]);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <div className={cn(
+                                                                                "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
+                                                                                isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                            )}>
+                                                                                <Check className="size-4" />
+                                                                            </div>
+                                                                            {t.name}
+                                                                        </CommandItem>
+                                                                    );
+                                                                })}
+                                                            </CommandGroup>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}

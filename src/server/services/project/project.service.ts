@@ -250,6 +250,9 @@ export class ProjectService {
           },
         },
       } : {}),
+      tags: values.tagIds && values.tagIds.length > 0 ? {
+        connect: values.tagIds.map(id => ({ id }))
+      } : undefined,
     });
 
     await ProjectEvents.onProjectCreated(workspaceId, newProject);
@@ -287,6 +290,9 @@ export class ProjectService {
           name: values.name,
           description: values.description,
           slug: values.slug || project.slug,
+          tags: values.tagIds ? {
+            set: values.tagIds.map(id => ({ id }))
+          } : undefined,
         },
       });
 
@@ -640,6 +646,10 @@ export class ProjectService {
 
   static async getWorkspaceTags(workspaceId: string) {
     return ProjectRepository.getWorkspaceTags(workspaceId);
+  }
+
+  static async getProjectTags(projectId: string) {
+    return ProjectRepository.getProjectTags(projectId);
   }
 
   static async getProjectBySlug(workspaceId: string, slug: string) {
