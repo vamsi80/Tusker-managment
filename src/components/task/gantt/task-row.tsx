@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { cn } from "@/lib/utils";
 import { GanttTask } from "./types";
@@ -40,8 +40,9 @@ interface TaskRowProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     showDetails: boolean;
     projectMap: Map<string, ProjectOption>;

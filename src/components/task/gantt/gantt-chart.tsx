@@ -39,8 +39,9 @@ interface GanttChartProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
 }
 
