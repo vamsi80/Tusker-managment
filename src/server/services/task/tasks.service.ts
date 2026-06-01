@@ -73,6 +73,17 @@ export class TasksService {
       tags: tagIds?.length ? { connect: tagIds.map((id) => ({ id })) } : undefined,
     });
 
+    if (tagIds && tagIds.length > 0) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          tags: {
+            connect: tagIds.map((id) => ({ id })),
+          },
+        },
+      });
+    }
+
     const result = { tasks: [TaskMapper.toFlatMetadata(newTask)] };
     TaskMapper.stripParentMetadata(result);
     const flattenedTask = result.tasks[0];
@@ -1699,6 +1710,17 @@ export class TasksService {
       }
     });
 
+    if (tagIds && tagIds.length > 0) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          tags: {
+            connect: tagIds.map((id) => ({ id })),
+          },
+        },
+      });
+    }
+
     const flattenedSubTask = TaskMapper.toFlatMetadata(newSubTask);
 
     try {
@@ -2098,6 +2120,17 @@ export class TasksService {
     const updated = await TaskRepository.updateTaskAndParentCount(
       taskId, updateData, task.parentTaskId, task.status === "COMPLETED", data.status === "COMPLETED"
     );
+
+    if (data.tagIds && data.tagIds.length > 0) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          tags: {
+            connect: data.tagIds.map((id) => ({ id })),
+          },
+        },
+      });
+    }
 
     const oldData: any = {};
     if (data.name) oldData.name = task.name;

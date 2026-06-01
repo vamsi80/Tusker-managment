@@ -241,6 +241,7 @@ export const editProjectSchema = z.object({
         .max(50, { message: "Slug must be at most 50 characters long" })
         .optional(),
     clintId: z.string().uuid().optional().nullable(),
+    isInternal: z.boolean().default(false),
     // Client/Company fields
     companyName: z
         .string()

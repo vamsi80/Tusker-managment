@@ -118,7 +118,7 @@ export class ProjectMapper {
         id: project.projectManager.user.id,
         surname: project.projectManager.user.surname,
       } : undefined,
-      memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMember.userId),
+      memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMemberId),
       projectMembers,
       companyName: project.clint?.name || null,
       registeredCompanyName: project.clint?.registeredCompanyName || null,

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { toast } from "sonner";
@@ -9,7 +9,6 @@ import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FullProjectData } from "@/types/project";
 import { projectsClient } from "@/lib/api-client/projects";
-import { EditProjectForm } from "./options/edit-project-form";
 import type { WorkspaceMembersResult } from "@/types/workspace";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
@@ -105,27 +104,8 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
     setDeleteDialogOpen(true);
   };
 
-  const handleEditClick = async (projectId: string) => {
-    if (isLoadingProject) return;
-    setIsLoadingProject(true);
-    try {
-      const [fullData, membersResult] = await Promise.all([
-        projectsClient.getFullData(projectId),
-        loadMembers()
-      ]);
-
-      if (fullData) {
-        setProjectToEdit(fullData);
-        setEditDialogOpen(true);
-      } else {
-        toast.error("Failed to load project data");
-      }
-    } catch (error) {
-      console.error("Error loading project:", error);
-      toast.error("Failed to load project data");
-    } finally {
-      setIsLoadingProject(false);
-    }
+  const handleEditClick = (projectId: string) => {
+    router.push(`/w/${workspaceId}/editProject/${projectId}`);
   };
 
   const handleManageMembersClick = async (projectId: string) => {
@@ -298,18 +278,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
         </SidebarMenu>
       </SidebarGroup>
 
-      {/* Edit Project Form Dialog */}
-      {projectToEdit && (
-        <EditProjectForm
-          project={projectToEdit}
-          members={members}
-          open={editDialogOpen}
-          onOpenChange={(open) => {
-            setEditDialogOpen(open);
-            if (!open) setProjectToEdit(null);
-          }}
-        />
-      )}
+
 
       {/* Manage Members Dialog */}
       {projectToManageMembers && (

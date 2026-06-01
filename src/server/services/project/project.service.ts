@@ -346,6 +346,41 @@ export class ProjectService {
           create: { projectId: values.projectId, workspaceMemberId: newPmId, projectRole: "PROJECT_MANAGER", hasAccess: true }
         });
       }
+
+      // Sync project members if memberAccess is provided
+      if (values.memberAccess) {
+        const existingMembers = await tx.projectMember.findMany({
+          where: { projectId: values.projectId, projectRole: { not: "PROJECT_MANAGER" } },
+          select: { workspaceMemberId: true }
+        });
+        const existingMemberIds = existingMembers.map(m => m.workspaceMemberId);
+
+        const currentPMId = values.projectManagerId || project.projectManagerId;
+        const targetMemberIds = values.memberAccess.filter(id => id !== currentPMId);
+
+        const toDelete = existingMemberIds.filter(id => !targetMemberIds.includes(id));
+        const toAdd = targetMemberIds.filter(id => !existingMemberIds.includes(id));
+
+        if (toDelete.length > 0) {
+          await tx.projectMember.deleteMany({
+            where: {
+              projectId: values.projectId,
+              workspaceMemberId: { in: toDelete }
+            }
+          });
+        }
+
+        if (toAdd.length > 0) {
+          await tx.projectMember.createMany({
+            data: toAdd.map(id => ({
+              projectId: values.projectId,
+              workspaceMemberId: id,
+              hasAccess: true,
+              projectRole: "MEMBER"
+            }))
+          });
+        }
+      }
     });
 
     await ProjectEvents.onProjectUpdated(project.workspaceId, project.id);

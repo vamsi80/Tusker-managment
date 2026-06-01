@@ -11,6 +11,7 @@ const createTagSchema = z.object({
     name: z.string().min(1, "Tag name is required").max(50, "Tag name must be less than 50 characters"),
     requirePurchase: z.boolean().default(false),
     workspaceId: z.string(),
+    projectId: z.string().optional(),
 });
 
 export async function createTag(data: z.infer<typeof createTagSchema>) {
@@ -29,8 +30,33 @@ export async function createTag(data: z.infer<typeof createTagSchema>) {
         }
 
         // Check if tag name already exists
-        const exists = await tagNameExists(validatedData.workspaceId, validatedData.name);
+        const exists = await prisma.tag.findFirst({
+            where: {
+                workspaceId: validatedData.workspaceId,
+                name: {
+                    equals: validatedData.name,
+                    mode: "insensitive",
+                },
+            },
+        });
+
         if (exists) {
+            if (validatedData.projectId) {
+                // Connect existing tag to the project
+                await prisma.project.update({
+                    where: { id: validatedData.projectId },
+                    data: {
+                        tags: {
+                            connect: { id: exists.id }
+                        }
+                    }
+                });
+                await invalidateWorkspaceTags(validatedData.workspaceId);
+                return {
+                    success: true,
+                    data: exists,
+                };
+            }
             return {
                 success: false,
                 error: "A tag with this name already exists",
@@ -42,6 +68,11 @@ export async function createTag(data: z.infer<typeof createTagSchema>) {
                 name: validatedData.name,
                 requirePurchase: validatedData.requirePurchase,
                 workspaceId: validatedData.workspaceId,
+                ...(validatedData.projectId ? {
+                    projects: {
+                        connect: { id: validatedData.projectId }
+                    }
+                } : {})
             },
         });
 
