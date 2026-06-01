@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -36,8 +36,9 @@ interface SortableSubtaskRowProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     showDetails: boolean;
     allowedUserIds?: string[];
@@ -189,9 +190,20 @@ function SortableSubtaskRow({
     };
 
 
-    const canManage = permissions?.isWorkspaceAdmin ||
-        permissions?.managedProjectIds.includes(projectId) ||
-        subtask.createdById === currentUser?.id;
+    const isAssignee = subtask.assignee?.id === currentUser?.id;
+    const isWorkspaceAdmin = !!permissions?.isWorkspaceAdmin;
+    const isProjectManager = !!(permissions?.managedProjectIds || []).includes(projectId);
+    const isProjectCoordinator = !!(permissions?.coordinatorProjectIds || []).includes(projectId);
+    const isProjectLead = !!(permissions?.leadProjectIds || []).includes(projectId);
+    const isCreator = subtask.createdById === currentUser?.id;
+
+    // ❌ ABSOLUTE GATE: Assignees can NEVER edit dates/metadata, regardless of any role.
+    const canManage = !isAssignee && (
+        isWorkspaceAdmin ||
+        isProjectManager ||
+        isProjectCoordinator ||
+        (isProjectLead && isCreator)
+    );
 
     const handleRowClick = (e: React.MouseEvent) => {
         console.log("[SortableSubtaskRow] handleRowClick TRIGGERED for:", subtask.id);
@@ -443,8 +455,9 @@ interface SortableSubtaskListProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     showDetails: boolean;
     allowedUserIds?: string[];

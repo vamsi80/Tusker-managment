@@ -1942,6 +1942,14 @@ export class TasksService {
       ? task.assigneeId === currentProjectMemberId
       : false;
 
+    // Unconditional block: Assignees can NEVER edit dates/days, irrespective of any role (even Admin/PM/Lead)
+    const isUpdatingDates = data.startDate !== undefined || data.dueDate !== undefined || data.days !== undefined;
+    if (isAssignee && isUpdatingDates) {
+      throw AppError.Forbidden(
+        "You don't have permission to update task dates because you are the assignee.",
+      );
+    }
+
     // 1. Base Authorization
     // Assignees cannot edit task metadata (Name, Description, Dates, Assignee, Reviewer, Tags)
     // even if they are Project Manager, Coordinator, or Lead, unless they are Workspace Admin.
@@ -2690,6 +2698,18 @@ export class TasksService {
     const isProjectManager = permissions.isProjectManager;
     const isProjectCoordinator = permissions.isProjectCoordinator;
     const isProjectLead = permissions.isProjectLead;
+
+    const isAssignee = currentProjectMemberId
+      ? task.assigneeId === currentProjectMemberId
+      : false;
+
+    // Unconditional block: Assignees can NEVER edit dates/days, irrespective of any role (even Admin/PM/Lead)
+    const isUpdatingDates = data.startDate !== undefined || data.dueDate !== undefined;
+    if (isAssignee && isUpdatingDates) {
+      throw AppError.Forbidden(
+        "You don't have permission to update task dates because you are the assignee.",
+      );
+    }
 
     // 1. Permission Check
     const isAuthorized =

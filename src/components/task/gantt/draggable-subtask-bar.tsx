@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { AlertCircle, GripHorizontal } from "lucide-react";
@@ -23,8 +23,9 @@ interface DraggableSubtaskBarProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     isHighlighted?: boolean;
     onToggleHighlight?: () => void;
@@ -144,11 +145,16 @@ export function DraggableSubtaskBar({
     const canEdit = useMemo(() => {
         if (!currentUser || !permissions || !projectId) return false;
 
+        const isAssignee = optimisticSubtask.assignee?.id === currentUser.id;
+
+        // ❌ ABSOLUTE GATE: Assignees can NEVER edit dates, regardless of any role.
+        if (isAssignee) return false;
+
         const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
         const isProjectManager = (permissions.managedProjectIds || []).includes(projectId);
+        const isProjectCoordinator = (permissions.coordinatorProjectIds || []).includes(projectId);
         const isProjectLead = (permissions.leadProjectIds || []).includes(projectId);
         const isCreator = optimisticSubtask.createdById === currentUser.id;
-        const isAssignee = optimisticSubtask.assignee?.id === currentUser.id;
         const assigneeRole = (optimisticSubtask as any).assigneeRole;
 
         // 1. Hierarchy Rules (Strict)
@@ -161,7 +167,7 @@ export function DraggableSubtaskBar({
             return isWorkspaceAdmin || isProjectManager;
         }
 
-        if (isWorkspaceAdmin || isProjectManager) return true;
+        if (isWorkspaceAdmin || isProjectManager || isProjectCoordinator) return true;
 
         if (isProjectLead && isCreator) return true;
 
@@ -471,7 +477,7 @@ export function DraggableSubtaskBar({
                                 "absolute top-1 h-3 rounded-md transition-all duration-200 ease-out gantt-subtask-bar-hitbox z-10",
                                 "shadow-sm hover:shadow-md",
                                 "focus:outline-none focus:ring-2 focus:ring-offset-1",
-                                canEdit && "cursor-grab active:cursor-grabbing",
+                                canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-default",
                                 isDragging && "opacity-70 scale-105",
                                 statusColors.barClass
                             )}
@@ -565,9 +571,13 @@ export function DraggableSubtaskBar({
                                 </div>
                             </div>
 
-                            {canEdit && (
+                            {canEdit ? (
                                 <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                                    ðŸ’¡ Drag to move â€¢ Drag edge to resize
+                                    💡 Drag to move • Drag edge to resize
+                                </p>
+                            ) : (
+                                <p className="text-[10px] text-muted-foreground/60 text-center pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                                    🔒 Dates are locked. Assignees cannot edit task dates.
                                 </p>
                             )}
                         </div>
