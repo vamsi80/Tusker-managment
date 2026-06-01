@@ -1,9 +1,12 @@
-﻿"use client";
+"use client";
 
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { X, Filter, Calendar } from "lucide-react";
+import { getStatusColors } from "@/lib/colors/status-colors";
+import { getColorFromString } from "@/lib/colors/project-colors";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
@@ -12,9 +15,6 @@ import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { TaskSearch } from "./task-search";
 import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
-import { STATUS_OPTIONS } from "@/lib/zodSchemas";
-import { getColorFromString } from "@/lib/colors/project-colors";
-import { getStatusColors } from "@/lib/colors/status-colors";
 
 export interface ParentTaskOption {
     id: string;
@@ -40,7 +40,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 
 interface GlobalFilterToolbarProps {
@@ -83,6 +83,18 @@ export function GlobalFilterToolbar({
     setKanbanColumnVisibility,
 }: GlobalFilterToolbarProps) {
     const [isOpen, setIsOpen] = useState(false);
+
+    useEffect(() => {
+        if (filters.tagId && tags && tags.length > 0) {
+            const tagExists = tags.some(t => t.id === filters.tagId);
+            if (!tagExists) {
+                onFilterChange({
+                    ...filters,
+                    tagId: undefined
+                });
+            }
+        }
+    }, [tags, filters.tagId, filters, onFilterChange]);
 
 
     const config = getFilterConfig(view, level);
@@ -559,7 +571,7 @@ export function GlobalFilterToolbar({
                                                             <SelectItem key={member.id} value={member.id}>
                                                                 <div className="flex items-center gap-2">
                                                                     <Avatar className="size-4 flex-shrink-0">
-                                                                    <AvatarFallback className="text-[8px]">{(member.surname || member.name || "?")[0]}</AvatarFallback>
+                                                                        <AvatarFallback className="text-[8px]">{(member.surname || member.name || "?")[0]}</AvatarFallback>
                                                                     </Avatar>
                                                                     <span className="truncate">{member.surname || member.name}</span>
                                                                 </div>

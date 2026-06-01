@@ -12,6 +12,8 @@ import type { SubTaskType } from "@/types/task";
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
+import { useProjectTags } from "@/hooks/use-project-tags";
+
 interface SubTaskDetailsSheetProps {
     subTask: SubTaskType | null;
     isOpen: boolean;
@@ -39,7 +41,7 @@ export function SubTaskDetailsSheet({
     const workspaceId = subTask?.workspaceId || projectCtx?.workspaceId || workspaceIdFromContext;
     const projectId = subTask?.projectId || projectCtx?.projectId;
     const members = (!isDifferentProject && projectCtx?.projectMembers) ? projectCtx.projectMembers : localMembers;
-    const tags = projectCtx?.workspaceTags || workspaceData?.tags || [];
+    const tags = useProjectTags(workspaceId, projectId);
     
     const workspacePerms = workspaceData?.permissions;
     const isUserWorkspaceAdmin = workspacePerms?.workspaceRole === 'ADMIN' || workspacePerms?.workspaceRole === 'OWNER';

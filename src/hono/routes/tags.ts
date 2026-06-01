@@ -6,6 +6,8 @@ import { updateTag } from "@/actions/tag/update-tag";
 import { deleteTag } from "@/actions/tag/delete-tag";
 import { AppError } from "@/lib/errors/app-error";
 
+import { ProjectService } from "@/server/services/project/project.service";
+
 const tags = new Hono<{ Variables: HonoVariables }>();
 
 /**
@@ -13,8 +15,14 @@ const tags = new Hono<{ Variables: HonoVariables }>();
  */
 tags.get("/", async (c) => {
   const workspaceId = c.req.query("workspaceId");
+  const projectId = c.req.query("projectId");
   if (!workspaceId) {
     throw AppError.ValidationError("Missing workspaceId");
+  }
+
+  if (projectId) {
+    const result = await ProjectService.getProjectTags(projectId);
+    return c.json({ success: true, tags: result });
   }
 
   const result = await getWorkspaceTags(workspaceId);

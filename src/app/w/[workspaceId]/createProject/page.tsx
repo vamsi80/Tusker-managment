@@ -136,6 +136,7 @@ export default function CreateProjectPage() {
             gstNumber: "",
             contactPerson: "",
             phoneNumber: "",
+            tagIds: [],
         },
     });
 
@@ -399,6 +400,66 @@ export default function CreateProjectPage() {
                                                                             </CommandItem>
                                                                         );
                                                                     })}
+                                                            </CommandGroup>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Project Tags Selection */}
+                                <FormField
+                                    control={form.control}
+                                    name="tagIds"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="flex items-center gap-1.5">
+                                                Project Tags
+                                            </FormLabel>
+                                            <div className="pt-1">
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {field.value && field.value.length > 0 ? (
+                                                                    field.value.map(id => (
+                                                                        <Badge key={id} variant="outline" className="bg-primary/5">
+                                                                            {layoutData?.tags?.find((t: any) => t.id === id)?.name || "Tag"}
+                                                                        </Badge>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">Select project tags</span>
+                                                                )}
+                                                            </div>
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="p-0 w-72" align="start">
+                                                        <Command>
+                                                            <CommandInput placeholder="Search workspace tags..." />
+                                                            <CommandEmpty>No tags found.</CommandEmpty>
+                                                            <CommandGroup className="max-h-64 overflow-auto">
+                                                                {(layoutData?.tags || []).map((t: any) => {
+                                                                    const isSelected = field.value?.includes(t.id);
+                                                                    return (
+                                                                        <CommandItem
+                                                                            key={t.id}
+                                                                            onSelect={() => {
+                                                                                const current = field.value || [];
+                                                                                if (isSelected) {
+                                                                                    field.onChange(current.filter(id => id !== t.id));
+                                                                                } else {
+                                                                                    field.onChange([...current, t.id]);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <Check className={cn("mr-2 size-4", isSelected ? "opacity-100" : "opacity-0")} />
+                                                                            {t.name}
+                                                                        </CommandItem>
+                                                                    );
+                                                                })}
                                                             </CommandGroup>
                                                         </Command>
                                                     </PopoverContent>

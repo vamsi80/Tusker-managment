@@ -202,6 +202,7 @@ model Project {
   tasks            Task[]
   indents          Indent[]
   materialItems    ProjectMaterialItem[]
+  tags             Tag[]            @relation("ProjectTags")
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -269,6 +270,7 @@ model Tag {
   requirePurchase Boolean?  @default(false)
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks           Task[]    @relation("TaskTags")
+  projects        Project[] @relation("ProjectTags")
 
   @@unique([workspaceId, name])
 }

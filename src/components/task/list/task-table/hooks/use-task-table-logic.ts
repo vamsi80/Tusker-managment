@@ -14,7 +14,7 @@ import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { apiClient } from "@/lib/api-client";
 import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context-object";
 import { useContext } from "react";
-import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
@@ -33,8 +33,6 @@ export function useTaskTableLogic({
   projects,
 }: any) {
 
-  // Initialize state directly from initialTasks (no global cache)
-  const tags = useWorkspaceTags(workspaceId);
   const {
     filters, setFilters,
     searchQuery, setSearchQuery,
@@ -42,6 +40,9 @@ export function useTaskTableLogic({
     isCurrentlyFiltered,
     setIsCurrentlyFiltered
   } = useFilterStore();
+
+  // Initialize state directly from initialTasks (no global cache)
+  const tags = useProjectTags(workspaceId, projectId || filters.projectId);
 
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const fetchingIdsRef = useRef<Set<string>>(new Set());
