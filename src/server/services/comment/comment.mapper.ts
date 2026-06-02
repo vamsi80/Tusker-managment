@@ -79,33 +79,36 @@ export class CommentMapper {
       }
     });
 
-    // 3. Process Direct Notifications (DMs & Task/Subtask Creations)
+    // 3. Process Direct Notifications (DMs & Task/Subtask Actions)
     directNotifications.forEach((dn: any) => {
       const id = dn.id;
-      if (dn.type === "TASK_CREATED" || dn.type === "SUBTASK_CREATED") {
+      if (dn.type !== "DM_MESSAGE") {
         const taskObj = taskMap.get(dn.entityId || "");
-        if (taskObj) {
-          groupedMap.set(id, {
-            id: dn.id,
-            taskId: dn.entityId,
-            taskName: taskObj.name,
-            taskSlug: taskObj.taskSlug,
-            projectName: taskObj.project?.name || "Workspace",
-            parentTaskName: taskObj.parentTask?.name || null,
-            type: dn.type,
-            latestComment: {
-              content: dn.body, // "John Doe created a new task..."
-              createdAt: dn.createdAt,
-              user: {
-                name: dn.user.name,
-                surname: dn.user.surname,
-                image: dn.user.image
-              }
-            },
-            count: 1,
-            isNew: !dn.isRead
-          });
-        }
+        const taskName = taskObj?.name || dn.title || "Task";
+        const projectName = taskObj?.project?.name || "Workspace";
+        const parentTaskName = taskObj?.parentTask?.name || null;
+        const taskSlug = taskObj?.taskSlug || null;
+
+        groupedMap.set(id, {
+          id: dn.id,
+          taskId: dn.entityId || dn.id,
+          taskName,
+          taskSlug,
+          projectName,
+          parentTaskName,
+          type: dn.type,
+          latestComment: {
+            content: dn.body, // John Doe created a task / updated status...
+            createdAt: dn.createdAt,
+            user: {
+              name: dn.user?.name || "System",
+              surname: dn.user?.surname || "",
+              image: dn.user?.image || null
+            }
+          },
+          count: 1,
+          isNew: !dn.isRead
+        });
       } else {
         // DM_MESSAGE
         groupedMap.set(id, {
@@ -119,9 +122,9 @@ export class CommentMapper {
             content: dn.body,
             createdAt: dn.createdAt,
             user: {
-              name: dn.user.name,
-              surname: dn.user.surname,
-              image: dn.user.image
+              name: dn.user?.name || "System",
+              surname: dn.user?.surname || "",
+              image: dn.user?.image || null
             }
           },
           count: 1,

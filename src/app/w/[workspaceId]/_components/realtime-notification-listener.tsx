@@ -101,7 +101,20 @@ export function RealtimeNotificationListener() {
       // 1. Show Toast (Only for other users to avoid duplicates for the actor)
       if (data.message && !isActor) {
         toast.info(data.message, {
-          description: data.newData?.text || data.action?.replace(/_/g, " ").toLowerCase(),
+          description: (
+            <span
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              className="text-muted-foreground block text-xs mt-1"
+            >
+              {data.newData?.text || data.action?.replace(/_/g, " ").toLowerCase()}
+            </span>
+          ),
           duration: 5000,
         });
       }

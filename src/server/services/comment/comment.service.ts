@@ -252,7 +252,7 @@ export class CommentService {
         where: {
           userId,
           workspaceId,
-          type: { in: ["DM_MESSAGE", "TASK_CREATED", "SUBTASK_CREATED"] },
+          type: { notIn: ["USER_LOGIN", "REQUESTED_PASSWORD_RESET"] },
           ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {})
         },
         orderBy: { createdAt: "desc" },
@@ -261,10 +261,10 @@ export class CommentService {
       }))
     ]);
 
-    // Fetch related task details for TASK_CREATED / SUBTASK_CREATED
+    // Fetch related task details
     const taskIdsToFetch = new Set<string>();
     directNotifications.forEach((dn: any) => {
-      if ((dn.type === "TASK_CREATED" || dn.type === "SUBTASK_CREATED") && dn.entityId) {
+      if (dn.entityId && dn.type !== "DM_MESSAGE") {
         taskIdsToFetch.add(dn.entityId);
       }
     });
