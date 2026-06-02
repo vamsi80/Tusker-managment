@@ -150,7 +150,6 @@ export function FlatTaskList({
                     <SubTaskList
                         task={task}
                         tags={tags}
-                        defaultTagIds={tags.map(t => t.id)}
                         members={members}
                         workspaceId={workspaceId}
                         projectId={task.projectId || projectId}

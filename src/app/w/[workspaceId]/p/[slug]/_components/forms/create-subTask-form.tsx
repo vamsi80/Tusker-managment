@@ -100,7 +100,7 @@ export const CreateSubTaskForm = ({
             dueDate: format(dueNow),
             assignee: "",
             status: "TO_DO",
-            tagIds: tags.length > 0 ? [tags[0].id] : [],
+            tagIds: [],
             projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         };
