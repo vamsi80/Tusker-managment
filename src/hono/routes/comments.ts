@@ -118,16 +118,28 @@ comments.get("/notifications/:workspaceId", async (c) => {
     const user = c.get("user");
     const workspaceId = c.req.param("workspaceId");
     const limit = parseInt(c.req.query("limit") || "25", 10);
-    const offset = parseInt(c.req.query("offset") || "0", 10);
+    const cursor = c.req.query("cursor") || undefined;
 
     const notifications = await CommentService.getNotifications({
         workspaceId,
         userId: user.id,
         limit,
-        offset
+        cursor
     });
 
     return c.json({ success: true, data: notifications });
+});
+
+/**
+ * POST /api/v1/comments/notifications/:workspaceId/mark-all-read
+ * Mark all notifications as read in a workspace
+ */
+comments.post("/notifications/:workspaceId/mark-all-read", async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.param("workspaceId");
+
+    const result = await CommentService.markAllAsRead(workspaceId, user.id);
+    return c.json(result);
 });
 
 /**

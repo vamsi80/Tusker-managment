@@ -119,7 +119,7 @@ export class CommentRepository {
   /**
    * Find notifications (comments)
    */
-  static async findNotifications(where: any, commentInclude: any, limit: number, offset: number) {
+  static async findNotifications(where: any, commentInclude: any, limit: number, cursor?: string) {
     const [unreadComments, recentComments] = await Promise.all([
       prisma.comment.findMany({
         where: { ...where, readBy: { none: { userId: where.userId.not } } },
@@ -128,11 +128,10 @@ export class CommentRepository {
         take: 50
       }),
       prisma.comment.findMany({
-        where,
+        where: cursor ? { ...where, createdAt: { lt: new Date(cursor) } } : where,
         include: commentInclude,
         orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset
+        take: limit
       })
     ]);
     return { unreadComments, recentComments };
@@ -141,9 +140,9 @@ export class CommentRepository {
   /**
    * Find recent activities
    */
-  static async findRecentActivities(where: any, limit: number = 10) {
+  static async findRecentActivities(where: any, limit: number = 10, cursor?: string) {
     return prisma.activity.findMany({
-      where,
+      where: cursor ? { ...where, createdAt: { lt: new Date(cursor) } } : where,
       include: {
         author: { select: { name: true, surname: true, image: true } },
         subTask: {
@@ -287,6 +286,80 @@ export class CommentRepository {
         skipDuplicates: true
       });
     }
+
+    // Mark Notifications as read
+    await prisma.notification.updateMany({
+      where: {
+        userId: userId,
+        OR: [
+          { entityId: taskId },
+          { id: taskId }
+        ],
+        isRead: false
+      },
+      data: {
+        isRead: true
+      }
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Mark all notifications, comments, activities as read in a workspace
+   */
+  static async markAllNotificationsAsRead(workspaceId: string, userId: string) {
+    // 1. Mark all unread comments in workspace tasks
+    const unreadComments = await prisma.comment.findMany({
+      where: {
+        task: { workspaceId },
+        userId: { not: userId },
+        readBy: { none: { userId: userId } }
+      },
+      select: { id: true }
+    });
+
+    if (unreadComments.length > 0) {
+      await prisma.commentRead.createMany({
+        data: unreadComments.map(c => ({
+          userId,
+          commentId: c.id
+        })),
+        skipDuplicates: true
+      });
+    }
+
+    // 2. Mark all unread activities in workspace
+    const unreadActivities = await prisma.activity.findMany({
+      where: {
+        workspaceId,
+        authorId: { not: userId },
+        readBy: { none: { userId: userId } }
+      },
+      select: { id: true }
+    });
+
+    if (unreadActivities.length > 0) {
+      await prisma.activityRead.createMany({
+        data: unreadActivities.map(a => ({
+          userId,
+          activityId: a.id
+        })),
+        skipDuplicates: true
+      });
+    }
+
+    // 3. Mark database notification records as read
+    await prisma.notification.updateMany({
+      where: {
+        workspaceId,
+        userId,
+        isRead: false
+      },
+      data: {
+        isRead: true
+      }
+    });
 
     return { success: true };
   }

@@ -198,21 +198,21 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground) !important;
+  background: var(--border) !important;
   border-radius: 10px !important;
   border: 1px solid transparent !important;
   background-clip: content-box !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary) !important;
+  background: var(--muted-foreground) !important;
   background-clip: content-box !important;
 }
 
 /* Firefox support */
 * {
   scrollbar-width: thin !important;
-  scrollbar-color: var(--muted-foreground) transparent !important;
+  scrollbar-color: var(--border) transparent !important;
 }
 
 /* Hide scrollbar completely while maintaining scroll functionality */
@@ -223,4 +223,17 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Ensure Radix UI ScrollArea viewports hide native scrollbars despite global !important */
+[data-slot="scroll-area-viewport"]::-webkit-scrollbar,
+[data-radix-scroll-area-viewport]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+[data-slot="scroll-area-viewport"],
+[data-radix-scroll-area-viewport] {
+  scrollbar-width: none !important;
 }
