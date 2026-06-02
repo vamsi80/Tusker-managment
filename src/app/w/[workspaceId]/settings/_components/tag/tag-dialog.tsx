@@ -27,8 +27,6 @@ interface TagDialogProps {
     isWorkspaceAdmin?: boolean;
 }
 
-
-
 export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isWorkspaceAdmin = false }: TagDialogProps) {
     const [name, setName] = useState(tag?.name || "");
     const [requirePurchase, setRequirePurchase] = useState(tag?.requirePurchase ?? false);

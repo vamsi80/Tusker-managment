@@ -114,8 +114,9 @@ function TaskTable(props: TaskTableProps) {
 
   const orderedWorkspaceProjects = useMemo(() => {
     if (props.level !== "workspace") return projects;
-    return [...projects].filter(p => !!groupedTasks?.[p.id] || (logic.currentProjectCounts?.[p.id] ?? 0) > 0)
-      .sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
+    return [...projects]
+      .filter(p => !!groupedTasks?.[p.id] || (logic.currentProjectCounts?.[p.id] ?? 0) > 0)
+      .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
   }, [props.level, projects, groupedTasks, logic.currentProjectCounts]);
 
   const projectTaskCounts = useMemo(() => {

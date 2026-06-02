@@ -117,12 +117,25 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             select: {
                 id: true,
                 name: true,
+                position: true,
             }
         };
     }
 
+    // Select project fields for cross-project ordering and cursor pagination.
+    // Kanban also needs name+color for card display.
+    if (isKanban) {
+        select.project = {
+            select: { id: true, name: true, color: true, createdAt: true }
+        };
+    } else if (isList || isGantt) {
+        select.project = {
+            select: { id: true, createdAt: true }
+        };
+    }
+
     // 5. specialized view fields
-    if (isList || isGantt || isCalendar || isSubtask) {
+    if (isList || isGantt || isCalendar || isSubtask || isKanban) {
         select.position = true;
     }
 
@@ -210,6 +223,68 @@ export function buildCursorWhere(cursor: TaskCursor, direction: "asc" | "desc" =
     };
 }
 
+export function buildKanbanCursorWhere(cursor: any): Prisma.TaskWhereInput {
+    const { projectCreatedAt, parentTaskPosition, parentTaskId, position, id } = cursor;
+
+    // Project-level seek conditions (reused for both levels)
+    const projectLevelSeek: Prisma.TaskWhereInput =
+        parentTaskId !== null && parentTaskId !== undefined
+            ? // Subtask: compound seek on parentTask.position, then own position
+              {
+                  OR: [
+                      { parentTask: { position: { gt: parentTaskPosition } } },
+                      { AND: [{ parentTask: { position: parentTaskPosition } }, { position: { gt: position } }] },
+                      { AND: [{ parentTask: { position: parentTaskPosition } }, { position: position }, { id: { gt: id } }] },
+                  ],
+              }
+            : // Flat root: seek by own position
+              {
+                  OR: [
+                      { parentTaskId: null, position: { gt: position } },
+                      { AND: [{ parentTaskId: null }, { position: position }, { id: { gt: id } }] },
+                  ],
+              };
+
+    if (projectCreatedAt) {
+        // Workspace-level: seek across projects ordered by project.createdAt
+        const projDate = new Date(projectCreatedAt);
+        return {
+            OR: [
+                // Any task in a later-created project
+                { project: { createdAt: { gt: projDate } } },
+                // Same project, but later in task ordering
+                { AND: [{ project: { createdAt: projDate } }, projectLevelSeek] },
+            ],
+        };
+    }
+
+    return projectLevelSeek;
+}
+
+/**
+ * Cross-project seek condition for list/gantt at workspace level.
+ * ORDER BY: project.createdAt asc, position asc, id asc
+ */
+export function buildWorkspaceListCursorWhere(cursor: any): Prisma.TaskWhereInput {
+    const { projectCreatedAt, position, id } = cursor;
+    if (!projectCreatedAt) {
+        return {
+            OR: [
+                { position: { gt: position } },
+                { AND: [{ position: position }, { id: { gt: id } }] },
+            ],
+        };
+    }
+    const projDate = new Date(projectCreatedAt);
+    return {
+        OR: [
+            { project: { createdAt: { gt: projDate } } },
+            { AND: [{ project: { createdAt: projDate } }, { position: { gt: position } }] },
+            { AND: [{ project: { createdAt: projDate } }, { position: position }, { id: { gt: id } }] },
+        ],
+    };
+}
+
 // ============================================================
 //  SORTING CONTRACT
 // ============================================================
@@ -225,11 +300,37 @@ export const SORT_MAP: Record<string, { dbField: string; nulls?: "last" | "first
     position: { dbField: "position", nulls: "last" },
 };
 
-export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>, view_mode?: string) {
+export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "desc" }>, view_mode?: string, projectId?: string) {
     // Default task list order is newest-first so recently created parent tasks appear first.
     if (!sorts || sorts.length === 0) {
-        if (view_mode === "gantt" || view_mode === "list") {
-            return [{ position: "asc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }];
+        if (view_mode === "kanban") {
+            if (!projectId) {
+                // Workspace kanban: group by project (oldest first), then by parent position, then subtask position.
+                return [
+                    { project: { createdAt: "asc" as const } },
+                    { parentTask: { position: "asc" as const } },
+                    { position: "asc" as const },
+                    { id: "asc" as const },
+                ];
+            }
+            // Project kanban: group all subtasks by their parent's position first, then by subtask position.
+            return [
+                { parentTask: { position: "asc" as const } },
+                { position: "asc" as const },
+                { id: "asc" as const },
+            ];
+        }
+        if (view_mode === "list" || view_mode === "gantt") {
+            if (!projectId) {
+                // Workspace: oldest project first, then task position within each project
+                return [
+                    { project: { createdAt: "asc" as const } },
+                    { position: "asc" as const },
+                    { id: "asc" as const },
+                ];
+            }
+            // Project level: tasks in position order
+            return [{ position: "asc" as const }, { id: "asc" as const }];
         }
         return [{ createdAt: "desc" as const }, { id: "desc" as const }];
     }
@@ -407,8 +508,8 @@ export function buildProjectRootWhere(
         if (opts.sorts && opts.sorts.length > 0) {
             appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
         } else {
-            // Default orderBy is DESC (newest-first) → cursor must use "desc"
-            appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
+            // Position-based ordering: seek by position then id
+            appendAnd(where, buildWorkspaceListCursorWhere(opts.cursor));
         }
     }
 
@@ -687,10 +788,16 @@ export function buildWorkspaceFilterWhere(
                 where.parentTaskId = null;
             }
         } else if (opts.excludeParents || opts.onlySubtasks || opts.view_mode === "kanban") {
-            if (!opts.parentTaskId) {
-                where.parentTaskId = { not: null };
+            if (opts.view_mode === "kanban") {
+                // Kanban: exclude only top-level containers (parentTaskId=null AND isParent=true).
+                // Show flat roots, true subtasks, and intermediate parents that have their own parent.
+                where.NOT = { AND: [{ parentTaskId: null }, { isParent: true }] };
+            } else {
+                if (!opts.parentTaskId) {
+                    where.parentTaskId = { not: null };
+                }
+                where.isParent = false;
             }
-            where.isParent = false;
         } else if (opts.view_mode !== "gantt") {
             // 🚀 DEFAULT: Hierarchical root view
             // If no explicit filter is applied, only show root parents at the top level.
@@ -703,10 +810,14 @@ export function buildWorkspaceFilterWhere(
 
     // 4. Pagination
     if (opts.cursor) {
-        if (opts.sorts && opts.sorts.length > 0) {
+        if (opts.view_mode === "kanban") {
+            appendAnd(where, buildKanbanCursorWhere(opts.cursor));
+        } else if ((opts.view_mode === "list" || opts.view_mode === "gantt") && !opts.projectId) {
+            // Workspace list/gantt: seek across project boundaries
+            appendAnd(where, buildWorkspaceListCursorWhere(opts.cursor));
+        } else if (opts.sorts && opts.sorts.length > 0) {
             appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));
         } else {
-            // No custom sorts → default orderBy is ASC (oldest-first) → cursor must use "gt"
             appendAnd(where, buildCursorWhere(opts.cursor, "desc"));
         }
     }

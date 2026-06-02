@@ -780,7 +780,6 @@ export function useTaskTableLogic({
             idsToFetch.push(t.id);
           }
         } else if (isSubtaskFirstMode && t.parentTaskId) {
-          // In subtask-first mode, expand the parent of the matched subtask
           newExpanded[t.parentTaskId] = true;
         }
       });
@@ -789,6 +788,16 @@ export function useTaskTableLogic({
       if (idsToFetch.length > 0) {
         handleRequestSubtasksBatch(idsToFetch);
       }
+
+      // Load tasks for projects that are visible (have a count) but have no tasks loaded yet
+      const loadedProjectIds = new Set(tasks.map((t) => t.projectId).filter(Boolean));
+      projects.forEach((p: any) => {
+        const hasCount = (projectCounts?.[p.id] ?? 0) > 0;
+        const hasLoadedTasks = loadedProjectIds.has(p.id);
+        if (hasCount && !hasLoadedTasks) {
+          loadProjectTasks(p.id);
+        }
+      });
     },
     handleCollapseAll: () => {
       manuallyCollapsedRef.current.clear();

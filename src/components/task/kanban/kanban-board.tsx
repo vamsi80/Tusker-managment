@@ -79,6 +79,7 @@ export function KanbanBoard({
   }, [projects]);
 
   const isSubmittingActivityRef = useRef(false);
+  const fetchingColumnsRef = useRef<Set<string>>(new Set());
 
   const hasFetchedRef = useRef(
     isShell &&
@@ -166,10 +167,14 @@ export function KanbanBoard({
         if (!entityId) return;
 
         // Inject into the correct column
-        setKanbanTasks(prev => ({
-          ...prev,
-          [status]: [record, ...(prev[status] || [])]
-        }));
+        setKanbanTasks(prev => {
+          const updated = {
+            ...prev,
+            [status]: [record, ...(prev[status] || [])]
+          };
+          updated[status] = sortByPositionAndCreatedAt(updated[status]);
+          return updated;
+        });
 
         setColumnData((prev) => {
           if (prev[status]?.subTaskIds.includes(entityId)) return prev;
@@ -226,6 +231,8 @@ export function KanbanBoard({
             if (task) {
               next[fromStatus] = next[fromStatus].filter(t => t.id !== entityId);
               next[toStatus] = [{ ...task, ...record }, ...(next[toStatus] || [])];
+              next[fromStatus] = sortByPositionAndCreatedAt(next[fromStatus]);
+              next[toStatus] = sortByPositionAndCreatedAt(next[toStatus]);
             }
             return next;
           });
@@ -322,9 +329,9 @@ export function KanbanBoard({
     COLUMNS.forEach((col) => {
       const serverCol = meta.tasksByStatus?.[col.id];
       // In kanban mode the API returns tasks grouped by status in tasksByStatus.
-      // Each column only shows subtasks (leaf tasks), not parent task rows.
+      // DB WHERE clause already excludes top-level containers (parentTaskId=null AND isParent=true).
       const allColTasks = serverCol?.tasks || [];
-      const colTasks = allColTasks.filter((t: any) => !t.isParent);
+      const colTasks = allColTasks;
 
       groupedData[col.id] = {
         subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
@@ -338,6 +345,25 @@ export function KanbanBoard({
     setColumnData(groupedData);
     setKanbanTasks(groupedTasks);
     setIsManualFiltering(false);
+
+    const totalLoaded = Object.values(groupedTasks).reduce((sum: number, tasks: any) => sum + tasks.length, 0);
+    console.log("%c[KANBAN_LOAD] Initial load summary:", "color: #10b981; font-weight: bold;");
+    COLUMNS.forEach((col) => {
+      const tasks: any[] = groupedTasks[col.id] || [];
+      const data = groupedData[col.id];
+      console.log(`  ${col.id}: ${tasks.length} loaded | total: ${data?.totalCount ?? "?"} | hasMore: ${data?.hasMore} | nextCursor:`, data?.nextCursor);
+      if (tasks.length > 0) {
+        console.log(`    tasks:`, tasks.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          position: t.position,
+          parentTaskId: t.parentTask?.id ?? null,
+          parentTaskPosition: t.parentTask?.position ?? null,
+          status: t.status,
+        })));
+      }
+    });
+    console.log(`  TOTAL LOADED: ${totalLoaded}`);
   }, []);
 
   const kanbanExtraParams = useMemo(() => ({ excludeParents: "true" }), []);
@@ -383,11 +409,13 @@ export function KanbanBoard({
   };
 
   const handleLoadMore = async (status: TaskStatus) => {
-    if (loadingColumns[status] || !columnData[status].hasMore) return;
+    if (fetchingColumnsRef.current.has(status) || !columnData[status].hasMore) return;
+    fetchingColumnsRef.current.add(status);
     setLoadingColumns((prev) => ({ ...prev, [status]: true }));
 
     try {
       const currentCursor = columnData[status].nextCursor;
+      console.log(`%c[KANBAN_CURSOR_SENT] ${status}:`, "color: #f59e0b; font-weight: bold;", currentCursor);
       const activeFilters =
         searchQuery || Object.keys(filters).length > 0
           ? {
@@ -438,19 +466,24 @@ export function KanbanBoard({
         "color: #3b82f6; font-weight: bold;",
       );
 
-      const allNewTasks = response.data.tasks || [];
-      // STRICT: Only tasks whose status matches AND are not parents
-      const newTasks = allNewTasks.filter(
-        (t: any) => !t.isParent && t.status === status,
-      );
-
       // 1. Prepare data for update
       const counts = (response.data.facets as any)?.status || {};
+      const perStatusData = response.data.tasksByStatus?.[status];
+      const allNewTasks = perStatusData?.tasks || response.data.tasks || [];
+      // Only tasks whose status matches (isParent check removed — kanban WHERE handles exclusion at DB level)
+      const newTasks = allNewTasks.filter(
+        (t: any) => t.status === status,
+      );
+      console.log(`%c[KANBAN_LOAD_MORE_DATA] ${status}: ${newTasks.length} new tasks | hasMore: ${perStatusData?.hasMore} | nextCursor:`, "color: #10b981; font-weight: bold;", perStatusData?.nextCursor);
 
-      setKanbanTasks(prev => ({
-        ...prev,
-        [status]: [...(prev[status] || []), ...newTasks]
-      }));
+      setKanbanTasks(prev => {
+        const existingIds = new Set((prev[status] || []).map((t: any) => t.id));
+        const deduped = newTasks.filter((t: any) => !existingIds.has(t.id));
+        return {
+          ...prev,
+          [status]: [...(prev[status] || []), ...deduped]
+        };
+      });
       setColumnData((prev) => ({
         ...prev,
         [status]: {
@@ -459,17 +492,36 @@ export function KanbanBoard({
             new Set([...prev[status].subTaskIds, ...newTasks.map((t: any) => t.id)]),
           ),
           totalCount: counts[status] || prev[status].totalCount + newTasks.length,
-          hasMore: response.data.hasMore || false,
-          nextCursor: response.data.nextCursor || null,
+          hasMore: perStatusData?.hasMore ?? response.data.hasMore ?? false,
+          nextCursor: perStatusData?.nextCursor ?? response.data.nextCursor ?? null,
         },
       }));
     } catch (error) {
       console.error(`Error loading more subtasks for ${status}:`, error);
       toast.error("Failed to load more subtasks");
     } finally {
+      fetchingColumnsRef.current.delete(status);
       setLoadingColumns((prev) => ({ ...prev, [status]: false }));
     }
   };
+
+  const sortByPositionAndCreatedAt = useCallback((taskList: any[]) => {
+    return [...taskList].sort((a, b) => {
+      // Sort by parent task position first — groups all subtasks under the same parent together
+      const aParentPos = typeof a?.parentTask?.position === "number"
+        ? a.parentTask.position
+        : (typeof a?.position === "number" ? a.position : Number.MAX_SAFE_INTEGER);
+      const bParentPos = typeof b?.parentTask?.position === "number"
+        ? b.parentTask.position
+        : (typeof b?.position === "number" ? b.position : Number.MAX_SAFE_INTEGER);
+      if (aParentPos !== bParentPos) return aParentPos - bParentPos;
+
+      // Within same parent, sort by subtask position
+      const aPos = typeof a?.position === "number" ? a.position : Number.MAX_SAFE_INTEGER;
+      const bPos = typeof b?.position === "number" ? b.position : Number.MAX_SAFE_INTEGER;
+      return aPos - bPos;
+    });
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;

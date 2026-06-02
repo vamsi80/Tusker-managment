@@ -619,7 +619,8 @@ export class TasksService {
         !opts.expandedProjectIds?.length &&
         hierarchyMode !== "parents" &&
         !isAdmin &&
-        opts.view_mode !== "list"
+        opts.view_mode !== "list" &&
+        opts.groupBy !== "status" // kanban always uses groupBy=status — let it reach KANBAN_OPTIMIZED_PARALLEL
       ) {
         strategy = "SAFETY_GUARD";
         return {
@@ -689,7 +690,7 @@ export class TasksService {
                 isRestrictedMember: !hasFullAccess,
               }),
               getTaskSelect(opts.view_mode, false, opts.extraFields),
-              buildOrderBy(opts.sorts, opts.view_mode),
+              buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
               200
             )) as any[];
 
@@ -788,7 +789,7 @@ export class TasksService {
             where,
             perStatusLimit,
             getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
-            buildOrderBy(opts.sorts, opts.view_mode)
+            buildOrderBy(opts.sorts, opts.view_mode, opts.projectId)
           )) as any[];
 
           const trueHasMore = tasks.length > perStatusLimit;
@@ -809,7 +810,7 @@ export class TasksService {
                   isAdmin,
                 }),
                 getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
-                buildOrderBy(opts.sorts, opts.view_mode),
+                buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
                 1000 // safe cap
               );
               tasks.forEach((parent: any) => {
@@ -835,7 +836,18 @@ export class TasksService {
                   [SORT_MAP[primarySort.field].dbField]:
                     lastTask[SORT_MAP[primarySort.field].dbField],
                 }
-                : { id: lastTask.id, createdAt: lastTask.createdAt }
+                : opts.view_mode === "kanban"
+                  ? {
+                      id: lastTask.id,
+                      position: (lastTask as any).position ?? null,
+                      parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
+                      parentTaskId: (lastTask as any).parentTask?.id ?? null,
+                      ...(!opts.projectId ? {
+                        projectId: (lastTask as any).project?.id ?? null,
+                        projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
+                      } : {}),
+                    }
+                  : { id: lastTask.id, createdAt: lastTask.createdAt }
               : null;
 
           const totalCount = await TaskRepository.countTasks(where);
@@ -937,7 +949,7 @@ export class TasksService {
               statusWhere,
               perStatusLimit,
               getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
-              buildOrderBy(opts.sorts, opts.view_mode)
+              buildOrderBy(opts.sorts, opts.view_mode, opts.projectId)
             );
           }),
         );
@@ -959,7 +971,7 @@ export class TasksService {
                 isAdmin,
               }),
               getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
-              buildOrderBy(opts.sorts, opts.view_mode),
+              buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
               1000
             )) as any[];
             tasks.forEach((parent: any) => {
@@ -999,7 +1011,18 @@ export class TasksService {
                     [SORT_MAP[primarySort.field].dbField]:
                       lastTask[SORT_MAP[primarySort.field].dbField],
                   }
-                  : { id: lastTask.id, createdAt: lastTask.createdAt }
+                  : opts.view_mode === "kanban"
+                    ? {
+                        id: lastTask.id,
+                        position: (lastTask as any).position ?? null,
+                        parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
+                        parentTaskId: (lastTask as any).parentTask?.id ?? null,
+                        ...(!opts.projectId ? {
+                          projectId: (lastTask as any).project?.id ?? null,
+                          projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
+                        } : {}),
+                      }
+                    : { id: lastTask.id, createdAt: lastTask.createdAt }
                 : null;
 
             tasksByStatus[status] = {
@@ -1095,15 +1118,19 @@ export class TasksService {
       ids: opts.ids,
     });
 
-    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
-    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
+    const primarySortField = opts.sorts?.[0]?.field;
+    const dbField = primarySortField ? SORT_MAP[primarySortField]?.dbField : null;
 
     const [rawTasks] = await Promise.all([
       TaskRepository.findMany(
         where,
-        getTaskSelect(opts.view_mode, true, opts.extraFields ? [...opts.extraFields, dbField] : [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
+        // position is already selected for list/gantt; only inject dbField for custom sorts
+        getTaskSelect(opts.view_mode, true, dbField ? (opts.extraFields ? [...opts.extraFields, dbField] : [dbField]) : opts.extraFields, subtaskFilter),
         opts.sorts,
-        limit
+        limit,
+        undefined,
+        opts.view_mode,
+        projectId,
       ),
     ]);
 
@@ -1122,11 +1149,11 @@ export class TasksService {
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
 
+    // Use position-based cursor to match position-ordered query
     const nextCursor: any = hasMore
-      ? {
-        id: lastTask.id,
-        [dbField]: lastTask[dbField],
-      }
+      ? dbField
+        ? { id: lastTask.id, [dbField]: lastTask[dbField] }          // custom sort
+        : { id: lastTask.id, position: (lastTask as any).position ?? null }  // default: position seek
       : null;
 
     return {
@@ -1294,7 +1321,7 @@ export class TasksService {
     // parent come in a single page. For normal mode, use the configured sort order.
     const orderByForQuery = isSubtaskFirstMode
       ? [{ parentTaskId: "asc" as const }, { id: "asc" as const }]
-      : buildOrderBy(opts.sorts, opts.view_mode);
+      : buildOrderBy(opts.sorts, opts.view_mode, opts.projectId);
 
     const rawMatches = (await TaskRepository.findTasksByWhere(
       matchWhere,
@@ -1449,11 +1476,16 @@ export class TasksService {
     const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
     const lastMatch = matches[matches.length - 1] as any;
 
+    const isWorkspaceListOrGantt = !opts.projectId && (opts.view_mode === "list" || opts.view_mode === "gantt");
     const nextCursor: any =
       hasMore && matches.length > 0
         ? {
           id: lastMatch.id,
           [dbField]: lastMatch[dbField],
+          ...(isWorkspaceListOrGantt ? {
+            position: (lastMatch as any).position ?? null,
+            projectCreatedAt: (lastMatch as any).project?.createdAt ?? null,
+          } : {}),
         }
         : null;
 
@@ -1560,7 +1592,10 @@ export class TasksService {
         where,
         getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, opts.extraFields ? [...opts.extraFields, (dbField || "createdAt")] : (dbField ? [dbField] : []), subtaskFilter),
         opts.sorts,
-        limit
+        limit,
+        undefined,
+        opts.view_mode,
+        opts.projectId,
       ),
     ]);
     const queryDuration = performance.now() - queryStartTime;
@@ -1575,6 +1610,7 @@ export class TasksService {
     if (hasMore) rawTasks.pop();
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
+    const isWsListOrGantt = !opts.projectId && (opts.view_mode === "list" || opts.view_mode === "gantt");
     const nextCursor: any =
       hasMore && lastTask
         ? primarySort && SORT_MAP[primarySort.field]
@@ -1583,7 +1619,9 @@ export class TasksService {
             [SORT_MAP[primarySort.field].dbField]:
               lastTask[SORT_MAP[primarySort.field].dbField],
           }
-          : { id: lastTask.id, createdAt: lastTask.createdAt }
+          : isWsListOrGantt
+            ? { id: lastTask.id, position: lastTask.position ?? null, projectCreatedAt: lastTask.project?.createdAt ?? null }
+            : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 
     const projectFacets: Record<string, number> = {};

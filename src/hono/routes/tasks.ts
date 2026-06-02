@@ -126,7 +126,8 @@ tasks.get("/", async (c) => {
   // Specific overrides for Kanban/Gantt
   if (view_mode === "kanban") {
     opts.groupBy = "status";
-    opts.sorts = [{ field: "createdAt", direction: "desc" }];
+    opts.sorts = [];
+    opts.excludeParents = true; // Show all leaf tasks (flat roots + subtasks), isParent=false
     opts.onlySubtasks = false; // Allow root tasks in Kanban if they have a status
 
     // 🎨 Hierarchy Support: Kanban is usually flat, but we allow
