@@ -2366,6 +2366,7 @@ export class TasksService {
 
     await TaskEvents.onDatesUpdated({
       taskId,
+      isSubTask: !!task.parentTaskId,
       projectId: project || "",
       workspaceId,
       userId,
@@ -2373,6 +2374,9 @@ export class TasksService {
       startDate: start,
       dueDate: end,
       days,
+      oldStartDate: task.startDate,
+      oldDueDate: task.dueDate,
+      oldDays: task.days,
     });
 
     return updated;

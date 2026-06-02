@@ -190,8 +190,8 @@ export async function recordActivity(options: RecordActivityOptions) {
       if (action === "WORKSPACE_UPDATED") actionLabel = "updated workspace info";
       if (action === "TASK_CREATED") actionLabel = `created a new task "${newData?.name || taskName || ''}"`;
       if (action === "SUBTASK_CREATED") actionLabel = `created a subtask "${newData?.name || taskName || ''}"`;
-      if (action === "TASK_DELETED") actionLabel = "deleted a task";
-      if (action === "SUBTASK_DELETED") actionLabel = "deleted a subtask";
+      if (action === "TASK_DELETED") actionLabel = `deleted the task "${oldData?.name || ''}"`;
+      if (action === "SUBTASK_DELETED") actionLabel = `deleted the subtask "${oldData?.name || ''}"`;
       
       if (action === "SUBTASK_UPDATED" || action === "TASK_UPDATED") {
         const delta = oldData && newData ? calculateDelta(oldData, newData) : null;
@@ -202,16 +202,22 @@ export async function recordActivity(options: RecordActivityOptions) {
           actionLabel = `updated status of ${namePart} from ${fromLabel} to ${toLabel}`;
         } else if (delta?.startDate || delta?.dueDate) {
           const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
-          actionLabel = `updated dates for ${namePart}`;
+          const fmt = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+          const startStr = newData?.startDate !== undefined ? fmt(newData.startDate) : (oldData?.startDate ? fmt(oldData.startDate) : "—");
+          const dueStr = newData?.dueDate !== undefined ? fmt(newData.dueDate) : (oldData?.dueDate ? fmt(oldData.dueDate) : "—");
+          actionLabel = `updated dates for ${namePart}: start ${startStr}, due ${dueStr}`;
         } else if (delta?.assigneeId) {
           const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
-          actionLabel = `reassigned the task ${namePart}`;
+          const newName = newData?.assigneeName || "someone";
+          actionLabel = `reassigned ${namePart} to ${newName}`;
         } else if (delta?.name) {
-          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
-          actionLabel = `renamed the task ${namePart}`;
+          const oldName = oldData?.name || "task";
+          const newName = newData?.name || "";
+          actionLabel = `renamed "${oldName}" to "${newName}"`;
         } else if (delta?.reviewerId) {
           const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
-          actionLabel = `updated the reviewer of ${namePart}`;
+          const newName = newData?.reviewerName || "someone";
+          actionLabel = `updated reviewer of ${namePart} to ${newName}`;
         } else {
           const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
           actionLabel = `updated the ${entityType === "SUBTASK" ? "subtask" : "task"} ${namePart}`;

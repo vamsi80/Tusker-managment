@@ -90,10 +90,11 @@ export function NotificationListItem({ notif, isRead, isActive, onClick }: Notif
 
         {/* Snippet preview */}
         <p className={cn(
-          "text-xs line-clamp-1 italic",
+          "text-xs line-clamp-1",
+          (notif.type === "comment" || notif.type === "activity" || notif.type === "DM_MESSAGE") && "italic",
           isActive ? "text-primary-foreground/80" : "text-muted-foreground"
         )}>
-          {notif.type === "TASK_CREATED" || notif.type === "SUBTASK_CREATED" ? commentText : `"${commentText}"`}
+          {notif.type === "comment" || notif.type === "activity" || notif.type === "DM_MESSAGE" ? `"${commentText}"` : commentText}
         </p>
 
         {/* Timestamp */}

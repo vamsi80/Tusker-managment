@@ -52,12 +52,13 @@ export function NotificationList() {
   const filteredRead = filterList(readNotifications);
 
   const handleSelectNotif = (notif: any) => {
+    const targetId = notif.id || notif.taskId;
     // If notif is in unread notifications, mark it read
     if (notif.isNew !== false) {
-      markRead(notif.taskId);
+      markRead(targetId);
     }
     // Navigate to detail page
-    router.push(`/w/${workspaceId}/notifications/${notif.taskId}`);
+    router.push(`/w/${workspaceId}/notifications/${targetId}`);
   };
 
   return (
@@ -134,9 +135,9 @@ export function NotificationList() {
               <div className="flex flex-col">
                 {filteredUnread.map((notif, index) => (
                   <NotificationListItem
-                    key={`${notif.taskId}-${notif.type}-${index}`}
+                    key={`${notif.id || notif.taskId}-${notif.type}-${index}`}
                     notif={notif}
-                    isActive={notificationId === notif.taskId}
+                    isActive={notificationId === (notif.id || notif.taskId)}
                     onClick={() => handleSelectNotif(notif)}
                   />
                 ))}
@@ -157,10 +158,10 @@ export function NotificationList() {
               <div className="flex flex-col">
                 {filteredRead.map((notif, index) => (
                   <NotificationListItem
-                    key={`${notif.taskId}-${notif.type}-${index}`}
+                    key={`${notif.id || notif.taskId}-${notif.type}-${index}`}
                     notif={notif}
                     isRead
-                    isActive={notificationId === notif.taskId}
+                    isActive={notificationId === (notif.id || notif.taskId)}
                     onClick={() => handleSelectNotif(notif)}
                   />
                 ))}

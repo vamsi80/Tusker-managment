@@ -1,6 +1,33 @@
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { recordActivity } from "@/lib/audit";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
+import prisma from "@/lib/db";
+
+async function getMemberName(memberId: string | null): Promise<string | null> {
+  if (!memberId) return null;
+  try {
+    const member = await prisma.projectMember.findUnique({
+      where: { id: memberId },
+      select: {
+        workspaceMember: {
+          select: {
+            user: {
+              select: {
+                name: true,
+                surname: true,
+              }
+            }
+          }
+        }
+      }
+    });
+    const user = member?.workspaceMember?.user;
+    return user ? (user.surname || user.name || null) : null;
+  } catch (e) {
+    console.error("[TASK_EVENTS] Failed to get member name:", e);
+    return null;
+  }
+}
 
 /**
  * TaskEvents — side effects that happen after a task mutation.
@@ -92,6 +119,27 @@ export class TaskEvents {
     });
 
     try {
+      const enrichedOldData = { ...opts.oldData };
+      const enrichedNewData = { ...opts.newData };
+
+      if (opts.oldData.assigneeId !== undefined || opts.newData.assigneeId !== undefined) {
+        if (opts.oldData.assigneeId) {
+          enrichedOldData.assigneeName = await getMemberName(opts.oldData.assigneeId);
+        }
+        if (opts.newData.assigneeId) {
+          enrichedNewData.assigneeName = await getMemberName(opts.newData.assigneeId);
+        }
+      }
+
+      if (opts.oldData.reviewerId !== undefined || opts.newData.reviewerId !== undefined) {
+        if (opts.oldData.reviewerId) {
+          enrichedOldData.reviewerName = await getMemberName(opts.oldData.reviewerId);
+        }
+        if (opts.newData.reviewerId) {
+          enrichedNewData.reviewerName = await getMemberName(opts.newData.reviewerId);
+        }
+      }
+
       await recordActivity({
         userId: opts.userId,
         userName: opts.userName,
@@ -99,8 +147,8 @@ export class TaskEvents {
         action: opts.isSubTask ? "SUBTASK_UPDATED" : "TASK_UPDATED",
         entityType: opts.isSubTask ? "SUBTASK" : "TASK",
         entityId: opts.taskId,
-        oldData: opts.oldData,
-        newData: opts.newData,
+        oldData: enrichedOldData,
+        newData: enrichedNewData,
         broadcastEvent: "team_update",
         targetUserIds: await getTaskInvolvedUserIds(opts.taskId),
       });
@@ -212,6 +260,8 @@ export class TaskEvents {
     });
 
     const targetUserIds = await getTaskInvolvedUserIds(opts.taskId);
+    const oldAssigneeName = opts.oldAssigneeId ? await getMemberName(opts.oldAssigneeId) : null;
+    const newAssigneeName = opts.newAssigneeId ? await getMemberName(opts.newAssigneeId) : null;
 
     await Promise.all([
       recordActivity({
@@ -221,8 +271,8 @@ export class TaskEvents {
         action: opts.isSubTask ? "SUBTASK_UPDATED" : "TASK_UPDATED",
         entityType: opts.isSubTask ? "SUBTASK" : "TASK",
         entityId: opts.taskId,
-        oldData: { assigneeId: opts.oldAssigneeId },
-        newData: { assigneeId: opts.newAssigneeId },
+        oldData: { assigneeId: opts.oldAssigneeId, assigneeName: oldAssigneeName },
+        newData: { assigneeId: opts.newAssigneeId, assigneeName: newAssigneeName },
         broadcastEvent: "team_update",
         targetUserIds,
       }),
@@ -248,6 +298,7 @@ export class TaskEvents {
 
   static async onDatesUpdated(opts: {
     taskId: string;
+    isSubTask: boolean;
     projectId: string;
     workspaceId: string;
     userId: string;
@@ -255,6 +306,9 @@ export class TaskEvents {
     startDate: Date;
     dueDate: Date;
     days: number;
+    oldStartDate?: Date | null;
+    oldDueDate?: Date | null;
+    oldDays?: number | null;
   }) {
     await invalidateTaskMutation({
       projectId: opts.projectId,
@@ -268,10 +322,19 @@ export class TaskEvents {
         userId: opts.userId,
         userName: opts.userName,
         workspaceId: opts.workspaceId,
-        action: "TASK_UPDATED",
-        entityType: "TASK",
+        action: opts.isSubTask ? "SUBTASK_UPDATED" : "TASK_UPDATED",
+        entityType: opts.isSubTask ? "SUBTASK" : "TASK",
         entityId: opts.taskId,
-        newData: { startDate: opts.startDate, dueDate: opts.dueDate, days: opts.days },
+        oldData: {
+          startDate: opts.oldStartDate,
+          dueDate: opts.oldDueDate,
+          days: opts.oldDays
+        },
+        newData: {
+          startDate: opts.startDate,
+          dueDate: opts.dueDate,
+          days: opts.days
+        },
         broadcastEvent: "team_update",
         targetUserIds: await getTaskInvolvedUserIds(opts.taskId),
       });

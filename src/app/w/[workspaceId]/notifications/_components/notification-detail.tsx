@@ -11,6 +11,11 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { toast } from "sonner";
 import { Loader2, MessageSquare } from "lucide-react";
+import { useNotifications } from "./notifications-context";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
+import { cn, toTitleCase } from "@/lib/utils";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -18,6 +23,9 @@ interface NotificationDetailProps {
 
 export function NotificationDetail({ notificationId }: NotificationDetailProps) {
   const { data: workspaceData, workspaceId } = useWorkspaceLayout();
+  const { unreadNotifications, readNotifications } = useNotifications();
+  const allNotifs = [...unreadNotifications, ...readNotifications];
+  const matchedNotif = allNotifs.find(n => n.id === notificationId || n.taskId === notificationId);
 
   const [task, setTask] = useState<any | null>(null);
   const [isTaskLoading, setIsTaskLoading] = useState(true);
@@ -61,8 +69,9 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     const fetchTask = async () => {
       if (!workspaceId || !notificationId) return;
       setIsTaskLoading(true);
+      const targetId = matchedNotif?.taskId || notificationId;
       try {
-        const res = await apiClient.tasks.getTaskBySlug(workspaceId, notificationId);
+        const res = await apiClient.tasks.getTaskBySlug(workspaceId, targetId);
         if (active) {
           if (res && res.data) {
             setTask(res.data);
@@ -82,7 +91,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     return () => {
       active = false;
     };
-  }, [workspaceId, notificationId]);
+  }, [workspaceId, notificationId, matchedNotif?.taskId]);
 
   // 2. Fetch Project Members once we have task details
   useEffect(() => {
@@ -194,6 +203,57 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
   }
 
   if (!task) {
+    if (matchedNotif) {
+      const commenterUser = matchedNotif.latestComment?.user || {};
+      const commenterName = commenterUser.surname || commenterUser.name || "System";
+      const content = matchedNotif.latestComment?.content || "";
+      const createdAt = matchedNotif.latestComment?.createdAt ? new Date(matchedNotif.latestComment.createdAt) : new Date();
+
+      return (
+        <div className="flex flex-col h-full bg-background overflow-hidden p-6 space-y-6">
+          <div className="flex flex-col gap-2">
+            {/* Project / Type Breadcrumb */}
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
+                {matchedNotif.projectName || "System"}
+              </Badge>
+              <span className="text-muted-foreground/40 text-[10px] font-bold">/</span>
+              <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest truncate">
+                {toTitleCase(matchedNotif.type?.replace(/_/g, " ") || "Notification")}
+              </span>
+            </div>
+
+            {/* Notification Title */}
+            <h2 className="text-xl sm:text-2xl font-medium break-words leading-tight text-foreground">
+              {toTitleCase(matchedNotif.taskName || "Notification Details")}
+            </h2>
+          </div>
+
+          <div className="border-t pt-6 flex-1 flex flex-col gap-4">
+            <div className="flex gap-3 items-start p-4 rounded-xl bg-muted/30 border border-muted/50">
+              <Avatar className="size-10 shrink-0">
+                <AvatarImage src={commenterUser.image} />
+                <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                  {commenterName[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">{commenterName}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatDistanceToNow(createdAt, { addSuffix: true })}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                  {content}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4">
         <div className="size-16 rounded-full bg-primary/5 flex items-center justify-center text-primary/30">

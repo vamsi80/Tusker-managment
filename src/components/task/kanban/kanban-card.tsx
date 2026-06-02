@@ -449,12 +449,12 @@ export const KanbanCard = React.memo(function KanbanCard({
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "flex items-center gap-1.5 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-full transition-colors border bg-muted/30",
+                          "flex items-center gap-1.5 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-full transition-colors border bg-muted/30 max-w-[90px] min-w-0",
                           delayStyles.borderColor
                         )}
                       >
-                        <div className={cn("size-2 rounded-full", delayStyles.dotColor)} />
-                        <span className={delayStyles.color}>
+                        <div className={cn("size-2 rounded-full shrink-0", delayStyles.dotColor)} />
+                        <span className={cn(delayStyles.color, "truncate")}>
                           {delayText}
                         </span>
                       </div>

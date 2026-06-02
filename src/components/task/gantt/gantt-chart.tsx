@@ -54,6 +54,7 @@ export function GanttChart({
     onSubtaskClick,
     onSubTaskUpdate,
     projects,
+    selectedProjectId,
     groupByProject = false,
     projectCounts,
     members,
@@ -138,23 +139,46 @@ export function GanttChart({
         const groups = new Map<string, { name: string; tasks: GanttTask[]; color?: string }>();
         const noProjectTasks: GanttTask[] = [];
 
+        // Initialize groups with all projects from the projects list, optionally filtered by selectedProjectId
+        const targetProjects = selectedProjectId
+            ? projects?.filter(p => p.id === selectedProjectId)
+            : projects;
+
+        targetProjects?.forEach(project => {
+            groups.set(project.id, {
+                name: project.name,
+                color: project.color,
+                tasks: []
+            });
+        });
+
         tasks.forEach(task => {
             if (task.projectId) {
-                if (!groups.has(task.projectId)) {
+                if (groups.has(task.projectId)) {
+                    groups.get(task.projectId)!.tasks.push(task);
+                } else if (!selectedProjectId) {
                     const projectFromMap = projectMap.get(task.projectId);
                     groups.set(task.projectId, {
                         name: projectFromMap?.name || "Unknown Project",
                         color: projectFromMap?.color,
-                        tasks: []
+                        tasks: [task]
                     });
                 }
-                groups.get(task.projectId)!.tasks.push(task);
-            } else {
+            } else if (!selectedProjectId) {
                 noProjectTasks.push(task);
             }
         });
 
         const allGroups = Array.from(groups.entries());
+
+        // Sort allGroups by project's createdAt (ASC) to match the list view order
+        allGroups.sort(([aId], [bId]) => {
+            const projectA = projectMap.get(aId);
+            const projectB = projectMap.get(bId);
+            const timeA = projectA?.createdAt ? new Date(projectA.createdAt).getTime() : 0;
+            const timeB = projectB?.createdAt ? new Date(projectB.createdAt).getTime() : 0;
+            return timeA - timeB;
+        });
 
         const paginatedGroups = allGroups.map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
@@ -175,7 +199,7 @@ export function GanttChart({
             hasMoreProjects: hasMore,
             noProjectTasks: noProjectTasks
         };
-    }, [tasks, groupByProject, projects, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
+    }, [tasks, groupByProject, projects, selectedProjectId, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
 
     const visibleFlatTasks = useMemo(() => {
         if (groupByProject) return [];
@@ -552,4 +576,3 @@ export function GanttChart({
         </div>
     );
 }
-
