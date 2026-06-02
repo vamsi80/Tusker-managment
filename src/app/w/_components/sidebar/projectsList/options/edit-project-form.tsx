@@ -41,7 +41,7 @@ import {
     CommandInput,
     CommandItem,
 } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { projectsClient } from "@/lib/api-client/projects";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -394,7 +394,7 @@ export const EditProjectForm = ({
                                                                     const t = layoutData?.tags?.find((tag: any) => tag.id === id);
                                                                     return (
                                                                         <Badge key={id} variant="secondary" className="px-1 font-normal">
-                                                                            {t?.name || "Tag"}
+                                                                            {toTitleCase(t?.name) || "Tag"}
                                                                         </Badge>
                                                                     );
                                                                 })
@@ -409,7 +409,6 @@ export const EditProjectForm = ({
                                                     <Command>
                                                         <CommandInput placeholder="Search tags..." />
                                                         <CommandEmpty>No tags found.</CommandEmpty>
-
                                                             <CommandGroup className="max-h-64 overflow-y-auto">
                                                                 {(layoutData?.tags || []).map((t: any) => {
                                                                     const isSelected = field.value?.includes(t.id);
@@ -432,7 +431,7 @@ export const EditProjectForm = ({
                                                                             )}>
                                                                                 <Check className="size-4" />
                                                                             </div>
-                                                                            {t.name}
+                                                                            {toTitleCase(t.name)}
                                                                         </CommandItem>
                                                                     );
                                                                 })}
@@ -477,4 +476,3 @@ export const EditProjectForm = ({
         </Dialog>
     );
 };
-

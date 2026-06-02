@@ -47,7 +47,7 @@ import {
     Briefcase,
     Info,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 import Link from "next/link";
 
@@ -464,7 +464,7 @@ export default function EditProjectPage() {
                                                                 {field.value && field.value.length > 0 ? (
                                                                     field.value.map(id => (
                                                                         <Badge key={id} variant="outline" className="bg-primary/5">
-                                                                            {layoutData?.tags?.find((t: any) => t.id === id)?.name || "Tag"}
+                                                                            {toTitleCase(layoutData?.tags?.find((t: any) => t.id === id)?.name) || "Tag"}
                                                                         </Badge>
                                                                     ))
                                                                 ) : (
@@ -493,7 +493,7 @@ export default function EditProjectPage() {
                                                                             }}
                                                                         >
                                                                             <Check className={cn("mr-2 size-4", isSelected ? "opacity-100" : "opacity-0")} />
-                                                                            {t.name}
+                                                                            {toTitleCase(t.name)}
                                                                         </CommandItem>
                                                                     );
                                                                 })}

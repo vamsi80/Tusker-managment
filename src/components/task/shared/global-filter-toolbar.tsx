@@ -8,7 +8,7 @@ import { getStatusColors } from "@/lib/colors/status-colors";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { formatIST } from "@/lib/utils";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
@@ -135,7 +135,7 @@ export function GlobalFilterToolbar({
             if (tag) {
                 return {
                     ...filter,
-                    value: tag.name
+                    value: toTitleCase(tag.name)
                 };
             }
         }

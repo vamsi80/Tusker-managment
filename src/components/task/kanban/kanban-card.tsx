@@ -20,7 +20,7 @@ import {
   Tag,
 } from "lucide-react";
 import type { KanbanSubTaskType } from "@/types/task";
-import { cn, formatIST } from "@/lib/utils";
+import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import {
@@ -491,7 +491,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <div className="flex items-center gap-1">
                   <div className="flex items-center gap-0.5 bg-muted/50 px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground border border-border/50 max-w-[80px]">
                     <Tag className="size-2.5 shrink-0" />
-                    <span className="truncate">{subTask.tags[0].name}</span>
+                    <span className="truncate">{toTitleCase(subTask.tags[0].name)}</span>
                   </div>
                   {subTask.tags.length > 1 && (
                     <div className="bg-primary/10 text-primary px-1 py-0.5 rounded text-[8px] font-bold border border-primary/20 shrink-0">

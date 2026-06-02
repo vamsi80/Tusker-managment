@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Check, ChevronsUpDown, X, Plus, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -68,11 +68,12 @@ export function MultiSelectTags({
   const handleAddOrCreateTag = async (tagName: string, isCreate: boolean) => {
     if (!workspaceId || !projectId || isProcessing) return;
     setIsProcessing(true);
+    const formattedTagName = toTitleCase(tagName);
     try {
       const response = await apiFetch<{ success: boolean; data: any }>("/workspace-tags", {
         method: "POST",
         body: JSON.stringify({
-          name: tagName,
+          name: formattedTagName,
           workspaceId,
           projectId,
         }),
@@ -87,7 +88,7 @@ export function MultiSelectTags({
         // Add to selected tags
         onChange([...selected, newTag.id]);
         
-        toast.success(isCreate ? `Tag "${tagName}" created & added to project` : `Tag "${tagName}" added to project`);
+        toast.success(isCreate ? `Tag "${formattedTagName}" created & added to project` : `Tag "${formattedTagName}" added to project`);
         setSearch("");
       } else {
         toast.error("Failed to process tag");
@@ -156,7 +157,7 @@ export function MultiSelectTags({
                       "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-transparent border"
                     )}
                   >
-                    <span className="text-[10px] font-medium truncate">{selectedOptions[0].name}</span>
+                    <span className="text-[10px] font-medium truncate">{toTitleCase(selectedOptions[0].name)}</span>
                     <div
                       role="button"
                       tabIndex={0}
@@ -245,7 +246,7 @@ export function MultiSelectTags({
                             )}
                           />
                         </div>
-                        <span className="flex-1">{option.name}</span>
+                        <span className="flex-1">{toTitleCase(option.name)}</span>
                       </CommandItem>
                     );
                   })}
@@ -270,7 +271,7 @@ export function MultiSelectTags({
                         <Plus className="size-4" />
                       )}
                       <span className="flex-1 text-sm font-medium">
-                        Add to project: "{tag.name}"
+                        Add to project: "{toTitleCase(tag.name)}"
                       </span>
                     </CommandItem>
                   ))}
@@ -293,7 +294,7 @@ export function MultiSelectTags({
                       <Plus className="size-4" />
                     )}
                     <span className="flex-1 text-sm font-medium">
-                      Create tag: "{searchTrimmed}"
+                      Create tag: "{toTitleCase(searchTrimmed)}"
                     </span>
                   </CommandItem>
                 </CommandGroup>

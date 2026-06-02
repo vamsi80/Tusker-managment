@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { formatDate } from "@/components/task/gantt/utils";
 import { ColumnVisibility } from "../../shared/column-visibility";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -207,11 +207,11 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     <div className="flex items-center gap-1">
                         {task.tags && task.tags.length > 0 ? (
                             <>
-                                <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={task.tags[0].name}>
-                                    {task.tags[0].name}
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={toTitleCase(task.tags[0].name)}>
+                                    {toTitleCase(task.tags[0].name)}
                                 </Badge>
                                 {task.tags.length > 1 && (
-                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags.slice(1).map((t: any) => t.name).join(", ")}>
+                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags.slice(1).map((t: any) => toTitleCase(t.name)).join(", ")}>
                                         +{task.tags.length - 1}
                                     </Badge>
                                 )}
