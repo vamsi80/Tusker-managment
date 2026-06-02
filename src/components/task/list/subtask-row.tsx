@@ -11,7 +11,7 @@ import { CornerDownRight, GripVertical, Calendar, MoreHorizontal } from "lucide-
 import type { SubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatDateUTC, formatIST } from "@/lib/utils";
+import { cn, formatDateUTC, formatIST, toTitleCase } from "@/lib/utils";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
@@ -434,11 +434,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                         <div className="flex items-center gap-1">
                             {subTask.tags && (subTask.tags as any[]).length > 0 ? (
                                 <>
-                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={(subTask.tags as any[])[0].name}>
-                                        {(subTask.tags as any[])[0].name}
+                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={toTitleCase((subTask.tags as any[])[0].name)}>
+                                        {toTitleCase((subTask.tags as any[])[0].name)}
                                     </Badge>
                                     {(subTask.tags as any[]).length > 1 && (
-                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={(subTask.tags as any[]).slice(1).map(t => t.name).join(", ")}>
+                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={(subTask.tags as any[]).slice(1).map(t => toTitleCase(t.name)).join(", ")}>
                                             +{(subTask.tags as any[]).length - 1}
                                         </Badge>
                                     )}

@@ -2,7 +2,7 @@
 
 import slugify from "slugify";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { useTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { tryCatch } from "@/hooks/try-catch";
@@ -421,7 +421,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                         const t = layoutData?.tags?.find((tag: any) => tag.id === id);
                                                                         return (
                                                                             <Badge key={id} variant="secondary" className="px-1 font-normal">
-                                                                                {t?.name || "Tag"}
+                                                                                {toTitleCase(t?.name) || "Tag"}
                                                                             </Badge>
                                                                         );
                                                                     })
@@ -459,7 +459,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                                 )}>
                                                                                     <Check className="size-4" />
                                                                                 </div>
-                                                                                {t.name}
+                                                                                {toTitleCase(t.name)}
                                                                             </CommandItem>
                                                                         );
                                                                     })}

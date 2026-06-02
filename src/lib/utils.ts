@@ -19,6 +19,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Converts a string to Title Case (first letter of each word capitalised, rest lowercase).
+ * Example: "RCC SLAB WORK" → "Rcc Slab Work", "concrete mix" → "Concrete Mix"
+ */
+export function toTitleCase(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/(?:^|\s)\S/g, (match) => match.toUpperCase());
+}
+
+/**
  * Formats a date string or object as d MMM yyyy using UTC components.
  * This prevents 1-day shifts caused by local timezone offsets.
  */

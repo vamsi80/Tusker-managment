@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
-import { cn, formatIST } from "@/lib/utils";
+import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo, useState, useEffect } from "react";
 
@@ -181,7 +181,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                         {subTask.tags && subTask.tags.length > 0 ? (
                                             subTask.tags.slice(0, 2).map(t => (
                                                 <Badge key={t.id} variant="secondary" className="rounded-md text-[8px] font-bold bg-primary/5 text-primary border-none px-1 h-3.5">
-                                                    {t.name}
+                                                    {toTitleCase(t.name)}
                                                 </Badge>
                                             ))
                                         ) : (
