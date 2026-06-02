@@ -137,12 +137,11 @@ export const commentsClient = {
   getNotifications: async (
     workspaceId: string,
     limit: number = 25,
-    offset: number = 0
+    cursor?: string
   ): Promise<CommentActionResponse> => {
     try {
-      const data = await apiFetch<any>(
-        `/comments/notifications/${workspaceId}?limit=${limit}&offset=${offset}`
-      );
+      const url = `/comments/notifications/${workspaceId}?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+      const data = await apiFetch<any>(url);
       return { data: data.data };
     } catch (error: any) {
       return { error: { message: error.message || "Failed to fetch notifications" } };
@@ -163,6 +162,23 @@ export const commentsClient = {
       return { success: true };
     } catch (error: any) {
       return { success: false, error: { message: error.message || "Failed to mark as read" } };
+    }
+  },
+
+  /**
+   * Mark all notifications in workspace as read
+   */
+  markAllAsRead: async (workspaceId: string): Promise<CommentActionResponse> => {
+    try {
+      await apiFetch<{ success: boolean; message: string }>(
+        `/comments/notifications/${workspaceId}/mark-all-read`,
+        {
+          method: "POST",
+        }
+      );
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: { message: error.message || "Failed to mark all as read" } };
     }
   },
 };

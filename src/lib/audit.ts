@@ -160,31 +160,61 @@ export async function recordActivity(options: RecordActivityOptions) {
       const userName = providedName;
       let actionLabel = action.replace(/_/g, " ").toLowerCase();
 
-      // Refine label... (omitted for brevity in replace call, but keeping all existing refinement logic)
+      // Fetch task name dynamically for task-related events to enrich messages
+      let taskName = "";
+      if (entityId && (entityType === "TASK" || entityType === "SUBTASK")) {
+        try {
+          const task = await prisma.task.findUnique({
+            where: { id: entityId },
+            select: { name: true }
+          });
+          if (task) {
+            taskName = task.name;
+          }
+        } catch (err) {
+          console.error("[AUDIT] Failed to fetch task name for activity message:", err);
+        }
+      }
+
+      const formatStatus = (s: string) => {
+        if (!s) return "unknown";
+        return s
+          .toLowerCase()
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, c => c.toUpperCase());
+      };
+
       if (action === "MEMBER_INVITED") actionLabel = "invited a new member";
       if (action === "MEMBER_REMOVED") actionLabel = "removed a member";
       if (action === "MEMBER_UPDATED") actionLabel = "updated a member's role";
       if (action === "WORKSPACE_UPDATED") actionLabel = "updated workspace info";
-      if (action === "TASK_CREATED") actionLabel = "created a new task";
-      if (action === "TASK_UPDATED") actionLabel = "updated a task";
+      if (action === "TASK_CREATED") actionLabel = `created a new task "${newData?.name || taskName || ''}"`;
+      if (action === "SUBTASK_CREATED") actionLabel = `created a subtask "${newData?.name || taskName || ''}"`;
       if (action === "TASK_DELETED") actionLabel = "deleted a task";
-      if (action === "SUBTASK_CREATED") actionLabel = "created a subtask";
       if (action === "SUBTASK_DELETED") actionLabel = "deleted a subtask";
-      if (action === "SUBTASK_UPDATED") {
+      
+      if (action === "SUBTASK_UPDATED" || action === "TASK_UPDATED") {
         const delta = oldData && newData ? calculateDelta(oldData, newData) : null;
         if (delta?.status) {
-          const statusLabel = delta.status.to.replace(/_/g, " ");
-          actionLabel = `updated status to ${statusLabel}`;
+          const fromLabel = formatStatus(delta.status.from);
+          const toLabel = formatStatus(delta.status.to);
+          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          actionLabel = `updated status of ${namePart} from ${fromLabel} to ${toLabel}`;
         } else if (delta?.startDate || delta?.dueDate) {
-          actionLabel = "updated task dates";
+          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          actionLabel = `updated dates for ${namePart}`;
         } else if (delta?.assigneeId) {
-          actionLabel = "reassigned the task";
+          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          actionLabel = `reassigned the task ${namePart}`;
         } else if (delta?.name) {
-          actionLabel = "renamed the task";
+          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          actionLabel = `renamed the task ${namePart}`;
         } else if (delta?.reviewerId) {
-          actionLabel = "updated the reviewer";
+          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          actionLabel = `updated the reviewer of ${namePart}`;
         } else {
-          actionLabel = "updated the task";
+          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          actionLabel = `updated the ${entityType === "SUBTASK" ? "subtask" : "task"} ${namePart}`;
         }
       }
       if (action === "COMMENT_CREATED") actionLabel = "added a comment";
