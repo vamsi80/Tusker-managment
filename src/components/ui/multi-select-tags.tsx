@@ -140,49 +140,55 @@ export function MultiSelectTags({
             aria-expanded={open}
             aria-controls="tags-listbox"
             className={cn(
-              "w-full justify-between h-auto min-h-8 py-1 px-2 transition-all duration-200",
+              "w-full justify-between h-8 py-0 px-2 transition-all duration-200",
               "border border-muted-foreground/20 hover:border-primary/50 hover:bg-accent/50",
               "focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-primary/30",
               open && "border-primary/50 ring-1 ring-primary/30 bg-accent/50"
             )}
           >
-            <div className="flex flex-wrap gap-1.5 items-center">
+            <div className="flex items-center gap-1 max-w-[140px] overflow-hidden">
               {selectedOptions.length > 0 ? (
-                selectedOptions.map((option) => (
+                <>
                   <Badge
-                    key={option.id}
                     variant="secondary"
                     className={cn(
-                      "group flex items-center gap-1 pl-2 pr-1 py-0.5 transition-all duration-200",
-                      "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-transparent",
-                      "animate-in fade-in zoom-in-95 duration-200"
+                      "group flex items-center gap-1 pl-1.5 pr-1 py-0.5 transition-all duration-200 truncate max-w-[90px] shrink-0",
+                      "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-transparent border"
                     )}
                   >
-                    <span className="text-[11px] font-medium">{option.name}</span>
+                    <span className="text-[10px] font-medium truncate">{selectedOptions[0].name}</span>
                     <div
                       role="button"
                       tabIndex={0}
-                      className="rounded-full hover:bg-black/10 dark:hover:bg-white/20 p-0.5 transition-colors cursor-pointer"
+                      className="rounded-full hover:bg-black/10 dark:hover:bg-white/20 p-0.5 transition-colors cursor-pointer shrink-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleUnselect(option.id);
+                        handleUnselect(selectedOptions[0].id);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.stopPropagation();
-                          handleUnselect(option.id);
+                          handleUnselect(selectedOptions[0].id);
                         }
                       }}
                     >
                       <X className="size-2.5" />
                     </div>
                   </Badge>
-                ))
+                  {selectedOptions.length > 1 && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-muted text-muted-foreground hover:bg-muted border-transparent text-[10px] font-medium px-1 py-0.5 shrink-0"
+                    >
+                      +{selectedOptions.length - 1}
+                    </Badge>
+                  )}
+                </>
               ) : (
-                <span className="text-muted-foreground/60 text-xs">{placeholder}</span>
+                <span className="text-muted-foreground/60 text-xs truncate">{placeholder}</span>
               )}
             </div>
-            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+            <ChevronsUpDown className="ml-1.5 size-4 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
           </Button>
         </PopoverTrigger>
         <PopoverContent 

@@ -31,7 +31,6 @@ interface InlineSubTaskFormProps {
     parentTaskId: string;
     members: ProjectMembersType;
     tags?: { id: string; name: string; }[];
-    defaultTagIds?: string[]; // NEW: Project tags to auto-select
     columnVisibility: ColumnVisibility;
     onCancel: () => void;
     onSubTaskCreated?: (subTask: any, tempId?: string) => void;
@@ -53,7 +52,6 @@ export function InlineSubTaskForm({
     parentTaskId,
     members,
     tags = [],
-    defaultTagIds,
     columnVisibility,
     onCancel,
     onSubTaskCreated,
@@ -80,7 +78,7 @@ export function InlineSubTaskForm({
         (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
     );
     const [tagIds, setTagIds] = useState<string[]>(
-        subTask?.tags?.map(t => t.id) || defaultTagIds || []
+        subTask?.tags?.map(t => t.id) || []
     );
     const [days, setDays] = useState<number>(subTask?.days || 1);
     const [localTags, setLocalTags] = useState(tags);
@@ -530,7 +528,7 @@ export function InlineSubTaskForm({
             )}
 
             {columnVisibility.tag && (
-                <TableCell className="w-[180px] max-w-[180px] px-2">
+                <TableCell className="w-[160px] min-w-[160px] max-w-[160px] px-2">
                     <MultiSelectTags
                         options={localTags}
                         selected={tagIds}
@@ -544,7 +542,7 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            <TableCell className="w-[80px] px-2">
+            <TableCell className="w-[80px] min-w-[80px] max-w-[80px] px-2">
                 <div className="flex items-center justify-center gap-0.5">
                     {subTaskName.trim().length >= 3 && (
                         <Button

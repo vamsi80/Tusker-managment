@@ -34,7 +34,6 @@ interface SubTaskRowProps {
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     tags?: { id: string; name: string; }[];
-    defaultTagIds?: string[]; // NEW: Project tags
     isSelected?: boolean;
     onSelectChange?: (checked: boolean) => void;
     permissions?: UserPermissionsType;
@@ -57,7 +56,6 @@ export const SubTaskRow = memo(function SubTaskRow({
     onSubTaskUpdated,
     onSubTaskDeleted,
     tags = [],
-    defaultTagIds,
     permissions,
     userId,
     isWorkspaceAdmin,
@@ -239,7 +237,6 @@ export const SubTaskRow = memo(function SubTaskRow({
                 parentTaskId={parentTaskId}
                 members={members}
                 tags={tags}
-                defaultTagIds={defaultTagIds}
                 columnVisibility={columnVisibility}
                 onCancel={() => setIsEditing(false)}
                 onSubTaskUpdated={(subTaskId, updatedData) => {

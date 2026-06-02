@@ -50,7 +50,6 @@ interface SubTaskListProps {
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
     tags?: { id: string; name: string; }[];
-    defaultTagIds?: string[]; // NEW: Project scoped tag IDs to auto-select
     permissions?: UserPermissionsType;
     userId?: string;
     isWorkspaceAdmin?: boolean;
@@ -80,7 +79,6 @@ export function SubTaskList({
     onSelectSubTask,
     level = "project",
     tags = [],
-    defaultTagIds,
     permissions,
     userId,
     isWorkspaceAdmin,
@@ -210,7 +208,6 @@ export function SubTaskList({
                             parentTaskId={task.id}
                             members={members}
                             tags={tags}
-                            defaultTagIds={defaultTagIds}
                             columnVisibility={columnVisibility}
                             userId={userId}
                             onCancel={() => setShowInlineSubTaskForm(false)}
@@ -265,7 +262,6 @@ export function SubTaskList({
                             onSubTaskUpdated={onSubTaskUpdated}
                             onSubTaskDeleted={onSubTaskDeleted}
                             tags={tags}
-                            defaultTagIds={defaultTagIds}
                             permissions={permissions}
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
@@ -297,7 +293,6 @@ export function SubTaskList({
                         parentTaskId={task.id}
                         members={members}
                         tags={tags}
-                        defaultTagIds={defaultTagIds}
                         columnVisibility={columnVisibility}
                         userId={userId}
                         onCancel={() => setShowInlineSubTaskForm(false)}
