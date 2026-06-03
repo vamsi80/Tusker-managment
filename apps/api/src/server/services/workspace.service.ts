@@ -267,7 +267,7 @@ export class WorkspaceService {
       }
 
       // 2b. Generate Invitation Token
-      const token = crypto.randomBytes(32).toString("hex");
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join("");
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
       await getDb().verification.create({
@@ -337,8 +337,8 @@ export class WorkspaceService {
       if (createdAuthUserId) {
         try {
           // Path A: Better-Auth internal state cleanup
-          if ((auth.api as any).deleteUser) {
-            await (auth.api as any).deleteUser({
+          if ((getAuth().api as any).deleteUser) {
+            await (getAuth().api as any).deleteUser({
               body: { userId: createdAuthUserId },
             });
           }
@@ -381,7 +381,7 @@ export class WorkspaceService {
     }
 
     // 2. Generate new token
-    const token = crypto.randomBytes(32).toString("hex");
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join("");
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
     // Clean up old verification records for this email to avoid clutter
@@ -451,10 +451,8 @@ export class WorkspaceService {
 
     // 2. Trigger password reset through Better Auth
     // We use the email from the user record
-    const { auth } = await import("@/lib/auth");
-    
     try {
-      await (auth.api as any).requestPasswordReset({
+      await (getAuth().api as any).requestPasswordReset({
         body: {
           email: member.user.email,
           redirectTo: "/reset-password",
@@ -692,8 +690,8 @@ export class WorkspaceService {
 
     // 3. Delete from Better Auth
     try {
-      if ((auth.api as any).removeUser) {
-        await (auth.api as any).removeUser({
+      if ((getAuth().api as any).removeUser) {
+        await (getAuth().api as any).removeUser({
           body: { userId: userIdToDelete },
         });
       }
@@ -831,7 +829,7 @@ export class WorkspaceService {
         });
 
         // Generate new verification token
-        const token = crypto.randomBytes(32).toString("hex");
+        const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join("");
         const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
         await tx.verification.deleteMany({

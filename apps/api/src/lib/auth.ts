@@ -1,12 +1,12 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { emailOTP, admin, phoneNumber } from "better-auth/plugins";
-import { createDbClient } from "./db";
 import { createEmailClient, sendEmailWith } from "./email";
 import type { Env } from "../types";
+import type { DbClient } from "./db";
 
-export function createAuth(env: Env) {
-    const db = createDbClient(env.DATABASE_URL);
+// Accept the shared DB client from registry to avoid creating a second pg.Pool
+export function createAuth(env: Env, db: DbClient) {
     const resend = createEmailClient(env.RESEND_API_KEY);
 
     const sendEmail = (opts: { to: string; subject: string; html: string }) =>
@@ -14,6 +14,7 @@ export function createAuth(env: Env) {
 
     return betterAuth({
         baseURL: env.BETTER_AUTH_URL,
+        basePath: "/api/v1/auth",
         secret: env.BETTER_AUTH_SECRET,
         trustedOrigins: [env.APP_URL, "http://localhost:3000"],
         database: prismaAdapter(db, {
@@ -23,7 +24,7 @@ export function createAuth(env: Env) {
             expiresIn: 60 * 60 * 24 * 7,
             updateAge: 60 * 60 * 24,
             cookieCache: {
-                enabled: true,
+                enabled: true,   // session verified from signed cookie — no DB hit for 5 min
                 maxAge: 5 * 60,
             },
         },

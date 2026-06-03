@@ -55,8 +55,9 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
 
     // Trigger Pusher event to refresh conversation lists for all participants
-    if (getPusher()) {
-      await getPusher().trigger(`team-${workspaceId}`, "conversation_update", {
+    const pusher = getPusher();
+    if (pusher) {
+      await pusher.trigger(`team-${workspaceId}`, "conversation_update", {
         conversationId,
         senderId: user.id,
         content: content.substring(0, 50), // Send a preview

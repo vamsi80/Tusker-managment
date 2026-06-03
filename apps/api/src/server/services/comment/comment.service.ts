@@ -3,6 +3,7 @@ import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-use
 import { CommentRepository } from "./comment.repository";
 import { CommentEvents } from "./comment.events";
 import { CommentMapper } from "./comment.mapper";
+import { getDb } from "@/lib/registry";
 
 export class CommentService {
   /**
@@ -248,7 +249,7 @@ export class CommentService {
         createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
         subTask: perms.isWorkspaceAdmin ? {} : where.task
       }, limit, cursor),
-      import("@/lib/db").then(m => m.default.notification.findMany({
+      getDb().notification.findMany({
         where: {
           userId,
           workspaceId,
@@ -258,7 +259,7 @@ export class CommentService {
         orderBy: { createdAt: "desc" },
         take: limit,
         include: { user: { select: { name: true, surname: true, image: true } } }
-      }))
+      })
     ]);
 
     // Fetch related task details
@@ -271,8 +272,7 @@ export class CommentService {
 
     const taskMap = new Map<string, any>();
     if (taskIdsToFetch.size > 0) {
-      const db = await import("@/lib/db").then(m => m.default);
-      const tasks = await db.task.findMany({
+      const tasks = await getDb().task.findMany({
         where: { id: { in: Array.from(taskIdsToFetch) } },
         select: {
           id: true,

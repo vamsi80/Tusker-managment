@@ -143,7 +143,7 @@ export default function EditProjectPage() {
     }, [workspaceId]);
 
     const form = useForm<EditProjectSchemaType>({
-        resolver: zodResolver(editProjectSchema) as unknown as Resolver<EditProjectSchemaType>,
+        resolver: zodResolver(editProjectSchema as any),
         defaultValues: {
             projectId: projectId,
             name: "",

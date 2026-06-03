@@ -3,7 +3,7 @@ import { CreateLeaveParams, LeaveStatus, LeaveType } from "@/types/leave";
 
 export class LeaveRepository {
     static async create(params: CreateLeaveParams, workspaceMemberId: string) {
-        return await (prisma as any).leave_request.create({
+        return await (getDb() as any).leave_request.create({
             data: {
                 workspaceId: params.workspaceId,
                 workspaceMemberId,
@@ -33,7 +33,7 @@ export class LeaveRepository {
     }
 
     static async findById(id: string) {
-        return await (prisma as any).leave_request.findUnique({
+        return await (getDb() as any).leave_request.findUnique({
             where: { id },
             include: {
                 WorkspaceMember: true,
@@ -43,7 +43,7 @@ export class LeaveRepository {
     }
 
     static async updateStatus(id: string, status: LeaveStatus, processedById: string) {
-        return await (prisma as any).leave_request.update({
+        return await (getDb() as any).leave_request.update({
             where: { id },
             data: { 
                 status,
@@ -87,7 +87,7 @@ export class LeaveRepository {
         }
 
         const [leaves, totalCount] = await Promise.all([
-            (prisma as any).leave_request.findMany({
+            (getDb() as any).leave_request.findMany({
                 where,
                 include: {
                     WorkspaceMember: {
@@ -118,7 +118,7 @@ export class LeaveRepository {
                 skip,
                 take
             }),
-            (prisma as any).leave_request.count({ where })
+            (getDb() as any).leave_request.count({ where })
         ]);
 
         return { leaves, totalCount };

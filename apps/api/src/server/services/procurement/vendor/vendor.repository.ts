@@ -8,7 +8,7 @@ export class VendorRepository {
   static async findSuggestedVendors(workspaceId: string, materialName: string) {
     const normalized = materialName.toLowerCase().trim();
     
-    return prisma.$queryRaw<
+    return getDb().$queryRaw<
       { vendorId: string; similarity: number; materialName: string }[]
     >`
       SELECT vmc."vendorId", vmc."materialName",

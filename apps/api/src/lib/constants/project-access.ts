@@ -1,5 +1,5 @@
 
-import { ProjectRole, WorkspaceRole } from "../generated/prisma";
+import { ProjectRole, WorkspaceRole } from "../../generated/prisma";
 import { isWorkspaceAdmin } from "./workspace-access";
 
 /**

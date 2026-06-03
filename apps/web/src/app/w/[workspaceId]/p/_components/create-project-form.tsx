@@ -54,7 +54,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const { data: layoutData, revalidate } = useWorkspaceLayout();
 
     const form = useForm<ProjectSchemaType>({
-        resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
+        resolver: zodResolver(projectSchema as any),
         defaultValues: {
             name: "",
             description: "",

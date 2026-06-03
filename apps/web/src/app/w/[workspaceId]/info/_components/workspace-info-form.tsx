@@ -37,7 +37,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
     const router = useRouter();
 
     const form = useForm<UpdateWorkspaceInfoType>({
-        resolver: zodResolver(updateWorkspaceInfoSchema),
+        resolver: zodResolver(updateWorkspaceInfoSchema as any),
         defaultValues: {
             workspaceId: workspace.id,
             name: workspace.name,

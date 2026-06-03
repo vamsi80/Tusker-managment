@@ -62,7 +62,7 @@ export function EditTaskDialog({
     const resolvedProjectIdFromSlug = layoutData.projects?.find(p => p.slug === urlProjectSlug)?.id;
 
     const form = useForm<TaskSchemaType>({
-        resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
+        resolver: zodResolver(taskSchema as any),
         defaultValues: {
             name: task.name,
             taskSlug: task.taskSlug,

@@ -1,22 +1,18 @@
-import { auth } from '@/lib/auth';
-// import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import { SignUpForm } from './_components/signUpForm';
+import { Suspense } from 'react';
+import { AppLoader } from '@/components/shared/app-loader';
 
-const signUpPage = async() => {
-
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
-
-  if(session){
-    return redirect("/");
-  }
-
+/**
+ * Sign-up page renders immediately without calling the backend.
+ * Client-side session check is handled inside SignUpForm via authClient.useSession().
+ * This prevents the page from hanging when the backend is unavailable.
+ */
+const signUpPage = async () => {
   return (
-    <SignUpForm />
-  )
+    <Suspense fallback={<AppLoader />}>
+      <SignUpForm />
+    </Suspense>
+  );
 }
 
 export default signUpPage;

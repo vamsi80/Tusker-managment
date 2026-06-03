@@ -41,14 +41,15 @@ const nextConfig: NextConfig = {
     layout: { stale: 3600, revalidate: 86400, expire: 604800 },
     max: { stale: 3600, revalidate: 86400, expire: 604800 },
   },
-  images: {
-    remotePatterns: [{
-      hostname: "lms-vamsi.t3.storage.dev",
-      port: "",
-      protocol: "https",
-    }]
-  },
   transpilePackages: ['better-auth'],
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: "http://localhost:8787/api/v1/:path*",
+      },
+    ];
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);

@@ -8,7 +8,6 @@ import { requireUser } from "@/lib/auth/require-user";
 import { LeaveService } from "@/server/services/leave";
 import { Coffee, Thermometer, TrendingUp } from "lucide-react";
 
-export const dynamic = "force-dynamic";
 
 interface LeavesPageProps {
     params: Promise<{ workspaceId: string }>;

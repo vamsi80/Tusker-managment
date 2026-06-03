@@ -1,12 +1,15 @@
 import { createAuthClient } from "better-auth/react"
 import { emailOTPClient, adminClient, phoneNumberClient } from "better-auth/client/plugins"
 
-// After the monorepo split, Better Auth is served by the CF Worker API.
-// NEXT_PUBLIC_API_URL must point to the CF Worker (e.g. https://tusker-api.workers.dev)
+// NEXT_PUBLIC_APP_URL = http://localhost:3000 (Next.js origin, no path)
+// basePath = /api/v1/auth — the full path that Next.js proxies to the Hono API worker.
+// Better Auth builds:  baseURL + basePath + endpoint
+// → http://localhost:3000/api/v1/auth/sign-in/email  (proxied → port 8787)
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787",
+  baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  basePath: "/api/v1/auth",
   fetchOptions: {
-    credentials: "include", // Required for cross-origin session cookie
+    credentials: "include",
   },
   plugins: [
     emailOTPClient(),

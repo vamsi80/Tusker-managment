@@ -75,7 +75,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
     }, [workspaceId, open]);
 
     const form = useForm<InviteUserSchemaType>({
-        resolver: zodResolver(inviteUserSchema),
+        resolver: zodResolver(inviteUserSchema as any),
         defaultValues: {
             name: "",
             email: "",

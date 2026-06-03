@@ -64,7 +64,7 @@ export const EditProjectForm = ({
     const router = useRouter();
 
     const form = useForm<EditProjectSchemaType>({
-        resolver: zodResolver(editProjectSchema) as unknown as Resolver<EditProjectSchemaType>,
+        resolver: zodResolver(editProjectSchema as any),
         defaultValues: {
             projectId: project.id,
             name: project.name || "",

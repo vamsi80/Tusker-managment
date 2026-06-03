@@ -111,7 +111,7 @@ export class IndentRepository {
       specifications?: string | null;
     }[];
   }) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const indent = await tx.indent.create({
         data: {
           workspaceId: data.workspaceId,
@@ -169,7 +169,7 @@ export class IndentRepository {
   }
 
   static async updateStatus(id: string, status: any, extra?: any, tx?: any) {
-    const client = tx || prisma;
+    const client = tx || getDb();
     return client.indent.update({
       where: { id },
       data: { status, ...extra },

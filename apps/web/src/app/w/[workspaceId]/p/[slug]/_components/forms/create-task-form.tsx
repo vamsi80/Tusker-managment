@@ -37,7 +37,7 @@ export const CreateTaskForm = ({
     const { addNewTask, updateTask, removeTask } = useTaskContext();
 
     const form = useForm<TaskSchemaType>({
-        resolver: zodResolver(taskSchema) as unknown as Resolver<TaskSchemaType>,
+        resolver: zodResolver(taskSchema as any),
         defaultValues: {
             name: "",
             taskSlug: "",

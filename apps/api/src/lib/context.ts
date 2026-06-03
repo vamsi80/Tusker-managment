@@ -19,7 +19,7 @@ export type FullVariables = HonoVariables & AppServices;
 export const servicesMiddleware = createMiddleware<{ Bindings: Env; Variables: FullVariables }>(
     async (c, next) => {
         const env = c.env;
-        const db = createDbClient(env.DATABASE_URL);
+        const db = await createDbClient(env.DATABASE_URL);
 
         const pusher = (env.PUSHER_APP_ID && env.PUSHER_KEY && env.PUSHER_SECRET && env.PUSHER_CLUSTER)
             ? createPusherClient({
@@ -30,7 +30,7 @@ export const servicesMiddleware = createMiddleware<{ Bindings: Env; Variables: F
             })
             : null;
 
-        const auth = createAuth(env);
+        const auth = createAuth(env, db);
         const resend = createEmailClient(env.RESEND_API_KEY);
 
         c.set("db" as any, db);

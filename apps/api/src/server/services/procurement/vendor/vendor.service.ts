@@ -63,7 +63,7 @@ export class VendorService {
     const resolvedServiceType = serviceType || "SUPPLY";
 
     // Upsert capability + sync to MaterialCatalog in one transaction
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const capability = await tx.vendorMaterialCapability.upsert({
         where: {
           vendorId_materialName_serviceType: {

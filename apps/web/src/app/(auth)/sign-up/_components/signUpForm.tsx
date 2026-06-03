@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { authClient } from '@/lib/auth-client'
 import { Loader, Loader2, Send, Github, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { toast } from 'sonner'
 
 
@@ -23,6 +23,13 @@ const GoogleIcon = ({ className }: { className?: string }) => (
 export const SignUpForm = () => {
   const router = useRouter()
 
+  const { data: session } = authClient.useSession()
+
+  useEffect(() => {
+    if (session) {
+      router.push("/")
+    }
+  }, [session, router])
 
   const [githubPending, startGithubTransition] = useTransition()
   const [googlePending, startGoogleTransition] = useTransition()

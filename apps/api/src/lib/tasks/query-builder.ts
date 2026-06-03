@@ -1,4 +1,4 @@
-import { Prisma } from "../generated/prisma";
+import { Prisma } from "../../generated/prisma";
 
 export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[], subtaskFilter?: Prisma.TaskWhereInput, isSubtaskFirst: boolean = false): Prisma.TaskSelect {
     const isList = view_mode === "list" || view_mode === "default" || !view_mode;

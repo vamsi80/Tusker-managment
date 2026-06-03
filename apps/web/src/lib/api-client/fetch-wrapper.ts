@@ -14,10 +14,10 @@ export class ApiError extends Error {
  * Standard fetch wrapper for the Hono API
  */
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // After the monorepo split, the API lives at a separate origin (CF Worker).
-    // NEXT_PUBLIC_API_URL must be set to the CF Worker URL in both dev and prod.
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
-    const baseUrl = `${apiUrl}/api/v1`;
+    // Dev: NEXT_PUBLIC_API_URL is empty → uses relative /api/v1 → Next.js rewrite proxies to :8787
+    // Prod: NEXT_PUBLIC_API_URL=https://tusker-api.workers.dev → direct absolute URL
+    const apiHost = process.env.NEXT_PUBLIC_API_URL || "";
+    const baseUrl = apiHost ? `${apiHost}/api/v1` : `/api/v1`;
 
     const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`;
 
@@ -30,7 +30,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
         console.log(`[apiFetch] Calling: ${options.method || "GET"} ${url}`);
         const response = await fetch(url, {
             cache: "no-store",
-            credentials: "include", // Required for cross-origin cookie auth
+            credentials: "include",
             ...options,
             headers,
         });

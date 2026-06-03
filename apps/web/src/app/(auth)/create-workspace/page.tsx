@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,7 +29,7 @@ function CreateWorkspaceContent() {
     const hasToasted = useRef(false);
 
     const form = useForm<WorkSpaceSchemaType>({
-        resolver: zodResolver(workSpaceSchema) as unknown as Resolver<WorkSpaceSchemaType>,
+        resolver: zodResolver(workSpaceSchema as any),
         defaultValues: {
             name: " ",
             description: '',

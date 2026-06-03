@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { requireUser } from "../../lib/auth/require-user";
+import { getSession } from "../../lib/auth/require-user";
 import { AuthError } from "@/lib/errors/auth-errors";
 import { WorkspaceService } from "@/server/services/workspace.service";
 
@@ -8,13 +8,13 @@ export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
 
   try {
-    const session = await requireUser();
+    const sessionObj = await getSession();
 
-    if (!session?.id) {
+    if (!sessionObj?.user?.id) {
       return NextResponse.redirect(`${origin}/sign-in`);
     }
 
-    const { workspaces } = await WorkspaceService.getWorkspaces(session.id);
+    const { workspaces } = await WorkspaceService.getWorkspaces(sessionObj.user.id);
 
     if (!workspaces?.length) {
       return NextResponse.redirect(`${origin}/create-workspace?noWorkspace=1`);
@@ -32,3 +32,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/`);
   }
 }
+

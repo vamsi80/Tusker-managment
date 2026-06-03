@@ -1,4 +1,6 @@
 import { broadcastProjectUpdate } from "@/lib/realtime";
+import { getPusher } from "@/lib/registry";
+import { invalidateProjectTasks, invalidateProjectMembers } from "@/lib/cache/invalidation";
 
 export class ProjectEvents {
   static async onProjectCreated(workspaceId: string, project: any) {

@@ -9,11 +9,8 @@ export const getSession = cache(async () => {
         return await auth.api.getSession({
             headers: await headers(),
         });
-    } catch (error) {
-        if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
-            throw error;
-        }
-
+    } catch {
+        // If the backend is unreachable or throws any error, treat as unauthenticated.
         return null;
     }
 });
