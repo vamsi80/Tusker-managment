@@ -55,8 +55,15 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     } catch (error: any) {
         if (error instanceof ApiError) throw error;
         
-        const message = error.message || "An unexpected error occurred";
+        const rawMessage: string = error.message || "An unexpected error occurred";
         console.error(`[API_FETCH_ERROR] ${url}:`, error);
+
+        // Surface a friendly message for DB/network timeouts instead of raw pg errors
+        const isTimeout = rawMessage.toLowerCase().includes("timeout") || rawMessage.toLowerCase().includes("econnrefused") || rawMessage.toLowerCase().includes("etimedout");
+        const message = isTimeout
+            ? "Request timed out — the server is warming up, please try again in a moment."
+            : rawMessage;
+
         throw new ApiError(message);
     }
 }

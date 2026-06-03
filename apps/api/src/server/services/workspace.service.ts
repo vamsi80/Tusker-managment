@@ -1072,12 +1072,22 @@ export class WorkspaceService {
       ];
     }
 
-    const unreadTasks = await getDb().comment.groupBy({
-      by: ['taskId'],
-      where
-    });
-
-    return unreadTasks.length;
+    // NOTE: Prisma groupBy uses prepared statements which are incompatible with
+    // PgBouncer in transaction mode (Supabase port 6543). Use a raw count instead.
+    const unreadResult: Array<{ count: number }> = await (getDb() as any).$queryRawUnsafe(
+      `SELECT COUNT(DISTINCT c."taskId")::int AS count
+       FROM "comment" c
+       JOIN "Task" t ON t.id = c."taskId"
+       WHERE t."workspaceId" = $1
+         AND c."userId" != $2
+         AND NOT EXISTS (
+           SELECT 1 FROM "comment_read" cr
+           WHERE cr."commentId" = c.id AND cr."userId" = $2
+         )`,
+      workspaceId,
+      userId
+    );
+    return unreadResult[0]?.count ?? 0;
   }
 
   /**

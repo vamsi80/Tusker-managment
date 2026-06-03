@@ -1,4 +1,4 @@
-import type PusherServer from "pusher";
+import type { PusherClient } from "./pusher";
 
 export const TEAM_UPDATE = "team_update";
 export const PROJECT_UPDATE = "project_update";
@@ -38,7 +38,7 @@ export type AttendanceEventData = {
 };
 
 async function broadcast(
-    pusher: PusherServer | null,
+    pusher: PusherClient | null,
     workspaceId: string,
     eventName: string,
     data: any,
@@ -58,14 +58,14 @@ async function broadcast(
     }
 }
 
-export const broadcastTeamUpdate = async (pusher: PusherServer | null, data: TeamEventData) =>
+export const broadcastTeamUpdate = async (pusher: PusherClient | null, data: TeamEventData) =>
     broadcast(pusher, data.workspaceId, TEAM_UPDATE, data, data.targetUserIds);
 
-export const broadcastProjectUpdate = async (pusher: PusherServer | null, data: ProjectEventData) =>
+export const broadcastProjectUpdate = async (pusher: PusherClient | null, data: ProjectEventData) =>
     broadcast(pusher, data.workspaceId, PROJECT_UPDATE, data, data.targetUserIds);
 
-export const broadcastTaskUpdate = async (pusher: PusherServer | null, data: TaskEventData) =>
+export const broadcastTaskUpdate = async (pusher: PusherClient | null, data: TaskEventData) =>
     broadcast(pusher, data.workspaceId, TASK_UPDATE, data, data.targetUserIds);
 
-export const broadcastAttendanceUpdate = async (pusher: PusherServer | null, data: AttendanceEventData) =>
+export const broadcastAttendanceUpdate = async (pusher: PusherClient | null, data: AttendanceEventData) =>
     broadcast(pusher, data.workspaceId, ATTENDANCE_UPDATE, data, data.targetUserIds);

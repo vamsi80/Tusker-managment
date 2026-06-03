@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { initServices, getAuth, runRequestContext } from "./lib/registry";
+import { getAuth, runRequestContext, initServices } from "./lib/registry";
 import type { Env } from "./types";
 import type { HonoVariables } from "./types";
 import { authMiddleware } from "./hono/middleware/auth";
@@ -28,12 +28,19 @@ import materials from "./hono/routes/materials";
 
 const app = new Hono<{ Bindings: Env; Variables: HonoVariables }>().basePath("/api/v1");
 
-// Run request context to create request-bound db/auth clients and clean up at the end
+// Create a fresh, request-scoped DB connection + auth instance for every request.
+// Pusher/Resend are initialized once (HTTP-based, safe to share).
 app.use("*", async (c, next) => {
-    initServices(c.env);
     return runRequestContext(c.env, async () => {
         await next();
     });
+});
+
+// Response time header for observability
+app.use("*", async (c, next) => {
+    const start = Date.now();
+    await next();
+    c.header("X-Response-Time", `${Date.now() - start}ms`);
 });
 
 // Logger
@@ -42,9 +49,8 @@ app.use("*", logger());
 // CORS
 app.use("*", cors({
     origin: (origin, c) => {
-        const appUrl = (c.env as Env).APP_URL;
-        if (!appUrl || (c.env as Env).ENVIRONMENT === "development") return origin;
-        const allowed = [appUrl, "http://localhost:3000"].filter(Boolean);
+        const env = c.env as Env;
+        const allowed = [env.APP_URL, ...(env.ENVIRONMENT === "development" ? ["http://localhost:3000"] : [])].filter(Boolean);
         return allowed.includes(origin) ? origin : null;
     },
     credentials: true,

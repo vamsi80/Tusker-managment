@@ -1,11 +1,7 @@
-import { invalidateTaskComments } from "@/lib/cache/invalidation";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { getDb } from "@/lib/registry";
 
 export class CommentEvents {
-  /**
-   * Record comment creation activity
-   */
   static async onCommentCreated(params: {
     userId: string;
     userName: string;
@@ -36,13 +32,8 @@ export class CommentEvents {
       },
       targetUserIds,
     });
-
-    await invalidateTaskComments(params.taskId);
   }
 
-  /**
-   * Record subtask activity creation
-   */
   static async onActivityCreated(params: {
     userId: string;
     userName: string;
@@ -69,20 +60,9 @@ export class CommentEvents {
       broadcastEvent: "team_update",
       targetUserIds,
     });
-
   }
 
-  /**
-   * On comment updated
-   */
-  static async onCommentUpdated(taskId: string) {
-    await invalidateTaskComments(taskId);
-  }
+  static async onCommentUpdated(_taskId: string) {}
 
-  /**
-   * On comment deleted
-   */
-  static async onCommentDeleted(taskId: string) {
-    await invalidateTaskComments(taskId);
-  }
+  static async onCommentDeleted(_taskId: string) {}
 }

@@ -1,7 +1,6 @@
 import { recordActivity, broadcastActivity } from "@/lib/audit";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { getDb } from "@/lib/registry";
-import { invalidateTaskMutation } from "../../../lib/cache/invalidation";
 
 async function getMemberName(memberId: string | null): Promise<string | null> {
   if (!memberId) return null;
@@ -44,12 +43,6 @@ export class TaskEvents {
     taskData: any;
     projectSlug?: string | null;
   }) {
-    await invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    });
 
     try {
       await recordActivity(getDb(), {
@@ -77,12 +70,6 @@ export class TaskEvents {
     taskData: any;
     projectSlug?: string | null;
   }) {
-    await invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    });
 
     try {
       await recordActivity(getDb(), {
@@ -111,12 +98,6 @@ export class TaskEvents {
     oldData: any;
     newData: any;
   }) {
-    await invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    });
 
     try {
       const enrichedOldData = { ...opts.oldData };
@@ -166,35 +147,24 @@ export class TaskEvents {
     oldStatus: string;
     newStatus: string;
   }) {
-    // Fire background — status change broadcasts are non-critical latency
-    invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    }).catch((e: any) => console.error("[TASK_EVENTS] Invalidation failed:", e));
+    try {
+      const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
 
-    // Background broadcast — don't block the HTTP response
-    (async () => {
-      try {
-        const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
-
-        await recordActivity(getDb(), {
-          userId: opts.userId,
-          userName: opts.userName,
-          workspaceId: opts.workspaceId,
-          action: "SUBTASK_UPDATED",
-          entityType: "SUBTASK",
-          entityId: opts.taskId,
-          oldData: { status: opts.oldStatus },
-          newData: { status: opts.newStatus },
-          broadcastEvent: "team_update",
-          targetUserIds,
-        });
-      } catch (e) {
-        console.error("[TASK_EVENTS] Status broadcast failed:", e);
-      }
-    })();
+      await recordActivity(getDb(), {
+        userId: opts.userId,
+        userName: opts.userName,
+        workspaceId: opts.workspaceId,
+        action: "TASK_UPDATED",
+        entityType: "TASK",
+        entityId: opts.taskId,
+        oldData: { status: opts.oldStatus },
+        newData: { status: opts.newStatus },
+        broadcastEvent: "team_update",
+        targetUserIds,
+      });
+    } catch (e) {
+      console.error("[TASK_EVENTS] Status broadcast failed:", e);
+    }
   }
 
   static async onTaskDeleted(opts: {
@@ -210,12 +180,6 @@ export class TaskEvents {
     position?: number;
     parentTaskId?: string;
   }) {
-    await invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    });
 
     try {
       await recordActivity(getDb(), {
@@ -252,12 +216,6 @@ export class TaskEvents {
     commentActivity?: { id: string; createdAt: Date } | null;
     explanation?: string;
   }) {
-    await invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    });
 
     const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
     const oldAssigneeName = opts.oldAssigneeId ? await getMemberName(opts.oldAssigneeId) : null;
@@ -310,12 +268,6 @@ export class TaskEvents {
     oldDueDate?: Date | null;
     oldDays?: number | null;
   }) {
-    await invalidateTaskMutation({
-      projectId: opts.projectId,
-      workspaceId: opts.workspaceId,
-      userId: opts.userId,
-      taskId: opts.taskId,
-    });
 
     try {
       await recordActivity(getDb(), {
@@ -341,10 +293,5 @@ export class TaskEvents {
     } catch (e) {
       console.error("[TASK_EVENTS] Date update activity failed:", e);
     }
-  }
-
-  static async onOrderUpdated(projectId: string) {
-    const { invalidateProjectSubTasks } = await import("../../../lib/cache/invalidation");
-    await invalidateProjectSubTasks(projectId);
   }
 }
