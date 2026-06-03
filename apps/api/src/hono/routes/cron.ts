@@ -6,8 +6,8 @@ const cron = new Hono();
 
 const verifyCronSecret = (c: any) => {
     const authHeader = c.req.header("authorization");
-    const secret = c.env?.CRON_SECRET || "";
-    if (!secret) return true;
+    const secret = c.env?.CRON_SECRET;
+    if (!secret) return false; // fail-closed: deny all if secret not configured
     return authHeader === `Bearer ${secret}`;
 };
 

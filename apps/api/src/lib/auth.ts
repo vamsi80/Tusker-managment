@@ -16,7 +16,10 @@ export function createAuth(env: Env, db: DbClient) {
         baseURL: env.BETTER_AUTH_URL,
         basePath: "/api/v1/auth",
         secret: env.BETTER_AUTH_SECRET,
-        trustedOrigins: [env.APP_URL, "http://localhost:3000"],
+        trustedOrigins: [
+            env.APP_URL,
+            ...(env.ENVIRONMENT === "development" ? ["http://localhost:3000"] : []),
+        ],
         database: prismaAdapter(db, {
             provider: "postgresql",
         }),
@@ -92,7 +95,6 @@ export function createAuth(env: Env, db: DbClient) {
         plugins: [
             emailOTP({
                 async sendVerificationOTP({ email, otp }: { email: string; otp: string }) {
-                    console.log(`[Auth] OTP for ${email}: ${otp}`);
                     await sendEmail({
                         to: email,
                         subject: "Tusker Management - Verify your email",
@@ -106,7 +108,7 @@ export function createAuth(env: Env, db: DbClient) {
                     getTempName: (ph: string) => `User ${ph}`,
                 },
                 async sendOTP({ phoneNumber: ph, code }: { phoneNumber: string; code: string }) {
-                    console.log(`[Auth] Phone OTP for ${ph}: ${code}`);
+                    // Phone OTP delivery via SMS would go here
                 },
             }),
             admin(),

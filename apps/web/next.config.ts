@@ -43,10 +43,26 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['better-auth'],
   async rewrites() {
+    // In production set NEXT_PUBLIC_CF_WORKER_URL=https://tusker-api.your-subdomain.workers.dev
+    const workerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL || "http://localhost:8787";
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://localhost:8787/api/v1/:path*",
+        destination: `${workerUrl}/api/v1/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
       },
     ];
   },

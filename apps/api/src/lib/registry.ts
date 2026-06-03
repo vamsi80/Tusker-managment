@@ -1,30 +1,50 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createDbClient, type DbClient } from "./db";
 import { createPusherClient } from "./pusher";
 import { createAuth } from "./auth";
 import { createEmailClient } from "./email";
 import type { Env } from "../types";
-import type PusherServer from "pusher";
+import type { PusherClient } from "./pusher";
 import type { Resend } from "resend";
 
-// Module-level singletons — persist across requests in the same CF Worker isolate.
-// First request pays the pool init cost (~400ms); all subsequent requests reuse warm connections.
-let _db: DbClient | null = null;
-let _auth: ReturnType<typeof createAuth> | null = null;
-let _pusher: PusherServer | null = null;
+/**
+ * WHY per-request DB/auth (not singletons):
+ *
+ * Cloudflare Workers enforces strict I/O context isolation between requests.
+ * pg.Pool holds TCP sockets (via pg-cloudflare's CloudflareSocket) that are
+ * bound to the I/O context of the request that created them. Sharing a Pool
+ * across requests causes:
+ *   "Cannot perform I/O on behalf of a different request."
+ *
+ * Solution: create a fresh Pool + PrismaClient per request, stored in
+ * AsyncLocalStorage so all code in the request tree can access it via getDb().
+ * PgBouncer (Supabase port 6543) handles actual PostgreSQL connection reuse
+ * server-side, so the per-request TCP connection to PgBouncer is fast (~30-80ms).
+ *
+ * WHY Pusher/Resend are singletons:
+ * They use HTTP (fetch), which is NOT I/O-context scoped. Safe to share.
+ */
+
+interface RequestStore {
+    db: DbClient;
+    auth: ReturnType<typeof createAuth>;
+}
+
+const requestStorage = new AsyncLocalStorage<RequestStore>();
+
+// HTTP-based singletons — safe to reuse across requests
+let _pusher: PusherClient | null = null;
 let _resend: Resend | null = null;
 let _env: Env | null = null;
 
-export function initServices(env: Env) {
+/**
+ * Wraps every request in a fresh DB + auth context.
+ * Called once in the global middleware in index.ts.
+ */
+export async function runRequestContext<T>(env: Env, callback: () => Promise<T>): Promise<T> {
     _env = env;
 
-    // DB + Auth: create once, reuse forever within this isolate
-    if (!_db) {
-        _db = createDbClient(env.DATABASE_URL);
-    }
-    if (!_auth) {
-        _auth = createAuth(env, _db);
-    }
-
+    // Initialize HTTP-based singletons on first call
     if (!_pusher && env.PUSHER_APP_ID && env.PUSHER_KEY && env.PUSHER_SECRET && env.PUSHER_CLUSTER) {
         _pusher = createPusherClient({
             PUSHER_APP_ID: env.PUSHER_APP_ID,
@@ -36,28 +56,38 @@ export function initServices(env: Env) {
     if (!_resend && env.RESEND_API_KEY) {
         _resend = createEmailClient(env.RESEND_API_KEY);
     }
-}
 
-// runRequestContext is now a thin pass-through — no pool creation or cleanup.
-// The pool stays alive for the next request automatically.
-export async function runRequestContext<T>(env: Env, callback: () => Promise<T>): Promise<T> {
-    if (!_db || !_auth) {
-        initServices(env);
-    }
-    return callback();
+    // Fresh TCP pool + auth for THIS request
+    const db = createDbClient(env.DATABASE_URL);
+    const auth = createAuth(env, db);
+
+    return requestStorage.run({ db, auth }, async () => {
+        try {
+            return await callback();
+        } finally {
+            // End the pool so pg-cloudflare releases the TCP connection cleanly.
+            // PgBouncer recycles it immediately for the next client.
+            const pool = (db as any).$pool;
+            if (pool) {
+                pool.end().catch(() => {});
+            }
+        }
+    });
 }
 
 export function getDb(): DbClient {
-    if (!_db) throw new Error("DB not initialized — call initServices(env) first");
-    return _db;
+    const store = requestStorage.getStore();
+    if (!store) throw new Error("DB not initialized — call runRequestContext first");
+    return store.db;
 }
 
 export function getAuth(): ReturnType<typeof createAuth> {
-    if (!_auth) throw new Error("Auth not initialized — call initServices(env) first");
-    return _auth;
+    const store = requestStorage.getStore();
+    if (!store) throw new Error("Auth not initialized — call runRequestContext first");
+    return store.auth;
 }
 
-export function getPusher(): PusherServer | null {
+export function getPusher(): PusherClient | null {
     if (!_pusher) {
         const appId = _env?.PUSHER_APP_ID || process.env.PUSHER_APP_ID;
         const key = _env?.PUSHER_KEY || process.env.PUSHER_KEY;
@@ -80,4 +110,9 @@ export function getResend(): Resend | null {
 
 export function getEnv(): Env {
     return _env ?? (process.env as unknown as Env);
+}
+
+/** Kept for backward-compat (called in index.ts before runRequestContext). No-op now. */
+export function initServices(env: Env) {
+    _env = env;
 }

@@ -32,9 +32,10 @@ export type Env = {
     AWS_S3_BUCKET_NAME: string;
 
     // Misc
-    CRON_SECRET: string;
+    CRON_SECRET?: string;
     APP_URL: string;
-    ENVIRONMENT: string;
+    ENVIRONMENT: "development" | "production" | "staging";
+    DIRECT_URL?: string;
 };
 
 export type HonoVariables = {

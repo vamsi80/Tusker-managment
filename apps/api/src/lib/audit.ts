@@ -1,5 +1,5 @@
 import type { DbClient } from "./db";
-import type PusherServer from "pusher";
+import type { PusherClient } from "./pusher";
 
 export type AuditAction =
     | "USER_LOGIN"
@@ -82,7 +82,7 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
 
 export async function broadcastActivity(
     db: DbClient,
-    pusher: PusherServer | null,
+    pusher: PusherClient | null,
     options: RecordActivityOptions
 ) {
     const {
