@@ -1,0 +1,18 @@
+{
+  "name": "@tusker/shared",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts",
+    "./error-codes": "./src/error-codes.ts",
+    "./hono-types": "./src/hono-types.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "zod": "^4.1.12"
+  },
+  "peerDependencies": {
+    "zod": "^4"
+  }
+}

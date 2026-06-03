@@ -14,7 +14,11 @@
     "db:studio": "prisma studio",
     "test": "vitest",
     "analyze": "cross-env ANALYZE=true next build",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "api:dev": "pnpm --filter @tusker/api dev",
+    "api:deploy": "pnpm --filter @tusker/api deploy",
+    "web:dev": "pnpm --filter @tusker/web dev",
+    "web:build": "pnpm --filter @tusker/web build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.908.0",

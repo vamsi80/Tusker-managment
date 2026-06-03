@@ -1,0 +1,80 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { ClipboardList, CheckCircle2 } from "lucide-react";
+import { apiClient } from "@/lib/api-client";
+import dynamic from "next/dynamic";
+
+const DailyReportModal = dynamic(() => import("./DailyReportModal").then(mod => mod.DailyReportModal), {
+    ssr: false,
+});
+
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+
+export function DailyReportFAB() {
+    const { workspaceId } = useWorkspaceLayout();
+    const [isOpen, setIsOpen] = useState(false);
+    const [status, setStatus] = useState<"SUBMITTED" | "ABSENT" | "NOT_SUBMITTED" | "LOADING">("LOADING");
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchStatus = async () => {
+            try {
+                const response = await apiClient.reports.getStatus(workspaceId);
+                if (mounted && response.status === "success") {
+                    setStatus((response.data.status as "SUBMITTED" | "ABSENT" | "NOT_SUBMITTED") || "NOT_SUBMITTED");
+                }
+            } catch (error) {
+                if (mounted) setStatus("NOT_SUBMITTED");
+            }
+        };
+        fetchStatus();
+        return () => { mounted = false; };
+    }, [workspaceId]);
+
+    const handleSubmitted = () => {
+        setStatus("SUBMITTED");
+    };
+
+    return (
+        <>
+            <div className="fixed bottom-6 right-6 z-50">
+                <Button
+                    variant={status === "SUBMITTED" ? "outline" : "default"}
+                    size="lg"
+                    onClick={() => setIsOpen(true)}
+                    className="rounded-full shadow-lg gap-2 font-medium"
+                >
+                    {status === "SUBMITTED" ? (
+                        <>
+                            <CheckCircle2 className="size-5 text-green-500" />
+                            Report Submitted
+                        </>
+                    ) : (status === "ABSENT" || status === "NOT_SUBMITTED") ? (
+                        <>
+                            <ClipboardList className="size-5" />
+                            Report Missing
+                        </>
+                    ) : status === "LOADING" ? (
+                        <div className="size-5 rounded-full border-2 border-t-transparent animate-spin border-muted-foreground mr-2" />
+                    ) : (
+                        <>
+                            <ClipboardList className="size-5" />
+                            Daily report
+                        </>
+                    )}
+                </Button>
+            </div>
+
+            {isOpen && (
+                <DailyReportModal
+                    workspaceId={workspaceId}
+                    isOpen={isOpen}
+                    onClose={() => setIsOpen(false)}
+                    onSubmitted={handleSubmitted}
+                />
+            )}
+        </>
+    );
+}

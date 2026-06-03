@@ -1,0 +1,379 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState, useTransition } from "react";
+import { useForm } from "react-hook-form";
+import { Loader2, Plus } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { apiClient } from "@/lib/api-client";
+import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
+import { tryCatch } from "@/hooks/try-catch";
+import { useConfetti } from "@/hooks/use-confetti";
+
+interface InviteUserFormProps {
+    workspaceId: string;
+    isAdmin: boolean;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    hideTrigger?: boolean;
+    children?: React.ReactNode;
+}
+
+export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onOpenChange: controlledOnOpenChange, hideTrigger, children }: InviteUserFormProps) => {
+    const router = useRouter();
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const open = isControlled ? controlledOpen : internalOpen;
+    const setOpen = (newOpen: boolean) => {
+        if (isControlled) {
+            controlledOnOpenChange?.(newOpen);
+        } else {
+            setInternalOpen(newOpen);
+        }
+    };
+    // const [isSubmitting, setIsSubmitting] = useState(false);
+    const [pending, startTransition] = useTransition();
+    const { triggerConfetti } = useConfetti();
+    const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
+
+    React.useEffect(() => {
+        const fetchManagers = async () => {
+            const result = await apiClient.workspaces.getManagers(workspaceId);
+            if (result.status === "success") {
+                setManagers(result.data);
+            }
+        };
+        if (open) {
+            fetchManagers();
+        }
+    }, [workspaceId, open]);
+
+    const form = useForm<InviteUserSchemaType>({
+        resolver: zodResolver(inviteUserSchema),
+        defaultValues: {
+            name: "",
+            email: "",
+            niceName: "",
+            phoneNumber: "",
+            role: "MEMBER",
+            workspaceId,
+            designation: "",
+            employeeId: "",
+            dateOfBirth: "",
+            reportToId: "",
+        },
+    });
+    // async function onSubmit(values: InviteUserSchemaType) {
+    //     setIsSubmitting(true);
+    //     try {
+    //         await inviteUserToWorkspace(values);
+    //         toast.success("User invited successfully!");
+    //         form.reset();
+    //         setOpen(false);
+    //     } catch (error) {
+    //         toast.error("Failed to invite user. Please try again.");
+    //         console.error("Submission error:", error);
+    //     } finally {
+    //         setIsSubmitting(false);
+    //     }
+    // }
+
+    function onSubmit(data: InviteUserSchemaType) {
+        startTransition(async () => {
+            const { data: result, error } = await tryCatch(apiClient.workspaces.invite(workspaceId, data));
+            console.log("results", { result });
+
+            if (error) {
+                toast.error(error.message);
+                console.error(error);
+                return;
+            }
+
+            if (result.status === "success") {
+                toast.success(result.message);
+                triggerConfetti();
+                form.reset();
+                setOpen(false);
+                router.refresh();
+            } else {
+                toast.error(result.message)
+            }
+        });
+    }
+
+
+    function onInvalid(errors: any) {
+        console.error("Validation errors:", errors);
+        toast.error("Please check all required fields");
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            {!hideTrigger && isAdmin && (
+                <DialogTrigger asChild>
+                    {children || (
+                        <Button>
+                            Invite New Member
+                            <Plus className="ml-2" size={16} />
+                        </Button>
+                    )}
+                </DialogTrigger>
+            )}
+            <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                    <DialogTitle>Invite New User</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                    <form
+                        onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+                        className="space-y-4"
+                    >
+                        {/* Hidden field for workspaceId */}
+                        <input
+                            type="hidden"
+                            {...form.register("workspaceId")}
+                            value={workspaceId}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Full Name</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="John Doe"
+                                            {...field}
+                                            disabled={pending}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="niceName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nick Name</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="John"
+                                                {...field}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="phoneNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Phone Number</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g. +91 98765 43210"
+                                                {...field}
+                                                value={field.value || ""}
+                                                type="tel"
+                                                inputMode="tel"
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormDescription className="text-xs text-muted-foreground">
+                                            {/* Include country code. (Validate with pattern or phone library.) */}
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email Address</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="email"
+                                            placeholder="john@example.com"
+                                            {...field}
+                                            disabled={pending}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="employeeId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Employee ID</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g. EMP001"
+                                                {...field}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="dateOfBirth"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Date of Birth</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="date"
+                                                {...field}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="designation"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Designation</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g. Site Engineer"
+                                                {...field}
+                                                value={field.value || ""}
+                                                disabled={pending}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="reportToId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Report To</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value || undefined}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Manager" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {managers.length > 0 ? managers.map((manager) => (
+                                                    <SelectItem key={manager.id} value={manager.id}>
+                                                        {manager.surname}
+                                                    </SelectItem>
+                                                )) : (
+                                                    <div className="p-2 text-xs text-muted-foreground">No managers found</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+
+                        <FormField
+                            control={form.control}
+                            name="role"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Category</FormLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select Category" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {workspaceMemberRole.filter(role => role !== "OWNER").map((role) => (
+                                                <SelectItem key={role} value={role}>
+                                                    {role}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <Button type="submit" disabled={pending} className="w-full">
+                            {pending ? (
+                                <>
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
+                                    Inviting...
+                                </>
+                            ) : (
+                                <>
+                                    <Plus className="mr-2" size={16} />
+                                    Invite User
+                                </>
+                            )}
+                        </Button>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+};

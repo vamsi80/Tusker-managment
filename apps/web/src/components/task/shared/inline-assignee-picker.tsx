@@ -1,0 +1,314 @@
+﻿"use client";
+
+import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
+import { Loader2, UserPlus, Check } from "lucide-react";
+import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+
+import type { ProjectMembersType } from "@/types/project";
+import { apiClient } from "@/lib/api-client";
+
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Minimal shape of a subtask that the picker needs.
+// All three contexts (SubTaskType, KanbanSubTaskType, TaskByIdType)
+// satisfy this shape.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export interface AssignableSubTask {
+    id: string;
+    name: string;
+    description?: string | null;
+    taskSlug: string;
+    status?: string | null;
+    startDate?: Date | string | null;
+    dueDate?: Date | string | null;
+    days?: number | null;
+    projectId?: string;
+    parentTaskId?: string | null;
+    tag?: { id: string } | null;
+    assigneeId?: string | null;
+    assignee?: {
+        id: string;
+        surname: string | null;
+    } | null;
+    reviewer?: {
+        id: string;
+        surname: string | null;
+    } | null;
+}
+
+interface InlineAssigneePickerProps {
+    subTask: AssignableSubTask;
+    members: ProjectMembersType;
+    /** Optional: filter members by these IDs (e.g. only members of the current project) */
+    allowedUserIds?: string[];
+    projectId: string;
+    parentTaskId?: string | null;
+    /** Whether the current user has permission to assign */
+    canEdit: boolean;
+    /** Fired on successful assignment: (userId, memberObj) */
+    onAssigned: (userId: string, member: ProjectMembersType[number]) => void;
+    /** Optional extra class for the trigger badge */
+    className?: string;
+}
+
+/**
+ * InlineAssigneePicker
+ *
+ * Renders a clickable "Unassigned" badge that opens a searchable member list
+ * when canEdit=true, or a plain muted span when canEdit=false.
+ *
+ * Uses the existing `editSubTask` server action â€” only swaps the assignee
+ * while preserving all other subtask fields.
+ */
+export function InlineAssigneePicker({
+    subTask,
+    members: allMembers,
+    allowedUserIds,
+    projectId,
+    parentTaskId,
+    canEdit,
+    onAssigned,
+    className,
+}: InlineAssigneePickerProps) {
+    const [open, setOpen] = useState(false);
+    const [explanationDialogOpen, setExplanationDialogOpen] = useState(false);
+    const [pendingMember, setPendingMember] = useState<ProjectMembersType[number] | null>(null);
+    const [explanation, setExplanation] = useState("");
+    const [pending, startTransition] = useTransition();
+    const { workspaceId: paramWorkspaceId } = useParams();
+    const workspaceId = (paramWorkspaceId as string) || "";
+
+
+
+    // 1. Filter by project membership and allowed IDs
+    const members = allMembers.filter(m => {
+        // Filter by allowedUserIds if explicitly provided
+        if (allowedUserIds && !allowedUserIds.includes(m.userId)) return false;
+
+        // Filter by projectId match to ensure project-level isolation
+        const targetProjectId = subTask.projectId || projectId;
+        if (m.projectId && targetProjectId && m.projectId !== targetProjectId) {
+            return false;
+        }
+
+        return true;
+    });
+
+    // 2. Filter to non-VIEWER project members only
+    const assignableMembers = members.filter(
+        (m) => m.projectRole !== "VIEWER"
+    );
+
+    // 3. Resolve current attendee display info
+    // We try to find the member in the provided list using assigneeId (ProjectMember.id) 
+    // or by userId as a fallback.
+    const currentMember = allMembers.find(m =>
+        (subTask.assigneeId && m.id === subTask.assigneeId) ||
+        (subTask.assignee?.id && m.userId === subTask.assignee.id)
+    );
+
+    const displayInfo = {
+        name: currentMember
+            ? (currentMember.user.surname)
+            : (subTask.assignee?.surname || "Unassigned"),
+        isAssigned: !!currentMember || !!(subTask.assignee && (subTask.assignee.surname || subTask.assignee.id))
+    };
+
+    const handleSelect = (member: ProjectMembersType[number]) => {
+        setOpen(false);
+        setPendingMember(member);
+        setExplanationDialogOpen(true);
+    };
+
+    const handleConfirmAssign = () => {
+        if (!pendingMember) return;
+        const member = pendingMember;
+        setExplanationDialogOpen(false);
+
+        startTransition(async () => {
+            // 1. SURGICAL REST API UPDATE via apiClient
+            const response = await apiClient.tasks.updateAssignee(
+                subTask.id,
+                workspaceId,
+                subTask.projectId || projectId,
+                member.userId,
+                explanation,
+            );
+
+            if (response.success) {
+                toast.success(`Assigned to ${member.user.surname}`);
+
+
+
+                // 3. VIEW-SPECIFIC CALLBACK
+                onAssigned(member.userId, member);
+
+                // Reset state
+                setExplanation("");
+                setPendingMember(null);
+            } else {
+                toast.error("Failed to update assignee");
+                setExplanation("");
+                setPendingMember(null);
+            }
+        });
+    };
+
+    // â”€â”€ Non-editable: plain muted label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (!canEdit) {
+        return (
+            <span
+                className={cn(
+                    "inline-flex items-center gap-1 text-[10px] sm:text-xs px-2 py-0.5 rounded-md",
+                    displayInfo.isAssigned
+                        ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-medium"
+                        : "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 font-bold",
+                    className
+                )}
+            >
+                {!displayInfo.isAssigned && <UserPlus className="size-3 shrink-0" />}
+                {displayInfo.isAssigned && displayInfo.name}
+            </span>
+        );
+    }
+
+    // â”€â”€ Editable: clickable popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    return (
+        <>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <button
+                        type="button"
+                        disabled={pending}
+                        className={cn(
+                            "inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium",
+                            displayInfo.isAssigned
+                                ? "text-blue-600 dark:text-blue-400 bg-blue-100/50 dark:bg-blue-900/30 hover:bg-blue-200/50 dark:hover:bg-blue-900/50"
+                                : "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 font-bold animate-pulse",
+                            "px-2 py-0.5 rounded-md",
+                            "transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                            className
+                        )}
+                        title={displayInfo.isAssigned ? `Assigned to ${displayInfo.name}` : "Click to assign a member"}
+                    >
+                        {pending ? (
+                            <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                            <UserPlus className="size-3 shrink-0" />
+                        )}
+                        {(pending || displayInfo.isAssigned) && (
+                            <span className="truncate max-w-[80px] sm:max-w-[120px]">
+                                {pending ? "Savingâ€¦" : displayInfo.name}
+                            </span>
+                        )}
+                    </button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                    className="p-0 w-56"
+                    align="start"
+                    side="bottom"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <Command>
+                        <CommandInput placeholder="Search memberâ€¦" className="h-8 text-xs" />
+                        <CommandList>
+                            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+                                No members found.
+                            </CommandEmpty>
+                            <CommandGroup>
+                                {assignableMembers.map((member) => {
+                                    const displayName =
+                                        member.user.surname || "Unknown";
+                                    const roleLabel =
+                                        member.projectRole === "PROJECT_MANAGER"
+                                            ? "PM"
+                                            : member.projectRole === "LEAD"
+                                                ? "Lead"
+                                                : member.projectRole || "";
+
+                                    return (
+                                        <CommandItem
+                                            key={member.userId}
+                                            value={displayName}
+                                            onSelect={() => handleSelect(member)}
+                                            className="flex items-center gap-2 cursor-pointer text-xs"
+                                        >
+                                            <Check className="size-3.5 opacity-0" />
+                                            <span className="flex-1 truncate">{displayName}</span>
+                                            {roleLabel && (
+                                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                                    {roleLabel}
+                                                </span>
+                                            )}
+                                        </CommandItem>
+                                    );
+                                })}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+
+            <Dialog open={explanationDialogOpen} onOpenChange={setExplanationDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assignment Explanation</DialogTitle>
+                        <DialogDescription>
+                            Please provide a reason or note for this assignment change. This will be logged as an activity.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Textarea
+                            placeholder="Enter your explanation here..."
+                            value={explanation}
+                            onChange={(e) => setExplanation(e.target.value)}
+                            className="w-full text-sm"
+                            autoFocus
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setExplanationDialogOpen(false);
+                                setPendingMember(null);
+                                setExplanation("");
+                            }}
+                            disabled={pending}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleConfirmAssign}
+                            disabled={pending}
+                        >
+                            Confirm Assignment
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+

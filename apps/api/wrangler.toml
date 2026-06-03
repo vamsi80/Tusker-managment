@@ -1,0 +1,41 @@
+name = "tusker-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+
+# Hyperdrive binding for PostgreSQL (replace with your Hyperdrive config ID after running:
+#   wrangler hyperdrive create tusker-db --connection-string="postgresql://...")
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "<your-hyperdrive-config-id>"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+# BETTER_AUTH_SECRET
+# BETTER_AUTH_URL         (e.g., https://tusker-api.workers.dev)
+# AUTH_GITHUB_CLIENT_ID
+# AUTH_GITHUB_SECRET
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET
+# RESEND_API_KEY
+# RESEND_FROM_EMAIL       (e.g., noreply@yourdomain.com)
+# PUSHER_APP_ID
+# PUSHER_KEY
+# PUSHER_SECRET
+# PUSHER_CLUSTER
+# AWS_ACCESS_KEY_ID
+# AWS_SECRET_ACCESS_KEY
+# AWS_REGION
+# AWS_S3_BUCKET_NAME
+# CRON_SECRET
+# APP_URL                 (Vercel web app URL, e.g., https://app.yourdomain.com)
+# DATABASE_URL            (Direct PostgreSQL URL — used only until Hyperdrive is set up)
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+[triggers]
+crons = ["0 0 * * *"]
