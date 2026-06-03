@@ -1,4 +1,4 @@
-import { AttendanceStatus } from "@/generated/prisma/client";
+import { AttendanceStatus } from "@/generated/prisma";
 
 export interface CheckInParams {
     workspaceId: string;

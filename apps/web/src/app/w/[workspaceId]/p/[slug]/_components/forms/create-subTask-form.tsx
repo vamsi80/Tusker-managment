@@ -107,7 +107,7 @@ export const CreateSubTaskForm = ({
     }, [projectId, parentTaskId, tags, level, parentTasks]);
 
     const form = useForm<SubTaskSchemaType>({
-        resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
+        resolver: zodResolver(subTaskSchema as any),
         defaultValues,
     });
 

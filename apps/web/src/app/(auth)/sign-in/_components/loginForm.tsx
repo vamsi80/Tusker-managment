@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,16 @@ export const LoginForm = () => {
   const workspaceId = searchParams.get("workspaceId");
   const role = searchParams.get("role");
   const inviteEmail = searchParams.get("email");
+
+  // Client-side session check — redirect if already logged in
+  const { data: existingSession, isPending: sessionLoading } = authClient.useSession();
+
+  useEffect(() => {
+    if (!sessionLoading && existingSession?.user) {
+      // Already logged in — go to workspace
+      router.replace("/w");
+    }
+  }, [existingSession, sessionLoading, router]);
 
   useEffect(() => {
     if (inviteEmail) {
@@ -114,9 +124,10 @@ export const LoginForm = () => {
               window.location.href = callbackURL;
             },
             onError: (ctx) => {
+              const errorMessage = ctx.error.message?.toLowerCase() || "";
               const isNoPassword = ctx.error.code === "USER_HAS_NO_PASSWORD" ||
-                ctx.error.message.toLowerCase().includes("password") &&
-                (ctx.error.message.toLowerCase().includes("not set") || ctx.error.message.toLowerCase().includes("no"));
+                (errorMessage.includes("password") &&
+                 (errorMessage.includes("not set") || errorMessage.includes("no")));
 
               if (isNoPassword) {
                 toast.error("No password found for this account. Please create a password to login with email.", {

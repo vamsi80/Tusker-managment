@@ -119,7 +119,7 @@ export default function CreateProjectPage() {
     }, [workspaceId]);
 
     const form = useForm<ProjectSchemaType>({
-        resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
+        resolver: zodResolver(projectSchema as any),
         defaultValues: {
             name: "",
             description: "",

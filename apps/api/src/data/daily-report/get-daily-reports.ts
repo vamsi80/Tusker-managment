@@ -42,7 +42,7 @@ export async function getAdminDailyReports(workspaceId: string, actorId: string,
     return reports;
 }
 
-export async function getAdminAllReportEntries(workspaceId: string, date?: Date, userId?: string, skip = 0, take = 100) {
+export async function getAdminAllReportEntries(workspaceId: string, actorId: string, date?: Date, userId?: string, skip = 0, take = 100) {
     const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, actorId);
 
     if (!isWorkspaceAdmin) {

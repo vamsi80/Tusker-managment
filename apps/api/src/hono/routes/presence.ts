@@ -24,8 +24,9 @@ const app = new Hono<{ Variables: HonoVariables }>()
     console.log(`📡 [Presence] User ${user.id} ${status} in workspace ${workspaceId}`);
 
     // Trigger Pusher event to notify others in the workspace
-    if (getPusher()) {
-      await getPusher().trigger(`team-${workspaceId}`, status === "active" ? "user-active" : "user-inactive", {
+    const pusher = getPusher();
+    if (pusher) {
+      await pusher.trigger(`team-${workspaceId}`, status === "active" ? "user-active" : "user-inactive", {
         userId: user.id,
         lastActiveAt: lastActiveAt.toISOString()
       });

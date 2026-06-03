@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { revalidatePath } from "next/cache";
-import { BoardStatus } from "@/generated/prisma/client";
+import { BoardStatus } from "@/generated/prisma";
 import { ApiResponse } from "@/lib/types";
 
 export async function createBoardItem(workspaceId: string, memberId: string, note: string): Promise<ApiResponse> {

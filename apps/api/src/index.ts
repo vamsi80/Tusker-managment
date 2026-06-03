@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { initServices, getAuth } from "./lib/registry";
+import { initServices, getAuth, runRequestContext } from "./lib/registry";
 import type { Env } from "./types";
 import type { HonoVariables } from "./types";
 import { authMiddleware } from "./hono/middleware/auth";
@@ -28,10 +28,12 @@ import materials from "./hono/routes/materials";
 
 const app = new Hono<{ Bindings: Env; Variables: HonoVariables }>().basePath("/api/v1");
 
-// Initialize services from CF bindings on every request
+// Run request context to create request-bound db/auth clients and clean up at the end
 app.use("*", async (c, next) => {
     initServices(c.env);
-    await next();
+    return runRequestContext(c.env, async () => {
+        await next();
+    });
 });
 
 // Logger
@@ -73,14 +75,14 @@ app.get("/health", (c) => c.json({
     env: (c.env as Env).ENVIRONMENT,
 }));
 
-// Better Auth handler — handles all /api/auth/* routes
-app.on(["GET", "POST"], "/auth/*", async (c) => {
+app.route("/cron", cron);
+// Custom public auth endpoints must come BEFORE the Better Auth catch-all
+app.route("/auth", authRoute);
+// Better Auth catch-all — handles sign-in, sign-up, session, OAuth, OTP, etc.
+app.all("/auth/*", async (c) => {
     const auth = getAuth();
     return auth.handler(c.req.raw);
 });
-
-app.route("/cron", cron);
-app.route("/auth", authRoute);
 
 // Protected routes
 app.use("*", authMiddleware);
@@ -104,14 +106,16 @@ app.route("/materials", materials);
 // Cloudflare Workers scheduled handler
 async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     initServices(env);
-    const { CRON_JOBS } = await import("./server/crons/registry");
-    const results = await Promise.allSettled(
-        Object.values(CRON_JOBS).map(job => job())
-    );
-    results.forEach((r, i) => {
-        if (r.status === "rejected") {
-            console.error(`[CRON] Job ${i} failed:`, r.reason);
-        }
+    return runRequestContext(env, async () => {
+        const { CRON_JOBS } = await import("./server/crons/registry");
+        const results = await Promise.allSettled(
+            Object.values(CRON_JOBS).map(job => job())
+        );
+        results.forEach((r, i) => {
+            if (r.status === "rejected") {
+                console.error(`[CRON] Job ${i} failed:`, r.reason);
+            }
+        });
     });
 }
 

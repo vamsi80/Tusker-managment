@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,7 +35,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
     const [showPassword, setShowPassword] = useState(false);
 
     const form = useForm({
-        resolver: zodResolver(acceptInvitationSchema),
+        resolver: zodResolver(acceptInvitationSchema as any),
         defaultValues: {
             token,
             email,

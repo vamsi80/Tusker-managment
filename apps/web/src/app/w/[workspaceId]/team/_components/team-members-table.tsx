@@ -99,7 +99,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
     }, [workspaceId, editDialogOpen]);
 
     const editForm = useForm<UpdateMemberSchemaType>({
-        resolver: zodResolver(updateMemberSchema),
+        resolver: zodResolver(updateMemberSchema as any),
         defaultValues: {
             name: "",
             surname: "",

@@ -1,4 +1,4 @@
-import { AttendanceStatus } from "@/generated/prisma/client";
+import { AttendanceStatus } from "@/generated/prisma";
 
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type LeaveType = "CASUAL" | "SICK";

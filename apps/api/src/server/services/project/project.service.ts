@@ -1,5 +1,5 @@
 import { AppError } from "@/lib/errors/app-error";
-import { ProjectRole as PrismaProjectRole } from "../generated/prisma";
+import { ProjectRole as PrismaProjectRole } from "../../../generated/prisma";
 import {
   MinimalProjectData,
   ProjectListItem,

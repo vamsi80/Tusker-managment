@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { tryCatch } from "@/hooks/try-catch";
 import { projectsClient } from "@/lib/api-client/projects";
-import type { ProjectRole } from "@/generated/prisma/client";
+import type { ProjectRole } from "@/generated/prisma";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 
 

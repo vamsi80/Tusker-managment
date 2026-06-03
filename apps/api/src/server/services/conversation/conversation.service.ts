@@ -164,7 +164,7 @@ export class ConversationService {
   static async sendMessage(conversationId: string, senderId: string, content: string, workspaceId: string) {
     const { recordActivity } = await import("@/lib/audit");
 
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       // 1. Create message
       const message = await tx.direct_message.create({
         data: {

@@ -1,4 +1,4 @@
-import { Prisma, TaskStatus } from "../generated/prisma";
+import { Prisma, TaskStatus } from "../../generated/prisma";
 import { TaskFilters } from "@/types/task-filters";
 
 /**

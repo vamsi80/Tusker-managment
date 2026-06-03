@@ -3,7 +3,6 @@ import { AppLoader } from "@/components/shared/app-loader";
 import { AttendanceTable } from "./_components/attendance-table";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
-export const dynamic = "force-dynamic";
 
 interface AttendancePageProps {
     params: Promise<{ workspaceId: string }>;

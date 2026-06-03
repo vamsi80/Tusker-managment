@@ -1,6 +1,6 @@
 
 import { getDb } from "@/lib/registry";
-import { WorkspaceRole, ProjectRole } from "../generated/prisma";
+import { WorkspaceRole, ProjectRole } from "../../../generated/prisma";
 import {
   getTaskSelect,
   buildOrderBy,
@@ -115,7 +115,7 @@ export class TaskRepository {
   }
 
   static async updateTaskWithActivity(taskId: string, data: any, activityData: any) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const updated = await tx.task.update({
         where: { id: taskId },
         data,
@@ -137,7 +137,7 @@ export class TaskRepository {
     wasCompleted: boolean,
     isNowCompleted: boolean
   ) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const task = await tx.task.update({
         where: { id: taskId },
         data,
@@ -185,7 +185,7 @@ export class TaskRepository {
     position: number;
     wasCompleted?: boolean;
   }) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       // 1. Delete the task
       const task = await tx.task.delete({
         where: { id: taskId },
@@ -240,7 +240,7 @@ export class TaskRepository {
     wasCompleted: boolean,
     isNowCompleted: boolean
   ) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const task = await tx.task.update({
         where: { id: taskId },
         data: { status: newStatus },
@@ -275,7 +275,7 @@ export class TaskRepository {
   }
 
   static async createSubTask({ parentTaskId, taskData }: { parentTaskId: string; taskData: any }) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const task = await tx.task.create({
         data: taskData,
         include: {
@@ -315,7 +315,7 @@ export class TaskRepository {
   }
 
   static async bulkCreateTasks(tasks: any[]) {
-    return prisma.$transaction(async (tx) => {
+    return getDb().$transaction(async (tx) => {
       const createdTasks = [];
       for (const t of tasks) {
         createdTasks.push(await tx.task.create({ data: t }));
@@ -325,7 +325,7 @@ export class TaskRepository {
   }
 
   static async reorderSubtasks(parentTaskId: string, taskIds: string[]) {
-    return prisma.$transaction(
+    return getDb().$transaction(
       taskIds.map((id, index) =>
         getDb().task.update({
           where: { id, parentTaskId },

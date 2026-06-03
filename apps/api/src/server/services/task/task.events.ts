@@ -1,6 +1,7 @@
 import { recordActivity, broadcastActivity } from "@/lib/audit";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { getDb } from "@/lib/registry";
+import { invalidateTaskMutation } from "../../../lib/cache/invalidation";
 
 async function getMemberName(memberId: string | null): Promise<string | null> {
   if (!memberId) return null;
@@ -171,7 +172,7 @@ export class TaskEvents {
       workspaceId: opts.workspaceId,
       userId: opts.userId,
       taskId: opts.taskId,
-    }).catch((e) => console.error("[TASK_EVENTS] Invalidation failed:", e));
+    }).catch((e: any) => console.error("[TASK_EVENTS] Invalidation failed:", e));
 
     // Background broadcast — don't block the HTTP response
     (async () => {
@@ -343,7 +344,7 @@ export class TaskEvents {
   }
 
   static async onOrderUpdated(projectId: string) {
-    const { invalidateProjectSubTasks } = await import("@/lib/cache/invalidation");
+    const { invalidateProjectSubTasks } = await import("../../../lib/cache/invalidation");
     await invalidateProjectSubTasks(projectId);
   }
 }

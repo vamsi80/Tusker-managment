@@ -3,7 +3,7 @@ import { getDb } from "@/lib/registry";
 import { AppError } from "@/lib/errors/app-error";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
-import { parseIST } from "@/lib/utils";
+import { parseIST } from "../../../lib/utils";
 import { logger } from "@/lib/logger";
 import {
   getTaskSelect,
@@ -499,7 +499,7 @@ export class TasksService {
 
   public static async resolveTaskPermissions(
     workspaceId: string,
-    projectId?: string,
+    projectId: string | undefined,
     userId?: string,
   ) {
     const { getUserPermissions, getWorkspacePermissions } =
@@ -509,7 +509,7 @@ export class TasksService {
       const permissions = await getUserPermissions(
         workspaceId,
         projectId,
-        userId,
+        userId || "",
       );
       const hasFullAccess =
         permissions.isWorkspaceAdmin ||
@@ -525,7 +525,7 @@ export class TasksService {
         restrictedProjectIds: hasFullAccess ? [] : [projectId],
       };
     } else {
-      const wsPerms = await getWorkspacePermissions(workspaceId, userId);
+      const wsPerms = await getWorkspacePermissions(workspaceId, userId || "");
       const isWorkspaceAdmin = wsPerms.isWorkspaceAdmin;
       const authorizedProjectIds = isWorkspaceAdmin
         ? []

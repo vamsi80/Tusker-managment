@@ -1,3 +1,4 @@
+import { invalidateTaskComments } from "@/lib/cache/invalidation";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { getDb } from "@/lib/registry";
 
@@ -69,8 +70,6 @@ export class CommentEvents {
       targetUserIds,
     });
 
-    const { updateTag } = await import("next/cache");
-    updateTag(`activities-${params.subTaskId}`);
   }
 
   /**

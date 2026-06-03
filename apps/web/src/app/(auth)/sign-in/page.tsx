@@ -1,28 +1,18 @@
-import { auth } from '@/lib/auth';
-// import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { LoginForm } from './_components/loginForm';
-import { headers } from 'next/headers';
 import { Suspense } from 'react';
-
 import { AppLoader } from '@/components/shared/app-loader';
 
+/**
+ * Sign-in page renders immediately without calling the backend.
+ * Client-side session check is handled inside LoginForm via authClient.useSession().
+ * This prevents the page from hanging when the backend is unavailable.
+ */
 const signInPage = async () => {
-
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
-
-  if (session) {
-    return redirect("/");
-  }
-
   return (
     <Suspense fallback={<AppLoader />}>
       <LoginForm />
     </Suspense>
-  )
+  );
 }
 
-export default signInPage
-
+export default signInPage;

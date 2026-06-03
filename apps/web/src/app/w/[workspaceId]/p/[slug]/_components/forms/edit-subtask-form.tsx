@@ -197,7 +197,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     };
 
     const form = useForm<SubTaskSchemaType>({
-        resolver: zodResolver(subTaskSchema) as unknown as Resolver<SubTaskSchemaType>,
+        resolver: zodResolver(subTaskSchema as any),
         defaultValues: {
             name: subTask.name || "",
             description: subTask.description || "",

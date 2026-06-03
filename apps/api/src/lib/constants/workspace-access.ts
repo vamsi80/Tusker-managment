@@ -1,5 +1,5 @@
 
-import { WorkspaceRole } from "../generated/prisma";
+import { WorkspaceRole } from "../../generated/prisma";
 
 /**
  * Workspace Access Control System

@@ -6,7 +6,7 @@ const isClientConfigured = !!(
 );
 
 // Server-side Pusher is handled by the CF Worker API — not needed in the web app.
-export const pusherServer = null;
+export const pusherServer: any = null;
 
 export const pusherClient = (() => {
     if (typeof window === "undefined") return null;
