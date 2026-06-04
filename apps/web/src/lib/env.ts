@@ -74,6 +74,6 @@ export const env = createEnv({
     NEXT_PUBLIC_PUSHER_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
   },
 
-  skipValidation: !!process.env.SKIP_ENV_VALIDATION || process.env.NODE_ENV === "development",
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION || process.env.NODE_ENV === "development" || process.env.VERCEL === "1",
   emptyStringAsUndefined: true,
 });

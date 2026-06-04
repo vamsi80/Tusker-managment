@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "api:dev": "pnpm --filter @tusker/api dev",
     "api:deploy": "pnpm --filter @tusker/api run deploy",
     "web:dev": "pnpm --filter @tusker/web dev",
