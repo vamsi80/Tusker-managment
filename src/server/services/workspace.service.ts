@@ -1108,9 +1108,6 @@ export class WorkspaceService {
    * Optimized to minimize RSC payload by only fetching what's needed for the shell.
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
-    const startTime = Date.now();
-    console.log(`[WorkspaceLayoutData] Starting fetch for ${workspaceId} (User: ${userId})`);
-
     // Step 1: Fetch permissions and workspace admins concurrently
     // Admins are needed both for permissions and as default leaders for all projects
     const [permissions, workspaceAdmins] = await Promise.all([
@@ -1125,9 +1122,6 @@ export class WorkspaceService {
         },
       }),
     ]);
-
-    const step1Time = Date.now();
-    console.log(`[WorkspaceLayoutData] Step 1 (Perms + Admins) completed in ${step1Time - startTime}ms`);
 
     // Step 2: Fetch the rest concurrently using pre-fetched data
     const [
@@ -1156,9 +1150,6 @@ export class WorkspaceService {
       // Skip "System" user and ensure pm exists
       pmMap[p.id] = (pm && pm.surname !== "System") ? [pm] : [];
     });
-
-    const endTime = Date.now();
-    console.log(`[WorkspaceLayoutData] Total fetch completed in ${endTime - startTime}ms (Step 2: ${endTime - step1Time}ms)`);
 
     const workspacesData = workspacesResult.workspaces || [];
 
