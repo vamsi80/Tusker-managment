@@ -34,6 +34,7 @@ export type Env = {
     // Misc
     CRON_SECRET?: string;
     APP_URL: string;
+    ALLOWED_ORIGINS?: string;
     ENVIRONMENT: "development" | "production" | "staging";
     DIRECT_URL?: string;
 };

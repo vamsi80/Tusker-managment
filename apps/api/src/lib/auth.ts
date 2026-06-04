@@ -18,7 +18,7 @@ export function createAuth(env: Env, db: DbClient) {
         secret: env.BETTER_AUTH_SECRET,
         trustedOrigins: [
             env.APP_URL,
-            ...(env.ENVIRONMENT === "development" ? ["http://localhost:3000"] : []),
+            ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((o: string) => o.trim()) : []),
         ],
         database: prismaAdapter(db, {
             provider: "postgresql",
