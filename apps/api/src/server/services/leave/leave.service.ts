@@ -1,7 +1,7 @@
 import { getDb } from "@/lib/registry";
 import { AppError } from "@/lib/errors/app-error";
 
-import { AttendanceStatus } from "@/generated/prisma/client";
+import { AttendanceStatus } from "@/generated/prisma";
 import { getISTDateOnly } from "@/lib/date-utils";
 import { LeaveRepository } from "./leave.repository";
 import { LeaveEvents } from "./leave.events";

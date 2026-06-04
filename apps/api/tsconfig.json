@@ -11,6 +11,8 @@
     "paths": {
       "@tusker/shared": ["../../packages/shared/src/index.ts"],
       "@tusker/shared/*": ["../../packages/shared/src/*"],
+      "@/generated/prisma": ["../../packages/shared/generated/prisma"],
+      "@/generated/prisma/*": ["../../packages/shared/generated/prisma/*"],
       "@/*": ["./src/*"]
     }
   },

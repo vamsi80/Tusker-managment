@@ -25,6 +25,7 @@ import procurementIndents from "./hono/routes/procurement-indents";
 import procurementRfq from "./hono/routes/procurement-rfq";
 import projectMaterials from "./hono/routes/project-materials";
 import materials from "./hono/routes/materials";
+import board from "./hono/routes/board";
 
 const app = new Hono<{ Bindings: Env; Variables: HonoVariables }>().basePath("/api/v1");
 
@@ -108,6 +109,7 @@ app.route("/procurement/indents", procurementIndents);
 app.route("/procurement/rfq", procurementRfq);
 app.route("/projects", projectMaterials);
 app.route("/materials", materials);
+app.route("/board", board);
 
 // Cloudflare Workers scheduled handler
 async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {

@@ -58,18 +58,19 @@ export function RealtimeNotificationListener() {
       const isProject = action.includes("PROJECT");
       const isMember = action.includes("MEMBER");
       const isAttendance = action.includes("LEAVE") || action.includes("CHECKED") || action.includes("ATTENDANCE");
+      const isBoard = action.includes("BOARD");
 
       // 3. 🚀 SURGICAL DISPATCH
       const syncDetail = {
         action,
-        category: isTask ? "TASK" : isProject ? "PROJECT" : isMember ? "MEMBER" : isAttendance ? "ATTENDANCE" : "OTHER",
+        category: isTask ? "TASK" : isProject ? "PROJECT" : isMember ? "MEMBER" : isAttendance ? "ATTENDANCE" : isBoard ? "BOARD" : "OTHER",
         record: { ...payload, id: entityId },
         oldRecord: data.oldData,
         raw: data,
         isActor
       };
 
-      if (isTask || isProject || isMember || isAttendance) {
+      if (isTask || isProject || isMember || isAttendance || isBoard) {
         console.log(`[REALTIME_SYNC] 🚀 Dispatching ${syncDetail.category} event: ${action}`);
 
         // Global event (for backward compatibility)
@@ -80,9 +81,10 @@ export function RealtimeNotificationListener() {
         if (isProject) window.dispatchEvent(new CustomEvent("realtime-project-sync", { detail: syncDetail }));
         if (isMember) window.dispatchEvent(new CustomEvent("realtime-member-sync", { detail: syncDetail }));
         if (isAttendance) window.dispatchEvent(new CustomEvent("realtime-attendance-sync", { detail: syncDetail }));
+        if (isBoard) window.dispatchEvent(new CustomEvent("realtime-board-sync", { detail: syncDetail }));
 
         // 4. 🔄 SELECTIVE BACKGROUND REVALIDATION
-        const requiresBackgroundRefresh = isProject || isMember || isAttendance;
+        const requiresBackgroundRefresh = isProject || isMember || isAttendance || isBoard;
 
         if (requiresBackgroundRefresh) {
           if (refreshTimeout) clearTimeout(refreshTimeout);

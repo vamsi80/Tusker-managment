@@ -1,6 +1,6 @@
 
 import { getDb } from "@/lib/registry";
-import { WorkspaceRole, ProjectRole } from "../../../generated/prisma";
+import { WorkspaceRole, ProjectRole } from "@/generated/prisma";
 import {
   getTaskSelect,
   buildOrderBy,

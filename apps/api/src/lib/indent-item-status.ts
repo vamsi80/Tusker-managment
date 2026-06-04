@@ -1,4 +1,4 @@
-import { IndentItemStatus } from "../generated/prisma";
+import { IndentItemStatus } from "@/generated/prisma";
 
 
 export type StatusBadgeInfo = {
