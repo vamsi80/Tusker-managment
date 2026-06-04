@@ -440,9 +440,6 @@ export class TasksService {
     );
 
     this.stripParentMetadata(result);
-    console.log(
-      `[TasksService] Final Result: ${result.tasks.length} roots, ${result.totalCount} total`,
-    );
     return result;
   }
 
@@ -1600,11 +1597,7 @@ export class TasksService {
     ]);
     const queryDuration = performance.now() - queryStartTime;
 
-    if (queryDuration > 100) {
-      console.log(
-        `[SLOW_QUERY] TasksService._fetchWorkspaceFilter took ${queryDuration.toFixed(2)}ms for workspace: ${workspaceId}`,
-      );
-    }
+
 
     const hasMore = rawTasks.length > limit;
     if (hasMore) rawTasks.pop();

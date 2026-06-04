@@ -541,28 +541,42 @@ export class ProjectService {
   /**
    * Static helpers from original service
    */
-  static async getMembers(projectId: string): Promise<ProjectMemberUI[]> {
-    const project = await ProjectRepository.getProjectWithWorkspace(projectId);
+  static async getMembers(projectId: string, existingProject?: any): Promise<ProjectMemberUI[]> {
+    const project = existingProject || await ProjectRepository.getProjectWithWorkspace(projectId);
     if (!project) return [];
 
-    const [projectMembers, workspaceAdmins] = await Promise.all([
-      ProjectRepository.getProjectMembers(projectId),
-      getDb().workspaceMember.findMany({
-        where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
-        include: { user: true }
-      })
-    ]);
+    let projectMembers: any[];
+    let workspaceAdmins: any[];
+
+    if (existingProject) {
+      projectMembers = project.projectMembers || [];
+      workspaceAdmins = project.workspace?.members?.filter((m: any) =>
+        ["OWNER", "ADMIN"].includes(m.workspaceRole)
+      ) || [];
+    } else {
+      const [pMembers, wAdmins] = await Promise.all([
+        ProjectRepository.getProjectMembers(projectId),
+        getDb().workspaceMember.findMany({
+          where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
+          include: { user: true }
+        })
+      ]);
+      projectMembers = pMembers;
+      workspaceAdmins = wAdmins;
+    }
 
     const memberMap = new Map<string, ProjectMemberUI>();
 
     // Add project members first
     projectMembers.forEach(pm => {
-      memberMap.set(pm.workspaceMember.userId, ProjectMapper.toProjectMemberUI(pm));
+      if (pm.workspaceMember) {
+        memberMap.set(pm.workspaceMember.userId, ProjectMapper.toProjectMemberUI(pm));
+      }
     });
 
     // Add/Update with workspace admins/owners (they override with their workspace roles if needed)
     workspaceAdmins.forEach(wa => {
-      if (!memberMap.has(wa.userId)) {
+      if (wa.user && !memberMap.has(wa.userId)) {
         memberMap.set(wa.userId, {
           id: wa.userId,
           userId: wa.userId,
@@ -582,16 +596,26 @@ export class ProjectService {
     return Array.from(memberMap.values());
   }
 
-  static async getPermissions(workspaceId: string, projectId: string, userId: string) {
-    const [workspaceMember, projectMember] = await Promise.all([
-      getDb().workspaceMember.findFirst({
-        where: { workspaceId, userId },
-        include: { user: { select: { surname: true } } }
-      }),
-      getDb().projectMember.findFirst({
-        where: { projectId, workspaceMember: { userId } },
-      }),
-    ]);
+  static async getPermissions(workspaceId: string, projectId: string, userId: string, existingProject?: any) {
+    let workspaceMember: any;
+    let projectMember: any;
+
+    if (existingProject) {
+      workspaceMember = existingProject.workspace?.members?.find((m: any) => m.userId === userId);
+      projectMember = existingProject.projectMembers?.find((pm: any) => pm.workspaceMember?.userId === userId);
+    } else {
+      const [wMember, pMember] = await Promise.all([
+        getDb().workspaceMember.findFirst({
+          where: { workspaceId, userId },
+          include: { user: { select: { surname: true } } }
+        }),
+        getDb().projectMember.findFirst({
+          where: { projectId, workspaceMember: { userId } },
+        }),
+      ]);
+      workspaceMember = wMember;
+      projectMember = pMember;
+    }
 
     if (!workspaceMember) return {
       isWorkspaceAdmin: false, isProjectLead: false, isProjectCoordinator: false, isProjectManager: false, isMember: false,
@@ -607,8 +631,8 @@ export class ProjectService {
     if (!project) throw AppError.NotFound("Project not found");
 
     const [members, permissions] = await Promise.all([
-      this.getMembers(projectId),
-      this.getPermissions(project.workspaceId, projectId, userId),
+      this.getMembers(projectId, project),
+      this.getPermissions(project.workspaceId, projectId, userId, project),
     ]);
 
     return { members, permissions };
