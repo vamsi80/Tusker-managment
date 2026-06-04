@@ -51,7 +51,9 @@ app.use("*", logger());
 app.use("*", cors({
     origin: (origin, c) => {
         const env = c.env as Env;
-        const allowed = [env.APP_URL, ...(env.ENVIRONMENT === "development" ? ["http://localhost:3000"] : [])].filter(Boolean);
+        const extra = env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((o: string) => o.trim()) : [];
+        const allowed = [env.APP_URL, ...extra].filter(Boolean);
+        if (!origin) return null;
         return allowed.includes(origin) ? origin : null;
     },
     credentials: true,
