@@ -29,27 +29,14 @@
       "@tusker/shared/*": [
         "../../packages/shared/src/*"
       ],
-      "@/lib/auth": [
-        "../../src/lib/auth.ts"
-      ],
-      "@/lib/db": [
-        "../../src/lib/db.ts"
-      ],
       "@/generated/prisma": [
-        "../../src/generated/prisma"
+        "../../packages/shared/generated/prisma"
       ],
       "@/generated/prisma/*": [
-        "../../src/generated/prisma/*"
-      ],
-      "@/data/*": [
-        "../../src/data/*"
-      ],
-      "@/server/*": [
-        "../../src/server/*"
+        "../../packages/shared/generated/prisma/*"
       ],
       "@/*": [
-        "./src/*",
-        "../../src/*"
+        "./src/*"
       ]
     }
   },

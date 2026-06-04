@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/wasm";
+import { PrismaClient } from "@/generated/prisma/wasm";
 
 /**
  * Creates a fresh PrismaClient backed by a single pg connection for this request.

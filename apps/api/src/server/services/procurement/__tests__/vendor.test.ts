@@ -3,7 +3,7 @@ import { describe, test, expect, beforeAll, beforeEach, vi } from "vitest";
 // Ensure this test runs against the real DB since it tests pg_trgm logic
 vi.unmock("@/lib/db");
 
-import { PrismaClient } from "../../../../generated/prisma";
+import { PrismaClient } from "@/generated/prisma";
 import { getDb } from "@/lib/registry";
 import { VendorService } from "../vendor/vendor.service";
 import { VendorRepository } from "../vendor/vendor.repository";
