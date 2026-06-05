@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npx prisma generate --schema=../../prisma/schema.prisma && next build",
+  "buildCommand": "cd ../.. && npx prisma generate && pnpm --filter @tusker/web run build",
   "outputDirectory": ".next",
   "installCommand": "pnpm install"
 }
