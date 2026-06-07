@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Env } from "@/types";
 import { HonoVariables } from "../types";
 import { WorkspaceService } from "@/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@tusker/shared";
@@ -6,7 +7,7 @@ import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
 
-const workspaces = new Hono<{ Variables: HonoVariables }>();
+const workspaces = new Hono<{ Variables: HonoVariables; Bindings: Env }>();
 
 /**
  * POST /api/v1/workspaces
@@ -43,12 +44,12 @@ workspaces.get("/verify", async (c) => {
   const role = q.role;
 
   if (!workspaceId || !role) {
-    return c.redirect((c.env as any).APP_URL || "/");
+    return c.redirect(c.env.APP_URL || "/");
   }
 
   await WorkspaceService.verifyInvitation(workspaceId, role, user.id);
 
-  return c.redirect(`${(c.env as any).APP_URL || ""}/w/${workspaceId}`);
+  return c.redirect(`${c.env.APP_URL || ""}/w/${workspaceId}`);
 });
 
 /**
@@ -143,7 +144,7 @@ workspaces.post("/:workspaceId/invite", async (c) => {
   // 2. Execute Invitation
   const result = await WorkspaceService.inviteMember(
     { ...body, workspaceId },
-    { id: user.id, name: (user as any).surname || user.name || "Admin" },
+    { id: user.id, name: user.surname },
   );
 
   return c.json({

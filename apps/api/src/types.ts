@@ -1,5 +1,11 @@
 import type { User, Session } from "better-auth";
 
+// Better Auth's User type only covers standard fields.
+// TuskerUser adds our custom Prisma columns that are always present at runtime.
+export type TuskerUser = User & {
+    surname: string;
+};
+
 export type Env = {
     // Database
     DATABASE_URL: string;
@@ -40,7 +46,7 @@ export type Env = {
 };
 
 export type HonoVariables = {
-    user: User;
+    user: TuskerUser;
     session: Session;
     env: Env;
 };

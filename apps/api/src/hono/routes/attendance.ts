@@ -1,8 +1,10 @@
 import { Hono } from "hono";
+import type { StatusCode } from "hono/utils/http-status";
 import { AttendanceService } from "@/server/services/attendance";
 import { LeaveService } from "@/server/services/leave";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { HonoVariables } from "../types";
+import type { AttendanceStatus } from "@/generated/prisma";
 
 export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
@@ -16,14 +18,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         const startDateStr = c.req.query("startDate");
         const endDateStr = c.req.query("endDate");
         const memberId = c.req.query("memberId");
-        const status = c.req.query("status") as any;
+        const statusRaw = c.req.query("status");
+        const status = statusRaw as AttendanceStatus | undefined;
 
         const startDate = startDateStr ? new Date(startDateStr) : undefined;
         const endDate = endDateStr ? new Date(endDateStr) : undefined;
-        const refresh = c.req.query("refresh") === "true";
-
-        if (refresh && workspaceId) {
-        }
 
         // Adjust for IST if dates are provided to match the @db.Date storage logic
         const normalizedStart = startDate ? new Date(startDate.getTime() + (5.5 * 60 * 60 * 1000)) : undefined;
@@ -92,7 +91,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             });
             return c.json({ success: true, data: result });
         } catch (error: any) {
-            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
+            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as StatusCode);
         }
     })
 
@@ -120,7 +119,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             });
             return c.json({ success: true, data: result });
         } catch (error: any) {
-            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
+            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as StatusCode);
         }
     })
 

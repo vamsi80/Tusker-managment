@@ -27,7 +27,6 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     }
 
     try {
-        console.log(`[apiFetch] Calling: ${options.method || "GET"} ${url}`);
         const response = await fetch(url, {
             cache: "no-store",
             credentials: "include",

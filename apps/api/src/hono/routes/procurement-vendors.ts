@@ -6,6 +6,7 @@ import { AppError } from "@/lib/errors/app-error";
 import { VendorService } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
+import type { VendorStatus } from "@/generated/prisma";
 
 const procurementVendors = new Hono<{ Variables: HonoVariables }>();
 
@@ -147,7 +148,7 @@ procurementVendors.get("/", async (c) => {
       ...(search ? {
         name: { contains: search, mode: "insensitive" }
       } : {}),
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status: status as VendorStatus } : {}),
     },
     orderBy: { createdAt: "desc" }
   });
