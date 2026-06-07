@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, useRef, useMemo } from "react";
+import { RenderProfiler } from "@/components/dev/render-profiler"; // PERF_TEMP
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,9 @@ export function ProcurementHubClient({
   const [manualQuoteNotes, setManualQuoteNotes] = useState("");
 
   const selectedItem = lineItems.find((item) => item.id === selectedItemId);
+  // Tracks whether fetchDashboardStats already loaded the indents list into state,
+  // so the tab-switch effect can skip a redundant re-fetch on first visit.
+  const indentsLoadedRef = useRef(false);
 
   // Format currency
   const formatINR = (value: number) => {
@@ -167,7 +171,10 @@ export function ProcurementHubClient({
         const pendingApp = indentsList.filter((i: any) => i.status === "SUBMITTED").length;
         const activeRf = itemsList.filter((item: any) => item.status === "RFQ_SENT").length;
         const completed = itemsList.filter((item: any) => item.status === "APPROVED" || item.status === "PO_CREATED").length;
-        
+
+        // Prime indents state so the first tab-switch to "indent" doesn't re-fetch
+        setIndents(indentsList);
+        indentsLoadedRef.current = true;
         setDashboardStats({
           totalIndents: totalInd,
           pendingApprovals: pendingApp,
@@ -268,8 +275,7 @@ export function ProcurementHubClient({
         const data = await res.json();
         if (data.success) {
           toast.success("Indent approved successfully");
-          fetchIndents();
-          fetchDashboardStats();
+          fetchDashboardStats(); // also updates indents state
         } else {
           toast.error(data.error || "Failed to approve indent");
         }
@@ -296,8 +302,7 @@ export function ProcurementHubClient({
         const data = await res.json();
         if (data.success) {
           toast.success("Indent rejected successfully");
-          fetchIndents();
-          fetchDashboardStats();
+          fetchDashboardStats(); // also updates indents state
         } else {
           toast.error(data.error || "Failed to reject indent");
         }
@@ -415,7 +420,13 @@ export function ProcurementHubClient({
 
   useEffect(() => {
     if (activeTab === "indent") {
-      fetchIndents();
+      if (indentsLoadedRef.current) {
+        // Data was already loaded by fetchDashboardStats on mount — skip duplicate fetch.
+        // Reset ref so subsequent tab revisits re-fetch fresh data.
+        indentsLoadedRef.current = false;
+      } else {
+        fetchIndents();
+      }
     } else if (activeTab === "material") {
       fetchLineItems();
     }
@@ -465,26 +476,42 @@ export function ProcurementHubClient({
     }
   };
 
-  // Filter lists
-  const filteredIndents = indents.filter((ind) =>
-    ind.name.toLowerCase().includes(indentSearch.toLowerCase()) ||
-    (ind.indentId && ind.indentId.toLowerCase().includes(indentSearch.toLowerCase()))
+  // Filter lists — memoized to avoid recalculation on every keystroke in other fields
+  const filteredIndents = useMemo(
+    () => indents.filter((ind) =>
+      ind.name.toLowerCase().includes(indentSearch.toLowerCase()) ||
+      (ind.indentId && ind.indentId.toLowerCase().includes(indentSearch.toLowerCase()))
+    ),
+    [indents, indentSearch]
   );
 
-  const filteredMaterials = lineItems.filter((item) =>
-    item.materialName.toLowerCase().includes(materialSearch.toLowerCase())
+  const filteredMaterials = useMemo(
+    () => lineItems.filter((item) =>
+      item.materialName.toLowerCase().includes(materialSearch.toLowerCase())
+    ),
+    [lineItems, materialSearch]
   );
 
   // Active RFQs list
-  const rfqMaterials = lineItems.filter((item) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED");
+  const rfqMaterials = useMemo(
+    () => lineItems.filter((item) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED"),
+    [lineItems]
+  );
 
-  // Cost calculations
-  const activeQuotes = quotes.filter((q) => q.status === "SUBMITTED" || q.status === "APPROVED");
-  const bestQuote = activeQuotes.length > 0 
-    ? activeQuotes.reduce((prev, curr) => (Number(curr.unitPrice) < Number(prev.unitPrice) ? curr : prev), activeQuotes[0])
-    : null;
+  // Cost calculations — memoized to avoid recalculation on every render
+  const activeQuotes = useMemo(
+    () => quotes.filter((q) => q.status === "SUBMITTED" || q.status === "APPROVED"),
+    [quotes]
+  );
+  const bestQuote = useMemo(
+    () => activeQuotes.length > 0
+      ? activeQuotes.reduce((prev, curr) => (Number(curr.unitPrice) < Number(prev.unitPrice) ? curr : prev), activeQuotes[0])
+      : null,
+    [activeQuotes]
+  );
 
   return (
+    <RenderProfiler id="ProcurementHub">
     <div className="flex-1 flex flex-col min-h-0 bg-background overflow-hidden h-full">
       {/* Title Header */}
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
@@ -1223,5 +1250,6 @@ export function ProcurementHubClient({
         )}
       </div>
     </div>
+    </RenderProfiler>
   );
 }

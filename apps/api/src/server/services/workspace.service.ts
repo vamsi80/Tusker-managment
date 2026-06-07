@@ -1095,32 +1095,19 @@ export class WorkspaceService {
    * Optimized to minimize RSC payload by only fetching what's needed for the shell.
    */
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
-    // Step 1: Fetch permissions and workspace admins concurrently
-    // Admins are needed both for permissions and as default leaders for all projects
-    const [permissions, workspaceAdmins] = await Promise.all([
-      getWorkspacePermissions(workspaceId, userId, false),
-      getDb().workspaceMember.findMany({
-        where: {
-          workspaceId,
-          workspaceRole: { in: ["OWNER", "ADMIN"] },
-        },
-        select: {
-          user: { select: { id: true, surname: true } },
-        },
-      }),
-    ]);
-
-    // Step 2: Fetch the rest concurrently using pre-fetched data
+    const _layoutStart = performance.now(); // PERF_TEMP
+    // All queries run concurrently — none depend on each other's results.
+    // NOTE: unreadNotificationsCount excluded — client fetches it separately via /notifications/unread-count.
     const [
+      permissions,
       workspacesResult,
       projects,
       tags,
-      unreadNotificationsCount,
     ]: any[] = await Promise.all([
+      getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
-      this.getUnreadNotificationsCount(workspaceId, userId, permissions),
     ]);
 
     // Step 3: Efficiently construct the project leaders map from the fetched projects
@@ -1140,13 +1127,14 @@ export class WorkspaceService {
 
     const workspacesData = workspacesResult.workspaces || [];
 
+    console.log(`[DB_TIMING] getWorkspaceLayoutData ${Math.round(performance.now() - _layoutStart)}ms`); // PERF_TEMP
     return {
       permissions,
       workspaces: { workspaces: workspacesData, totalCount: workspacesData.length },
       projects: projects || [],
       tags: tags || [],
       projectManagers: pmMap,
-      unreadNotificationsCount: unreadNotificationsCount || 0,
+      unreadNotificationsCount: 0,
     };
   }
 

@@ -5,22 +5,22 @@ export class CommentRepository {
    * Internal helper to get comment depth
    */
   static async getCommentDepth(commentId: string): Promise<number> {
-    let depth = 0;
-    let currentId: string | null = commentId;
-
-    while (currentId) {
-      const record: { parentCommentId: string | null } | null = await getDb().comment.findUnique({
-        where: { id: currentId },
-        select: { parentCommentId: true },
-      });
-
-      if (!record?.parentCommentId) break;
-      currentId = record.parentCommentId;
-      depth++;
-
-      if (depth > 100) break;
-    }
-    return depth;
+    // Single recursive CTE: walks up the parent chain in one DB round-trip.
+    // Stops naturally at root comments (parentCommentId IS NULL) or at depth 100.
+    const result = await getDb().$queryRaw<[{ depth: number }]>`
+      WITH RECURSIVE depth_cte AS (
+        SELECT id, "parentCommentId", 0 AS depth
+        FROM "Comment"
+        WHERE id = ${commentId}
+        UNION ALL
+        SELECT p.id, p."parentCommentId", d.depth + 1
+        FROM "Comment" p
+        JOIN depth_cte d ON p.id = d."parentCommentId"
+        WHERE d."parentCommentId" IS NOT NULL AND d.depth < 100
+      )
+      SELECT COALESCE(MAX(depth), 0)::int AS depth FROM depth_cte
+    `;
+    return Number(result[0]?.depth ?? 0);
   }
 
   /**

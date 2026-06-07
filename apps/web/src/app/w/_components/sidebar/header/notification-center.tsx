@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 import { authClient } from "@/lib/auth-client";
+import { useWorkspaceLayoutStore } from "@/lib/store/workspace-layout-store";
 
 export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
     const [peopleCount, setPeopleCount] = useState(initialPeopleCount);
@@ -21,6 +22,16 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
     const { data: session } = authClient.useSession();
     const router = useSafeNavigation();
 
+    // Read initial count from the layout store — the store fetches it non-blocking
+    // after layout loads, so no separate API call is needed on mount.
+    const storeUnreadCount = useWorkspaceLayoutStore(
+        (state) => state.layoutData[workspaceId]?.unreadNotificationsCount ?? initialPeopleCount
+    );
+    useEffect(() => {
+        setPeopleCount(storeUnreadCount);
+    }, [storeUnreadCount]);
+
+    // Only used for mark-as-read refreshes (notification-count-update event)
     const fetchCount = async () => {
         if (!workspaceId) return;
         try {
@@ -30,11 +41,6 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
             console.error("[NOTIF_CENTER] Failed to fetch unread count:", err);
         }
     };
-
-    // Fetch initial count on mount independently
-    useEffect(() => {
-        fetchCount();
-    }, [workspaceId]);
 
     // Listen for Real-time Notifications via PubSub
     useEffect(() => {

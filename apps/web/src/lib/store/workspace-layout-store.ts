@@ -18,6 +18,10 @@ interface WorkspaceLayoutState {
     optimisticAddProject: (workspaceId: string, project: any) => void;
 }
 
+// Tracks in-flight unread count fetches to prevent duplicate requests when
+// fetchLayout is called concurrently (e.g. React Strict Mode double-invoke).
+const pendingUnreadFetches = new Set<string>();
+
 /**
  * Global store for workspace layout data (sidebar, projects, permissions).
  * Replaces redundant server-side revalidations with efficient client-side state management.
@@ -54,6 +58,27 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
                     isLoading: { ...state.isLoading, [workspaceId]: false },
                     isRevalidating: { ...state.isRevalidating, [workspaceId]: false }
                 }));
+
+                // Fetch unread count separately — non-blocking, fires after layout is stored.
+                // Guard prevents duplicate requests when fetchLayout is called more than once.
+                if (!pendingUnreadFetches.has(workspaceId)) {
+                    pendingUnreadFetches.add(workspaceId);
+                    workspacesClient.getUnreadCount(workspaceId)
+                        .then((count) => {
+                            set((state) => {
+                                const current = state.layoutData[workspaceId];
+                                if (!current) return state;
+                                return {
+                                    layoutData: {
+                                        ...state.layoutData,
+                                        [workspaceId]: { ...current, unreadNotificationsCount: count }
+                                    }
+                                };
+                            });
+                        })
+                        .catch(() => { /* badge stays 0, non-critical */ })
+                        .finally(() => pendingUnreadFetches.delete(workspaceId));
+                }
             }
         } catch (error) {
             console.error(`[WorkspaceLayoutStore] Fetch failed:`, error);

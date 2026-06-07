@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/registry";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { timeQuery } from "@/lib/time-query"; // PERF_TEMP
 
 export async function getBoardData(workspaceId: string, userId: string) {
     const perms = await getWorkspacePermissions(workspaceId, userId);
@@ -8,7 +9,7 @@ export async function getBoardData(workspaceId: string, userId: string) {
         return { members: [], isOwner: false, currentMemberId: null };
     }
 
-    const members = await getDb().workspaceMember.findMany({
+    const members = await timeQuery("getBoardData", () => getDb().workspaceMember.findMany({ // PERF_TEMP
         where: {
             workspaceId,
             ...(perms.isWorkspaceAdmin ? {} : { userId }),
@@ -22,10 +23,11 @@ export async function getBoardData(workspaceId: string, userId: string) {
                     },
                 },
                 orderBy: { createdAt: "desc" },
+                take: 50,
             },
         },
         orderBy: { user: { name: "asc" } },
-    });
+    })); // PERF_TEMP
 
     return { members, isOwner: perms.isWorkspaceAdmin, currentMemberId: perms.workspaceMemberId };
 }

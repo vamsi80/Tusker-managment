@@ -20,11 +20,7 @@ export function ProjectKanbanView({
     projectId,
     userId,
 }: ProjectKanbanViewProps) {
-    const { projectMembers, projectManagers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
-
-    useEffect(() => {
-        revalidateProject();
-    }, [revalidateProject]);
+    const { projectMembers, projectManagers, projectPermissions, isLoading: isProjectLoading } = useProjectLayout();
 
     const COLUMNS = useMemo(() => ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const, []);
 

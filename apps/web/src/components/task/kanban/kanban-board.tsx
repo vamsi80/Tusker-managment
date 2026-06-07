@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { RenderProfiler } from "@/components/dev/render-profiler"; // PERF_TEMP
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,8 @@ export function KanbanBoard({
 
   const isMobile = useIsMobile();
   const [kanbanTasks, setKanbanTasks] = useState<Record<string, any[]>>({});
+  const kanbanTasksRef = useRef(kanbanTasks);
+  useEffect(() => { kanbanTasksRef.current = kanbanTasks; }, [kanbanTasks]);
 
   const projectMap = useMemo(() => {
     const map: Record<string, ProjectOption> = {};
@@ -655,7 +658,7 @@ export function KanbanBoard({
     return;
   };
 
-  const moveSubTaskBetweenColumns = (
+  const moveSubTaskBetweenColumns = useCallback((
     subTaskId: string,
     fromStatus: TaskStatus,
     toStatus: TaskStatus,
@@ -719,18 +722,17 @@ export function KanbanBoard({
       }
       return next;
     });
-  };
+  }, []);
 
-  const getTaskProjectId = (subTaskId: string) => {
-    // Find task in local state to get its projectId
-    for (const status of Object.keys(kanbanTasks) as TaskStatus[]) {
-      const task = kanbanTasks[status]?.find(t => t.id === subTaskId);
+  const getTaskProjectId = useCallback((subTaskId: string) => {
+    for (const status of Object.keys(kanbanTasksRef.current) as TaskStatus[]) {
+      const task = kanbanTasksRef.current[status]?.find(t => t.id === subTaskId);
       if (task && task.projectId) return task.projectId;
     }
     return projectId;
-  };
+  }, [projectId]);
 
-  const updateSubTaskInPlace = (subTaskId: string, data: any) => {
+  const updateSubTaskInPlace = useCallback((subTaskId: string, data: any) => {
     setKanbanTasks((prev) => {
       const newState = { ...prev };
       for (const status of Object.keys(newState) as TaskStatus[]) {
@@ -742,16 +744,17 @@ export function KanbanBoard({
       }
       return newState;
     });
-  };
+  }, []);
 
-  const performStatusUpdate = async (
-    subTaskId: string,
-    newStatus: TaskStatus,
-    previousStatus: TaskStatus,
-    activityId?: string,
-    comment?: string,
-    attachmentData?: any,
-  ) => {
+  const performStatusUpdate = useCallback(
+    async (
+      subTaskId: string,
+      newStatus: TaskStatus,
+      previousStatus: TaskStatus,
+      activityId?: string,
+      comment?: string,
+      attachmentData?: any,
+    ) => {
     console.log(`DEBUG [Kanban] performStatusUpdate starting for ${subTaskId}: ${previousStatus} -> ${newStatus}`);
     // Optimistic move only if status is actually changing and not already moved by drag-end
     if (newStatus !== previousStatus) {
@@ -804,14 +807,14 @@ export function KanbanBoard({
         return next;
       });
     }
-  };
+  }, [moveSubTaskBetweenColumns, getTaskProjectId, updateSubTaskInPlace, workspaceId, projectId]);
 
   const handleDragCancel = () => {
     setActiveSubTask(null);
     setOverInfo({ overId: null, columnId: null });
   };
 
-  const handleManualStatusChange = (
+  const handleManualStatusChange = useCallback((
     subTaskId: string,
     newStatus: TaskStatus,
     currentStatus: TaskStatus,
@@ -846,16 +849,14 @@ export function KanbanBoard({
     } else {
       performStatusUpdate(subTaskId, newStatus, currentStatus);
     }
-  };
+  }, [moveSubTaskBetweenColumns, performStatusUpdate]);
 
-  const handleSubTaskClick = (subTask: KanbanSubTaskType) => {
+  const handleSubTaskClick = useCallback((subTask: KanbanSubTaskType) => {
     openSubTaskSheet(subTask);
-  };
+  }, [openSubTaskSheet]);
 
-  const handleActivitySubmit = async (
-    commentStr: string,
-    attachmentLink?: string,
-  ) => {
+  const handleActivitySubmit = useCallback(
+    async (commentStr: string, attachmentLink?: string) => {
     if (!pendingReviewMove) return;
 
     const { subTaskId, targetStatus, previousStatus } = pendingReviewMove;
@@ -893,9 +894,9 @@ export function KanbanBoard({
       // If it fails, we set it to false so that if the user tries to cancel now, it works.
       isSubmittingActivityRef.current = false;
     }
-  };
+  }, [pendingReviewMove, performStatusUpdate]);
 
-  const handleActivityClose = () => {
+  const handleActivityClose = useCallback(() => {
     // ðŸ›¡ï¸ Guard: If we are closing because of a successful submission, don't revert!
     if (isSubmittingActivityRef.current) {
       console.log("DEBUG [Kanban] Activity Dialog closing due to submission. Skipping reversion and resetting ref.");
@@ -923,7 +924,7 @@ export function KanbanBoard({
       setPendingReviewMove(null);
     }
     setIsActivityDialogOpen(false);
-  };
+  }, [pendingReviewMove, moveSubTaskBetweenColumns]);
 
   const getFilteredSubTaskIds = (status: TaskStatus) => {
     return columnData[status]?.subTaskIds || [];
@@ -985,6 +986,7 @@ export function KanbanBoard({
   });
 
   return (
+    <RenderProfiler id="KanbanBoard">
     <div className="space-y-4">
       <GlobalFilterToolbar
         level={level}
@@ -1099,6 +1101,7 @@ export function KanbanBoard({
         }
       />
     </div>
+    </RenderProfiler>
   );
 }
 

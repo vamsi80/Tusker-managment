@@ -7,6 +7,7 @@ import { VendorRepository, IndentService, IndentRepository } from "@/server/serv
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
 import type { IndentStatus } from "@/generated/prisma";
+import { timeQuery } from "@/lib/time-query"; // PERF_TEMP
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
 
@@ -140,7 +141,7 @@ procurementIndents.get("/line-items", async (c) => {
     throw AppError.Forbidden("Insufficient permissions to view workspace procurement line items");
   }
 
-  const items = await getDb().indentLineItem.findMany({
+  const items = await timeQuery("getLineItems", () => getDb().indentLineItem.findMany({ // PERF_TEMP
     where: {
       indent: {
         workspaceId,
@@ -167,7 +168,7 @@ procurementIndents.get("/line-items", async (c) => {
       vendorQuotes: { select: { id: true, status: true } },
     },
     orderBy: { createdAt: "asc" },
-  });
+  })); // PERF_TEMP
 
   const shaped = items.map((item) => ({
     id: item.id,
