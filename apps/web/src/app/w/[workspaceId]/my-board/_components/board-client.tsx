@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RenderProfiler } from "@/components/dev/render-profiler"; // PERF_TEMP
 import { BoardData } from "@/data/board/get-board-data";
 import { MemberBoardCard } from "./member-board-card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ export default function BoardClient({ data, workspaceId }: BoardClientProps) {
     };
 
     return (
+        <RenderProfiler id="MyBoard"> {/* PERF_TEMP */}
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
@@ -123,5 +125,6 @@ export default function BoardClient({ data, workspaceId }: BoardClientProps) {
                 </DialogContent>
             </Dialog>
         </div>
+        </RenderProfiler> {/* PERF_TEMP */}
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
@@ -45,14 +45,19 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     };
 
     const { setIsQuerying } = useTeamQueryStore();
+    // Track whether the initial load has completed so we don't show the full
+    // spinner on subsequent page/search changes. Using a ref avoids putting
+    // members.length in fetchData's dep array, which would cause an infinite
+    // re-fetch loop (fetch completes → length changes → new fetchData ref →
+    // effect re-fires → fetch again).
+    const hasLoadedOnce = useRef(false);
 
     const fetchData = useCallback(async (targetPage: number, targetLimit: number, targetSearch: string = debouncedSearch, force = false, silent = false) => {
         try {
             setIsQuerying(true);
-            if (!silent) {
-                if (members.length === 0) setIsLoadingMembers(true);
-            }
+            if (!silent && !hasLoadedOnce.current) setIsLoadingMembers(true);
             const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch);
+            hasLoadedOnce.current = true;
             setMembers(membersRes.workspaceMembers || []);
             setTotalCount(membersRes.totalCount || 0);
         } catch (error) {
@@ -61,7 +66,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             setIsLoadingMembers(false);
             setIsQuerying(false);
         }
-    }, [workspaceId, debouncedSearch, members.length, setIsQuerying]);
+    }, [workspaceId, debouncedSearch, setIsQuerying]);
 
     useEffect(() => {
         const handler = (e: any) => {

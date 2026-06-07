@@ -84,7 +84,9 @@ export function RealtimeNotificationListener() {
         if (isBoard) window.dispatchEvent(new CustomEvent("realtime-board-sync", { detail: syncDetail }));
 
         // 4. 🔄 SELECTIVE BACKGROUND REVALIDATION
-        const requiresBackgroundRefresh = isProject || isMember || isAttendance || isBoard;
+        // Only PROJECT/MEMBER changes need a full RSC re-render (workspace structure changed).
+        // ATTENDANCE and BOARD events are handled surgically via their CustomEvent listeners.
+        const requiresBackgroundRefresh = isProject || isMember;
 
         if (requiresBackgroundRefresh) {
           if (refreshTimeout) clearTimeout(refreshTimeout);

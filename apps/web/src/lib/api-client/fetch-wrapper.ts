@@ -27,12 +27,15 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     }
 
     try {
+        const fetchStart = Date.now(); // PERF_TEMP
         const response = await fetch(url, {
             cache: "no-store",
             credentials: "include",
             ...options,
             headers,
         });
+        const fetchMs = Date.now() - fetchStart; // PERF_TEMP
+        if (fetchMs > 500 && process.env.NODE_ENV === "development") console.warn(`[SLOW_FETCH] ${options.method ?? "GET"} ${endpoint} ${fetchMs}ms`); // PERF_TEMP
 
         const contentType = response.headers.get("content-type");
         const isJson = contentType && contentType.includes("application/json");

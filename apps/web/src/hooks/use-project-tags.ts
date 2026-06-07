@@ -8,9 +8,12 @@ export interface TagOption {
   name: string;
 }
 
+// Module-level cache: deduplicates concurrent calls with identical args.
+// The Promise is deleted after it resolves so subsequent navigations re-fetch.
+const pendingFetches = new Map<string, Promise<TagOption[]>>();
+
 export function useProjectTags(workspaceId: string, projectId?: string) {
   const [tags, setTags] = useState<TagOption[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -18,24 +21,27 @@ export function useProjectTags(workspaceId: string, projectId?: string) {
       return;
     }
 
+    const key = `${workspaceId}:${projectId ?? ""}`;
     let mounted = true;
-    const fetchTags = async () => {
-      setLoading(true);
+
+    const run = async () => {
+      let p = pendingFetches.get(key);
+      if (!p) {
+        p = workspacesClient
+          .getTags(workspaceId, projectId)
+          .then((r) => r.map((t) => ({ id: t.id, name: t.name })));
+        pendingFetches.set(key, p);
+        p.finally(() => pendingFetches.delete(key));
+      }
       try {
-        const workspaceTags = await workspacesClient.getTags(workspaceId, projectId);
-        if (mounted) {
-          setTags(workspaceTags.map((t) => ({ id: t.id, name: t.name })));
-        }
+        const result = await p;
+        if (mounted) setTags(result);
       } catch (error) {
         console.error("Failed to fetch tags for project/workspace:", error);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
       }
     };
 
-    fetchTags();
+    run();
 
     return () => {
       mounted = false;

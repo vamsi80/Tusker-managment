@@ -38,11 +38,20 @@ app.use("*", async (c, next) => {
     });
 });
 
-// Response time header for observability
+// Response time header + tiered slow-request diagnostic // PERF_TEMP
 app.use("*", async (c, next) => {
-    const start = Date.now();
+    const start = performance.now();
     await next();
-    c.header("X-Response-Time", `${Date.now() - start}ms`);
+    const ms = Math.round(performance.now() - start);
+    const status = c.res.status;
+    c.header("X-Response-Time", `${ms}ms`);
+    if (ms > 1000) {
+        console.warn(`[VERY_SLOW_API] ${c.req.method} ${c.req.path} ${status} ${ms}ms`);
+    } else if (ms > 500) {
+        console.warn(`[SLOW_REQUEST] ${c.req.method} ${c.req.path} ${status} ${ms}ms`);
+    } else {
+        console.log(`[API_TIMING] ${c.req.method} ${c.req.path} ${status} ${ms}ms`);
+    }
 });
 
 // Logger

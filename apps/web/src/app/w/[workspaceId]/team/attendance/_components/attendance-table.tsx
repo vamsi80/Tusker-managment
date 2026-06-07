@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { RenderProfiler } from "@/components/dev/render-profiler"; // PERF_TEMP
 import { useShallow } from "zustand/react/shallow";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
@@ -91,6 +92,10 @@ export function AttendanceTable({
         status: undefined,
     });
 
+    // Stable ref to fetchRecords: keeps the listener dep array as [workspaceId] only,
+    // so it doesn't re-register on every page/filter change. Updated after each render.
+    const fetchRecordsRef = useRef<((force?: boolean, silent?: boolean) => Promise<void>) | null>(null);
+
     // Helper to flatten Prisma records into the shape the table expects
     const flattenRecord = (r: any) => {
         if (!r) return r;
@@ -151,12 +156,12 @@ export function AttendanceTable({
             // Fallback for unknown structural changes
             if (action === "team_update" || !action) {
                 console.log(`[AttendanceTable] ⚠️ Unknown action, falling back to fetch...`);
-                fetchRecords(true, true);
+                fetchRecordsRef.current?.(true, true);
             }
         };
         window.addEventListener("realtime-attendance-sync", handler);
         return () => window.removeEventListener("realtime-attendance-sync", handler);
-    }, [workspaceId, pageIndex, pageSize, activeFilters]);
+    }, [workspaceId]); // fetchRecords accessed via ref so no re-registration on page/filter changes
 
     // Local state for the filter popover
     const [tempFilters, setTempFilters] = useState(activeFilters);
@@ -256,6 +261,11 @@ export function AttendanceTable({
         debouncedSearch,
         setIsQuerying
     ]);
+
+    // Keep ref current so the listener always calls the latest fetchRecords
+    useEffect(() => {
+        fetchRecordsRef.current = fetchRecords;
+    }, [fetchRecords]);
 
     useEffect(() => {
         fetchRecords();
@@ -847,6 +857,7 @@ export function AttendanceTable({
     if (!mounted) return null;
 
     return (
+        <RenderProfiler id="AttendanceTable"> {/* PERF_TEMP */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-10 space-y-6">
                 <DataTable
@@ -961,5 +972,5 @@ export function AttendanceTable({
                 </div>
             </div>
         </div>
-    );
+        </RenderProfiler>); {/* PERF_TEMP */}
 }

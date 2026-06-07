@@ -181,6 +181,7 @@ model WorkspaceMember {
   @@index([workspaceId, userId])
   @@index([workspaceRole])
   @@index([userId])
+  @@index([workspaceId, position, createdAt(sort: Desc)])
 }
 
 model Project {

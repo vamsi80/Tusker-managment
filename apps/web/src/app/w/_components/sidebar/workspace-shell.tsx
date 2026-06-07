@@ -41,6 +41,16 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, clearFilters, setIsCurrentlyFiltered]);
 
+  // PERF_TEMP: route navigation timing — delete before shipping
+  const navStartRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (navStartRef.current !== null && process.env.NODE_ENV === "development") {
+      const ms = Math.round(performance.now() - navStartRef.current);
+      console.log(`[NAV_TIMING] ${ms}ms → ${pathname}`);
+    }
+    navStartRef.current = performance.now();
+  }, [pathname]);
+
   return (
     <WorkspaceClientProviders>
       <DataLoadReporter />

@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/registry";
+import { timeQuery } from "@/lib/time-query"; // PERF_TEMP
 
 /**
  * Get workspace-level permissions for the current user
@@ -9,26 +10,36 @@ import { getDb } from "@/lib/registry";
  */
 async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string, lean: boolean = false) {
     try {
-        const workspaceMember = await getDb().workspaceMember.findFirst({
-            where: { workspaceId: workspaceId, userId: userId },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        surname: true,
-                    }
-                },
-                reportTo: {
-                    select: {
-                        user: {
-                            select: {
-                                surname: true,
+        // Fetch workspaceMember and all workspace projects in parallel.
+        // allProjectsSpeculative is only used when the user is OWNER/ADMIN (admin path).
+        // For non-admin users the speculative project fetch is discarded — it's a tiny
+        // table (cost 1.4, < 1ms) so the waste is negligible.
+        const [workspaceMember, allProjectsSpeculative] = await Promise.all([
+            getDb().workspaceMember.findFirst({
+                where: { workspaceId: workspaceId, userId: userId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            surname: true,
+                        }
+                    },
+                    reportTo: {
+                        select: {
+                            user: {
+                                select: {
+                                    surname: true,
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            }),
+            getDb().project.findMany({
+                where: { workspaceId },
+                select: { id: true }
+            }),
+        ]);
 
         const reportingManagerName = workspaceMember?.reportTo?.user?.surname || null;
 
@@ -80,11 +91,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 } as any;
             }
 
-            const allProjects = await getDb().project.findMany({
-                where: { workspaceId },
-                select: { id: true }
-            });
-            const allIds = allProjects.map(p => p.id);
+            const allIds = allProjectsSpeculative.map(p => p.id);
             leadProjectIds = allIds;
             managedProjectIds = allIds;
             coordinatorProjectIds = allIds;
@@ -159,7 +166,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
  * Get workspace-level permissions for the current user
  */
 export const getWorkspacePermissions = async (workspaceId: string, userId: string, lean: boolean = false) => {
-    return _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
+    return timeQuery("getWorkspacePermissions", () => _fetchWorkspacePermissionsInternal(workspaceId, userId, lean)); // PERF_TEMP
 };
 
 /**
