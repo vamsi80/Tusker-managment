@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { StatusCode } from "hono/utils/http-status";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { getAuth, runRequestContext, initServices } from "./lib/registry";
@@ -65,7 +65,7 @@ app.use("*", cors({
 // Error handling
 app.onError((err, c) => {
     if (err instanceof AppError) {
-        return c.json({ success: false, error: err.message, code: err.code }, err.statusCode as StatusCode);
+        return c.json({ success: false, error: err.message, code: err.code }, err.statusCode as ContentfulStatusCode);
     }
     console.error(`[HONO_ERROR] ${err.message}`, err);
     return c.json({ success: false, error: "Internal Server Error" }, 500);
