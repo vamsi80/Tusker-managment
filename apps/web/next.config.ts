@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 import path from "path";
+import createBundleAnalyzer from '@next/bundle-analyzer';
 
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
+const withBundleAnalyzer = createBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
-})
+});
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../../'),
@@ -39,14 +40,22 @@ const nextConfig: NextConfig = {
     '@aws-sdk/client-s3',
     '@aws-sdk/s3-request-presigner'
   ],
+  outputFileTracingIncludes: {
+    '/**': ['./packages/shared/generated/prisma/**/*'],
+  },
   cacheLife: {
     layout: { stale: 3600, revalidate: 86400, expire: 604800 },
     max: { stale: 3600, revalidate: 86400, expire: 604800 },
   },
   transpilePackages: ['better-auth'],
   async rewrites() {
-    // In production set NEXT_PUBLIC_CF_WORKER_URL=https://tusker-api.your-subdomain.workers.dev
-    const workerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL || "http://localhost:8787";
+    // In development always use the local Worker (HTTP) so browsers accept the session cookie.
+    // Secure cookies from an HTTPS Worker are silently dropped by HTTP localhost.
+    // In production use the configured Worker URL.
+    const workerUrl =
+      process.env.NODE_ENV === "production"
+        ? (process.env.NEXT_PUBLIC_CF_WORKER_URL || "http://localhost:8787")
+        : "http://localhost:8787";
     return [
       {
         source: "/api/v1/:path*",

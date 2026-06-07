@@ -12,14 +12,23 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  secret: env.BETTER_AUTH_SECRET,
+  baseURL: (() => {
+    const configured = env.BETTER_AUTH_URL;
+    // VERCEL_URL is injected automatically — always an HTTPS domain (no protocol prefix).
+    // Fall back to it when BETTER_AUTH_URL is an HTTP URL (common dev-to-prod misconfiguration).
+    if (configured?.startsWith('https://')) return configured;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+    return configured ?? 'http://localhost:3000';
+  })(),
+  basePath: "/api/v1/auth",
   user: {
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
     cookieCache: {
-      enabled: true,
-      maxAge: 5 * 60,
+      enabled: false,
     },
   },
   emailAndPassword: {
