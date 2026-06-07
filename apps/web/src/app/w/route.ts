@@ -9,20 +9,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const reqHeaders = await headers();
-    const cookieHeader = reqHeaders.get("cookie") ?? "";
-    console.log("[/w] cookies present:", cookieHeader.replace(/=[^;]+/g, "=<redacted>"));
-    console.log("[/w] VERCEL_URL:", process.env.VERCEL_URL ?? "unset");
-    console.log("[/w] BETTER_AUTH_URL:", process.env.BETTER_AUTH_URL ?? "unset");
-
     const session = await auth.api.getSession({ headers: reqHeaders });
-    console.log("[/w] session user id:", session?.user?.id ?? "null");
 
     if (!session?.user?.id) {
       return NextResponse.redirect(`${origin}/sign-in`);
     }
 
     const { workspaces } = await WorkspaceService.getWorkspaces(session.user.id);
-    console.log("[/w] workspace count:", workspaces?.length ?? 0);
 
     if (!workspaces?.length) {
       return NextResponse.redirect(`${origin}/create-workspace?noWorkspace=1`);

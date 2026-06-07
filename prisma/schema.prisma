@@ -22,7 +22,7 @@ model User {
   banned              Boolean?            @default(false)
   banReason           String?
   banExpires          DateTime?
-  surname             String?
+  surname             String
   phoneNumber         String?             @unique
   phoneNumberVerified Boolean             @default(false)
   pushToken           String?

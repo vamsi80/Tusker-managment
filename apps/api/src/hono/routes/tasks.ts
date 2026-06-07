@@ -246,7 +246,7 @@ tasks.post("/subtask", async (c) => {
     startDate: data.startDate,
     dueDate: data.dueDate,
     days: data.days,
-    status: data.status as any,
+    status: data.status,
   });
 
   // Invalidate
@@ -343,7 +343,7 @@ tasks.patch("/:taskId/assignee", async (c) => {
     workspaceId,
     projectId,
     userId: user.id,
-    userName: (user as any).surname,
+    userName: user.surname,
   });
 
     return c.json(result);
@@ -533,9 +533,9 @@ tasks.patch("/:taskId", async (c) => {
     permissions,
     data: {
       ...data,
-      assigneeUserId: (data as any).assignee,
-      reviewerUserId: (data as any).reviewerId,
-      tagIds: (data as any).tagIds,
+      assigneeUserId: (data as typeof data & { assignee?: string }).assignee,
+      reviewerUserId: data.reviewerId,
+      tagIds: data.tagIds,
     },
   });
 

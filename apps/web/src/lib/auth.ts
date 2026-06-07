@@ -35,14 +35,14 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false, // Set to false to allow password reset even if email is not yet verified
     sendResetPassword: async ({ user, url }: { user: any, url: string }) => {
-      console.log(`[Auth] Password reset requested for: ${user.email}`);
-      // Print reset link to console for development
-      console.log('\n==============================================');
-      console.log('📧 PASSWORD RESET LINK');
-      console.log('==============================================');
-      console.log('User:', user.email);
-      console.log('Reset URL:', url);
-      console.log('==============================================\n');
+      if (process.env.NODE_ENV === "development") {
+        console.log('\n==============================================');
+        console.log('📧 PASSWORD RESET LINK');
+        console.log('==============================================');
+        console.log('User:', user.email);
+        console.log('Reset URL:', url);
+        console.log('==============================================\n');
+      }
 
       const result = await sendEmail({
         to: user.email,
@@ -75,15 +75,15 @@ export const auth = betterAuth({
     sendOnSignUp: true, // Automatically send verification email on signup
     autoSignInAfterVerification: true, // Auto sign-in after verification
     sendVerificationEmail: async ({ user, url, token }) => {
-      // Print verification link to console for development
-      console.log('\n==============================================');
-      console.log('📧 EMAIL VERIFICATION LINK');
-      console.log('==============================================');
-      console.log('User:', user.email);
-      console.log('Name:', user.name || 'N/A');
-      console.log('Verification URL:', url);
-      console.log('Token:', token);
-      console.log('==============================================\n');
+      if (process.env.NODE_ENV === "development") {
+        console.log('\n==============================================');
+        console.log('📧 EMAIL VERIFICATION LINK');
+        console.log('==============================================');
+        console.log('User:', user.email);
+        console.log('Verification URL:', url);
+        console.log('Token:', token);
+        console.log('==============================================\n');
+      }
 
       await sendEmail({
         to: user.email,
@@ -119,13 +119,14 @@ export const auth = betterAuth({
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp }) {
-        // For development, log the OTP to the console
-        console.log('\n==============================================');
-        console.log('📧 EMAIL OTP');
-        console.log('==============================================');
-        console.log('Email:', email);
-        console.log('OTP:', otp);
-        console.log('==============================================\n');
+        if (process.env.NODE_ENV === "development") {
+          console.log('\n==============================================');
+          console.log('📧 EMAIL OTP');
+          console.log('==============================================');
+          console.log('Email:', email);
+          console.log('OTP:', otp);
+          console.log('==============================================\n');
+        }
 
         await sendEmail({
           to: email,
@@ -140,15 +141,15 @@ export const auth = betterAuth({
         getTempName: (phoneNumber: string) => `User ${phoneNumber}`,
       },
       async sendOTP({ phoneNumber, code }, request) {
-        // For development, log the OTP to the console
-        console.log('\n==============================================');
-        console.log('📱 PHONE OTP');
-        console.log('==============================================');
-        console.log('Phone:', phoneNumber);
-        console.log('OTP:', code);
-        console.log('==============================================\n');
-
-        // In production, you would use an SMS service like Twilio here
+        if (process.env.NODE_ENV === "development") {
+          console.log('\n==============================================');
+          console.log('📱 PHONE OTP');
+          console.log('==============================================');
+          console.log('Phone:', phoneNumber);
+          console.log('OTP:', code);
+          console.log('==============================================\n');
+        }
+        // In production, wire up an SMS service like Twilio here
       },
     }),
     admin(),
