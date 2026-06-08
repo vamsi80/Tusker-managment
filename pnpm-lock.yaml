@@ -566,6 +566,9 @@ importers:
 
   packages/shared:
     devDependencies:
+      date-fns:
+        specifier: ^4
+        version: 4.1.0
       typescript:
         specifier: ^5
         version: 5.9.3

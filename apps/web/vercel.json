@@ -1,6 +1,7 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && npx prisma generate && mkdir -p apps/web/packages/shared/generated/prisma && cp packages/shared/generated/prisma/*.node apps/web/packages/shared/generated/prisma/ && pnpm --filter @tusker/web run build",
-  "outputDirectory": ".next",
-  "installCommand": "pnpm install"
+  "regions": ["bom1"],
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @tusker/web run build",
+  "outputDirectory": ".next"
 }

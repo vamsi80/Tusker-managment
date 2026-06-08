@@ -179,7 +179,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                     </div>
                                     <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
                                         {subTask.tags && subTask.tags.length > 0 ? (
-                                            subTask.tags.slice(0, 2).map(t => (
+                                            subTask.tags.slice(0, 2).map((t: { id: string; name: string }) => (
                                                 <Badge key={t.id} variant="secondary" className="rounded-md text-[8px] font-bold bg-primary/5 text-primary border-none px-1 h-3.5">
                                                     {toTitleCase(t.name)}
                                                 </Badge>

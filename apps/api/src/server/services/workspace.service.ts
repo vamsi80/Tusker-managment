@@ -799,7 +799,7 @@ export class WorkspaceService {
         where: { id: userId },
         data: {
           name: data.name,
-          surname: data.surname,
+          surname: data.surname ?? undefined,
           email: data.email,
           phoneNumber: data.phoneNumber,
           emailVerified: isEmailChanged ? false : undefined,
