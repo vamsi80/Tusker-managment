@@ -761,20 +761,13 @@ export class ProjectService {
       ...(hasFullAccess ? {} : { assigneeId: permissions.projectMember?.id }),
     };
 
-    const [totalCount, todoCount, completedCount, allMembers, absentRecords, dueThisWeek] = await Promise.all([
-      // 1a. Total tasks
-      getDb().task.count({ where: memberTaskWhere }),
-
-      // 1b. Pending tasks (not COMPLETED, HOLD, or CANCELLED)
-      getDb().task.count({
-        where: {
-          ...memberTaskWhere,
-          status: { notIn: ["COMPLETED", "HOLD", "CANCELLED"] },
-        },
+    const [taskCountsByStatus, allMembers, absentRecords, dueThisWeek] = await Promise.all([
+      // 1. All task counts in one groupBy scan (replaces 3 separate count() calls)
+      getDb().task.groupBy({
+        by: ["status"],
+        where: memberTaskWhere,
+        _count: { _all: true },
       }),
-
-      // 1c. Completed tasks
-      getDb().task.count({ where: { ...memberTaskWhere, status: "COMPLETED" } }),
 
       // 2. Project members: full list for PM/Lead, or just self for MEMBER
       getDb().projectMember.findMany({
@@ -837,6 +830,14 @@ export class ProjectService {
       }),
 
     ]);
+
+    // Derive counts from the single groupBy result
+    const totalCount = taskCountsByStatus.reduce((sum: number, r: any) => sum + r._count._all, 0);
+    const completedCount = taskCountsByStatus.find((r: any) => r.status === "COMPLETED")?._count._all ?? 0;
+    const PENDING_STATUSES = new Set(["TO_DO", "IN_PROGRESS", "REVIEW"]);
+    const todoCount = taskCountsByStatus
+      .filter((r: any) => PENDING_STATUSES.has(r.status))
+      .reduce((sum: number, r: any) => sum + r._count._all, 0);
 
     // Rename for clarity: these are members who DID mark attendance today
     const presentRecords = absentRecords;

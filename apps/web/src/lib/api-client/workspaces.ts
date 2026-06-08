@@ -283,7 +283,7 @@ export const workspacesClient: WorkspacesClient = {
      * Mark a generic notification as read
      */
     markNotificationRead: async (workspaceId: string, id: string): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean }>(`/workspaces/${workspaceId}/notifications/${id}/read`);
+        const response = await apiFetch<{ success: boolean }>(`/workspaces/${workspaceId}/notifications/${id}/read`, { method: "PATCH" });
         return {
             status: response.success ? "success" : "error",
             message: response.success ? "Notification marked as read" : "Failed to mark notification as read",

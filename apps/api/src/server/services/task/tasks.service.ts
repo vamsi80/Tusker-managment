@@ -893,13 +893,6 @@ export class TasksService {
           ),
         );
 
-        const countsResult = await TaskRepository.groupByStatus(countWhere);
-
-        const statusCounts: Record<string, number> = {};
-        countsResult.forEach((c) => {
-          if (c.status) statusCounts[c.status] = (c._count as any)._all;
-        });
-
         // 2. Define the statuses we care about
         const allStatuses = [
           "TO_DO",
@@ -910,9 +903,10 @@ export class TasksService {
           "CANCELLED",
         ];
 
-        // 3. Fetch tasks for each status in parallel
-        const statusTasksResults = await Promise.all(
-          allStatuses.map(async (status) => {
+        // 3. Fetch counts and all status task pages in one parallel batch
+        const [countsResult, ...statusTasksResults] = await Promise.all([
+          TaskRepository.groupByStatus(countWhere),
+          ...allStatuses.map(async (status) => {
             const statusWhere = buildWorkspaceFilterWhere(
               {
                 workspaceId,
@@ -947,7 +941,12 @@ export class TasksService {
               buildOrderBy(opts.sorts, opts.view_mode, opts.projectId)
             );
           }),
-        );
+        ]);
+
+        const statusCounts: Record<string, number> = {};
+        countsResult.forEach((c) => {
+          if (c.status) statusCounts[c.status] = (c._count as any)._all;
+        });
 
         const tasks = statusTasksResults.flat() as any[];
 

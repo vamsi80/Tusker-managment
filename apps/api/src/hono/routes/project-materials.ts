@@ -27,12 +27,15 @@ const UpdateMaterialItemSchema = z.object({
 
 /**
  * GET /api/v1/projects/:projectId/materials
- * List all planning tasks and material items in a project
+ * List planning tasks and material items in a project (paginated)
  */
 projectMaterials.get("/:projectId/materials", async (c) => {
   const user = c.get("user");
   const projectId = c.req.param("projectId");
   const workspaceId = c.req.query("w");
+  const page = Math.max(1, parseInt(c.req.query("page") || "1"));
+  const limit = Math.min(100, parseInt(c.req.query("limit") || "50"));
+  const skip = (page - 1) * limit;
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
@@ -41,45 +44,49 @@ projectMaterials.get("/:projectId/materials", async (c) => {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
-  // 1. Fetch all subtasks with a procurement tag
-  const subtasks = await getDb().task.findMany({
-    where: {
-      projectId,
-      isParent: false,
-      tags: {
-        some: {
-          OR: [
-            { requirePurchase: true },
-            { name: { equals: "procurement", mode: "insensitive" } },
-          ],
-        },
+  const subtaskWhere = {
+    projectId,
+    isParent: false,
+    tags: {
+      some: {
+        OR: [
+          { requirePurchase: true },
+          { name: { equals: "procurement", mode: "insensitive" } },
+        ],
       },
     },
-    include: {
-      parentTask: { select: { id: true, name: true, taskSlug: true } },
-      tags: { select: { id: true, name: true, requirePurchase: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  };
 
-  // 2. Fetch all materials linked to this project
-  const materialItems = await getDb().projectMaterialItem.findMany({
-    where: { projectId },
-    include: {
-      addedBy: {
-        include: {
-          user: { select: { name: true, surname: true } },
+  const [subtasks, materialItems, materialTotal] = await Promise.all([
+    getDb().task.findMany({
+      where: subtaskWhere,
+      include: {
+        parentTask: { select: { id: true, name: true, taskSlug: true } },
+        tags: { select: { id: true, name: true, requirePurchase: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    getDb().projectMaterialItem.findMany({
+      where: { projectId },
+      include: {
+        addedBy: {
+          include: {
+            user: { select: { name: true, surname: true } },
+          },
+        },
+        subtask: {
+          select: {
+            name: true,
+            parentTask: { select: { name: true } },
+          },
         },
       },
-      subtask: {
-        select: {
-          name: true,
-          parentTask: { select: { name: true } }
-        }
-      }
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip,
+    }),
+    getDb().projectMaterialItem.count({ where: { projectId } }),
+  ]);
 
   return c.json({
     success: true,
@@ -87,6 +94,7 @@ projectMaterials.get("/:projectId/materials", async (c) => {
       subtasks,
       materialItems,
     },
+    meta: { page, limit, total: materialTotal },
   });
 });
 

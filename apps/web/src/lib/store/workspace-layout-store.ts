@@ -18,10 +18,6 @@ interface WorkspaceLayoutState {
     optimisticAddProject: (workspaceId: string, project: any) => void;
 }
 
-// Tracks in-flight unread count fetches to prevent duplicate requests when
-// fetchLayout is called concurrently (e.g. React Strict Mode double-invoke).
-const pendingUnreadFetches = new Set<string>();
-
 /**
  * Global store for workspace layout data (sidebar, projects, permissions).
  * Replaces redundant server-side revalidations with efficient client-side state management.
@@ -58,27 +54,6 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
                     isLoading: { ...state.isLoading, [workspaceId]: false },
                     isRevalidating: { ...state.isRevalidating, [workspaceId]: false }
                 }));
-
-                // Fetch unread count separately — non-blocking, fires after layout is stored.
-                // Guard prevents duplicate requests when fetchLayout is called more than once.
-                if (!pendingUnreadFetches.has(workspaceId)) {
-                    pendingUnreadFetches.add(workspaceId);
-                    workspacesClient.getUnreadCount(workspaceId)
-                        .then((count) => {
-                            set((state) => {
-                                const current = state.layoutData[workspaceId];
-                                if (!current) return state;
-                                return {
-                                    layoutData: {
-                                        ...state.layoutData,
-                                        [workspaceId]: { ...current, unreadNotificationsCount: count }
-                                    }
-                                };
-                            });
-                        })
-                        .catch(() => { /* badge stays 0, non-critical */ })
-                        .finally(() => pendingUnreadFetches.delete(workspaceId));
-                }
             }
         } catch (error) {
             console.error(`[WorkspaceLayoutStore] Fetch failed:`, error);
@@ -148,34 +123,38 @@ export function useRealtimeLayoutSync(workspaceId: string) {
     useEffect(() => {
         if (!workspaceId) return;
 
-        // Use the centralized pubsub service for all workspace events
-        const unsubscribe = pubsub.subscribe(EVENTS.TEAM_UPDATE, (eventData: any) => {
+        // Only subscribe to PROJECT and MEMBER events — task/attendance/board events
+        // do not affect sidebar structure (projects list, permissions, workspace list)
+        // and must not trigger a layout revalidation.
+
+        const unsubscribeProject = pubsub.subscribe(EVENTS.PROJECT_UPDATE, (eventData: any) => {
             const store = useWorkspaceLayoutStore.getState();
+            const type = (eventData.type || "").toUpperCase();
+            const action = (eventData.action || "").toUpperCase();
+            const projectId = eventData.projectId || eventData.payload?.id;
 
-            // Handle project-specific updates surgically
-            if (eventData.projectId || eventData.payload?.id) {
-                const projectId = eventData.projectId || eventData.payload?.id;
+            if ((type === "DELETE" || action.includes("DELETED")) && projectId) {
+                store.optimisticRemoveProject(workspaceId, projectId);
+            } else if (type === "CREATE" && eventData.payload) {
+                store.optimisticAddProject(workspaceId, eventData.payload);
+            }
 
-                if (eventData.type === "DELETE") {
-                    store.optimisticRemoveProject(workspaceId, projectId);
-                }
-
-                if (eventData.type === "CREATE" && eventData.payload) {
-                    store.optimisticAddProject(workspaceId, eventData.payload);
-                }
-
-                // Silent revalidation backup
-                setTimeout(() => {
-                    store.revalidate(workspaceId, true);
-                }, 1000);
-            } else {
-                // General team/workspace update (roles, permissions)
+            // Only revalidate on structural changes; routine field edits are handled
+            // surgically by realtime-project-sync CustomEvent listeners.
+            const STRUCTURAL = ["CREATE", "DELETE", "ARCHIVE", "RESTORE"];
+            if (STRUCTURAL.includes(type)) {
                 store.revalidate(workspaceId, true);
             }
         });
 
+        const unsubscribeMember = pubsub.subscribe(EVENTS.MEMBER_UPDATE, () => {
+            // Member role/access changes affect workspace permissions in the layout
+            useWorkspaceLayoutStore.getState().revalidate(workspaceId, true);
+        });
+
         return () => {
-            unsubscribe();
+            unsubscribeProject();
+            unsubscribeMember();
         };
     }, [workspaceId]);
 }

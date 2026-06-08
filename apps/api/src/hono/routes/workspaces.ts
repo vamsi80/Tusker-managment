@@ -115,14 +115,20 @@ workspaces.get("/:workspaceId/members/slim", async (c) => {
 });
 
 workspaces.get("/:workspaceId/members", async (c) => {
+  const user = c.get("user");
   const workspaceId = c.req.param("workspaceId");
-  console.log(`[HONO_WORKSPACES] GET /members workspaceId: ${workspaceId}`);
+
+  const membership = await getDb().workspaceMember.findFirst({
+    where: { workspaceId, userId: user.id },
+    select: { id: true },
+  });
+  if (!membership) throw AppError.Forbidden("Access denied");
+
   const page = parseInt(c.req.query("page") || "1");
   const limit = parseInt(c.req.query("limit") || "10");
   const search = c.req.query("search");
 
   const members = await WorkspaceService.getMembers(workspaceId, page, limit, search);
-
   return c.json({ success: true, data: members });
 });
 
@@ -369,10 +375,10 @@ workspaces.get("/:workspaceId/paginated-members", async (c) => {
 
 
 /**
- * GET /api/v1/workspaces/:workspaceId/notifications/:id/read
+ * PATCH /api/v1/workspaces/:workspaceId/notifications/:id/read
  * Mark a generic notification as read
  */
-workspaces.get("/:workspaceId/notifications/:id/read", async (c) => {
+workspaces.patch("/:workspaceId/notifications/:id/read", async (c) => {
   const { id } = c.req.param();
 
   await getDb().notification.update({
