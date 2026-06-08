@@ -4,14 +4,6 @@ generator client {
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
-// Separate generator for the Next.js web app.
-// Output lives inside apps/web so Next.js auto-traces the binary — no outputFileTracingIncludes needed.
-generator clientWeb {
-  provider      = "prisma-client-js"
-  output        = "../apps/web/src/generated/prisma"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
