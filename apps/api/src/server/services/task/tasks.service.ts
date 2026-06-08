@@ -1,9 +1,8 @@
-
 import { getDb } from "@/lib/registry";
 import { AppError } from "@tusker/shared/errors";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
-import { parseIST } from "../../../lib/utils";
+import { parseIST } from "@tusker/shared/utils";
 import { logger } from "@tusker/shared/logger";
 import {
   getTaskSelect,
@@ -834,15 +833,15 @@ export class TasksService {
                 }
                 : opts.view_mode === "kanban"
                   ? {
-                      id: lastTask.id,
-                      position: (lastTask as any).position ?? null,
-                      parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
-                      parentTaskId: (lastTask as any).parentTask?.id ?? null,
-                      ...(!opts.projectId ? {
-                        projectId: (lastTask as any).project?.id ?? null,
-                        projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
-                      } : {}),
-                    }
+                    id: lastTask.id,
+                    position: (lastTask as any).position ?? null,
+                    parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
+                    parentTaskId: (lastTask as any).parentTask?.id ?? null,
+                    ...(!opts.projectId ? {
+                      projectId: (lastTask as any).project?.id ?? null,
+                      projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
+                    } : {}),
+                  }
                   : { id: lastTask.id, createdAt: lastTask.createdAt }
               : null;
 
@@ -1009,15 +1008,15 @@ export class TasksService {
                   }
                   : opts.view_mode === "kanban"
                     ? {
-                        id: lastTask.id,
-                        position: (lastTask as any).position ?? null,
-                        parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
-                        parentTaskId: (lastTask as any).parentTask?.id ?? null,
-                        ...(!opts.projectId ? {
-                          projectId: (lastTask as any).project?.id ?? null,
-                          projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
-                        } : {}),
-                      }
+                      id: lastTask.id,
+                      position: (lastTask as any).position ?? null,
+                      parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
+                      parentTaskId: (lastTask as any).parentTask?.id ?? null,
+                      ...(!opts.projectId ? {
+                        projectId: (lastTask as any).project?.id ?? null,
+                        projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
+                      } : {}),
+                    }
                     : { id: lastTask.id, createdAt: lastTask.createdAt }
                 : null;
 

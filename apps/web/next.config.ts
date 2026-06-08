@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
     '@aws-sdk/s3-request-presigner'
   ],
   outputFileTracingIncludes: {
-    '/**': ['./packages/shared/generated/prisma/**/*'],
+    '/**': ['../../packages/shared/generated/prisma/**/*'],
   },
   cacheLife: {
     layout: { stale: 3600, revalidate: 86400, expire: 604800 },

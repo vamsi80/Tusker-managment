@@ -6,7 +6,7 @@ import { AppError } from "@tusker/shared/errors";
 import { VendorRepository, IndentService, IndentRepository } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
-import type { IndentStatus } from "@/generated/prisma";
+import type { IndentStatus, LineItemStatus } from "@/generated/prisma";
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
 
@@ -192,7 +192,7 @@ procurementIndents.get("/line-items", async (c) => {
         workspaceId,
         ...(projectId && projectId !== "ALL" ? { projectId } : {}),
       },
-      ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as IndentStatus } : {}),
+      ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as LineItemStatus } : {}),
     },
     include: {
       indent: {

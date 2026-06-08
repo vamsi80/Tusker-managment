@@ -25,6 +25,7 @@ describe("Vendor Onboarding & Comparison Tests", () => {
         id: "mock-user-id",
         email: "mock-user@example.com",
         name: "Mock User",
+        surname: "Mock Surname",
       }
     });
 

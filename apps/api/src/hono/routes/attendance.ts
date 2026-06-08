@@ -104,7 +104,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             });
             return c.json({ success: true, data: result });
         } catch (error: any) {
-            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as StatusCode);
+            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
         }
     })
 
@@ -132,7 +132,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             });
             return c.json({ success: true, data: result });
         } catch (error: any) {
-            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as StatusCode);
+            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
         }
     })
 

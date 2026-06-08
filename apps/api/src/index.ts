@@ -6,7 +6,7 @@ import { getAuth, runRequestContext, initServices } from "./lib/registry";
 import type { Env } from "./types";
 import type { HonoVariables } from "./types";
 import { authMiddleware } from "./hono/middleware/auth";
-import { AppError } from "./lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 
 // Route imports
 import cron from "./hono/routes/cron";
