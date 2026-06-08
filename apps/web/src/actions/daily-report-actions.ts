@@ -1,7 +1,7 @@
-"use server";
+﻿"use server";
 
 import { reportsClient } from "@/lib/api-client/reports";
-import { DailyReportFormType } from "@/lib/zodSchemas";
+import { DailyReportFormType } from "@tusker/shared/schemas";
 
 export async function getDailyReportStatus(workspaceId: string) {
     const response = await reportsClient.getStatus(workspaceId);

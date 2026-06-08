@@ -3,16 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
-    "./schemas": "./src/schemas.ts",
-    "./error-codes": "./src/error-codes.ts",
-    "./hono-types": "./src/hono-types.ts"
+    ".":                    "./src/index.ts",
+    "./schemas":            "./src/schemas/index.ts",
+    "./error-codes":        "./src/errors/error-codes.ts",
+    "./errors":             "./src/errors/errors.ts",
+    "./hono-types":         "./src/hono-types.ts",
+    "./date-utils":         "./src/utils/date-utils.ts",
+    "./utils":              "./src/utils/utils.ts",
+    "./colors":             "./src/colors/index.ts",
+    "./colors/status":      "./src/colors/status-colors.ts",
+    "./colors/delay":       "./src/colors/delay-colors.ts",
+    "./colors/project":     "./src/colors/project-colors.ts",
+    "./country-codes":      "./src/data/country-codes.ts",
+    "./indent-item-status": "./src/data/indent-item-status.ts",
+    "./try-catch":          "./src/utils/try-catch.ts",
+    "./logger":             "./src/utils/logger.ts",
+    "./workspace-access":   "./src/rbac/workspace-access.ts",
+    "./project-access":     "./src/rbac/project-access.ts"
   },
   "devDependencies": {
     "typescript": "^5",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "date-fns": "^4"
   },
   "peerDependencies": {
-    "zod": "^4"
+    "zod": "^4",
+    "date-fns": "^4"
   }
 }

@@ -1,8 +1,8 @@
 import { getDb } from "@/lib/registry";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 
 import { AttendanceStatus } from "@/generated/prisma";
-import { getISTDateOnly } from "@/lib/date-utils";
+import { getISTDateOnly } from "@tusker/shared/date-utils";
 import { LeaveRepository } from "./leave.repository";
 import { LeaveEvents } from "./leave.events";
 import { LeaveMapper } from "./leave.mapper";

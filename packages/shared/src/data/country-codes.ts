@@ -182,5 +182,5 @@ export const countryDialCodes: Record<string, string> = {
   "Vietnam": "+84",
   "Yemen": "+967",
   "Zambia": "+260",
-  "Zimbabwe": "+263"
+  "Zimbabwe": "+263",
 };

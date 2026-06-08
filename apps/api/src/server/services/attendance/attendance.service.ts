@@ -1,10 +1,10 @@
 
 import { getDb } from "@/lib/registry";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { recordActivity, broadcastActivity } from "@/lib/audit";
 
 import { AttendanceStatus, WorkspaceRole } from "@/generated/prisma";
-import { getISTDateOnly } from "@/lib/date-utils";
+import { getISTDateOnly } from "@tusker/shared/date-utils";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendanceEvents } from "./attendance.events";
 import { 

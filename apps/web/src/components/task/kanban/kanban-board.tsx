@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { RenderProfiler } from "@/components/dev/render-profiler"; // PERF_TEMP
@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption } from "../shared/types";
-import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
+import { STATUS_COLORS, STATUS_LABELS } from "@tusker/shared/colors";
 import { apiClient } from "@/lib/api-client";
 import {
   GlobalFilterToolbar,

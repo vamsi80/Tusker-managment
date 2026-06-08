@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition, useContext } from "react";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskTableContext } from "../list/task-table/context/task-table-context-object";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/shared/colors";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 import { cn } from "@/lib/utils";
 import type { SubTaskType } from "@/types/task";

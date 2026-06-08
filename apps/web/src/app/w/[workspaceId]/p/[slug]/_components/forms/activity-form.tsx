@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import { activitySchema } from "@/lib/zodSchemas";
+import { activitySchema } from "@tusker/shared/schemas";
 
 interface ActivityDialogProps {
     isOpen: boolean;

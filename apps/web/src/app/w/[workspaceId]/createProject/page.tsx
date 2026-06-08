@@ -4,14 +4,14 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { projectsClient } from "@/lib/api-client/projects";
-import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
+import { projectSchema, ProjectSchemaType } from "@tusker/shared/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, Resolver } from "react-hook-form";
-import { tryCatch } from "@/lib/try-catch";
+import { tryCatch } from "@tusker/shared/try-catch";
 import { toast } from "sonner";
 import { useConfetti } from "@/hooks/use-confetti";
 import slugify from "slugify";
-import { getColorFromString, generateRandomColor } from "@/lib/colors/project-colors";
+import { getColorFromString, generateRandomColor } from "@tusker/shared/colors";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

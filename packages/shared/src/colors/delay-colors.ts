@@ -1,10 +1,3 @@
-/**
- * Delay Colors Utility
- * 
- * Provides consistent colors and text for task deadlines/delays 
- * across Kanban, List, and Gantt views.
- */
-
 export interface DelayColors {
     color: string;
     bgColor: string;
@@ -13,11 +6,10 @@ export interface DelayColors {
     dotVariant: "solid" | "ring" | "blink";
 }
 
-/**
- * Get color classes for a task based on its deadline status
- */
-export function getDelayColors(remainingDays: number | null, status: string | null | undefined): DelayColors {
-    // Terminal statuses
+export function getDelayColors(
+    remainingDays: number | null,
+    status: string | null | undefined
+): DelayColors {
     if (status === "COMPLETED") {
         return {
             color: "text-emerald-600 dark:text-emerald-400",
@@ -36,8 +28,6 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "solid",
         };
     }
-
-    // No deadline
     if (remainingDays === null) {
         return {
             color: "text-muted-foreground",
@@ -47,8 +37,6 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "solid",
         };
     }
-
-    // Overdue/Delayed
     if (remainingDays < 0) {
         return {
             color: "text-rose-600 dark:text-rose-400",
@@ -58,8 +46,6 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "blink",
         };
     }
-
-    // Due today
     if (remainingDays === 0) {
         return {
             color: "text-rose-600 dark:text-rose-400",
@@ -69,9 +55,6 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "solid",
         };
     }
-
-    // Days left (> 0)
-    // More than 20 days left -> Green ring
     if (remainingDays > 20) {
         return {
             color: "text-emerald-600 dark:text-emerald-400",
@@ -81,8 +64,6 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "ring",
         };
     }
-
-    // More than 10 days left -> Orange solid
     if (remainingDays > 10) {
         return {
             color: "text-orange-600 dark:text-orange-400",
@@ -92,8 +73,6 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "solid",
         };
     }
-
-    // Days left <= 10 -> Red ring
     return {
         color: "text-rose-600 dark:text-rose-400",
         bgColor: "bg-rose-500/10",
@@ -103,19 +82,14 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
     };
 }
 
-/**
- * Get standardized text for task deadlines
- */
-export function getDelayText(remainingDays: number | null, status: string | null | undefined): string {
+export function getDelayText(
+    remainingDays: number | null,
+    status: string | null | undefined
+): string {
     if (status === "COMPLETED") return "Finished";
     if (status === "CANCELLED") return "Cancelled";
     if (remainingDays === null) return "No deadline";
-
-    if (remainingDays > 0) {
-        return `${remainingDays}d left`;
-    }
-    if (remainingDays === 0) {
-        return "Due today";
-    }
+    if (remainingDays > 0) return `${remainingDays}d left`;
+    if (remainingDays === 0) return "Due today";
     return `${Math.abs(remainingDays)}d delayed`;
 }

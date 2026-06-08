@@ -1,5 +1,9 @@
-import { IndentItemStatus } from "@/generated/prisma";
-
+export type IndentItemStatus =
+    | "PENDING"
+    | "QUANTITY_APPROVED"
+    | "VENDOR_PENDING"
+    | "APPROVED"
+    | "REJECTED";
 
 export type StatusBadgeInfo = {
     label: string;
@@ -59,12 +63,12 @@ export function canApproveQuantity(status: IndentItemStatus): boolean {
     return status === "PENDING";
 }
 
-export function canApproveFinal(status: IndentItemStatus, hasVendor: boolean, hasPrice: boolean): boolean {
-    return (
-        (status === "VENDOR_PENDING" || status === "PENDING") &&
-        hasVendor &&
-        hasPrice
-    );
+export function canApproveFinal(
+    status: IndentItemStatus,
+    hasVendor: boolean,
+    hasPrice: boolean
+): boolean {
+    return (status === "VENDOR_PENDING" || status === "PENDING") && hasVendor && hasPrice;
 }
 
 export function canAddVendor(status: IndentItemStatus): boolean {

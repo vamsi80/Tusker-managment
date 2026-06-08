@@ -2,12 +2,11 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { VendorRepository, IndentService, IndentRepository } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
 import type { IndentStatus } from "@/generated/prisma";
-import { timeQuery } from "@/lib/time-query"; // PERF_TEMP
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
 
@@ -187,7 +186,7 @@ procurementIndents.get("/line-items", async (c) => {
     throw AppError.Forbidden("Insufficient permissions to view workspace procurement line items");
   }
 
-  const items = await timeQuery("getLineItems", () => getDb().indentLineItem.findMany({ // PERF_TEMP
+  const items = await getDb().indentLineItem.findMany({
     where: {
       indent: {
         workspaceId,
@@ -214,7 +213,7 @@ procurementIndents.get("/line-items", async (c) => {
       vendorQuotes: { select: { id: true, status: true } },
     },
     orderBy: { createdAt: "asc" },
-  })); // PERF_TEMP
+  });
 
   const shaped = items.map((item) => ({
     id: item.id,

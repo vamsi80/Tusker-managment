@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { KanbanSubTaskType } from "@/types/task";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
-import { getColorFromString } from "@/lib/colors/project-colors";
+import { getColorFromString } from "@tusker/shared/colors";
 import { UserPermissionsType } from "@/types/workspace";
 import {
   DropdownMenu,
@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/drawer";
 import { COLUMNS, TaskStatus } from "./kanban-constants";
 import { useRemainingDays } from "@/hooks/use-due-date";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
+import { getDelayColors, getDelayText } from "@tusker/shared/colors";
 
 
 interface KanbanCardProps {

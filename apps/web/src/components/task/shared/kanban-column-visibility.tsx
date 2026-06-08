@@ -10,7 +10,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ListFilter } from "lucide-react";
-import { STATUS_LABELS } from "@/lib/zodSchemas";
+import { STATUS_LABELS } from "@tusker/shared/schemas";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "CANCELLED" | "REVIEW" | "HOLD" | "COMPLETED";
 

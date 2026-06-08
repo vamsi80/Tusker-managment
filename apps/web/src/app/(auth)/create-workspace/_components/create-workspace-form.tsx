@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { workSpaceSchema, WorkSpaceSchemaType } from '@/lib/zodSchemas';
+import { workSpaceSchema, WorkSpaceSchemaType } from '@tusker/shared/schemas';
 import { Loader2, PlusIcon } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useTransition, useRef } from 'react';
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from 'react-hook-form';
 import { useConfetti } from '@/hooks/use-confetti';
-import { tryCatch } from '@/lib/try-catch';
+import { tryCatch } from '@tusker/shared/try-catch';
 import { Textarea } from '@/components/ui/textarea';
 import slugify from "slugify";
 import { apiClient } from '@/lib/api-client';

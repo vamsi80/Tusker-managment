@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,9 +18,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { acceptInvitationSchema } from "@/lib/zodSchemas";
+import { acceptInvitationSchema } from "@tusker/shared/schemas";
 import { apiClient } from "@/lib/api-client";
-import { tryCatch } from "@/lib/try-catch";
+import { tryCatch } from "@tusker/shared/try-catch";
 import { cn } from "@/lib/utils";
 
 interface AcceptInvitationFormProps {

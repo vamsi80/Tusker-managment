@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { inviteUserSchema, acceptInvitationSchema } from "@tusker/shared";
 import { WorkspaceService } from "@/server/services/workspace.service";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { HonoVariables } from "../types";
 import { getDb } from "@/lib/registry";
 

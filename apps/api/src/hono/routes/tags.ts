@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { getWorkspaceTags, getWorkspaceTagsWithCount, tagNameExists } from "@/data/tag/get-tags";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { ProjectService } from "@/server/services/project/project.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";

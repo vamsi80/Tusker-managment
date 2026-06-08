@@ -1,5 +1,4 @@
 import { getDb } from "@/lib/registry";
-import { timeQuery } from "@/lib/time-query"; // PERF_TEMP
 
 /**
  * Get workspace-level permissions for the current user
@@ -166,7 +165,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
  * Get workspace-level permissions for the current user
  */
 export const getWorkspacePermissions = async (workspaceId: string, userId: string, lean: boolean = false) => {
-    return timeQuery("getWorkspacePermissions", () => _fetchWorkspacePermissionsInternal(workspaceId, userId, lean)); // PERF_TEMP
+    return _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
 };
 
 /**

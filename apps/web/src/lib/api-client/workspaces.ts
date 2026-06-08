@@ -1,4 +1,4 @@
-import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@/lib/zodSchemas";
+﻿import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@tusker/shared/schemas";
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
 import {

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -9,14 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Check, Loader2 } from "lucide-react";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
-import { tryCatch } from "@/lib/try-catch";
+import { tryCatch } from "@tusker/shared/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType } from "@/types/project";
 import { projectsClient } from "@/lib/api-client/projects";
-import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@/lib/zodSchemas";
-import { getStatusColors } from "@/lib/colors/status-colors";
+import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@tusker/shared/schemas";
+import { getStatusColors } from "@tusker/shared/colors";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { SubTaskType } from "@/types/task";
 import { ProjectReviewer } from "@/types/project";

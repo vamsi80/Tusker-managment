@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { DependencyPicker } from "./dependency-picker";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/shared/colors";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 

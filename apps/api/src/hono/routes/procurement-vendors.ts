@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { VendorService } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";

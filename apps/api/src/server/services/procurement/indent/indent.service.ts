@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/registry";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { IndentRepository } from "./indent.repository";
 import { INDENT_TRANSITIONS, assertTransition } from "../utils/state-machine";
 

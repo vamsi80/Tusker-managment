@@ -1,4 +1,4 @@
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { getUserPermissions, getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CommentRepository } from "./comment.repository";
 import { CommentEvents } from "./comment.events";

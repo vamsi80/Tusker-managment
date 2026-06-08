@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useEffect } from "react";
@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
-import { tryCatch } from "@/lib/try-catch";
+import { editProjectSchema, EditProjectSchemaType } from "@tusker/shared/schemas";
+import { tryCatch } from "@tusker/shared/try-catch";
 import { toast } from "sonner";
 import { FullProjectData } from "@/types/project";
 import slugify from "slugify";
