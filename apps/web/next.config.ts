@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
   // because Prisma resolves the engine binary at runtime (not via static import).
   // Glob is relative to this project dir (apps/web), independent of outputFileTracingRoot.
   outputFileTracingIncludes: {
+    // Globs are relative to THIS file's directory (apps/web).
+    // outputFileTracingRoot shifts the packaging root to the monorepo root,
+    // so traced files land at /var/task/apps/web/src/generated/prisma at runtime.
     '/**': ['src/generated/prisma/**/*'],
   },
   experimental: {
