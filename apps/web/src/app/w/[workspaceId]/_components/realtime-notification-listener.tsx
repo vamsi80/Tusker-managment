@@ -84,9 +84,13 @@ export function RealtimeNotificationListener() {
         if (isBoard) window.dispatchEvent(new CustomEvent("realtime-board-sync", { detail: syncDetail }));
 
         // 4. 🔄 SELECTIVE BACKGROUND REVALIDATION
-        // Only PROJECT/MEMBER changes need a full RSC re-render (workspace structure changed).
-        // ATTENDANCE and BOARD events are handled surgically via their CustomEvent listeners.
-        const requiresBackgroundRefresh = isProject || isMember;
+        // Structural project changes (create/delete/archive) and all member role/access changes
+        // require a full RSC re-render. Routine field edits (PROJECT_UPDATED) are handled
+        // surgically by CustomEvent listeners and do not need a full reload.
+        const STRUCTURAL_PROJECT_ACTIONS = new Set([
+          "PROJECT_CREATED", "PROJECT_DELETED", "PROJECT_ARCHIVED", "PROJECT_RESTORED",
+        ]);
+        const requiresBackgroundRefresh = isMember || STRUCTURAL_PROJECT_ACTIONS.has(action);
 
         if (requiresBackgroundRefresh) {
           if (refreshTimeout) clearTimeout(refreshTimeout);

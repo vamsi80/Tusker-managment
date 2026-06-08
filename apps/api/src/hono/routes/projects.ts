@@ -4,6 +4,7 @@ import { AppError } from "@tusker/shared/errors";
 import { ProjectService } from "@/server/services/project";
 import { zValidator } from "@hono/zod-validator";
 import { projectSchema, editProjectSchema } from "@tusker/shared";
+import { getDb } from "@/lib/registry";
 
 const projects = new Hono<{ Variables: HonoVariables }>();
 
@@ -14,7 +15,7 @@ const projects = new Hono<{ Variables: HonoVariables }>();
 projects.post("/", zValidator("json", projectSchema), async (c) => {
   const user = c.get("user");
   const values = c.req.valid("json");
-  
+
   const data = await ProjectService.createProject(user.id, values);
   return c.json({ success: true, data });
 });
@@ -26,7 +27,7 @@ projects.post("/", zValidator("json", projectSchema), async (c) => {
 projects.patch("/:projectId", zValidator("json", editProjectSchema), async (c) => {
   const user = c.get("user");
   const values = c.req.valid("json");
-  
+
   await ProjectService.updateProject(user.id, values);
   return c.json({ success: true, message: "Project updated successfully" });
 });
@@ -38,7 +39,7 @@ projects.patch("/:projectId", zValidator("json", editProjectSchema), async (c) =
 projects.delete("/:projectId", async (c) => {
   const user = c.get("user");
   const projectId = c.req.param("projectId");
-  
+
   await ProjectService.deleteProject(user.id, projectId);
   return c.json({ success: true, message: "Project deleted successfully" });
 });
@@ -51,7 +52,7 @@ projects.post("/:projectId/members", async (c) => {
   const user = c.get("user");
   const projectId = c.req.param("projectId");
   const { memberUserIds } = await c.req.json();
-  
+
   await ProjectService.addMembers(user.id, projectId, memberUserIds);
   return c.json({ success: true, message: "Members added successfully" });
 });
@@ -64,7 +65,7 @@ projects.delete("/:projectId/members", async (c) => {
   const user = c.get("user");
   const projectId = c.req.param("projectId");
   const { memberUserIds } = await c.req.json();
-  
+
   await ProjectService.removeMembers(user.id, projectId, memberUserIds);
   return c.json({ success: true, message: "Members removed successfully" });
 });
@@ -78,7 +79,7 @@ projects.patch("/:projectId/members/:userId/role", async (c) => {
   const projectId = c.req.param("projectId");
   const targetUserId = c.req.param("userId");
   const { role } = await c.req.json();
-  
+
   await ProjectService.updateMemberRole(user.id, projectId, targetUserId, role);
   return c.json({ success: true, message: "Member role updated successfully" });
 });
@@ -91,7 +92,7 @@ projects.post("/:projectId/members/:userId/toggle-access", async (c) => {
   const user = c.get("user");
   const projectId = c.req.param("projectId");
   const targetUserId = c.req.param("userId");
-  
+
   await ProjectService.toggleMemberAccess(user.id, projectId, targetUserId);
   return c.json({ success: true, message: "Member access toggled successfully" });
 });
@@ -109,10 +110,10 @@ projects.get("/", async (c) => {
     throw AppError.ValidationError("workspaceId query parameter is required");
   }
 
-  const data = minimal 
+  const data = minimal
     ? await ProjectService.getMinimalWorkspaceProjects(workspaceId, user.id)
     : await ProjectService.getWorkspaceProjects(workspaceId, user.id);
-    
+
   return c.json({ success: true, data });
 });
 
@@ -172,38 +173,24 @@ projects.get("/assignment-maps", async (c) => {
 });
 
 /**
- * GET /api/v1/projects/:projectId/layout-data
+ * GET /api/v1/projects/project-members?workspaceId=
+ * Get all unique members across all projects in a workspace.
+ * Must be registered before GET /:projectId to avoid route shadowing.
  */
-projects.get("/:projectId/layout-data", async (c) => {
-  const projectId = c.req.param("projectId");
+projects.get("/project-members", async (c) => {
   const workspaceId = c.req.query("workspaceId");
-  const user = c.get("user");
 
   if (!workspaceId) {
     throw AppError.ValidationError("workspaceId query parameter is required");
   }
 
-  const data = await ProjectService.getProjectLayoutData(workspaceId, projectId, user.id);
-  return c.json({ success: true, data });
-});
-
-/**
- * GET /api/v1/projects/:projectId
- */
-projects.get("/:projectId", async (c) => {
-  const projectId = c.req.param("projectId");
-  const user = c.get("user");
-
-  const data = await ProjectService.getFullProjectData(projectId, user.id);
-  if (!data) {
-    throw AppError.NotFound("Project not found or access denied");
-  }
-
-  return c.json({ success: true, data });
+  const members = await ProjectService.getWorkspaceProjectMembers(workspaceId);
+  return c.json({ success: true, data: members });
 });
 
 /**
  * GET /api/v1/projects/slug/:slug/metadata
+ * Must be registered before GET /:projectId to avoid route shadowing.
  */
 projects.get("/slug/:slug/metadata", async (c) => {
   const slug = c.req.param("slug");
@@ -223,6 +210,44 @@ projects.get("/slug/:slug/metadata", async (c) => {
 });
 
 /**
+ * GET /api/v1/projects/slug/:slug/dashboard?workspaceId=
+ * Get project dashboard data.
+ * Must be registered before GET /:projectId to avoid route shadowing.
+ */
+projects.get("/slug/:slug/dashboard", async (c) => {
+  const slug = c.req.param("slug");
+  const workspaceId = c.req.query("workspaceId");
+  const user = c.get("user");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const data = await ProjectService.getProjectDashboardData(workspaceId, slug, user.id);
+  if (!data) {
+    throw AppError.NotFound("Project not found or access denied");
+  }
+
+  return c.json({ success: true, data });
+});
+
+/**
+ * GET /api/v1/projects/:projectId/layout-data
+ */
+projects.get("/:projectId/layout-data", async (c) => {
+  const projectId = c.req.param("projectId");
+  const workspaceId = c.req.query("workspaceId");
+  const user = c.get("user");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const data = await ProjectService.getProjectLayoutData(workspaceId, projectId, user.id);
+  return c.json({ success: true, data });
+});
+
+/**
  * GET /api/v1/projects/:projectId/reviewers
  */
 projects.get("/:projectId/reviewers", async (c) => {
@@ -235,7 +260,24 @@ projects.get("/:projectId/reviewers", async (c) => {
  * GET /api/v1/projects/:projectId/members
  */
 projects.get("/:projectId/members", async (c) => {
+  const user = c.get("user");
   const projectId = c.req.param("projectId");
+  let workspaceId = c.req.query("workspaceId");
+
+  if (!workspaceId) {
+    const proj = await getDb().project.findUnique({
+      where: { id: projectId },
+      select: { workspaceId: true },
+    });
+    if (!proj) throw AppError.NotFound("Project not found");
+    workspaceId = proj.workspaceId;
+  }
+
+  const permissions = await ProjectService.getPermissions(workspaceId, projectId, user.id);
+  if (!permissions.workspaceMemberId) {
+    throw AppError.Forbidden("Access denied");
+  }
+
   const members = await ProjectService.getMembers(projectId);
   return c.json({ success: true, data: members });
 });
@@ -257,34 +299,13 @@ projects.get("/:projectId/permissions", async (c) => {
 });
 
 /**
- * GET /api/v1/projects/project-members?workspaceId=
- * Get all unique members across all projects in a workspace.
+ * GET /api/v1/projects/:projectId
  */
-projects.get("/project-members", async (c) => {
-  const workspaceId = c.req.query("workspaceId");
-
-  if (!workspaceId) {
-    throw AppError.ValidationError("workspaceId query parameter is required");
-  }
-
-  const members = await ProjectService.getWorkspaceProjectMembers(workspaceId);
-  return c.json({ success: true, data: members });
-});
-
-/**
- * GET /api/v1/projects/slug/:slug/dashboard?workspaceId=
- * Get project dashboard data.
- */
-projects.get("/slug/:slug/dashboard", async (c) => {
-  const slug = c.req.param("slug");
-  const workspaceId = c.req.query("workspaceId");
+projects.get("/:projectId", async (c) => {
+  const projectId = c.req.param("projectId");
   const user = c.get("user");
 
-  if (!workspaceId) {
-    throw AppError.ValidationError("workspaceId query parameter is required");
-  }
-
-  const data = await ProjectService.getProjectDashboardData(workspaceId, slug, user.id);
+  const data = await ProjectService.getFullProjectData(projectId, user.id);
   if (!data) {
     throw AppError.NotFound("Project not found or access denied");
   }

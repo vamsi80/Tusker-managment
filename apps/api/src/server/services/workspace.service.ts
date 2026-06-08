@@ -1097,17 +1097,18 @@ export class WorkspaceService {
   static async getWorkspaceLayoutData(workspaceId: string, userId: string) {
     const _layoutStart = performance.now(); // PERF_TEMP
     // All queries run concurrently — none depend on each other's results.
-    // NOTE: unreadNotificationsCount excluded — client fetches it separately via /notifications/unread-count.
     const [
       permissions,
       workspacesResult,
       projects,
       tags,
+      unreadNotificationsCount,
     ]: any[] = await Promise.all([
       getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
+      this.getUnreadNotificationsCount(workspaceId, userId),
     ]);
 
     // Step 3: Efficiently construct the project leaders map from the fetched projects
@@ -1134,7 +1135,7 @@ export class WorkspaceService {
       projects: projects || [],
       tags: tags || [],
       projectManagers: pmMap,
-      unreadNotificationsCount: 0,
+      unreadNotificationsCount: unreadNotificationsCount ?? 0,
     };
   }
 

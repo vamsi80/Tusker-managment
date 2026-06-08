@@ -9,36 +9,26 @@ import { getDb } from "@/lib/registry";
  */
 async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: string, lean: boolean = false) {
     try {
-        // Fetch workspaceMember and all workspace projects in parallel.
-        // allProjectsSpeculative is only used when the user is OWNER/ADMIN (admin path).
-        // For non-admin users the speculative project fetch is discarded — it's a tiny
-        // table (cost 1.4, < 1ms) so the waste is negligible.
-        const [workspaceMember, allProjectsSpeculative] = await Promise.all([
-            getDb().workspaceMember.findFirst({
-                where: { workspaceId: workspaceId, userId: userId },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            surname: true,
-                        }
-                    },
-                    reportTo: {
-                        select: {
-                            user: {
-                                select: {
-                                    surname: true,
-                                }
+        const workspaceMember = await getDb().workspaceMember.findFirst({
+            where: { workspaceId: workspaceId, userId: userId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        surname: true,
+                    }
+                },
+                reportTo: {
+                    select: {
+                        user: {
+                            select: {
+                                surname: true,
                             }
                         }
                     }
                 }
-            }),
-            getDb().project.findMany({
-                where: { workspaceId },
-                select: { id: true }
-            }),
-        ]);
+            }
+        });
 
         const reportingManagerName = workspaceMember?.reportTo?.user?.surname || null;
 
@@ -90,6 +80,11 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 } as any;
             }
 
+            // Fetch project IDs only for admin users on the non-lean path.
+            const allProjectsSpeculative = await getDb().project.findMany({
+                where: { workspaceId },
+                select: { id: true },
+            });
             const allIds = allProjectsSpeculative.map(p => p.id);
             leadProjectIds = allIds;
             managedProjectIds = allIds;
