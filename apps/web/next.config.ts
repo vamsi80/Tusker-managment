@@ -38,10 +38,15 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     'xlsx-js-style',
     '@aws-sdk/client-s3',
-    '@aws-sdk/s3-request-presigner'
+    '@aws-sdk/s3-request-presigner',
+    '@prisma/client',
+    'prisma'
   ],
   outputFileTracingIncludes: {
-    '/**': ['../../packages/shared/generated/prisma/**/*'],
+    '/**': [
+      'packages/shared/generated/prisma/**/*',
+      'packages/shared/.prisma/client/**/*',
+    ],
   },
   cacheLife: {
     layout: { stale: 3600, revalidate: 86400, expire: 604800 },

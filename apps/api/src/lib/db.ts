@@ -12,15 +12,24 @@ import { PrismaClient } from "@/generated/prisma/wasm";
  * connectionTimeoutMillis: 20s — allows cold-start TCP + TLS to Supabase Mumbai.
  * Warm requests connect in <100ms (PgBouncer already has connections ready).
  */
-export function createDbClient(connectionString: string): PrismaClient {
-    // Add server-side connect_timeout as an extra safety net
-    const connStr = connectionString.includes("connect_timeout=")
-        ? connectionString
-        : connectionString + (connectionString.includes("?") ? "&" : "?") + "connect_timeout=30";
+export function createDbClient(source: string | Hyperdrive): PrismaClient {
+    const isHyperdrive = typeof source !== "string";
+    const rawConnStr = isHyperdrive ? (source as Hyperdrive).connectionString : source;
+
+    // Only append connect_timeout for direct connections — Hyperdrive manages its own timeouts
+    const connStr = isHyperdrive || rawConnStr.includes("connect_timeout=")
+        ? rawConnStr
+        : rawConnStr + (rawConnStr.includes("?") ? "&" : "?") + "connect_timeout=30";
 
     const pool = new Pool({
         connectionString: connStr,
-        ssl: connectionString.includes("sslmode=disable") ? false : { rejectUnauthorized: true },
+        // sslmode=disable wins regardless of source (local dev emulation uses PgBouncer with SSL off)
+        // Production Hyperdrive connection string won't have sslmode=disable, so it gets rejectUnauthorized:false
+        ssl: rawConnStr.includes("sslmode=disable")
+            ? false
+            : isHyperdrive
+            ? { rejectUnauthorized: false }   // Hyperdrive proxy: no cert verification needed
+            : { rejectUnauthorized: true },   // direct DB: verify cert
         // Single connection per request — sequential queries don't need a pool.
         // Cloudflare Workers cannot share TCP connections across requests anyway.
         max: 1,
