@@ -30,7 +30,7 @@ import {
 } from "@dnd-kit/core";
 
 import { Loader2 } from "lucide-react";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { UserPermissionsType } from "@/types/workspace";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";

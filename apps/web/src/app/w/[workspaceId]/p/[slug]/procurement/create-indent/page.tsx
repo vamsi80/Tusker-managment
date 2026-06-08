@@ -1,10 +1,8 @@
 import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { ProjectService } from "@/server/services/project";
-import { requireUser } from "@/lib/auth/require-user";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { AppLoader } from "@/components/shared/app-loader";
-import db from "@/lib/db";
 import { CreateIndentPageClient } from "./_components/create-indent-page-client";
 
 interface iAppProps {
@@ -48,42 +46,16 @@ async function CreateIndentServer({
   slug: string;
   taskId?: string;
 }) {
-  const [project] = await Promise.all([
-    ProjectService.getProjectBySlug(workspaceId, slug),
-    requireUser(),
-  ]);
+  const projectRes = await serverApiFetch<{ success: boolean; data: { id: string; name: string } | null }>(
+    `/projects/slug/${slug}/metadata?workspaceId=${workspaceId}`
+  ).catch(() => null);
 
+  const project = projectRes?.data ?? null;
   if (!project) return null;
 
-  // Fetch tasks with procurement tags AND existing indent taskIds in parallel
-  const [allTasks, existingIndents] = await Promise.all([
-    db.task.findMany({
-      where: {
-        projectId: project.id,
-        isParent: false,
-        tags: {
-          some: {
-            OR: [
-              { requirePurchase: true },
-              { name: { equals: "procurement", mode: "insensitive" } },
-            ],
-          },
-        },
-      },
-      select: { id: true, name: true, taskSlug: true, dueDate: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.indent.findMany({
-      where: { projectId: project.id, taskId: { not: null } },
-      select: { taskId: true },
-    }),
-  ]);
-
-  // Build a set of taskIds that already have an indent
-  const claimedTaskIds = new Set(existingIndents.map((i) => i.taskId));
-
-  // Exclude tasks that already have an indent (unless it's the prefilled one being edited)
-  const tasks = allTasks.filter((t) => !claimedTaskIds.has(t.id));
+  const tasksRes = await serverApiFetch<{ success: boolean; data: any[] }>(
+    `/procurement/indents/eligible-tasks?projectId=${project.id}&workspaceId=${workspaceId}`
+  ).catch(() => ({ data: [] }));
 
   return (
     <CreateIndentPageClient
@@ -92,7 +64,7 @@ async function CreateIndentServer({
       projectName={project.name}
       lockedProject={true}
       slug={slug}
-      tasks={tasks}
+      tasks={tasksRes.data}
       prefilledTaskId={taskId}
     />
   );

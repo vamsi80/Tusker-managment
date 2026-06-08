@@ -1,24 +1,23 @@
 import { Suspense } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { LeavesTable } from "./_components/leaves-table";
 import { LeaveRequestDialog } from "../_components/leave-request-dialog";
-import { requireUser } from "@/lib/auth/require-user";
-import { LeaveService } from "@/server/services/leave";
 import { Coffee, Thermometer, TrendingUp } from "lucide-react";
-
 
 interface LeavesPageProps {
     params: Promise<{ workspaceId: string }>;
 }
 
 async function LeavesContent({ workspaceId }: { workspaceId: string }) {
-    const user = await requireUser();
-
-    const [permissions, balances] = await Promise.all([
-        getWorkspacePermissions(workspaceId, user.id),
-        LeaveService.getMemberBalances(workspaceId, user.id),
+    const [{ data: permissions }, { data: balances }] = await Promise.all([
+        serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean; workspaceRole: string | null; workspaceMemberId: string | null } }>(
+            `/workspaces/${workspaceId}/permissions`
+        ).catch(() => ({ data: { isWorkspaceAdmin: false, workspaceRole: null, workspaceMemberId: null } })),
+        serverApiFetch<{ success: boolean; data: any }>(
+            `/attendance/leave-balance`,
+            { headers: { "x-workspace-id": workspaceId } }
+        ).catch(() => ({ data: null })),
     ]);
 
     return (
@@ -28,8 +27,8 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
                     <LeavesTable
                         workspaceId={workspaceId}
                         isWorkspaceAdmin={permissions.isWorkspaceAdmin}
-                        workspaceRole={permissions.workspaceRole}
-                        currentMemberId={permissions.workspaceMemberId}
+                        workspaceRole={permissions.workspaceRole as any}
+                        currentMemberId={permissions.workspaceMemberId ?? ""}
                     />
                 </div>
 

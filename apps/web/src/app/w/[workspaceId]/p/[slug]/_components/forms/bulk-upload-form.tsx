@@ -6,11 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
-import { ApiResponse } from "@/lib/types";
+import { ApiResponse } from "@/types/api";
 
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";

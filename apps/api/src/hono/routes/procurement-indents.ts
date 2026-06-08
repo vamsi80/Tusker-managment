@@ -81,6 +81,52 @@ procurementIndents.get("/units", async (c) => {
 });
 
 /**
+ * GET /api/v1/procurement/indents/eligible-tasks?projectId=&workspaceId=
+ * Tasks with procurement tags that do not yet have an indent (for create-indent form).
+ */
+procurementIndents.get("/eligible-tasks", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.query("projectId");
+  const workspaceId = c.req.query("workspaceId");
+
+  if (!projectId || !workspaceId) {
+    throw AppError.ValidationError("projectId and workspaceId are required");
+  }
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) throw AppError.Forbidden("Access denied to this workspace");
+
+  const db = getDb();
+  const [allTasks, existingIndents] = await Promise.all([
+    db.task.findMany({
+      where: {
+        projectId,
+        isParent: false,
+        tags: {
+          some: {
+            OR: [
+              { requirePurchase: true },
+              { name: { equals: "procurement", mode: "insensitive" } },
+            ],
+          },
+        },
+      },
+      select: { id: true, name: true, taskSlug: true, dueDate: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.indent.findMany({
+      where: { projectId, taskId: { not: null } },
+      select: { taskId: true },
+    }),
+  ]);
+
+  const claimedTaskIds = new Set(existingIndents.map((i) => i.taskId));
+  const tasks = allTasks.filter((t) => !claimedTaskIds.has(t.id));
+
+  return c.json({ success: true, data: tasks });
+});
+
+/**
  * GET /api/v1/procurement/indents
  * List all indents in workspace
  */

@@ -1,8 +1,7 @@
 import { ProjectNav } from "./_components/layout/project-nav";
 import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
 import { ProjectLayoutProvider } from "./_components/project-layout-context";
-import { ProjectService } from "@/server/services/project";
-import { requireUser } from "@/lib/auth/require-user";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import ProjectNotFound from "./_components/layout/project-not-found";
 
 export default async function ProjectLayout({
@@ -10,19 +9,17 @@ export default async function ProjectLayout({
     params,
 }: {
     children: React.ReactNode;
-    params: Promise<{
-        workspaceId: string;
-        slug: string;
-    }>;
+    params: Promise<{ workspaceId: string; slug: string }>;
 }) {
     const { workspaceId, slug } = await params;
-    const user = await requireUser();
-    const project = await ProjectService.getProjectMetadata(workspaceId, slug, user.id);
+
+    const project = await serverApiFetch<{ success: boolean; data: { id: string; name: string; color: string; userRole: string; canPerformBulkOperations: boolean } | null }>(
+        `/projects/slug/${slug}/metadata?workspaceId=${workspaceId}`
+    ).then(r => r.data).catch(() => null);
 
     if (!project) {
         return <ProjectNotFound workspaceId={workspaceId} />;
     }
-
 
     return (
         <ProjectLayoutProvider workspaceId={workspaceId} projectId={project.id}>

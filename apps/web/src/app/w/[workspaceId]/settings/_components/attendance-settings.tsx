@@ -10,7 +10,36 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import type { AttendanceSettingsData, PublicHoliday } from "@/data/attendance/get-attendance-settings";
+
+// ─── Types (previously in data/attendance/get-attendance-settings.ts) ────────
+
+export type PublicHoliday = {
+    id: string;
+    name: string;
+    date: Date;
+};
+
+export type AttendanceLocation = {
+    id: string;
+    name: string;
+    address: string | null;
+    latitude: number;
+    longitude: number;
+    radius: number;
+};
+
+export type AttendanceSettingsData = {
+    lateThreshold: string;
+    overtimeThreshold: string;
+    halfDayThreshold: string;
+    shiftStartTime: string;
+    shiftEndTime: string;
+    sickLeaveLimit: number;
+    casualLeaveAccrualDays: number;
+    publicHolidays: PublicHoliday[];
+    attendanceLocations: AttendanceLocation[];
+};
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

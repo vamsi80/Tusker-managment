@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { projectsClient } from "@/lib/api-client/projects";
 import type { ProjectRole } from "@/generated/prisma";
 import { type WorkspaceMembersResult } from "@/types/workspace";

@@ -15,7 +15,7 @@ import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 import { cn } from "@/lib/utils";
 import type { SubTaskType } from "@/types/task";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/types/workspace";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 

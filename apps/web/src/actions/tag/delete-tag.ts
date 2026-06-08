@@ -1,54 +1,24 @@
 "use server";
 
-import prisma from "@/lib/db";
-
-import { z } from "zod";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { workspacesClient } from "@/lib/api-client/workspaces";
 import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
-import { getSession } from "@/lib/auth/require-user";
 
-const deleteTagSchema = z.object({
-    tagId: z.string(),
-    workspaceId: z.string(),
-});
+interface DeleteTagInput {
+    tagId: string;
+    workspaceId: string;
+}
 
-export async function deleteTag(data: z.infer<typeof deleteTagSchema>) {
+export async function deleteTag(data: DeleteTagInput) {
     try {
-        const session = await getSession();
-        if (!session) throw new Error("Unauthorized");
-        // Validate input
-        const validatedData = deleteTagSchema.parse(data);
-
-        const permissions = await getWorkspacePermissions(validatedData.workspaceId);
-        if (!permissions.isWorkspaceAdmin) {
-            return {
-                success: false,
-                error: "You don't have permission to delete tags",
-            };
+        const result = await workspacesClient.deleteTag(data.tagId, data.workspaceId);
+        if (result.success) {
+            await invalidateWorkspaceTags(data.workspaceId);
         }
-
-        await prisma.tag.delete({
-            where: {
-                id: validatedData.tagId,
-            },
-        });
-
-        await invalidateWorkspaceTags(validatedData.workspaceId);
-
-        return {
-            success: true,
-        };
-    } catch (error) {
-        console.error("Error deleting tag:", error);
-        if (error instanceof z.ZodError) {
-            return {
-                success: false,
-                error: error.issues[0].message,
-            };
-        }
+        return result;
+    } catch (error: any) {
         return {
             success: false,
-            error: "Failed to delete tag",
+            error: error.message || "Failed to delete tag",
         };
     }
 }

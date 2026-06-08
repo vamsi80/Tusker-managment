@@ -3,12 +3,14 @@ import { inviteUserSchema, acceptInvitationSchema } from "@tusker/shared";
 import { WorkspaceService } from "@/server/services/workspace.service";
 import { AppError } from "@/lib/errors/app-error";
 import { HonoVariables } from "../types";
+import { getDb } from "@/lib/registry";
 
 const auth = new Hono<{ Variables: HonoVariables }>();
 
 /**
  * GET /api/v1/auth/verify-invitation
- * Verify if a token satisfies the invitation requirement
+ * Verify if a token satisfies the invitation requirement.
+ * Returns valid flag and pre-fill name when valid.
  */
 auth.get("/verify-invitation", async (c) => {
     const token = c.req.query("token");
@@ -19,10 +21,20 @@ auth.get("/verify-invitation", async (c) => {
     }
 
     const isValid = await WorkspaceService.verifyInvitationToken(token, email);
-    
-    return c.json({ 
+
+    let name: string | null = null;
+    if (isValid) {
+        const user = await getDb().user.findUnique({
+            where: { email },
+            select: { name: true },
+        });
+        name = user?.name ?? null;
+    }
+
+    return c.json({
         status: isValid ? "success" : "error",
         valid: isValid,
+        name,
         message: isValid ? "Token is valid" : "Token is invalid or expired"
     });
 });

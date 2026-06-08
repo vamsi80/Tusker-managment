@@ -1,10 +1,6 @@
-
-import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { ProjectService } from "@/server/services/project";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import dynamic from "next/dynamic";
-
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 
 const KanbanBoard = dynamic(
     () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
@@ -16,43 +12,39 @@ interface WorkspaceKanbanViewProps {
 }
 
 export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanbanViewProps) {
-    const userPromise = requireUser();
-    const membersPromise = ProjectService.getWorkspaceProjectMembers(workspaceId);
-    const leadersPromise = ProjectService.getWorkspaceProjectLeaders(workspaceId);
+    const user = await requireUser();
 
-    // 2. Wait for user safely before launching the dependent queries
-    const user = await userPromise;
-
-    // 3. Launch the final large queries
     const viewStartTime = performance.now();
     const [
-        permissions,
-        projectMembers,
-        projectManagers,
+        { data: permissions },
+        membersRes,
+        assignmentMapsRes,
     ] = await Promise.all([
-        getWorkspacePermissions(workspaceId),
-        membersPromise,
-        leadersPromise,
+        serverApiFetch<{ success: boolean; data: any }>(
+            `/workspaces/${workspaceId}/permissions`
+        ).catch(() => ({ data: {} })),
+        serverApiFetch<{ success: boolean; data: any[] }>(
+            `/projects/project-members?workspaceId=${workspaceId}`
+        ).catch(() => ({ data: [] })),
+        serverApiFetch<{ success: boolean; data: { projectAssignments: any[]; projectLeaders: any[] } }>(
+            `/projects/assignment-maps?workspaceId=${workspaceId}`
+        ).catch(() => ({ data: { projectAssignments: [], projectLeaders: [] } })),
     ]);
     const duration = performance.now() - viewStartTime;
-
-    console.log(`DEBUG: Workspace Kanban Project Managers for ${workspaceId}:`, projectManagers);
 
     if (duration > 600) {
         console.warn(`[PERF_WARN] WorkspaceKanbanView rendered in ${duration.toFixed(2)}ms`);
     }
 
-    const initialData = null;
-
     return (
         <KanbanBoard
-            initialData={initialData as any}
+            initialData={null as any}
             isShell={true}
-            projectMembers={projectMembers as any}
+            projectMembers={membersRes.data as any}
             workspaceId={workspaceId}
             projectId=""
             level="workspace"
-            projectManagers={projectManagers}
+            projectManagers={assignmentMapsRes.data.projectLeaders}
             permissions={permissions}
             userId={user.id}
         />

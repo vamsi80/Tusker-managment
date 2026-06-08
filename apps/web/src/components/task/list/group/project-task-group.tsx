@@ -11,7 +11,7 @@ import { TableLoadingSkeleton } from "../table/table-skeleton";
 import { EmptyState } from "../table/empty-state";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/types/workspace";
 import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
 
 interface ProjectTaskGroupProps {

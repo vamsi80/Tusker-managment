@@ -1,6 +1,6 @@
 "use client";
 
-import type { TaskByIdType } from "@/server/services/task/tasks.service";
+type TaskByIdType = any;
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

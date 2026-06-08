@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
 import { AttendanceTable } from "./_components/attendance-table";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 
 interface AttendancePageProps {
     params: Promise<{ workspaceId: string }>;
@@ -10,14 +9,16 @@ interface AttendancePageProps {
 }
 
 async function AttendanceContent({ workspaceId }: { workspaceId: string }) {
-    const permissions = await getWorkspacePermissions(workspaceId);
+    const { data: permissions } = await serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean; workspaceRole: string | null } }>(
+        `/workspaces/${workspaceId}/permissions`
+    ).catch(() => ({ data: { isWorkspaceAdmin: false, workspaceRole: null } }));
 
     return (
         <div className="flex flex-col gap-6">
             <AttendanceTable
                 workspaceId={workspaceId}
                 isWorkspaceAdmin={permissions.isWorkspaceAdmin}
-                workspaceRole={permissions.workspaceRole}
+                workspaceRole={permissions.workspaceRole as any}
             />
         </div>
     );

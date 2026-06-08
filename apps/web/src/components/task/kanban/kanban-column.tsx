@@ -10,7 +10,7 @@ import { KanbanCardSkeleton } from "./kanban-skeleton";
 import { useInView } from "react-intersection-observer";
 import React, { useEffect } from "react";
 import { Plus } from "lucide-react";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { UserPermissionsType } from "@/types/workspace";
 import { ProjectOption } from "../shared/types";
 
 

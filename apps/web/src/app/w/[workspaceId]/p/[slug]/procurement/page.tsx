@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { ProjectService } from "@/server/services/project";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 
 interface iAppProps {
   params: Promise<{ workspaceId: string; slug: string }>;
@@ -20,9 +20,14 @@ export default async function ProcurementPage({ params }: iAppProps) {
   );
 }
 
-async function ProjectProcurementViewServer({ workspaceId, slug }: { workspaceId: string, slug: string }) {
-  const [project, user] = await Promise.all([ProjectService.getProjectBySlug(workspaceId, slug), requireUser()]);
-  if (!project) return null;
-  const { ProjectProcurementView } = await import("./_components/project-procurement-view");
-  return <ProjectProcurementView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
+async function ProjectProcurementViewServer({ workspaceId, slug }: { workspaceId: string; slug: string }) {
+    const [project, user] = await Promise.all([
+        serverApiFetch<{ success: boolean; data: { id: string } }>(
+            `/projects/slug/${slug}/metadata?workspaceId=${workspaceId}`
+        ).then(r => r.data).catch(() => null),
+        requireUser(),
+    ]);
+    if (!project) return null;
+    const { ProjectProcurementView } = await import("./_components/project-procurement-view");
+    return <ProjectProcurementView workspaceId={workspaceId} projectId={project.id} userId={user.id} />;
 }

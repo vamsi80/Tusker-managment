@@ -107,4 +107,41 @@ export type WorkspaceMembersType = WorkspaceMembersResult;
 export type WorkspacesType = WorkspacesResult;
 export type WorkspaceItemType = WorkspaceListItem;
 
-export type { WorkspacePermissionsType, UserPermissionsType } from "@/data/user/get-user-permissions";
+/** Mirrors the return type of GET /workspaces/:wId/permissions (workspace-level) */
+export type WorkspacePermissionsType = {
+    isWorkspaceAdmin: boolean;
+    canCreateProject: boolean;
+    isProjectLead: boolean;
+    isProjectManager: boolean;
+    isProjectCoordinator?: boolean;
+    hasAccess: boolean;
+    workspaceMemberId: string | null;
+    workspaceRole: WorkspaceRole | null;
+    userId: string | null;
+    userSurname?: string | null;
+    reportingManagerName: string | null;
+    leadProjectIds?: string[];
+    managedProjectIds?: string[];
+    coordinatorProjectIds?: string[];
+    memberProjectIds?: string[];
+    viewerProjectIds?: string[];
+};
+
+/** Mirrors the return type of GET /workspaces/:wId/permissions (project-level) */
+export type UserPermissionsType = {
+    isWorkspaceAdmin: boolean;
+    isProjectManager: boolean;
+    isProjectCoordinator?: boolean;
+    isProjectLead: boolean;
+    isMember: boolean;
+    canCreateSubTask: boolean;
+    canPerformBulkOperations: boolean;
+    workspaceMemberId: string | null;
+    workspaceRole: WorkspaceRole | null;
+    userId: string | null;
+    userSurname: string | null;
+    projectMember: {
+        id: string;
+        projectRole: string;
+    } | null;
+};

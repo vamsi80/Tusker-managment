@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { toast } from "sonner";
 import { FullProjectData } from "@/types/project";
 import slugify from "slugify";

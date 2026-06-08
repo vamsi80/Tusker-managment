@@ -5,6 +5,19 @@ import { LeaveService } from "@/server/services/leave";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { HonoVariables } from "../types";
 import type { AttendanceStatus } from "@/generated/prisma";
+import { getDb } from "@/lib/registry";
+
+const DEFAULT_ATTENDANCE_SETTINGS = {
+    lateThreshold: "21:30",
+    overtimeThreshold: "07:00",
+    halfDayThreshold: "23:00",
+    shiftStartTime: "21:30",
+    shiftEndTime: "07:00",
+    sickLeaveLimit: 12,
+    casualLeaveAccrualDays: 20,
+    publicHolidays: [] as any[],
+    attendanceLocations: [] as any[],
+};
 
 export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
@@ -135,6 +148,49 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             const targetDate = date ? new Date(date) : new Date();
             const result = await AttendanceService.reconcileAttendance(workspaceId, targetDate);
             return c.json({ success: true, data: result });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
+
+    .get("/settings", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const db = getDb();
+            const [workspaceResult, holidays, locations] = await Promise.all([
+                db.$queryRawUnsafe<any[]>(
+                    `SELECT "lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime", "sickLeaveLimit", "casualLeaveAccrualDays"
+                     FROM "public"."Workspace"
+                     WHERE "id" = $1
+                     LIMIT 1`,
+                    workspaceId
+                ),
+                db.public_holiday.findMany({ where: { workspaceId }, orderBy: { date: "asc" } }),
+                db.attendanceLocation.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" } }),
+            ]);
+
+            const ws = workspaceResult[0];
+            if (!ws) return c.json({ success: true, data: DEFAULT_ATTENDANCE_SETTINGS });
+
+            return c.json({
+                success: true,
+                data: {
+                    lateThreshold:          ws.lateThreshold          || DEFAULT_ATTENDANCE_SETTINGS.lateThreshold,
+                    overtimeThreshold:      ws.overtimeThreshold      || DEFAULT_ATTENDANCE_SETTINGS.overtimeThreshold,
+                    halfDayThreshold:       ws.halfDayThreshold       || DEFAULT_ATTENDANCE_SETTINGS.halfDayThreshold,
+                    shiftStartTime:         ws.shiftStartTime         || DEFAULT_ATTENDANCE_SETTINGS.shiftStartTime,
+                    shiftEndTime:           ws.shiftEndTime           || DEFAULT_ATTENDANCE_SETTINGS.shiftEndTime,
+                    sickLeaveLimit:         ws.sickLeaveLimit         ?? DEFAULT_ATTENDANCE_SETTINGS.sickLeaveLimit,
+                    casualLeaveAccrualDays: ws.casualLeaveAccrualDays ?? DEFAULT_ATTENDANCE_SETTINGS.casualLeaveAccrualDays,
+                    publicHolidays:         holidays,
+                    attendanceLocations:    locations || [],
+                },
+            });
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);
         }

@@ -154,23 +154,6 @@ export const auth = betterAuth({
     }),
     admin(),
   ],
-  databaseHooks: {
-    session: {
-      create: {
-        after: async (session) => {
-          // We import recordActivity inside the hook to avoid circular dependency
-          const { recordActivity } = await import("./audit");
-
-          await recordActivity({
-            userId: session.userId,
-            action: "USER_LOGIN",
-            ipAddress: session.ipAddress ?? undefined,
-            userAgent: session.userAgent ?? undefined,
-          });
-        }
-      }
-    }
-  }
 })
 
 /**

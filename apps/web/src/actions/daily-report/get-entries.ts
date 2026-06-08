@@ -1,34 +1,11 @@
 "use server";
 
-import prisma from "@/lib/db";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getSession } from "@/lib/auth/require-user";
+import { reportsClient } from "@/lib/api-client/reports";
 
 export async function getReportEntries(workspaceId: string, reportId: string) {
-    const session = await getSession();
-    if (!session) throw new Error("Unauthorized");
-    const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
-
-    if (!isWorkspaceAdmin) {
-        throw new Error("Unauthorized to view reports");
+    const response = await reportsClient.getReportEntries(workspaceId, reportId);
+    if (response.status !== "success") {
+        throw new Error(response.message || "Failed to fetch report entries");
     }
-
-    const entries = await prisma.dailyReportEntry.findMany({
-        where: { reportId },
-        include: {
-            task: {
-                select: {
-                    id: true,
-                    name: true,
-                    status: true,
-                    taskSlug: true,
-                }
-            }
-        },
-        orderBy: {
-            type: "asc" // TASK first
-        }
-    });
-
-    return entries;
+    return response.data;
 }

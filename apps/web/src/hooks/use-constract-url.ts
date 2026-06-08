@@ -1,3 +1,5 @@
+"use client";
+
 import { env } from "@/lib/env";
 
 export function useConstructUrl(key : string): string {
