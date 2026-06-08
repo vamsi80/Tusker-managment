@@ -4,12 +4,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AcceptInvitationForm } from "../../w/_components/auth/accept-invitation-form";
 import { AppLoader } from "@/components/shared/app-loader";
-import { WorkspaceService } from "@/server/services/workspace.service";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import prisma from "@/lib/db";
 
 interface PageProps {
     searchParams: Promise<{
@@ -69,9 +68,11 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
     }
 
     // 3. Server-side validation of token validity
-    const isValid = await WorkspaceService.verifyInvitationToken(token, email);
+    const verification = await serverApiFetch<{ valid: boolean; name: string | null }>(
+        `/auth/verify-invitation?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
+    ).catch(() => ({ valid: false, name: null }));
 
-    if (!isValid) {
+    if (!verification.valid) {
         return (
             <div className="flex items-center justify-center min-h-screen p-4">
                 <Card className="w-full max-w-md border-destructive">
@@ -97,20 +98,14 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
         );
     }
 
-    // 4. Fetch user to pre-fill name
-    const user = await prisma.user.findUnique({
-        where: { email },
-        select: { name: true }
-    });
-
-    // 5. Render the set-password form
+    // 4. Render the set-password form
     return (
         <div className="flex items-center justify-center min-h-screen p-4 bg-muted/30">
             <Suspense fallback={<AppLoader />}>
-                <AcceptInvitationForm 
-                    token={token} 
-                    email={email} 
-                    initialName={user?.name || ""}
+                <AcceptInvitationForm
+                    token={token}
+                    email={email}
+                    initialName={verification.name || ""}
                 />
             </Suspense>
         </div>

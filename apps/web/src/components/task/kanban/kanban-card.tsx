@@ -22,7 +22,7 @@ import {
 import type { KanbanSubTaskType } from "@/types/task";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
-import { UserPermissionsType } from "@/data/user/get-user-permissions";
+import { UserPermissionsType } from "@/types/workspace";
 import {
   DropdownMenu,
   DropdownMenuContent,

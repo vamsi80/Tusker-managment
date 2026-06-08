@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { getWorkspaceActivity } from "@/data/audit/get-activity";
 import { AppLoader } from "@/components/shared/app-loader";
 import { ActivityList } from "./_components/activity-list";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 
 interface ActivityPageProps {
     params: Promise<{ workspaceId: string }>;
@@ -9,10 +9,11 @@ interface ActivityPageProps {
 
 async function ActivityContent({ workspaceId }: { workspaceId: string }) {
     try {
-        const logs = await getWorkspaceActivity(workspaceId);
+        const { data: logs } = await serverApiFetch<{ success: boolean; data: any[] }>(
+            `/workspaces/${workspaceId}/activity`
+        );
         return <ActivityList logs={logs} workspaceId={workspaceId} />;
-    } catch (error) {
-        console.error("[ACTIVITY_PAGE_ERROR]", error);
+    } catch {
         return (
             <div className="p-4 border border-destructive/50 bg-destructive/5 text-destructive rounded-md text-sm">
                 You do not have permission to view this page.

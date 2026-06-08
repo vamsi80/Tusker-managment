@@ -18,7 +18,7 @@ import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/fo
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/types/workspace";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { SubtaskStatusChanger } from "../shared/subtask-status-changer";

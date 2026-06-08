@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";

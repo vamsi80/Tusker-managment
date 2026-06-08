@@ -383,4 +383,53 @@ workspaces.get("/:workspaceId/notifications/:id/read", async (c) => {
   return c.json({ success: true });
 });
 
+/**
+ * GET /api/v1/workspaces/:workspaceId/permissions
+ * Get the current user's permissions for a workspace
+ */
+workspaces.get("/:workspaceId/permissions", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  const permissions = await getWorkspacePermissions(workspaceId, user.id);
+  return c.json({ success: true, data: permissions });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/activity
+ * Get audit log for a workspace (admin only)
+ */
+workspaces.get("/:workspaceId/activity", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  if (!isWorkspaceAdmin) {
+    throw AppError.Forbidden("Only admins can view activity logs.");
+  }
+
+  const db = getDb();
+  const logs = await db.auditLog.findMany({
+    where: { workspaceId },
+    select: {
+      id: true,
+      action: true,
+      entityType: true,
+      entityId: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  return c.json({ success: true, data: logs });
+});
+
 export default workspaces;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createBoardItem, toggleBoardItemStatus, deleteBoardItem } from "../board-actions";
 import { requireUser } from "@/lib/auth/require-user";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getWorkspacePermissions } from "@/types/workspace";
 import prisma from "@/lib/db";
 
 describe("Board Actions", () => {

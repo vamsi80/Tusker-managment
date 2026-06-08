@@ -8,7 +8,7 @@ import { SubTaskList } from "../subtask-list";
 import { InlineTaskForm } from "../inline-task-form";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/types/workspace";
 
 
 interface FlatTaskListProps {

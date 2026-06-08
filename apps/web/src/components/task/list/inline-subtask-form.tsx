@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Check, Loader2 } from "lucide-react";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { toast } from "sonner";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";

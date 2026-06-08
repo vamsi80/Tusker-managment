@@ -1,23 +1,25 @@
 import { Suspense } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getAttendanceSettings } from "@/data/attendance/get-attendance-settings";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { AttendanceSettings } from "../../settings/_components/attendance-settings";
 import { ShieldAlert, Clock, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 
 interface TeamSettingsPageProps {
     params: Promise<{ workspaceId: string }>;
 }
 
 async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
-    const [permissions, attendanceSettings] = await Promise.all([
-        getWorkspacePermissions(workspaceId),
-        getAttendanceSettings(workspaceId),
+    const [{ data: permissions }, { data: attendanceSettings }] = await Promise.all([
+        serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean } }>(
+            `/workspaces/${workspaceId}/permissions`
+        ).catch(() => ({ data: { isWorkspaceAdmin: false } })),
+        serverApiFetch<{ success: boolean; data: any }>(
+            `/attendance/settings`,
+            { headers: { "x-workspace-id": workspaceId } }
+        ).catch(() => ({ data: null })),
     ]);
 
-    // Strict blockage for Managers and regular Members
     if (!permissions.isWorkspaceAdmin) {
         return (
             <div className="flex h-[60vh] w-full flex-col items-center justify-center space-y-4 rounded-xl border-2 border-dashed border-red-200 bg-red-50/50 p-12 text-center animate-in fade-in zoom-in duration-300">
@@ -27,7 +29,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                 <div className="space-y-2">
                     <h2 className="text-2xl font-bold tracking-tight text-red-900">Access Denied</h2>
                     <p className="max-w-[400px] text-red-700/80">
-                        This area is restricted to Workspace Owners and Admins only. 
+                        This area is restricted to Workspace Owners and Admins only.
                         You do not have the necessary permissions to manage team attendance settings.
                     </p>
                 </div>

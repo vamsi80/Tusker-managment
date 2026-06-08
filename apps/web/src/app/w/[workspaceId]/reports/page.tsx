@@ -1,7 +1,6 @@
-import { ReportService } from "@/server/services/report.service";
 import { notFound } from "next/navigation";
 import { ReportsTable } from "./_components/report-table";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 
 export default async function ReportsPage({
     params,
@@ -11,23 +10,25 @@ export default async function ReportsPage({
     searchParams: Promise<{ date?: string; userId?: string }>;
 }) {
     const { workspaceId } = await params;
-    const { isWorkspaceAdmin, workspaceMemberId, userId } = await getWorkspacePermissions(workspaceId);
-
-    if (!workspaceMemberId) {
-        return notFound();
-    }
-
     const search = await searchParams;
 
-    const rows = await ReportService.getReports({
-        workspaceId,
-        date: search.date,
-        userId: search.userId,
-        isWorkspaceAdmin,
-        currentWorkspaceMemberId: workspaceMemberId,
-        take: 30,
-        skip: 0
-    });
+    const [{ data: permissions }, { data: rows = [] }] = await Promise.all([
+        serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean; workspaceMemberId: string | null; userId: string | null } }>(
+            `/workspaces/${workspaceId}/permissions`
+        ).catch(() => ({ data: { isWorkspaceAdmin: false, workspaceMemberId: null, userId: null } })),
+        (() => {
+            const query = new URLSearchParams({ skip: "0", take: "30" });
+            if (search.date) query.set("date", search.date);
+            if (search.userId) query.set("userId", search.userId);
+            return serverApiFetch<{ success: boolean; data: any[] }>(
+                `/reports/${workspaceId}?${query.toString()}`
+            ).catch(() => ({ data: [] as any[] }));
+        })(),
+    ]);
+
+    if (!permissions.workspaceMemberId) {
+        return notFound();
+    }
 
     return (
         <div className="flex flex-col gap-6">
@@ -36,8 +37,8 @@ export default async function ReportsPage({
                 workspaceId={workspaceId}
                 initialDate={search.date}
                 initialUserId={search.userId}
-                isAdmin={isWorkspaceAdmin}
-                currentUserId={userId}
+                isAdmin={permissions.isWorkspaceAdmin}
+                currentUserId={permissions.userId ?? ""}
             />
         </div>
     );

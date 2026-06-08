@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import slugify from "slugify";

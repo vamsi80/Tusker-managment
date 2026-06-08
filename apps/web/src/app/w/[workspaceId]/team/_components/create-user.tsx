@@ -33,7 +33,7 @@ import {
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 
 interface InviteUserFormProps {

@@ -1,6 +1,6 @@
 import React, { createContext } from "react";
 import type { ProjectMembersType } from "@/types/project";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/types/workspace";
 import { ColumnVisibility } from "../../../shared/column-visibility";
 
 export interface TaskTableContextValue {

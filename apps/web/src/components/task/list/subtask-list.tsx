@@ -11,7 +11,7 @@ import { SubTaskSkeleton } from "@/components/task/list/list-skeleton";
 import { InlineSubTaskForm } from "./inline-subtask-form";
 import { SubTaskRow } from "./subtask-row";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
-import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { UserPermissionsType } from "@/types/workspace";
 import {
   DndContext,
   closestCenter,

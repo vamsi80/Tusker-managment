@@ -1,18 +1,15 @@
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { InviteUserForm } from "./create-user";
 
 interface AdminActionsProps {
     workspaceId: string;
 }
 
-/**
- * AdminActions — Fetches permissions and renders the invite form if admin.
- * This is meant to be wrapped in a Suspense boundary in the page shell.
- */
 export async function AdminActions({ workspaceId }: AdminActionsProps) {
-    const permissions = await getWorkspacePermissions(workspaceId);
-    
-    // Only admins can see/use the invite form
+    const { data: permissions } = await serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean } }>(
+        `/workspaces/${workspaceId}/permissions`
+    ).catch(() => ({ data: { isWorkspaceAdmin: false } }));
+
     if (!permissions.isWorkspaceAdmin) {
         return null;
     }

@@ -256,4 +256,40 @@ projects.get("/:projectId/permissions", async (c) => {
   return c.json({ success: true, data: permissions });
 });
 
+/**
+ * GET /api/v1/projects/project-members?workspaceId=
+ * Get all unique members across all projects in a workspace.
+ */
+projects.get("/project-members", async (c) => {
+  const workspaceId = c.req.query("workspaceId");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const members = await ProjectService.getWorkspaceProjectMembers(workspaceId);
+  return c.json({ success: true, data: members });
+});
+
+/**
+ * GET /api/v1/projects/slug/:slug/dashboard?workspaceId=
+ * Get project dashboard data.
+ */
+projects.get("/slug/:slug/dashboard", async (c) => {
+  const slug = c.req.param("slug");
+  const workspaceId = c.req.query("workspaceId");
+  const user = c.get("user");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const data = await ProjectService.getProjectDashboardData(workspaceId, slug, user.id);
+  if (!data) {
+    throw AppError.NotFound("Project not found or access denied");
+  }
+
+  return c.json({ success: true, data });
+});
+
 export default projects;

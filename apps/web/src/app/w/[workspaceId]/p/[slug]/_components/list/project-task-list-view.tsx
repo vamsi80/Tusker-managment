@@ -1,7 +1,5 @@
 import dynamic from "next/dynamic";
-import { ProjectService } from "@/server/services/project";
-import { requireUser } from "@/lib/auth/require-user";
-import { TasksService } from "@/server/services/task/tasks.service";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
@@ -14,31 +12,20 @@ interface ProjectTaskListViewProps {
     userId: string;
 }
 
-/**
- * ProjectTaskListView (Server Component)
- * Hydrates initial tasks, members, and permissions on the server for sub-second 
- * interaction and consistent infinite scroll behavior.
- */
 export async function ProjectTaskListView({
     workspaceId,
     projectId,
+    userId,
 }: ProjectTaskListViewProps) {
-    // 1. Get current user (server-side authentication)
-    const user = await requireUser();
-
-    // 2. Fetch initial data in parallel for speed
-    const [members, permissions, tasksData] = await Promise.all([
-        ProjectService.getMembers(projectId),
-        ProjectService.getPermissions(workspaceId, projectId, user.id),
-        TasksService.getTasks({
-            workspaceId,
-            projectId,
-            hierarchyMode: "parents",
-            includeSubTasks: false,
-            limit: 25,
-            view_mode: "list",
-        }, user.id)
+    const [membersRes, permissionsRes, tasksRes] = await Promise.all([
+        serverApiFetch<{ success: boolean; data: any[] }>(`/projects/${projectId}/members`).catch(() => ({ data: [] })),
+        serverApiFetch<{ success: boolean; data: any }>(`/projects/${projectId}/permissions?workspaceId=${workspaceId}`).catch(() => ({ data: {} })),
+        serverApiFetch<{ success: boolean; data: any }>(`/tasks?workspaceId=${workspaceId}&projectId=${projectId}&hm=parents&sub=false&l=25&vm=list`).catch(() => ({ data: { tasks: [], hasMore: false, nextCursor: null } })),
     ]);
+
+    const members = membersRes.data;
+    const permissions = permissionsRes.data;
+    const tasksData = tasksRes.data;
 
     // Handle union response safely
     const rawTasks = (tasksData as any).tasks || [];
@@ -60,7 +47,7 @@ export async function ProjectTaskListView({
             projectId={projectId}
             canCreateSubTask={permissions.canCreateSubTask}
             permissions={permissions}
-            userId={user.id}
+            userId={userId}
             level="project"
         />
     );

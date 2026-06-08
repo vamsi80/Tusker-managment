@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { cn, toTitleCase } from "@/lib/utils";
 import { useTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConfetti } from "@/hooks/use-confetti";

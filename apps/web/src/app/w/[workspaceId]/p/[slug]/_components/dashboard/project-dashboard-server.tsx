@@ -1,4 +1,4 @@
-import { ProjectService } from "@/server/services/project";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { ProjectDashboard } from "./project-dashboard";
 
 interface ProjectDashboardServerProps {
@@ -7,7 +7,12 @@ interface ProjectDashboardServerProps {
 }
 
 export async function ProjectDashboardServer({ workspaceId, slug }: ProjectDashboardServerProps) {
-  const data = await ProjectService.getProjectDashboardData(workspaceId, slug);
+  const res = await serverApiFetch<{ success: boolean; data: any }>(
+    `/projects/slug/${slug}/dashboard?workspaceId=${workspaceId}`
+  ).catch(() => null);
+
+  const data = res?.data ?? null;
+
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">

@@ -7,7 +7,7 @@ import { projectsClient } from "@/lib/api-client/projects";
 import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, Resolver } from "react-hook-form";
-import { tryCatch } from "@/hooks/try-catch";
+import { tryCatch } from "@/lib/try-catch";
 import { toast } from "sonner";
 import { useConfetti } from "@/hooks/use-confetti";
 import slugify from "slugify";

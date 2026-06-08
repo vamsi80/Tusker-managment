@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { TeamNav } from "./_components/team-nav";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 
 interface TeamLayoutProps {
     children: ReactNode;
@@ -9,7 +9,10 @@ interface TeamLayoutProps {
 
 export default async function TeamLayout({ children, params }: TeamLayoutProps) {
     const { workspaceId } = await params;
-    const permissions = await getWorkspacePermissions(workspaceId);
+
+    const { data: permissions } = await serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean } }>(
+        `/workspaces/${workspaceId}/permissions`
+    ).catch(() => ({ data: { isWorkspaceAdmin: false } }));
 
     return (
         <div className="flex flex-col w-full">

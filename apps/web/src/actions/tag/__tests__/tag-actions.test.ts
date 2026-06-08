@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createTag } from "../create-tag";
 import { updateTag } from "../update-tag";
 import { deleteTag } from "../delete-tag";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getWorkspacePermissions } from "@/types/workspace";
 import { tagNameExists } from "@/data/tag/get-tags";
 import prisma from "@/lib/db";
 

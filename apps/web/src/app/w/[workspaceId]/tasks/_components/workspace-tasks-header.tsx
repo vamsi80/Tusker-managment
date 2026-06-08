@@ -1,18 +1,14 @@
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { WorkspaceTasksHeaderClient } from "./workspace-tasks-header-client";
 
 interface WorkspaceTasksHeaderProps {
     workspaceId: string;
 }
 
-/**
- * Workspace Tasks Header (Server Component)
- * 
- * Fetches only required permissions and passes to client component
- */
 export async function WorkspaceTasksHeader({ workspaceId }: WorkspaceTasksHeaderProps) {
-    // Only fetch permissions - other data is fetched by individual views
-    const permissions = await getWorkspacePermissions(workspaceId);
+    const { data: permissions } = await serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean; hasAccess: boolean } }>(
+        `/workspaces/${workspaceId}/permissions`
+    ).catch(() => ({ data: { isWorkspaceAdmin: false, hasAccess: false } }));
 
     return (
         <WorkspaceTasksHeaderClient
@@ -20,7 +16,7 @@ export async function WorkspaceTasksHeader({ workspaceId }: WorkspaceTasksHeader
             permissions={{
                 isWorkspaceAdmin: permissions.isWorkspaceAdmin,
                 canCreateTasks: permissions.isWorkspaceAdmin,
-                canCreateSubTasks: permissions.hasAccess // Only Admins and Project Leads
+                canCreateSubTasks: permissions.hasAccess,
             }}
         />
     );

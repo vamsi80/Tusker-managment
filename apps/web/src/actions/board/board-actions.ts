@@ -1,6 +1,8 @@
 import { apiFetch } from "@/lib/api-client/fetch-wrapper";
-import { BoardStatus } from "@/generated/prisma";
-import { ApiResponse } from "@/lib/types";
+import { ApiResponse } from "@/types/api";
+
+/** Mirrors the BoardStatus enum values from the Prisma schema */
+type BoardStatus = "PENDING" | "IN_PROGRESS" | "DONE";
 
 export async function createBoardItem(workspaceId: string, memberId: string, note: string): Promise<ApiResponse> {
     try {

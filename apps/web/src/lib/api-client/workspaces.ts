@@ -27,6 +27,9 @@ export interface WorkspacesClient {
     getAssignmentMaps(workspaceId: string): Promise<any>;
     getTaskCreationData(workspaceId: string): Promise<any>;
     getTags(workspaceId: string, projectId?: string): Promise<any[]>;
+    createTag(data: { name: string; requirePurchase: boolean; workspaceId: string; projectId?: string }): Promise<{ success: boolean; data?: any; error?: string }>;
+    updateTag(data: { tagId: string; workspaceId: string; name?: string; requirePurchase?: boolean }): Promise<{ success: boolean; data?: any; error?: string }>;
+    deleteTag(tagId: string, workspaceId: string): Promise<{ success: boolean; error?: string }>;
     markNotificationRead(workspaceId: string, id: string): Promise<ApiResponse>;
     update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
 }
@@ -250,6 +253,30 @@ export const workspacesClient: WorkspacesClient = {
         }
         const response = await apiFetch<{ success: boolean; tags: any[] }>(url);
         return response.tags || [];
+    },
+
+    createTag: async (data) => {
+        const response = await apiFetch<{ success: boolean; data: any }>("/workspace-tags", {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+        return { success: response.success, data: response.data };
+    },
+
+    updateTag: async (data) => {
+        const response = await apiFetch<{ success: boolean; data: any }>("/workspace-tags", {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        });
+        return { success: response.success, data: response.data };
+    },
+
+    deleteTag: async (tagId, workspaceId) => {
+        const response = await apiFetch<{ success: boolean; message: string }>(
+            `/workspace-tags?tagId=${encodeURIComponent(tagId)}&workspaceId=${encodeURIComponent(workspaceId)}`,
+            { method: "DELETE" }
+        );
+        return { success: response.success };
     },
 
     /**
