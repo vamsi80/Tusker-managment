@@ -16,7 +16,7 @@ export class ApiError extends Error {
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     // Dev: NEXT_PUBLIC_API_URL is empty → uses relative /api/v1 → Next.js rewrite proxies to :8787
     // Prod: NEXT_PUBLIC_API_URL=https://tusker-api.workers.dev → direct absolute URL
-    const apiHost = process.env.NEXT_PUBLIC_API_URL || "";
+    const apiHost = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_CF_WORKER_URL || "";
     const baseUrl = apiHost ? `${apiHost}/api/v1` : `/api/v1`;
 
     const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`;

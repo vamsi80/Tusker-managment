@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 
 const getBaseUrl = () => {
-    const host = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
+    const host = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_CF_WORKER_URL || "http://localhost:8787";
     return `${host}/api/v1`;
 };
 
@@ -10,6 +10,7 @@ export async function serverApiFetch<T>(endpoint: string, options?: RequestInit)
     const cookieHeader = cookieStore.toString();
 
     const url = `${getBaseUrl()}${endpoint}`;
+    console.log(`[serverApiFetch] URL: ${url}`);
 
     const response = await fetch(url, {
         ...options,
