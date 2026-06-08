@@ -1,4 +1,4 @@
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 
 export const INDENT_TRANSITIONS: Record<string, string[]> = {
   DRAFT:      ["SUBMITTED", "CANCELLED"],

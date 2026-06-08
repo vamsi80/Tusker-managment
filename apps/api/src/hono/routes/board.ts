@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb, getPusher } from "@/lib/registry";
 import { z } from "zod";

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { ProjectService } from "@/server/services/project";
 import { zValidator } from "@hono/zod-validator";
 import { projectSchema, editProjectSchema } from "@tusker/shared";

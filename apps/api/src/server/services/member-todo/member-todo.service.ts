@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/registry";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 
 export class MemberTodoService {
   /**

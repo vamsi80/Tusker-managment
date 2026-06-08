@@ -39,7 +39,7 @@ import { format } from "date-fns";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
+import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@tusker/shared/schemas";
 import {
     Form,
     FormControl,

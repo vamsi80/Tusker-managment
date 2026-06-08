@@ -1,11 +1,10 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { STATUS_OPTIONS } from "@/lib/zodSchemas";
+import { STATUS_OPTIONS } from "@tusker/shared/schemas";
 import { X, Filter, Calendar } from "lucide-react";
-import { getStatusColors } from "@/lib/colors/status-colors";
-import { getColorFromString } from "@/lib/colors/project-colors";
+import { getStatusColors, getColorFromString } from "@tusker/shared/colors";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, toTitleCase } from "@/lib/utils";

@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { leaveRequestSchema, LeaveRequestFormType } from "@/lib/zodSchemas";
+import { leaveRequestSchema, LeaveRequestFormType } from "@tusker/shared/schemas";
 
 interface LeaveRequestDialogProps {
     workspaceId: string;

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getDb } from "@/lib/registry";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { TasksService } from "@/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@tusker/shared";
 import { getUserPermissions } from "@/data/user/get-user-permissions";

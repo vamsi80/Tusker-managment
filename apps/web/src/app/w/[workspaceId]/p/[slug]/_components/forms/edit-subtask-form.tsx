@@ -11,8 +11,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
-import { tryCatch } from "@/lib/try-catch";
+import { subTaskSchema, SubTaskSchemaType } from "@tusker/shared/schemas";
+import { tryCatch } from "@tusker/shared/try-catch";
 import { toast } from "sonner";
 import { ProjectMembersType } from "@/types/project";
 import { projectsClient } from "@/lib/api-client/projects";
@@ -21,7 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/shared/colors";
 import { Badge } from "@/components/ui/badge";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { parseIST } from "@/lib/utils";

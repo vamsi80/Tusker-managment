@@ -32,8 +32,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
-import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
-import { tryCatch } from "@/lib/try-catch";
+import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@tusker/shared/schemas";
+import { tryCatch } from "@tusker/shared/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 
 interface InviteUserFormProps {

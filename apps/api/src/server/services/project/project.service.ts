@@ -1,4 +1,4 @@
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { ProjectRole as PrismaProjectRole } from "@/generated/prisma";
 import {
   MinimalProjectData,
@@ -13,7 +13,7 @@ import { ProjectMapper } from "./project.mapper";
 import { projectSchema, editProjectSchema, ProjectSchemaType, EditProjectSchemaType } from "@tusker/shared";
 import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
 import { isProjectAdmin } from "@/lib/constants/project-access";
-import { getUniqueRandomColor } from "@/lib/colors/project-colors";
+import { getUniqueRandomColor } from "@tusker/shared/colors";
 import { getDb } from "@/lib/registry";
 
 export class ProjectService {

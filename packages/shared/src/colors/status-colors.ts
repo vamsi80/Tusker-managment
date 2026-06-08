@@ -1,6 +1,6 @@
-import { STATUS_LABELS } from "@/lib/zodSchemas";
+import { STATUS_LABELS } from "../schemas";
 
-type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
+export type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
 export interface StatusColors {
     color: string;
@@ -55,30 +55,22 @@ export const STATUS_COLORS: Record<TaskStatus, StatusColors> = {
     },
 };
 
-// Re-export STATUS_LABELS for backward compatibility
 export { STATUS_LABELS };
 
-export function getStatusColors(status: string | null | undefined): StatusColors {
-    if (!status) {
-        return {
-            color: "text-muted-foreground",
-            bgColor: "bg-muted",
-            borderColor: "border-muted",
-            barClass: "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
-            hex: "#D1D5DB",
-        };
-    }
+const FALLBACK_COLORS: StatusColors = {
+    color: "text-muted-foreground",
+    bgColor: "bg-muted",
+    borderColor: "border-muted",
+    barClass: "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
+    hex: "#D1D5DB",
+};
 
-    return STATUS_COLORS[status as TaskStatus] || {
-        color: "text-muted-foreground",
-        bgColor: "bg-muted",
-        borderColor: "border-muted",
-        barClass: "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
-        hex: "#D1D5DB",
-    };
+export function getStatusColors(status: string | null | undefined): StatusColors {
+    if (!status) return FALLBACK_COLORS;
+    return STATUS_COLORS[status as TaskStatus] ?? FALLBACK_COLORS;
 }
 
 export function getStatusLabel(status: string | null | undefined): string {
     if (!status) return "-";
-    return STATUS_LABELS[status as TaskStatus] || status;
+    return STATUS_LABELS[status as TaskStatus] ?? status;
 }

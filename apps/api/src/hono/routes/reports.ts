@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { ReportService } from "@/server/services/report.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 
 const reports = new Hono<{ Variables: HonoVariables }>();
 

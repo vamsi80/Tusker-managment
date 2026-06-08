@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, memo } from "react";
 import { useRemainingDays } from "@/hooks/use-due-date";
@@ -12,7 +12,7 @@ import type { SubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDateUTC, formatIST, toTitleCase } from "@/lib/utils";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
+import { getDelayColors, getDelayText } from "@tusker/shared/colors";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
 import { InlineSubTaskForm } from "./inline-subtask-form";

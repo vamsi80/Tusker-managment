@@ -1,16 +1,15 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel, getDelayColors, getDelayText } from "@tusker/shared/colors";
 import { formatDate } from "@/components/task/gantt/utils";
 import { ColumnVisibility } from "../../shared/column-visibility";
 import { cn, toTitleCase } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 
 interface SortedTaskRowProps {
     task: any;

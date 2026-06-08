@@ -1,18 +1,17 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { AlertCircle, GripHorizontal } from "lucide-react";
 import { parseDate, formatDate, getDaysBetween, formatDateForAPI } from "./utils";
 import { cn } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
+import { getDelayColors, getDelayText, getStatusColors } from "@tusker/shared/colors";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { GanttSubtask } from "./types";
 import { apiClient } from "@/lib/api-client";
-import { getStatusColors } from "@/lib/colors/status-colors";
 
 interface DraggableSubtaskBarProps {
     subtask: GanttSubtask;

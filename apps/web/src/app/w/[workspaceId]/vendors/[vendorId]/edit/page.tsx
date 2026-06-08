@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { countryDialCodes } from "@/lib/country-codes";
+import { countryDialCodes } from "@tusker/shared/country-codes";
 
 export default function EditVendorPage() {
   const params = useParams();

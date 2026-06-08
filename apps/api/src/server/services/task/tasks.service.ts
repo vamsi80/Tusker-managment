@@ -1,10 +1,10 @@
 
 import { getDb } from "@/lib/registry";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 import { parseIST } from "../../../lib/utils";
-import { logger } from "@/lib/logger";
+import { logger } from "@tusker/shared/logger";
 import {
   getTaskSelect,
   TaskCursor,

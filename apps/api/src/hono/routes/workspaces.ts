@@ -3,7 +3,7 @@ import type { Env } from "@/types";
 import { HonoVariables } from "../types";
 import { WorkspaceService } from "@/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@tusker/shared";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/shared/errors";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
 

@@ -1,4 +1,4 @@
-import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
+﻿import { STATUS_COLORS, STATUS_LABELS } from "@tusker/shared/colors";
 
 export type TaskStatus =
   | "TO_DO"

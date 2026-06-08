@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/shared/colors";
 import { memo, useState, useEffect } from "react";
 
 import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";

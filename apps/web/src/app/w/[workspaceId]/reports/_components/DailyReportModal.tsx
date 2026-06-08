@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffect, useState, useTransition } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { DailyReportFormType } from "@/lib/zodSchemas";
+import { DailyReportFormType } from "@tusker/shared/schemas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiClient } from "@/lib/api-client";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";

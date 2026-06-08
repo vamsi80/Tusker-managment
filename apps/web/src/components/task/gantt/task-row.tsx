@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { cn } from "@/lib/utils";
 import { GanttTask } from "./types";
@@ -15,9 +15,8 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, formatDate } from "./utils";
-import { getStatusColors } from "@/lib/colors/status-colors";
+import { getStatusColors, getDelayColors, getDelayText } from "@tusker/shared/colors";
 import { useRemainingDays } from "@/hooks/use-due-date";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 
 // ...
 // ... (imports)

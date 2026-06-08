@@ -10,7 +10,7 @@ import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { WorkspaceData } from "@/types/workspace";
 import { apiClient } from "@/lib/api-client";
-import { updateWorkspaceInfoSchema, UpdateWorkspaceInfoType } from "@/lib/zodSchemas";
+import { updateWorkspaceInfoSchema, UpdateWorkspaceInfoType } from "@tusker/shared/schemas";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
