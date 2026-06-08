@@ -42,6 +42,7 @@ next-env.d.ts
 
 /packages/shared/generated/
 /apps/api/src/generated/
+/apps/web/src/generated/
 
 # OpenNext
 .open-next
