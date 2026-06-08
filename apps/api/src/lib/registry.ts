@@ -58,7 +58,8 @@ export async function runRequestContext<T>(env: Env, callback: () => Promise<T>)
     }
 
     // Fresh TCP pool + auth for THIS request
-    const db = createDbClient(env.DATABASE_URL);
+    // Use Hyperdrive in production (persistent edge connections); fall back to DATABASE_URL in local dev
+    const db = createDbClient(env.HYPERDRIVE ?? env.DATABASE_URL);
     const auth = createAuth(env, db);
 
     return requestStorage.run({ db, auth }, async () => {

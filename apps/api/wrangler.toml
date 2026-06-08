@@ -6,11 +6,15 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "production"
 
-# Hyperdrive binding for PostgreSQL (replace with your Hyperdrive config ID after running:
-#   wrangler hyperdrive create tusker-db --connection-string="postgresql://...")
-# [[hyperdrive]]
-# binding = "HYPERDRIVE"
-# id = "<your-hyperdrive-config-id>"
+# Hyperdrive binding for PostgreSQL.
+# Step 1 — run once to create the config and get an ID:
+#   wrangler hyperdrive create tusker-hyperdrive \
+#     --connection-string="postgresql://postgres.huruairekknyibistusz:PASSWORD@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+# Step 2 — paste the printed ID below and remove the TODO comment.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "44209b43b2124f149feb225a8226b4ba"
+localConnectionString = "postgres://postgres.huruairekknyibistusz:rplZt8LNZjEhCgSi@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=disable&pgbouncer=true"
 
 # Secrets (set via `wrangler secret put <NAME>`):
 # BETTER_AUTH_SECRET

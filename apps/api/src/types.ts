@@ -9,7 +9,7 @@ export type TuskerUser = User & {
 export type Env = {
     // Database
     DATABASE_URL: string;
-    // HYPERDRIVE: Hyperdrive; // Uncomment after setting up Cloudflare Hyperdrive
+    HYPERDRIVE?: Hyperdrive;
 
     // Auth
     BETTER_AUTH_SECRET: string;
