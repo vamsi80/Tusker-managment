@@ -8,6 +8,12 @@ const withBundleAnalyzer = createBundleAnalyzer({
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Force-include the Prisma query engine. Next.js does not trace it automatically
+  // because Prisma resolves the engine binary at runtime (not via static import).
+  // Glob is relative to this project dir (apps/web), independent of outputFileTracingRoot.
+  outputFileTracingIncludes: {
+    '/**': ['src/generated/prisma/**/*'],
+  },
   experimental: {
     staleTimes: {
       dynamic: 30,
