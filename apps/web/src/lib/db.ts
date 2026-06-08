@@ -1,4 +1,22 @@
 import { PrismaClient } from "@/generated/prisma";
+import path from "path";
+import fs from "fs";
+
+// Dynamically point Prisma to the traced query engine binary in production.
+// This solves engine lookup issues caused by custom generator output paths in monorepos.
+if (process.env.NODE_ENV === "production") {
+  const possiblePaths = [
+    path.join(process.cwd(), "src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
+    path.join(process.cwd(), "apps/web/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
+    path.join(process.cwd(), "../../apps/web/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      process.env.PRISMA_QUERY_ENGINE_LIBRARY = p;
+      break;
+    }
+  }
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -23,3 +41,4 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export default prisma;
+
