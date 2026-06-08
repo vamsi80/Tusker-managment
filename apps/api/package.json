@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e .dev.vars -- wrangler dev",
+    "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "build": "wrangler deploy --dry-run",
     "type-check": "tsc --noEmit",
@@ -35,7 +35,6 @@
     "@types/pg": "^8.20.0",
     "prisma": "6.19.0",
     "typescript": "^5",
-    "dotenv-cli": "^8.0.0",
     "wrangler": "^4.97.0"
   }
 }
