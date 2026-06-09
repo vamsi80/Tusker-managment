@@ -14,8 +14,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     // Globs are relative to THIS file's directory (apps/web).
     // outputFileTracingRoot shifts the packaging root to the monorepo root,
-    // so traced files land at /var/task/apps/web/src/generated/prisma at runtime.
-    '/**': ['src/generated/prisma/**/*'],
+    // so traced files land at /var/task/packages/db/src/generated/prisma at runtime.
+    '/**': ['../../packages/db/src/generated/prisma/**/*'],
   },
   experimental: {
     staleTimes: {
@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
     layout: { stale: 3600, revalidate: 86400, expire: 604800 },
     max: { stale: 3600, revalidate: 86400, expire: 604800 },
   },
-  transpilePackages: ['better-auth'],
+  transpilePackages: ['better-auth', '@tusker/auth'],
   async rewrites() {
     // In development always use the local Worker (HTTP) so browsers accept the session cookie.
     // Secure cookies from an HTTPS Worker are silently dropped by HTTP localhost.

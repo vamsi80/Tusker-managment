@@ -29,6 +29,15 @@
       "@tusker/shared/*": [
         "../../packages/shared/src/*"
       ],
+      "@tusker/auth/*": [
+        "../../packages/auth/src/*"
+      ],
+      "@/generated/prisma": [
+        "../../packages/db/src/generated/prisma"
+      ],
+      "@/generated/prisma/*": [
+        "../../packages/db/src/generated/prisma/*"
+      ],
       "@/*": [
         "./src/*"
       ]

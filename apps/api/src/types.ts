@@ -1,10 +1,8 @@
-import type { User, Session } from "better-auth";
+import type { Session, TuskerUser } from "@tusker/auth/types";
 
-// Better Auth's User type only covers standard fields.
-// TuskerUser adds our custom Prisma columns that are always present at runtime.
-export type TuskerUser = User & {
-    surname: string;
-};
+// TuskerUser (Better Auth User + custom Prisma columns) is defined in @tusker/auth.
+// Re-exported here so existing `../types` imports keep working.
+export type { TuskerUser };
 
 export type Env = {
     // Database

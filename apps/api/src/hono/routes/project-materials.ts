@@ -51,7 +51,7 @@ projectMaterials.get("/:projectId/materials", async (c) => {
       some: {
         OR: [
           { requirePurchase: true },
-          { name: { equals: "procurement", mode: "insensitive" } },
+          { name: { equals: "procurement", mode: "insensitive" as const } },
         ],
       },
     },

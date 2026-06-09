@@ -6,9 +6,9 @@ import fs from "fs";
 // This solves engine lookup issues caused by custom generator output paths in monorepos.
 if (process.env.NODE_ENV === "production") {
   const possiblePaths = [
+    path.join(process.cwd(), "packages/db/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
+    path.join(process.cwd(), "../../packages/db/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
     path.join(process.cwd(), "src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
-    path.join(process.cwd(), "apps/web/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
-    path.join(process.cwd(), "../../apps/web/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
   ];
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) {

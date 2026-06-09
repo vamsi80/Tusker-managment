@@ -1,19 +1,8 @@
-import { createAuthClient } from "better-auth/react"
-import { emailOTPClient, adminClient, phoneNumberClient } from "better-auth/client/plugins"
+import { makeAuthClient } from "@tusker/auth/client";
 
-// NEXT_PUBLIC_APP_URL = http://localhost:3000 (Next.js origin, no path)
-// basePath = /api/v1/auth — the full path that Next.js proxies to the Hono API worker.
-// Better Auth builds:  baseURL + basePath + endpoint
-// → http://localhost:3000/api/v1/auth/sign-in/email  (proxied → port 8787)
-export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  basePath: "/api/v1/auth",
-  fetchOptions: {
-    credentials: "include",
-  },
-  plugins: [
-    emailOTPClient(),
-    adminClient(),
-    phoneNumberClient(),
-  ]
-})
+// NEXT_PUBLIC_APP_URL = the web origin (no path). Better Auth builds
+// baseURL + basePath + endpoint → /api/v1/auth/*, which Next.js rewrites proxy
+// to the Hono Worker, keeping the session cookie first-party to the web origin.
+export const authClient = makeAuthClient({
+    baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+});

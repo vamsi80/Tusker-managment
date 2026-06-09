@@ -1,0 +1,17 @@
+{
+  "name": "@tusker/auth",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./types": "./src/types.ts"
+  },
+  "dependencies": {
+    "@tusker/db": "workspace:*",
+    "better-auth": "^1.6.9"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
