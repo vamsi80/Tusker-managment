@@ -1,7 +1,6 @@
 ﻿import { Suspense } from "react";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth/require-user";
 import { AcceptInvitationForm } from "../../w/_components/auth/accept-invitation-form";
 import { AppLoader } from "@/components/shared/app-loader";
 import { serverApiFetch } from "@/lib/api-client/server-fetch";
@@ -23,9 +22,7 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
     const email = params.email ? decodeURIComponent(params.email) : undefined;
 
     // 1. Check if user is already logged in
-    const session = await auth.api.getSession({
-        headers: await headers(),
-    });
+    const session = await getSession();
 
     if (session) {
         // If they are logged in as the SAME person, they've already accepted

@@ -2,6 +2,6 @@
   "framework": "nextjs",
   "regions": ["bom1"],
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm prisma generate && pnpm --filter @tusker/web run build",
+  "buildCommand": "cd ../.. && pnpm run db:generate && pnpm --filter @tusker/web run build",
   "outputDirectory": ".next"
 }

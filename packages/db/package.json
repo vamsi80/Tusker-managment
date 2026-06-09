@@ -1,0 +1,32 @@
+{
+  "name": "@tusker/db",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./src/generated/prisma/index.d.ts",
+      "default": "./src/generated/prisma/index.js"
+    },
+    "./wasm": {
+      "types": "./src/generated/prisma/wasm.d.ts",
+      "default": "./src/generated/prisma/wasm.js"
+    },
+    "./edge": {
+      "types": "./src/generated/prisma/edge.d.ts",
+      "default": "./src/generated/prisma/edge.js"
+    }
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "studio": "prisma studio",
+    "seed": "tsx prisma/seed-units.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0"
+  },
+  "devDependencies": {
+    "prisma": "6.19.0",
+    "tsx": "^4.21.0"
+  }
+}

@@ -7,22 +7,9 @@ export const env = createEnv({
     DATABASE_URL: z.string().url(),
     DIRECT_URL: z.string().url().optional(), // For Prisma migrations
 
-    BETTER_AUTH_SECRET: z.string().min(1),
-    BETTER_AUTH_URL: z.string().url(),
-
-    // OAuth Providers
-    AUTH_GITHUB_CLIENT_ID: z.string().min(1),
-    AUTH_GITHUB_SECRET: z.string().min(1),
-    GOOGLE_CLIENT_ID: z.string().min(1),
-    GOOGLE_CLIENT_SECRET: z.string().min(1),
-
-    // SMTP Configuration
-    SMTP_HOST: z.string().min(1),
-    SMTP_PORT: z.string().transform((v) => parseInt(v, 10)),
-    SMTP_SECURE: z.string().transform((v) => v === "true" || v === "1"),
-    SMTP_USER: z.string().min(1),
-    SMTP_PASSWORD: z.string().min(1),
-    SMTP_FROM: z.string().email(),
+    // Auth now lives entirely on the Worker (@tusker/auth). The web app is a
+    // pure Better Auth client and no longer needs BETTER_AUTH_SECRET, the OAuth
+    // server credentials, or SMTP settings.
 
     // AWS S3
     AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
@@ -49,18 +36,6 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
     DIRECT_URL: process.env.DIRECT_URL,
-    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
-    AUTH_GITHUB_CLIENT_ID: process.env.AUTH_GITHUB_CLIENT_ID,
-    AUTH_GITHUB_SECRET: process.env.AUTH_GITHUB_SECRET,
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    SMTP_HOST: process.env.SMTP_HOST,
-    SMTP_PORT: process.env.SMTP_PORT,
-    SMTP_SECURE: process.env.SMTP_SECURE,
-    SMTP_USER: process.env.SMTP_USER,
-    SMTP_PASSWORD: process.env.SMTP_PASSWORD,
-    SMTP_FROM: process.env.SMTP_FROM,
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     AWS_REGION: process.env.AWS_REGION,
