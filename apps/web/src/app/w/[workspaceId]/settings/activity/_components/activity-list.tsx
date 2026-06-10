@@ -20,7 +20,6 @@ interface ActivityLog {
     user: {
         name: string;
         email: string;
-        image: string | null;
     };
 }
 
@@ -40,7 +39,6 @@ const columns: ColumnDef<ActivityLog>[] = [
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
                 <Avatar className="size-6">
-                    <AvatarImage src={row.original.user?.image || ""} />
                     <AvatarFallback className="text-[10px]">{row.original.user?.name?.charAt(0) || "?"}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">

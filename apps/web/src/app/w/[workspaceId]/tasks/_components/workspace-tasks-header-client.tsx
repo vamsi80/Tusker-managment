@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LayoutList, LayoutGrid, GanttChartSquare } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 interface WorkspaceTasksHeaderClientProps {
@@ -23,27 +23,27 @@ export function WorkspaceTasksHeaderClient({
     workspaceId,
     permissions,
 }: WorkspaceTasksHeaderClientProps) {
-    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const router = useSafeNavigation();
-    const currentView = searchParams.get('view') || 'list';
+    const currentView = pathname.split('/').pop() || 'list';
     const baseUrl = `/w/${workspaceId}/tasks`;
 
     const viewTabs = [
         {
             name: "List",
-            href: `${baseUrl}?view=list`,
+            href: `${baseUrl}/list`,
             icon: LayoutList,
             value: "list"
         },
         {
             name: "Kanban",
-            href: `${baseUrl}?view=kanban`,
+            href: `${baseUrl}/kanban`,
             icon: LayoutGrid,
             value: "kanban"
         },
         {
             name: "Gantt",
-            href: `${baseUrl}?view=gantt`,
+            href: `${baseUrl}/gantt`,
             icon: GanttChartSquare,
             value: "gantt"
         },
