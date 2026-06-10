@@ -21,7 +21,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { TagDialog } from "./tag-dialog";
-import { deleteTag } from "@/actions/tag/delete-tag";
+import { workspacesClient } from "@/lib/api-client/workspaces";
+import { revalidateTagsCache } from "@/lib/cache/tag-cache-actions";
 import { toast } from "sonner";
 import { Pencil, Plus, X } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
@@ -71,12 +72,10 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
 
         setIsDeleting(true);
         try {
-            const result = await deleteTag({
-                tagId: tagToDelete.id,
-                workspaceId,
-            });
+            const result = await workspacesClient.deleteTag(tagToDelete.id, workspaceId);
 
             if (result.success) {
+                await revalidateTagsCache(workspaceId);
                 toast.success(`Tag "${toTitleCase(tagToDelete.name)}" has been deleted successfully.`);
                 setDeleteDialogOpen(false);
                 setTagToDelete(null);

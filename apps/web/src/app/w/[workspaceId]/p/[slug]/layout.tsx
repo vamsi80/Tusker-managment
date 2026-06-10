@@ -1,7 +1,7 @@
 import { ProjectNav } from "./_components/layout/project-nav";
 import { TaskPageWrapper } from "@/app/w/[workspaceId]/_components/shared/task-page-wrapper";
 import { ProjectLayoutProvider } from "./_components/project-layout-context";
-import { serverApiFetch } from "@/lib/api-client/server-fetch";
+import { getProjectMetadata } from "./_lib/get-project-metadata";
 import ProjectNotFound from "./_components/layout/project-not-found";
 
 export default async function ProjectLayout({
@@ -13,9 +13,7 @@ export default async function ProjectLayout({
 }) {
     const { workspaceId, slug } = await params;
 
-    const project = await serverApiFetch<{ success: boolean; data: { id: string; name: string; color: string; userRole: string; canPerformBulkOperations: boolean } | null }>(
-        `/projects/slug/${slug}/metadata?workspaceId=${workspaceId}`
-    ).then(r => r.data).catch(() => null);
+    const project = await getProjectMetadata(slug, workspaceId);
 
     if (!project) {
         return <ProjectNotFound workspaceId={workspaceId} />;
