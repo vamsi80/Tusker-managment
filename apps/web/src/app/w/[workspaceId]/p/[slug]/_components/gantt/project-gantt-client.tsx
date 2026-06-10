@@ -13,6 +13,7 @@ import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
+import { taskViewUrl } from "@/lib/api-client/task-views";
 
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -88,8 +89,6 @@ export function ProjectGanttClient({
         });
     }, []);
 
-    const ganttExtraParams = useMemo(() => ({ hm: "parents", sub: "false" }), []);
-
     const {
         isLoading: isFilteredLoading,
         loadMore: loadMoreFiltered,
@@ -100,7 +99,6 @@ export function ProjectGanttClient({
         projectId,
         level: "project",
         viewMode: "gantt",
-        extraParams: ganttExtraParams,
         onResults: onFilteredResults,
         onAppendResults: onAppendFilteredResults,
     });
@@ -345,26 +343,22 @@ export function ProjectGanttClient({
 
         try {
             const params = new URLSearchParams({
-                w: workspaceId,
-                p: projectId,
-                vm: "gantt",
-                pt: taskId,    // 🚀 Parent filter (List view pattern)
-                l: "30",       // 🚀 Matches List view pagination
-                sub: "false"
+                parent: taskId,    // 🚀 Parent filter (List view pattern)
+                limit: "30",       // 🚀 Matches List view pagination
             });
 
             if (task.subtaskCursor) {
-                params.set("c", JSON.stringify(task.subtaskCursor));
+                params.set("cursor", JSON.stringify(task.subtaskCursor));
             }
 
-            if (filters.status) params.append("s", JSON.stringify(filters.status));
-            if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
-            if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
-            if (searchQuery) params.append("q", searchQuery);
-            if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-            if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+            if (filters.status) params.append("status", JSON.stringify(filters.status));
+            if (filters.assigneeId) params.append("assignee", JSON.stringify(filters.assigneeId));
+            if (filters.tagId) params.append("tag", JSON.stringify(filters.tagId));
+            if (searchQuery) params.append("search", searchQuery);
+            if (filters.startDate) params.set("dueAfter", new Date(filters.startDate).toISOString());
+            if (filters.endDate) params.set("dueBefore", new Date(filters.endDate).toISOString());
 
-            const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+            const res = await fetch(`${taskViewUrl("gantt", workspaceId, projectId)}?${params.toString()}`);
             const json = await res.json();
 
             if (json.success && json.data) {

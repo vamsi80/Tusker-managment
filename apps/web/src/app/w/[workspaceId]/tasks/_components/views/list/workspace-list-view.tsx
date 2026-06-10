@@ -1,12 +1,8 @@
-import dynamic from "next/dynamic";
 import { requireUser } from "@/lib/auth/require-user";
 import { serverApiFetch } from "@/lib/api-client/server-fetch";
+import TaskTable from "@/components/task/list/task-table";
 
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
-
-const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
-    loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
-});
 
 interface WorkspaceListViewProps {
     workspaceId: string;
@@ -26,7 +22,7 @@ export async function WorkspaceListView({
             `/workspaces/${workspaceId}/permissions`
         ).catch(() => ({ data: { hasAccess: false } })),
         serverApiFetch<{ success: boolean; data: any }>(
-            `/tasks?workspaceId=${workspaceId}&hm=parents&sub=false&l=25&facets=true&vm=list`
+            `/workspaces/${workspaceId}/tasks/list?limit=25&facets=true`
         ).catch(() => ({ data: { tasks: [], hasMore: false, nextCursor: null } })),
     ]);
     const duration = performance.now() - viewStartTime;

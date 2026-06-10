@@ -20,6 +20,7 @@ import { useFilterStore } from "@/lib/store/filter-store";
 import { useWorkspaceLayout } from "../../../../_components/workspace-layout-context";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
+import { taskViewUrl } from "@/lib/api-client/task-views";
 
 interface WorkspaceGanttClientProps {
   workspaceId: string;
@@ -115,8 +116,6 @@ export function WorkspaceGanttClient({
     });
   }, []);
 
-  const ganttExtraParams = useMemo(() => ({ hm: "parents", sub: "false" }), []);
-
   const {
     isLoading: isFilteredLoading,
     loadMore: loadMoreFiltered,
@@ -126,7 +125,6 @@ export function WorkspaceGanttClient({
     workspaceId,
     level: "workspace",
     viewMode: "gantt",
-    extraParams: ganttExtraParams,
     onResults: onFilteredResults,
     onAppendResults: onAppendFilteredResults,
   });
@@ -271,15 +269,9 @@ export function WorkspaceGanttClient({
     const projectTasks = tasks.filter(t => t.projectId === projectId);
     if (projectTasks.length === 0) {
       setLoadingProjects(prev => new Set(prev).add(projectId));
-      const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      params.set("p", projectId);
-      params.set("vm", "gantt");
-      params.set("hm", "parents");
-      params.set("sub", "false");
 
       try {
-        const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+        const res = await fetch(taskViewUrl("gantt", workspaceId, projectId));
         const json = await res.json();
         if (json.success && json.data?.tasks) {
           const newTasks = transformToGanttTasks(json.data.tasks);
@@ -314,26 +306,23 @@ export function WorkspaceGanttClient({
 
     try {
       const params = new URLSearchParams({
-        w: workspaceId,
-        vm: "gantt",
-        pt: taskId,    // 🚀 Parent filter (List view pattern)
-        l: "30",       // 🚀 Matches List view pagination
-        sub: "false"
+        parent: taskId,    // 🚀 Parent filter (List view pattern)
+        limit: "30",       // 🚀 Matches List view pagination
       });
 
       if (task.subtaskCursor) {
-        params.set("c", JSON.stringify(task.subtaskCursor));
+        params.set("cursor", JSON.stringify(task.subtaskCursor));
       }
 
-      if (filters.status) params.append("s", JSON.stringify(filters.status));
-      if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
-      if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
-      if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
-      if (searchQuery) params.append("q", searchQuery);
-      if (filters.startDate) params.set("da", new Date(filters.startDate).toISOString());
-      if (filters.endDate) params.set("db", new Date(filters.endDate).toISOString());
+      if (filters.status) params.append("status", JSON.stringify(filters.status));
+      if (filters.assigneeId) params.append("assignee", JSON.stringify(filters.assigneeId));
+      if (filters.tagId) params.append("tag", JSON.stringify(filters.tagId));
+      if (filters.dueDateFilter) params.append("dueDateType", filters.dueDateFilter);
+      if (searchQuery) params.append("search", searchQuery);
+      if (filters.startDate) params.set("dueAfter", new Date(filters.startDate).toISOString());
+      if (filters.endDate) params.set("dueBefore", new Date(filters.endDate).toISOString());
 
-      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const res = await fetch(`${taskViewUrl("gantt", workspaceId)}?${params.toString()}`);
       const json = await res.json();
 
       if (json.success && json.data) {

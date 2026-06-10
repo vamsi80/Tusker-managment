@@ -1,10 +1,6 @@
-import dynamic from "next/dynamic";
 import { serverApiFetch } from "@/lib/api-client/server-fetch";
+import TaskTable from "@/components/task/list/task-table";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
-
-const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {
-    loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Tasks...</div>
-});
 
 interface ProjectTaskListViewProps {
     workspaceId: string;
@@ -20,7 +16,7 @@ export async function ProjectTaskListView({
     const [membersRes, permissionsRes, tasksRes] = await Promise.all([
         serverApiFetch<{ success: boolean; data: any[] }>(`/projects/${projectId}/members`).catch(() => ({ data: [] })),
         serverApiFetch<{ success: boolean; data: any }>(`/projects/${projectId}/permissions?workspaceId=${workspaceId}`).catch(() => ({ data: {} })),
-        serverApiFetch<{ success: boolean; data: any }>(`/tasks?workspaceId=${workspaceId}&projectId=${projectId}&hm=parents&sub=false&l=25&vm=list`).catch(() => ({ data: { tasks: [], hasMore: false, nextCursor: null } })),
+        serverApiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/projects/${projectId}/tasks/list?limit=25`).catch(() => ({ data: { tasks: [], hasMore: false, nextCursor: null } })),
     ]);
 
     const members = (membersRes.data ?? []).map((m: any) => ({

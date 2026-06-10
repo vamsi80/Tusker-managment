@@ -13,6 +13,7 @@ import { AppError } from "@tusker/shared/errors";
 import cron from "./hono/routes/cron";
 import { attendanceRouter } from "./hono/routes/attendance";
 import tasks from "./hono/routes/tasks";
+import taskViews from "./hono/routes/task-views";
 import projects from "./hono/routes/projects";
 import tags from "./hono/routes/tags";
 import workspaces from "./hono/routes/workspaces";
@@ -117,6 +118,8 @@ app.route("/attendance", attendanceRouter);
 app.route("/tasks", tasks);
 app.route("/projects", projects);
 app.route("/workspace-tags", tags);
+// Task view endpoints — mounted before the workspaces router so exact paths match first
+app.route("/workspaces", taskViews);
 app.route("/workspaces", workspaces);
 app.route("/comments", comments);
 app.route("/reports", reports);

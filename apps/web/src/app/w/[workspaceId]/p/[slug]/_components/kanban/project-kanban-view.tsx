@@ -1,13 +1,8 @@
 "use client";
-import dynamic from "next/dynamic";
 import { useEffect, useMemo } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
 import { useProjectLayout } from "../project-layout-context";
-
-const KanbanBoard = dynamic(
-    () => import("@/components/task/kanban/kanban-board").then(mod => mod.KanbanBoard),
-    { loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Kanban...</div> }
-);
+import { KanbanBoard } from "@/components/task/kanban/kanban-board";
 
 interface ProjectKanbanViewProps {
     workspaceId: string;

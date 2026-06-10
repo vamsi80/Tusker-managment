@@ -3,11 +3,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/wasm";
 
 /**
- * Creates a fresh PrismaClient backed by a single pg connection for this request.
+ * Creates a fresh PrismaClient backed by a per-request pg pool.
  *
- * max: 1 — one connection per request is enough (queries within a request are sequential).
- * PgBouncer (Supabase port 6543) handles actual PostgreSQL connection reuse server-side,
- * so creating a new Pool per request only costs the TCP handshake to PgBouncer (~30-80ms).
+ * max: 8 — view handlers run queries in Promise.all (kanban: 7, list facets: 2);
+ * connections open lazily so simple requests still use one. PgBouncer (Supabase
+ * port 6543) handles actual PostgreSQL connection reuse server-side, so each
+ * connection only costs the TCP handshake to PgBouncer (~30-80ms).
  *
  * connectionTimeoutMillis: 20s — allows cold-start TCP + TLS to Supabase Mumbai.
  * Warm requests connect in <100ms (PgBouncer already has connections ready).
@@ -30,9 +31,11 @@ export function createDbClient(source: string | Hyperdrive): PrismaClient {
             : isHyperdrive
             ? { rejectUnauthorized: false }   // Hyperdrive proxy: no cert verification needed
             : { rejectUnauthorized: true },   // direct DB: verify cert
-        // Single connection per request — sequential queries don't need a pool.
-        // Cloudflare Workers cannot share TCP connections across requests anyway.
-        max: 1,
+        // Up to 8 connections per request — kanban fires 7 queries in Promise.all
+        // (1 count + 6 per-status) and list/facets runs 2 in parallel. pg.Pool opens
+        // connections lazily, so single-query requests still use just one.
+        // PgBouncer / Hyperdrive recycle the server-side connections.
+        max: 8,
         connectionTimeoutMillis: 20000,
     });
 
