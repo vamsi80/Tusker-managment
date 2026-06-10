@@ -1,4 +1,4 @@
-import { recordActivity, broadcastActivity } from "@/lib/audit";
+import { recordActivity } from "@/lib/audit";
 import { getDb } from "@/lib/registry";
 
 export class LeaveEvents {

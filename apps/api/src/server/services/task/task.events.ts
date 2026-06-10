@@ -1,6 +1,7 @@
-import { recordActivity, broadcastActivity } from "@/lib/audit";
+import { recordActivity } from "@/lib/audit";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { getDb } from "@/lib/registry";
+import { broadcastTaskUpdate } from "@/lib/realtime";
 
 async function getMemberName(memberId: string | null): Promise<string | null> {
   if (!memberId) return null;
@@ -45,6 +46,7 @@ export class TaskEvents {
   }) {
 
     try {
+      const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
       await recordActivity(getDb(), {
         userId: opts.userId,
         userName: opts.userName,
@@ -54,8 +56,16 @@ export class TaskEvents {
         entityId: opts.taskId,
         newData: { ...opts.taskData, projectSlug: opts.projectSlug },
         broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(getDb(), opts.taskId),
+        targetUserIds,
       });
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "CREATE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, ...opts.taskData, projectId: opts.projectId },
+        targetUserIds,
+      }).catch((e) => console.error("[TASK_EVENTS] broadcast failed:", e));
     } catch (e) {
       console.error("[TASK_EVENTS] Task activity failed:", e);
     }
@@ -72,6 +82,7 @@ export class TaskEvents {
   }) {
 
     try {
+      const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
       await recordActivity(getDb(), {
         userId: opts.userId,
         userName: opts.userName,
@@ -81,8 +92,16 @@ export class TaskEvents {
         entityId: opts.taskId,
         newData: { ...opts.taskData, projectSlug: opts.projectSlug },
         broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(getDb(), opts.taskId),
+        targetUserIds,
       });
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "CREATE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, ...opts.taskData, projectId: opts.projectId },
+        targetUserIds,
+      }).catch((e) => console.error("[TASK_EVENTS] broadcast failed:", e));
     } catch (e) {
       console.error("[TASK_EVENTS] Subtask activity failed:", e);
     }
@@ -121,6 +140,7 @@ export class TaskEvents {
         }
       }
 
+      const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
       await recordActivity(getDb(), {
         userId: opts.userId,
         userName: opts.userName,
@@ -131,8 +151,16 @@ export class TaskEvents {
         oldData: enrichedOldData,
         newData: enrichedNewData,
         broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(getDb(), opts.taskId),
+        targetUserIds,
       });
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "UPDATE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, projectId: opts.projectId, ...opts.newData },
+        targetUserIds,
+      }).catch((e) => console.error("[TASK_EVENTS] broadcast failed:", e));
     } catch (e) {
       console.error("[TASK_EVENTS] Update activity failed:", e);
     }
@@ -162,6 +190,14 @@ export class TaskEvents {
         broadcastEvent: "team_update",
         targetUserIds,
       });
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "UPDATE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, projectId: opts.projectId, status: opts.newStatus },
+        targetUserIds,
+      }).catch((e) => console.error("[TASK_EVENTS] broadcast failed:", e));
     } catch (e) {
       console.error("[TASK_EVENTS] Status broadcast failed:", e);
     }
@@ -189,9 +225,9 @@ export class TaskEvents {
         action: opts.isSubTask ? "SUBTASK_DELETED" : "TASK_DELETED",
         entityType: opts.isSubTask ? "SUBTASK" : "TASK",
         entityId: opts.taskId,
-        oldData: { 
-          name: opts.taskName, 
-          status: opts.taskStatus, 
+        oldData: {
+          name: opts.taskName,
+          status: opts.taskStatus,
           projectId: opts.projectId,
           position: opts.position,
           parentTaskId: opts.parentTaskId
@@ -199,6 +235,14 @@ export class TaskEvents {
         broadcastEvent: "team_update",
         targetUserIds: opts.targetUserIds,
       });
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "DELETE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, projectId: opts.projectId },
+        targetUserIds: opts.targetUserIds,
+      }).catch((e) => console.error("[TASK_EVENTS] broadcast failed:", e));
     } catch (e) {
       console.error("[TASK_EVENTS] Delete activity failed:", e);
     }
@@ -232,6 +276,14 @@ export class TaskEvents {
         oldData: { assigneeId: opts.oldAssigneeId, assigneeName: oldAssigneeName },
         newData: { assigneeId: opts.newAssigneeId, assigneeName: newAssigneeName },
         broadcastEvent: "team_update",
+        targetUserIds,
+      }),
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "UPDATE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, projectId: opts.projectId, assigneeId: opts.newAssigneeId },
         targetUserIds,
       }),
       opts.commentActivity
@@ -270,6 +322,7 @@ export class TaskEvents {
   }) {
 
     try {
+      const targetUserIds = await getTaskInvolvedUserIds(getDb(), opts.taskId);
       await recordActivity(getDb(), {
         userId: opts.userId,
         userName: opts.userName,
@@ -288,8 +341,16 @@ export class TaskEvents {
           days: opts.days
         },
         broadcastEvent: "team_update",
-        targetUserIds: await getTaskInvolvedUserIds(getDb(), opts.taskId),
+        targetUserIds,
       });
+      broadcastTaskUpdate({
+        workspaceId: opts.workspaceId,
+        type: "UPDATE",
+        taskId: opts.taskId,
+        projectId: opts.projectId,
+        payload: { id: opts.taskId, projectId: opts.projectId, startDate: opts.startDate, dueDate: opts.dueDate, days: opts.days },
+        targetUserIds,
+      }).catch((e) => console.error("[TASK_EVENTS] broadcast failed:", e));
     } catch (e) {
       console.error("[TASK_EVENTS] Date update activity failed:", e);
     }

@@ -310,7 +310,7 @@ tasks.patch("/reorder", async (c) => {
 
   await TasksService.updateSubtasksOrder(subtaskIds);
 
-  return c.json({ success: true, message: "Reordered successfully" });
+  return c.json({ success: true, data: { subtaskIds } });
 });
 
 // --- 2. SUB-RESOURCE / SPECIFIC UPDATE ROUTES ---
@@ -565,9 +565,7 @@ tasks.delete("/:taskId", async (c) => {
     permissions,
   });
 
-  // Invalidate
-  
-  return c.json({ success: true, message: "Task deleted" });
+  return c.json({ success: true, data: { id: taskId } });
 });
 
 /**

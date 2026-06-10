@@ -1,9 +1,11 @@
-import type { PusherClient } from "./pusher";
+import { getEnv } from "./registry";
 
 export const TEAM_UPDATE = "team_update";
 export const PROJECT_UPDATE = "project_update";
 export const ATTENDANCE_UPDATE = "attendance_update";
 export const TASK_UPDATE = "task_update";
+export const ACTIVITY_LOG = "activity_log";
+export const CONVERSATION_UPDATE = "conversation_update";
 
 export type TeamEventData = {
     workspaceId: string;
@@ -37,35 +39,72 @@ export type AttendanceEventData = {
     targetUserIds?: string[];
 };
 
-async function broadcast(
-    pusher: PusherClient | null,
+export type ConversationEventData = {
+    workspaceId: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    timestamp: Date | string;
+};
+
+export type PresenceEventData = {
+    workspaceId: string;
+    userId: string;
+    status: "active" | "inactive";
+    lastActiveAt: string;
+};
+
+export type ActivityLogEventData = {
+    workspaceId: string;
+    targetUserIds: string[];
+    payload: any;
+};
+
+export async function broadcast(
     workspaceId: string,
     eventName: string,
-    data: any,
+    data: unknown,
     targetUserIds?: string[]
 ) {
-    if (!pusher) {
-        console.warn(`[REALTIME] Pusher not configured, skipping ${eventName} broadcast.`);
+    const env = getEnv();
+    if (!env?.WS_SERVICE) {
+        console.warn(`[REALTIME] WS_SERVICE binding not available, skipping ${eventName} broadcast`);
         return;
     }
     try {
-        const channels = targetUserIds && targetUserIds.length > 0
-            ? targetUserIds.map(tid => `user-${tid}`)
-            : [`team-${workspaceId}`];
-        await pusher.trigger(channels, eventName, data);
-    } catch (error) {
-        console.error(`[REALTIME_ERROR] Failed to broadcast ${eventName}:`, error);
+        await env.WS_SERVICE.fetch(new Request("https://tusker-ws/broadcast", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-broadcast-secret": env.BROADCAST_SECRET ?? "",
+            },
+            body: JSON.stringify({ workspaceId, event: eventName, data, targetUserIds }),
+        }));
+    } catch (e) {
+        console.error(`[REALTIME] broadcast failed for ${eventName}:`, e);
     }
 }
 
-export const broadcastTeamUpdate = async (pusher: PusherClient | null, data: TeamEventData) =>
-    broadcast(pusher, data.workspaceId, TEAM_UPDATE, data, data.targetUserIds);
+export const broadcastTeamUpdate = (data: TeamEventData) =>
+    broadcast(data.workspaceId, TEAM_UPDATE, data, data.targetUserIds);
 
-export const broadcastProjectUpdate = async (pusher: PusherClient | null, data: ProjectEventData) =>
-    broadcast(pusher, data.workspaceId, PROJECT_UPDATE, data, data.targetUserIds);
+export const broadcastProjectUpdate = (data: ProjectEventData) =>
+    broadcast(data.workspaceId, PROJECT_UPDATE, data, data.targetUserIds);
 
-export const broadcastTaskUpdate = async (pusher: PusherClient | null, data: TaskEventData) =>
-    broadcast(pusher, data.workspaceId, TASK_UPDATE, data, data.targetUserIds);
+export const broadcastTaskUpdate = (data: TaskEventData) =>
+    broadcast(data.workspaceId, TASK_UPDATE, data, data.targetUserIds);
 
-export const broadcastAttendanceUpdate = async (pusher: PusherClient | null, data: AttendanceEventData) =>
-    broadcast(pusher, data.workspaceId, ATTENDANCE_UPDATE, data, data.targetUserIds);
+export const broadcastAttendanceUpdate = (data: AttendanceEventData) =>
+    broadcast(data.workspaceId, ATTENDANCE_UPDATE, data, data.targetUserIds);
+
+export const broadcastConversationUpdate = (data: ConversationEventData) =>
+    broadcast(data.workspaceId, CONVERSATION_UPDATE, data);
+
+export const broadcastPresenceUpdate = (data: PresenceEventData) =>
+    broadcast(data.workspaceId, data.status === "active" ? "user-active" : "user-inactive", {
+        userId: data.userId,
+        lastActiveAt: data.lastActiveAt,
+    });
+
+export const broadcastActivityLog = (data: ActivityLogEventData) =>
+    broadcast(data.workspaceId, ACTIVITY_LOG, data.payload, data.targetUserIds);

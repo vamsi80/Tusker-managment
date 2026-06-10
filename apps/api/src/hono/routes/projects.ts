@@ -29,7 +29,8 @@ projects.patch("/:projectId", zValidator("json", editProjectSchema), async (c) =
   const values = c.req.valid("json");
 
   await ProjectService.updateProject(user.id, values);
-  return c.json({ success: true, message: "Project updated successfully" });
+  const updated = await ProjectService.getFullProjectData(values.projectId, user.id);
+  return c.json({ success: true, data: updated });
 });
 
 /**

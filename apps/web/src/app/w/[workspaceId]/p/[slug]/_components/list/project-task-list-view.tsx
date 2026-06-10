@@ -23,7 +23,12 @@ export async function ProjectTaskListView({
         serverApiFetch<{ success: boolean; data: any }>(`/tasks?workspaceId=${workspaceId}&projectId=${projectId}&hm=parents&sub=false&l=25&vm=list`).catch(() => ({ data: { tasks: [], hasMore: false, nextCursor: null } })),
     ]);
 
-    const members = membersRes.data;
+    const members = (membersRes.data ?? []).map((m: any) => ({
+        userId: m.userId,
+        projectRole: m.projectRole,
+        workspaceRole: m.workspaceRole,
+        user: m.user ? { id: m.user.id, surname: m.user.surname, image: m.user.image } : undefined,
+    }));
     const permissions = permissionsRes.data;
     const tasksData = tasksRes.data;
 

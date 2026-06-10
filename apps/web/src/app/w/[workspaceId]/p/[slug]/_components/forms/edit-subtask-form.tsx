@@ -353,11 +353,9 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 reloadView();
 
                 if (onSubTaskUpdated) {
-                    // Enrich the updated data with UI-specific objects (assignee, tags, etc.)
-                    // so the row reflects changes immediately without a full refresh
                     const selectedMember = (projectMembers.length > 0 ? projectMembers : members).find(m => m.userId === values.assignee);
                     const selectedReviewer = reviewers.find(r => r.id === values.reviewerId);
-                    
+
                     const enrichedData = {
                         ...updatedData,
                         assignee: selectedMember ? {
@@ -373,10 +371,13 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                             return tag ? { id: tag.id, name: tag.name } : { id };
                         })
                     };
-                    
+
                     onSubTaskUpdated(enrichedData as any);
                 }
 
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_UPDATED", record: { id: subTask.id, ...values }, isActor: true }
+                }));
                 setOpen(false);
             } else {
                 toast.error(responseMessage || "Failed to update subtask");

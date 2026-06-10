@@ -1,6 +1,6 @@
-import { recordActivity, broadcastActivity } from "@/lib/audit";
+import { recordActivity } from "@/lib/audit";
 import { broadcastAttendanceUpdate } from "@/lib/realtime";
-import { getDb, getPusher } from "@/lib/registry";
+import { getDb } from "@/lib/registry";
 
 export class AttendanceEvents {
     private static async getInvolvedUsers(workspaceId: string, memberUserId: string) {
@@ -27,7 +27,7 @@ export class AttendanceEvents {
         const targetUserIds = await this.getInvolvedUsers(workspaceId, userId);
 
         // Notify clients (Surgical Sync)
-        await broadcastAttendanceUpdate(getPusher(), {
+        await broadcastAttendanceUpdate({
             workspaceId,
             type,
             action: action as any,

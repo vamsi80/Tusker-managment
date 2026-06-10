@@ -79,10 +79,11 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
                 toast.success(responseMessage);
                 reloadView();
                 setOpen(false);
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_DELETED", record: { id: subTask.id }, isActor: true }
+                }));
             } else {
-                // If it failed on server, we might want to reload to sync UI
                 toast.error(responseMessage);
-                // TODO: Revert optimistic update on error
             }
         });
     };

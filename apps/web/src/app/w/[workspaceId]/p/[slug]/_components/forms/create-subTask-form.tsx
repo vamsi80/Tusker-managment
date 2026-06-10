@@ -221,10 +221,12 @@ export const CreateSubTaskForm = ({
                 form.reset();
                 setOpen(false);
 
-                // Replace the optimistic subtask with the real one
                 if (onSubTaskCreated && createdData) {
                     onSubTaskCreated(createdData);
                 }
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_CREATED", record: createdData, isActor: true }
+                }));
             } else {
                 toast.error(message);
             }

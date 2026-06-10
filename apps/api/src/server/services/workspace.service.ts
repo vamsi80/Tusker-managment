@@ -3,7 +3,7 @@ import { getDb } from "@/lib/registry";
 import { generateInviteCode } from "@/utils/get-invite-code";
 import { inviteUserSchema, InviteUserSchemaType } from "@tusker/shared";
 import { getAuth } from "@/lib/registry";
-import { recordActivity, broadcastActivity } from "@/lib/audit";
+import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "@/lib/involved-users";

@@ -34,6 +34,13 @@ export async function WorkspaceListView({
         console.warn(`[PERF_WARN] WorkspaceListView rendered in ${duration.toFixed(2)}ms`);
     }
 
+    const members = (membersRes.data ?? []).map((m: any) => ({
+        userId: m.userId,
+        projectRole: m.projectRole,
+        workspaceRole: m.workspaceRole,
+        user: m.user ? { id: m.user.id, surname: m.user.surname, image: m.user.image } : undefined,
+    }));
+
     const tasksData = tasksRes.data;
     const rawTasks = tasksData?.tasks ?? [];
     const initialTasks = rawTasks.map((t: any) => ({
@@ -48,7 +55,7 @@ export async function WorkspaceListView({
             initialHasMore={tasksData?.hasMore ?? false}
             initialNextCursor={tasksData?.nextCursor ?? null}
             initialTotalCount={tasksData?.totalCount ?? undefined}
-            members={membersRes.data as any}
+            members={members as any}
             workspaceId={workspaceId}
             projectId=""
             canCreateSubTask={permissions?.hasAccess ?? false}

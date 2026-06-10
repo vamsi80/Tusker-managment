@@ -1,5 +1,5 @@
 import type { DbClient } from "./db";
-import type { PusherClient } from "./pusher";
+import { broadcastActivityLog, broadcast } from "./realtime";
 
 export type AuditAction =
     | "USER_LOGIN"
@@ -42,7 +42,6 @@ interface RecordActivityOptions {
 export async function recordActivity(db: DbClient, options: RecordActivityOptions) {
     const {
         userId,
-        userName: providedName,
         workspaceId,
         action,
         entityType,
@@ -82,7 +81,6 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
 
 export async function broadcastActivity(
     db: DbClient,
-    pusher: PusherClient | null,
     options: RecordActivityOptions
 ) {
     const {
@@ -96,7 +94,7 @@ export async function broadcastActivity(
         newData,
     } = options;
 
-    if (!workspaceId || !pusher) return;
+    if (!workspaceId) return;
 
     let metadata: any = null;
     if (oldData && newData) {
@@ -155,10 +153,13 @@ export async function broadcastActivity(
         const message = `${userName} ${actionLabel}`;
         const eventPayload = { userId, userName, action, entityType, entityId, metadata, newData, oldData, message };
 
-        const activityChannels = finalTargetUserIds.map(tid => `user-${tid}`);
-        if (activityChannels.length > 0) {
-            await pusher.trigger(activityChannels, "activity_log", eventPayload)
-                .catch((err: any) => console.error("[PUSHER] activity_log error:", err));
+        // Broadcast activity_log event to targeted users
+        if (finalTargetUserIds.length > 0) {
+            broadcastActivityLog({
+                workspaceId,
+                targetUserIds: finalTargetUserIds,
+                payload: eventPayload,
+            }).catch((err: any) => console.error("[REALTIME] activity_log error:", err));
         }
 
         // Persist notifications
@@ -189,12 +190,9 @@ export async function broadcastActivity(
             const payload = newData || metadata || {};
             if (entityId && !payload.id) (payload as any).id = entityId;
 
-            const syncChannels = finalTargetUserIds.map(tid => `user-${tid}`);
-            if (syncChannels.length > 0) {
-                await pusher.trigger(syncChannels, options.broadcastEvent, {
-                    workspaceId, userId, type: normalizedType, message, payload,
-                }).catch((err: any) => console.error(`[PUSHER] ${options.broadcastEvent} error:`, err));
-            }
+            broadcast(workspaceId, options.broadcastEvent, {
+                workspaceId, userId, type: normalizedType, message, payload,
+            }, finalTargetUserIds).catch((err: any) => console.error(`[REALTIME] ${options.broadcastEvent} error:`, err));
         }
     } catch (error) {
         console.error("[BROADCAST_ACTIVITY_ERROR]", error);

@@ -2,8 +2,7 @@ import { create } from 'zustand';
 import { WorkspaceMemberRow, SlimMember } from '@/types/workspace';
 import { apiClient } from '@/lib/api-client';
 import { useEffect } from 'react';
-import { pusherClient } from '@/lib/pusher';
-import { TEAM_UPDATE } from '@/lib/realtime';
+import { pubsub, EVENTS } from '@/lib/pubsub';
 
 interface WorkspaceMemberState {
     membersByWorkspace: Record<string, WorkspaceMemberRow[]>;
@@ -114,20 +113,11 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) =
  * @param onUpdate Optional callback to run when an update is received (e.g. to refresh local state)
  */
 export function useRealtimeMemberSync(workspaceId: string, onUpdate?: () => void) {
-    const { refreshMembers } = useWorkspaceMemberStore();
-
     useEffect(() => {
-        console.log(`[RealtimeMemberSync] Subscribing to team-${workspaceId}`);
-        const channel = pusherClient?.subscribe(`team-${workspaceId}`);
-        channel?.bind(TEAM_UPDATE, () => {
-            console.log(`[RealtimeMemberSync] TEAM_UPDATE received for ${workspaceId}`);
+        const unsub = pubsub.subscribe(EVENTS.TEAM_UPDATE, () => {
             useWorkspaceMemberStore.getState().refreshMembers(workspaceId);
             if (onUpdate) onUpdate();
         });
-
-        return () => {
-            console.log(`[RealtimeMemberSync] Unsubscribing from team-${workspaceId}`);
-            pusherClient?.unsubscribe(`team-${workspaceId}`);
-        };
+        return unsub;
     }, [workspaceId, onUpdate]);
 }

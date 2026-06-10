@@ -77,8 +77,8 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         select.description = true;
     }
 
-    // Include detailed createdBy only if NOT in Gantt view or subtask-first mode to save on payload/joins
-    if (!isGantt && !isSubtaskFirst) {
+    // Include detailed createdBy only if NOT in Gantt view, subtask-first mode, or list view (creator not rendered in list)
+    if (!isGantt && !isSubtaskFirst && !isList) {
         select.createdBy = {
             select: {
                 workspaceMember: {
@@ -97,7 +97,6 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
     if (includeCounts) {
         select._count = {
             select: {
-                activities: true,
                 subTasks: subtaskFilter ? { where: subtaskFilter } : !isKanban
             }
         };
@@ -130,7 +129,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         };
     } else if (isList || isGantt) {
         select.project = {
-            select: { id: true, createdAt: true }
+            select: { id: true }
         };
     }
 

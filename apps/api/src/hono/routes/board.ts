@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/shared/errors";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { getDb, getPusher } from "@/lib/registry";
+import { getDb } from "@/lib/registry";
+import { broadcastTeamUpdate } from "@/lib/realtime";
 import { z } from "zod";
 import { BoardStatus } from "@/generated/prisma";
 
@@ -43,16 +44,11 @@ board.post("/", async (c) => {
         }
     });
 
-    const pusher = getPusher();
-    if (pusher) {
-        await pusher.trigger(`team-${workspaceId}`, "team_update", {
-            workspaceId,
-            userId: user.id,
-            type: "UPDATE",
-            action: "BOARD_UPDATED",
-            payload: newItem,
-        });
-    }
+    broadcastTeamUpdate({
+        workspaceId,
+        type: "UPDATE",
+        payload: { ...newItem, action: "BOARD_UPDATED", userId: user.id },
+    }).catch(() => {});
 
     return c.json({ success: true, message: "Note added successfully", data: newItem });
 });
@@ -75,16 +71,11 @@ board.patch("/:itemId/status", async (c) => {
         data: { status: newStatus }
     });
 
-    const pusher = getPusher();
-    if (pusher) {
-        await pusher.trigger(`team-${workspaceId}`, "team_update", {
-            workspaceId,
-            userId: user.id,
-            type: "UPDATE",
-            action: "BOARD_UPDATED",
-            payload: updatedItem,
-        });
-    }
+    broadcastTeamUpdate({
+        workspaceId,
+        type: "UPDATE",
+        payload: { ...updatedItem, action: "BOARD_UPDATED", userId: user.id },
+    }).catch(() => {});
 
     return c.json({ success: true, message: "Status updated", data: updatedItem });
 });
@@ -130,16 +121,11 @@ board.delete("/:itemId", async (c) => {
         where: { id: itemId }
     });
 
-    const pusher = getPusher();
-    if (pusher) {
-        await pusher.trigger(`team-${workspaceId}`, "team_update", {
-            workspaceId,
-            userId: user.id,
-            type: "DELETE",
-            action: "BOARD_UPDATED",
-            payload: deletedItem,
-        });
-    }
+    broadcastTeamUpdate({
+        workspaceId,
+        type: "DELETE",
+        payload: { ...deletedItem, action: "BOARD_UPDATED", userId: user.id },
+    }).catch(() => {});
 
     return c.json({ success: true, message: "Note deleted" });
 });

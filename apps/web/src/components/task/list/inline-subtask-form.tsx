@@ -258,6 +258,9 @@ export function InlineSubTaskForm({
                     onSubTaskCreated?.(res.data);
                     setSubTaskName("");
                     onCancel();
+                    window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                        detail: { action: "TASK_CREATED", record: res.data, isActor: true }
+                    }));
 
                     return `"${validData.name}" created successfully`;
                 },
@@ -315,6 +318,9 @@ export function InlineSubTaskForm({
                 }
 
                 toast.success("Subtask saved");
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_UPDATED", record: { id: subTask!.id, ...updatedData }, isActor: true }
+                }));
             });
         };
     };

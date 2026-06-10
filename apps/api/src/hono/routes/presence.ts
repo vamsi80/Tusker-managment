@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { getPusher } from "@/lib/registry";
 import { getDb } from "@/lib/registry";
+import { broadcastPresenceUpdate } from "@/lib/realtime";
 import { HonoVariables } from "../types";
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -23,14 +23,12 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
     console.log(`📡 [Presence] User ${user.id} ${status} in workspace ${workspaceId}`);
 
-    // Trigger Pusher event to notify others in the workspace
-    const pusher = getPusher();
-    if (pusher) {
-      await pusher.trigger(`team-${workspaceId}`, status === "active" ? "user-active" : "user-inactive", {
-        userId: user.id,
-        lastActiveAt: lastActiveAt.toISOString()
-      });
-    }
+    broadcastPresenceUpdate({
+      workspaceId,
+      userId: user.id,
+      status: status === "active" ? "active" : "inactive",
+      lastActiveAt: lastActiveAt.toISOString(),
+    }).catch(() => {});
 
     return c.json({ success: true });
   });

@@ -28,11 +28,12 @@ import procurementRfq from "./hono/routes/procurement-rfq";
 import projectMaterials from "./hono/routes/project-materials";
 import materials from "./hono/routes/materials";
 import board from "./hono/routes/board";
+import wsTicket from "./hono/routes/ws-ticket";
 
 const app = new Hono<{ Bindings: Env; Variables: HonoVariables }>().basePath("/api/v1");
 
 // Create a fresh, request-scoped DB connection + auth instance for every request.
-// Pusher/Resend are initialized once (HTTP-based, safe to share).
+// Resend is initialized once (HTTP-based, safe to share).
 app.use("*", async (c, next) => {
     return runRequestContext(c.env, async () => {
         await next();
@@ -128,6 +129,7 @@ app.route("/procurement/rfq", procurementRfq);
 app.route("/projects", projectMaterials);
 app.route("/materials", materials);
 app.route("/board", board);
+app.route("/ws-ticket", wsTicket);
 
 // Cloudflare Workers scheduled handler
 async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {

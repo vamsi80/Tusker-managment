@@ -4,8 +4,8 @@ import { zValidator } from "@hono/zod-validator";
 import { ConversationService } from "@/server/services/conversation/conversation.service";
 import { HonoVariables } from "../types";
 
-import { getPusher } from "@/lib/registry";
 import { getDb } from "@/lib/registry";
+import { broadcastConversationUpdate } from "@/lib/realtime";
 
 const app = new Hono<{ Variables: HonoVariables }>()
   .get("/:workspaceId", async (c) => {
@@ -54,16 +54,13 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const { content } = c.req.valid("json");
     const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
 
-    // Trigger Pusher event to refresh conversation lists for all participants
-    const pusher = getPusher();
-    if (pusher) {
-      await pusher.trigger(`team-${workspaceId}`, "conversation_update", {
-        conversationId,
-        senderId: user.id,
-        content: content.substring(0, 50), // Send a preview
-        timestamp: new Date()
-      });
-    }
+    broadcastConversationUpdate({
+      workspaceId,
+      conversationId,
+      senderId: user.id,
+      content: content.substring(0, 50),
+      timestamp: new Date(),
+    }).catch(() => {});
 
     return c.json({ success: true, data: message });
   })
