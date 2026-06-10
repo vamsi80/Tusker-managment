@@ -6,8 +6,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { createTag } from "@/actions/tag/create-tag";
-import { updateTag } from "@/actions/tag/update-tag";
+import { workspacesClient } from "@/lib/api-client/workspaces";
+import { revalidateTagsCache } from "@/lib/cache/tag-cache-actions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
@@ -59,10 +59,11 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isW
         const formattedName = toTitleCase(name);
         try {
             const result = tag
-                ? await updateTag({ tagId: tag.id, name: formattedName, requirePurchase, workspaceId })
-                : await createTag({ name: formattedName, requirePurchase, workspaceId });
+                ? await workspacesClient.updateTag({ tagId: tag.id, name: formattedName, requirePurchase, workspaceId })
+                : await workspacesClient.createTag({ name: formattedName, requirePurchase, workspaceId });
 
             if (result.success) {
+                await revalidateTagsCache(workspaceId);
                 toast.success(`Tag "${formattedName}" has been ${tag ? "updated" : "created"} successfully.`);
                 onOpenChange(false);
                 setName("");

@@ -316,6 +316,13 @@ export function KanbanBoard({
     targetStatus: TaskStatus;
   } | null>(null);
 
+  const pendingReviewTask = useMemo(
+    () => pendingReviewMove
+      ? Object.values(kanbanTasks).flat().find(t => t.id === pendingReviewMove.subTaskId)
+      : null,
+    [kanbanTasks, pendingReviewMove?.subTaskId]
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: isMobile ? { delay: 300, tolerance: 5 } : { distance: 3 },
@@ -1094,11 +1101,7 @@ export function KanbanBoard({
         isOpen={isActivityDialogOpen}
         onClose={handleActivityClose}
         onSubmit={handleActivitySubmit}
-        subTaskName={
-          pendingReviewMove
-            ? Object.values(kanbanTasks).flat().find(t => t.id === pendingReviewMove.subTaskId)?.name || "Subtask"
-            : ""
-        }
+        subTaskName={pendingReviewTask?.name || "Subtask"}
       />
     </div>
     </RenderProfiler>

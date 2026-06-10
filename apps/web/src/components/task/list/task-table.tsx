@@ -73,7 +73,7 @@ function TaskTable(props: TaskTableProps) {
     projects,
   });
 
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     workspaceId: props.workspaceId,
     projectId: props.projectId,
     members: props.members,
@@ -90,7 +90,12 @@ function TaskTable(props: TaskTableProps) {
     leadProjectIds,
     coordinatorProjectIds,
     scrollContainerRef,
-  };
+  }), [
+    props.workspaceId, props.projectId, props.members, props.permissions,
+    columnVisibility, props.level, props.isWorkspaceAdmin, props.userId,
+    props.canCreateSubTask, logic.tags, projects, projectMap,
+    leadProjectIds, coordinatorProjectIds,
+  ]);
 
   const mode = logic.sorts.length > 0 ? "sorted" : "hierarchy";
   const visiblePropsCount = Object.entries(columnVisibility)

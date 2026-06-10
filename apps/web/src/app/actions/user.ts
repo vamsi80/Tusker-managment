@@ -59,7 +59,8 @@ export async function syncUserProfile({
  * Checks if a user with the given phone number exists in the database.
  */
 export async function checkUserExistsByPhone(phoneNumber: string) {
-  await getSession();
+  const session = await getSession();
+  if (!session) return { exists: false, error: "Unauthorized" };
   if (!phoneNumber) return { exists: false };
   
   try {
