@@ -17,6 +17,7 @@ import { useContext } from "react";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
+import { taskViewUrl } from "@/lib/api-client/task-views";
 
 // Local helper for robust deduplication by ID
 const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
@@ -510,9 +511,8 @@ export function useTaskTableLogic({
     projectPaginationRef.current = { ...projectPaginationRef.current, [targetProjectId]: { ...currentPagination, isLoading: true } };
     setProjectPagination((prev: Record<string, any>) => ({ ...prev, [targetProjectId]: { ...currentPagination, isLoading: true } }));
 
-    const params = new URLSearchParams({ w: workspaceId, vm: "list", hm: "parents", sub: "false", l: "50" });
-    if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
-    if (currentPagination.nextCursor) params.set("c", JSON.stringify(currentPagination.nextCursor));
+    const params = new URLSearchParams({ limit: "50" });
+    if (currentPagination.nextCursor) params.set("cursor", JSON.stringify(currentPagination.nextCursor));
 
     // Apply filters to pagination too
     const activeFilters = getActiveFilters(filters);
@@ -525,12 +525,13 @@ export function useTaskTableLogic({
     });
     if (searchQuery) params.set("search", searchQuery);
 
+    const targetUrl = taskViewUrl("list", workspaceId, targetProjectId !== "__global_filter__" ? targetProjectId : undefined);
     const fetchKey = `project-${targetProjectId}-${params.toString()}`;
     if (fetchingIdsRef.current.has(fetchKey)) return;
     fetchingIdsRef.current.add(fetchKey);
 
     try {
-      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const apiRes = await fetch(`${targetUrl}?${params.toString()}`);
       const response = await apiRes.json();
       if (response.success) {
         const resultData = response.data;
@@ -581,17 +582,14 @@ export function useTaskTableLogic({
 
     try {
       const params = new URLSearchParams({
-        w: workspaceId,
-        p: task.projectId || projectId,
-        vm: "list",
-        pt: taskId,
-        l: "20",
-        ef: "description"
+        parent: taskId,
+        limit: "20",
+        fields: "description"
       });
-      if (task.subTasksNextCursor) params.set("c", JSON.stringify(task.subTasksNextCursor));
+      if (task.subTasksNextCursor) params.set("cursor", JSON.stringify(task.subTasksNextCursor));
       // Apply filters...
 
-      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const apiRes = await fetch(`${taskViewUrl("list", workspaceId, task.projectId || projectId)}?${params.toString()}`);
       const response = await apiRes.json();
       if (response.success) {
         const resultData = response.data;
@@ -617,12 +615,11 @@ export function useTaskTableLogic({
     if (!sortedHasMore || isLoadingMoreSorted) return;
     setIsLoadingMoreSorted(true);
     try {
-      const params = new URLSearchParams({ w: workspaceId, vm: "list", onlySub: "true", l: "20", ef: "description" });
-      if (projectId) params.set("p", projectId);
-      if (sortedNextCursor) params.set("c", JSON.stringify(sortedNextCursor));
+      const params = new URLSearchParams({ onlySub: "true", limit: "20", fields: "description" });
+      if (sortedNextCursor) params.set("cursor", JSON.stringify(sortedNextCursor));
       if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
 
-      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const apiRes = await fetch(`${taskViewUrl("list", workspaceId, projectId || undefined)}?${params.toString()}`);
       const res = await apiRes.json();
       if (res.success) {
         setSortedTasks((prev) => [...prev, ...res.data.tasks]);
@@ -644,10 +641,9 @@ export function useTaskTableLogic({
     const fetchSorted = async () => {
       setIsSortedViewLoading(true);
       try {
-        const params = new URLSearchParams({ w: workspaceId, vm: "list", onlySub: "true", l: "20", ef: "description" });
-        if (projectId) params.set("p", projectId);
+        const params = new URLSearchParams({ onlySub: "true", limit: "20", fields: "description" });
         if (sorts.length > 0) params.set("sorts", JSON.stringify(sorts));
-        const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+        const apiRes = await fetch(`${taskViewUrl("list", workspaceId, projectId || undefined)}?${params.toString()}`);
         const res = await apiRes.json();
         if (res.success) {
           setSortedTasks(res.data.tasks || []);

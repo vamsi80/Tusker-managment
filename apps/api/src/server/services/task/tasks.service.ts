@@ -1317,18 +1317,34 @@ export class TasksService {
       ? [{ parentTaskId: "asc" as const }, { id: "asc" as const }]
       : buildOrderBy(opts.sorts, opts.view_mode, opts.projectId);
 
-    const rawMatches = (await TaskRepository.findTasksByWhere(
-      matchWhere,
-      limit + 1,
-      getTaskSelect(
-        opts.view_mode,
-        opts.view_mode === "gantt" || opts.isMinimal,
-        opts.extraFields ? [...opts.extraFields, (dbFieldForSelect || "createdAt")] : (dbFieldForSelect ? [dbFieldForSelect] : []),
-        subtaskFilter,
-        isSubtaskFirstMode
+    // Facets count runs in parallel with the matches query — both only depend on matchWhere
+    const facetsPromise = opts.includeFacets
+      ? (() => {
+          const facetWhere = JSON.parse(JSON.stringify(matchWhere));
+          // If we restricted matches to expanded projects (e.g. for initial load optimization),
+          // we still want facets (task counts) for ALL projects in the workspace.
+          if (!opts.projectId && opts.expandedProjectIds?.length) {
+            delete facetWhere.projectId;
+          }
+          return TaskRepository.groupByProjectId(facetWhere);
+        })()
+      : Promise.resolve(null);
+
+    const [rawMatches, facetCounts] = (await Promise.all([
+      TaskRepository.findTasksByWhere(
+        matchWhere,
+        limit + 1,
+        getTaskSelect(
+          opts.view_mode,
+          opts.view_mode === "gantt" || opts.isMinimal,
+          opts.extraFields ? [...opts.extraFields, (dbFieldForSelect || "createdAt")] : (dbFieldForSelect ? [dbFieldForSelect] : []),
+          subtaskFilter,
+          isSubtaskFirstMode
+        ),
+        orderByForQuery
       ),
-      orderByForQuery
-    )) as any[];
+      facetsPromise,
+    ])) as [any[], any[] | null];
 
     const hasMore = rawMatches.length > limit;
     const matches = rawMatches.slice(0, limit);
@@ -1484,15 +1500,8 @@ export class TasksService {
         : null;
 
     const projectFacets: Record<string, number> = {};
-    if (opts.includeFacets) {
-      const facetWhere = JSON.parse(JSON.stringify(matchWhere));
-      // If we restricted matches to expanded projects (e.g. for initial load optimization), 
-      // we still want facets (task counts) for ALL projects in the workspace.
-      if (!opts.projectId && opts.expandedProjectIds?.length) {
-        delete facetWhere.projectId;
-      }
-      const counts = await TaskRepository.groupByProjectId(facetWhere);
-      counts.forEach((c) => {
+    if (facetCounts) {
+      facetCounts.forEach((c) => {
         if (c.projectId)
           projectFacets[c.projectId] =
             (projectFacets[c.projectId] || 0) + (c._count as any).id;
@@ -1580,8 +1589,20 @@ export class TasksService {
     const primarySort = opts.sorts?.[0];
     const dbField = primarySort ? SORT_MAP[primarySort.field]?.dbField : "createdAt";
 
+    // Facets count runs in parallel with the main query — both only depend on `where`
+    const facetsPromise = opts.includeFacets
+      ? (() => {
+          const facetWhere = JSON.parse(JSON.stringify(where));
+          // If we restricted matches to expanded projects, we still want facets for ALL projects in the workspace.
+          if (!opts.projectId && opts.expandedProjectIds?.length) {
+            delete facetWhere.projectId;
+          }
+          return TaskRepository.groupByProjectId(facetWhere);
+        })()
+      : Promise.resolve(null);
+
     const queryStartTime = performance.now();
-    const [rawTasks] = await Promise.all([
+    const [rawTasks, facetCounts] = await Promise.all([
       TaskRepository.findMany(
         where,
         getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, opts.extraFields ? [...opts.extraFields, (dbField || "createdAt")] : (dbField ? [dbField] : []), subtaskFilter),
@@ -1591,6 +1612,7 @@ export class TasksService {
         opts.view_mode,
         opts.projectId,
       ),
+      facetsPromise,
     ]);
     const queryDuration = performance.now() - queryStartTime;
 
@@ -1615,14 +1637,8 @@ export class TasksService {
         : null;
 
     const projectFacets: Record<string, number> = {};
-    if (opts.includeFacets) {
-      const facetWhere = JSON.parse(JSON.stringify(where));
-      // If we restricted matches to expanded projects, we still want facets for ALL projects in the workspace.
-      if (!opts.projectId && opts.expandedProjectIds?.length) {
-        delete facetWhere.projectId;
-      }
-      const counts = await TaskRepository.groupByProjectId(facetWhere);
-      counts.forEach((c) => {
+    if (facetCounts) {
+      facetCounts.forEach((c) => {
         if (c.projectId)
           projectFacets[c.projectId] =
             (projectFacets[c.projectId] || 0) + (c._count as any).id;

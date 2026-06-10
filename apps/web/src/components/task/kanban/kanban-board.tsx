@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption } from "../shared/types";
-import { STATUS_COLORS, STATUS_LABELS } from "@tusker/shared/colors";
 import { apiClient } from "@/lib/api-client";
 import {
   GlobalFilterToolbar,
@@ -36,6 +35,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
+import { taskViewUrl } from "@/lib/api-client/task-views";
 
 import { COLUMNS, TaskStatus } from "./kanban-constants";
 
@@ -376,8 +376,6 @@ export function KanbanBoard({
     console.log(`  TOTAL LOADED: ${totalLoaded}`);
   }, []);
 
-  const kanbanExtraParams = useMemo(() => ({ excludeParents: "true" }), []);
-
   const {
     isLoading: isFetchLoading,
     filtersActive
@@ -386,10 +384,10 @@ export function KanbanBoard({
     projectId,
     level,
     viewMode: "kanban",
-    extraParams: kanbanExtraParams,
     limit: 10,
     onResults: onFilteredResults,
     alwaysFetch: true,
+    skipInitialFetch: !!hasFetchedRef.current, // server provided the initial board
   });
 
   const isFiltering = isManualFiltering || isFetchLoading;
@@ -442,24 +440,20 @@ export function KanbanBoard({
 
       const targetProjectId = filters.projectId || projectId;
 
-      // Build the URL with short parameters (w, s, l, vm, p, c, q)
       const params = new URLSearchParams();
-      params.set("w", workspaceId);
-      params.set("s", status);
-      params.set("l", "10");
-      params.set("vm", "kanban");
+      params.set("status", status);
+      params.set("limit", "10");
 
-      if (targetProjectId) params.set("p", targetProjectId);
-      if (currentCursor) params.set("c", JSON.stringify(currentCursor));
-      if (searchQuery) params.set("q", searchQuery);
+      if (currentCursor) params.set("cursor", JSON.stringify(currentCursor));
+      if (searchQuery) params.set("search", searchQuery);
 
       // Filters
-      if (filters.assigneeId) params.append("a", filters.assigneeId);
-      if (filters.tagId) params.append("t", filters.tagId);
-      if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
-      params.set("ef", JSON.stringify(["description"]));
+      if (filters.assigneeId) params.append("assignee", filters.assigneeId);
+      if (filters.tagId) params.append("tag", filters.tagId);
+      if (filters.dueDateFilter) params.append("dueDateType", filters.dueDateFilter);
+      params.set("fields", "description");
 
-      const apiRes = await fetch(`/api/v1/tasks?${params.toString()}`);
+      const apiRes = await fetch(`${taskViewUrl("kanban", workspaceId, targetProjectId || undefined)}?${params.toString()}`);
       const response = await apiRes.json();
 
       if (!response.success) {

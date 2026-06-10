@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { getActiveFilters, hasActiveFilters, TaskWithSubTasks } from "@/components/task/shared/types";
+import { taskViewUrl } from "@/lib/api-client/task-views";
 
 interface FilteredFetchProps {
   workspaceId: string;
@@ -11,13 +12,17 @@ interface FilteredFetchProps {
   viewMode: "list" | "kanban" | "gantt";
   onResults: (tasks: TaskWithSubTasks[], meta: any) => void;
   onAppendResults?: (tasks: TaskWithSubTasks[], meta: any) => void;
-  extraParams?: Record<string, string>;
   limit?: number;
   /**
    * When true, the hook will ALWAYS fire on mount and on filter changes,
    * even when no filters are active. Used by Kanban to load initial data.
    */
   alwaysFetch?: boolean;
+  /**
+   * When true, skip the very first unfiltered fetch (server already provided
+   * the initial data). Filter changes and filter clears still fetch.
+   */
+  skipInitialFetch?: boolean;
 }
 
 /**
@@ -36,9 +41,9 @@ export function useFilteredFetch({
   viewMode,
   onResults,
   onAppendResults,
-  extraParams,
   limit = 50,
   alwaysFetch = false,
+  skipInitialFetch = false,
 }: FilteredFetchProps) {
   const { filters, searchQuery, setIsCurrentlyFiltered } = useFilterStore();
   const filtersActive = hasActiveFilters(filters) || !!searchQuery;
@@ -61,19 +66,11 @@ export function useFilteredFetch({
 
     try {
       const params = new URLSearchParams({
-        w: workspaceId,
-        vm: viewMode,
-        l: String(limit),
+        limit: String(limit),
         facets: cursor ? "false" : "true",
-        ef: "description",
+        fields: "description",
       });
 
-      if (extraParams) {
-        Object.entries(extraParams).forEach(([k, v]) => params.set(k, v));
-      }
-
-      if (level === "project" && projectId) params.set("p", projectId);
-      
       const activeFilters = getActiveFilters(filters);
       activeFilters.forEach((f) => {
         if (f.key === "startDate" || f.key === "endDate") {
@@ -82,11 +79,12 @@ export function useFilteredFetch({
           params.set(f.key, String(f.value));
         }
       });
-      
-      if (searchQuery) params.set("search", searchQuery);
-      if (cursor) params.set("c", JSON.stringify(cursor));
 
-      const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+      if (searchQuery) params.set("search", searchQuery);
+      if (cursor) params.set("cursor", JSON.stringify(cursor));
+
+      const url = taskViewUrl(viewMode, workspaceId, level === "project" ? projectId : undefined);
+      const res = await fetch(`${url}?${params.toString()}`);
       const response = await res.json();
 
       if (!isAbortedRef.current && response.success) {
@@ -111,7 +109,7 @@ export function useFilteredFetch({
         setIsLoading(false);
       }
     }
-  }, [workspaceId, projectId, level, viewMode, filters, searchQuery, onResults, onAppendResults, setIsCurrentlyFiltered, limit, JSON.stringify(extraParams), filtersActive]);
+  }, [workspaceId, projectId, level, viewMode, filters, searchQuery, onResults, onAppendResults, setIsCurrentlyFiltered, limit, filtersActive]);
 
   // Track the exact filters we last fetched to prevent double-fetching on React Strict Mode remounts
   const lastFetchSignatureRef = useRef<string | null>(null);
@@ -131,10 +129,18 @@ export function useFilteredFetch({
     }
 
     const currentSignature = JSON.stringify({ filters, searchQuery, alwaysFetch });
-    
+
     // If we've already initiated a fetch for this exact filter combination, skip it to avoid double loading
     if (lastFetchSignatureRef.current === currentSignature) {
        return;
+    }
+
+    // Server already provided the initial unfiltered data — mark it as fetched.
+    // Subsequent filter changes (and clears) produce a different signature and still fetch.
+    if (skipInitialFetch && !initialFetchDoneRef.current && !filtersActive) {
+      initialFetchDoneRef.current = true;
+      lastFetchSignatureRef.current = currentSignature;
+      return;
     }
 
     // For alwaysFetch mode (Kanban), skip debounce on very first mount
@@ -153,7 +159,7 @@ export function useFilteredFetch({
       clearTimeout(timer);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, searchQuery, filtersActive, alwaysFetch, fetchFiltered]);
+  }, [filters, searchQuery, filtersActive, alwaysFetch, skipInitialFetch, fetchFiltered]);
 
 
   const loadMore = useCallback(() => {

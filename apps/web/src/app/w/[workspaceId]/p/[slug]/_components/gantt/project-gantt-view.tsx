@@ -1,16 +1,11 @@
 "use client";
-import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { AppLoader } from "@/components/shared/app-loader";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { useProjectLayout } from "../project-layout-context";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-
-const ProjectGanttClient = dynamic(
-    () => import("./project-gantt-client").then(mod => mod.ProjectGanttClient),
-    { loading: () => <div className="h-[60vh] w-full flex items-center justify-center text-muted-foreground animate-pulse">Loading Gantt Chart...</div> }
-);
+import { ProjectGanttClient } from "./project-gantt-client";
 
 interface GanttServerWrapperProps {
     workspaceId: string;
@@ -40,7 +35,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
             try {
                 setIsLoadingTasks(true);
                 // Gantt-specific fetch for large volume of tasks
-                const tasksRes = await fetch(`/api/v1/tasks?w=${workspaceId}&p=${projectId}&vm=gantt&limit=50&hm=parents&ist=false`).then(res => res.json());
+                const tasksRes = await fetch(`/api/v1/workspaces/${workspaceId}/projects/${projectId}/tasks/gantt?limit=50`).then(res => res.json());
 
                 if (!tasksRes.success) {
                     console.error("Server error fetching tasks:", tasksRes.error);
