@@ -1,0 +1,19 @@
+import { Suspense } from "react";
+import { WorkspaceListView } from "../_components/views/list/workspace-list-view";
+import { AppLoader } from "@/components/shared/app-loader";
+import { ReloadableView } from "@/components/shared/reloadable-view";
+
+interface Props {
+    params: Promise<{ workspaceId: string }>;
+}
+
+export default async function WorkspaceListPage({ params }: Props) {
+    const { workspaceId } = await params;
+    return (
+        <ReloadableView skeleton={<AppLoader />}>
+            <Suspense fallback={<AppLoader />}>
+                <WorkspaceListView workspaceId={workspaceId} />
+            </Suspense>
+        </ReloadableView>
+    );
+}
