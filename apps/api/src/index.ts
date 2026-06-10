@@ -6,6 +6,7 @@ import { getAuth, runRequestContext, initServices } from "./lib/registry";
 import type { Env } from "./types";
 import type { HonoVariables } from "./types";
 import { authMiddleware } from "./hono/middleware/auth";
+import { apiRateLimiter, authRateLimiter } from "./hono/middleware/rate-limit";
 import { AppError } from "@tusker/shared/errors";
 
 // Route imports
@@ -95,6 +96,9 @@ app.get("/health", (c) => c.json({
 }));
 
 app.route("/cron", cron);
+// Throttle sensitive public auth/invitation paths (brute force / OTP abuse) before
+// any auth route runs. No-ops on hot paths like /auth/get-session — see middleware.
+app.use("/auth/*", authRateLimiter);
 // Custom public auth endpoints must come BEFORE the Better Auth catch-all
 app.route("/auth", authRoute);
 // Better Auth catch-all — handles sign-in, sign-up, session, OAuth, OTP, etc.
@@ -105,6 +109,8 @@ app.all("/auth/*", async (c) => {
 
 // Protected routes
 app.use("*", authMiddleware);
+// General per-user ceiling for all authenticated API traffic (scraping / DB exhaustion).
+app.use("*", apiRateLimiter);
 
 app.route("/attendance", attendanceRouter);
 app.route("/tasks", tasks);

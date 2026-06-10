@@ -37,6 +37,22 @@ localConnectionString = "postgres://postgres.huruairekknyibistusz:rplZt8LNZjEhCg
 # APP_URL                 (Vercel web app URL, e.g., https://app.yourdomain.com)
 # DATABASE_URL            (Direct PostgreSQL URL — used only until Hyperdrive is set up)
 
+# Cloudflare Workers Rate Limiting bindings (account-scoped; namespace_id is an
+# arbitrary unique integer per limiter). `period` must be 10 or 60 seconds.
+#   - API_RATE_LIMITER:  general ceiling for authenticated API traffic (keyed by user id)
+#   - AUTH_RATE_LIMITER: strict ceiling for sensitive public auth/invitation paths (keyed by client IP)
+[[unsafe.bindings]]
+name = "API_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 600, period = 60 }
+
+[[unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }
+
 [dev]
 port = 8787
 local_protocol = "http"

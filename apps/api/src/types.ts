@@ -4,6 +4,15 @@ import type { Session, TuskerUser } from "@tusker/auth/types";
 // Re-exported here so existing `../types` imports keep working.
 export type { TuskerUser };
 
+/**
+ * Cloudflare Workers Rate Limiting binding.
+ * Not yet exported by @cloudflare/workers-types, so typed locally.
+ * Configured via `[[unsafe.bindings]]` (type = "ratelimit") in wrangler.toml.
+ */
+export interface RateLimitBinding {
+    limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export type Env = {
     // Database
     DATABASE_URL: string;
@@ -34,6 +43,10 @@ export type Env = {
     AWS_SECRET_ACCESS_KEY: string;
     AWS_REGION: string;
     AWS_S3_BUCKET_NAME: string;
+
+    // Rate limiting (Cloudflare Workers Rate Limiting bindings — see wrangler.toml)
+    API_RATE_LIMITER: RateLimitBinding;
+    AUTH_RATE_LIMITER: RateLimitBinding;
 
     // Misc
     CRON_SECRET?: string;
