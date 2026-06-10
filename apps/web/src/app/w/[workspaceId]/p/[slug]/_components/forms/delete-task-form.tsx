@@ -69,13 +69,12 @@ export function DeleteTaskDialog({ task, onTaskDeleted }: DeleteTaskDialogProps)
                 toast.success(responseMessage);
                 setOpen(false);
 
-                // Call the callback to remove task from UI
                 if (onTaskDeleted) {
                     onTaskDeleted(task.id);
                 }
-
-                // Removed reloadView() to prevent full page state reset.
-                // Surgical update above is sufficient.
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_DELETED", record: { id: task.id }, isActor: true }
+                }));
             } else {
                 toast.error(responseMessage);
             }

@@ -164,14 +164,12 @@ export function EditTaskDialog({
                 toast.success(result.message);
                 setOpen(false);
 
-                // Pass the updated data to the callback
-                // This allows immediate UI update without waiting for router.refresh()
                 if (onTaskUpdated) {
                     onTaskUpdated(values);
                 }
-
-                // Removed router.refresh() to prevent full page state reset.
-                // Surgical update above + real-time listener is sufficient.
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_UPDATED", record: { id: task.id, ...values }, isActor: true }
+                }));
             } else {
                 toast.error(result.message);
             }

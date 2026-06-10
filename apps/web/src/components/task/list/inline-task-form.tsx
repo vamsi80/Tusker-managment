@@ -91,6 +91,9 @@ export function InlineTaskForm({
                 onTaskCreated?.(res.data);
                 setTaskName("");
                 onCancel();
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_CREATED", record: res.data, isActor: true }
+                }));
                 return `"${taskName.trim()}" created successfully`;
             },
             error: (err: any) => {

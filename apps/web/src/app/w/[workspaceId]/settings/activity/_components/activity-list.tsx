@@ -5,8 +5,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useState } from "react";
-import { pusherClient } from "@/lib/pusher";
 import { useRouter } from "next/navigation";
 import { APP_DATE_FORMAT } from "@/lib/utils";
 

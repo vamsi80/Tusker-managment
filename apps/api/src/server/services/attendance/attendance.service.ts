@@ -1,7 +1,7 @@
 
 import { getDb } from "@/lib/registry";
 import { AppError } from "@tusker/shared/errors";
-import { recordActivity, broadcastActivity } from "@/lib/audit";
+import { recordActivity } from "@/lib/audit";
 
 import { AttendanceStatus, WorkspaceRole } from "@/generated/prisma";
 import { getISTDateOnly } from "@tusker/shared/date-utils";

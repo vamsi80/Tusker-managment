@@ -84,7 +84,9 @@ export const CreateTaskForm = ({
                 triggerConfetti();
                 setOpen(false);
                 form.reset();
-                // Task will be added to UI via RealtimeNotificationListener
+                window.dispatchEvent(new CustomEvent("realtime-task-sync", {
+                    detail: { action: "TASK_CREATED", record: result.data, isActor: true }
+                }));
             } else {
                 toast.error(result.message);
             }

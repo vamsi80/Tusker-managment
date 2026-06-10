@@ -16,6 +16,11 @@ binding = "HYPERDRIVE"
 id = "44209b43b2124f149feb225a8226b4ba"
 localConnectionString = "postgres://postgres.huruairekknyibistusz:rplZt8LNZjEhCgSi@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=disable&pgbouncer=true"
 
+# Service Binding to tusker-ws (the self-hosted WebSocket server)
+[[services]]
+binding = "WS_SERVICE"
+service = "tusker-ws"
+
 # Secrets (set via `wrangler secret put <NAME>`):
 # BETTER_AUTH_SECRET
 # BETTER_AUTH_URL         (e.g., https://tusker-api.workers.dev)
@@ -25,10 +30,8 @@ localConnectionString = "postgres://postgres.huruairekknyibistusz:rplZt8LNZjEhCg
 # GOOGLE_CLIENT_SECRET
 # RESEND_API_KEY
 # RESEND_FROM_EMAIL       (e.g., noreply@yourdomain.com)
-# PUSHER_APP_ID
-# PUSHER_KEY
-# PUSHER_SECRET
-# PUSHER_CLUSTER
+# BROADCAST_SECRET        (shared with tusker-ws — used to authorize /broadcast calls)
+# TICKET_SECRET           (shared with tusker-ws — used to sign/verify WS connection tickets)
 # AWS_ACCESS_KEY_ID
 # AWS_SECRET_ACCESS_KEY
 # AWS_REGION
