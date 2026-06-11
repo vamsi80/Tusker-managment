@@ -1,4 +1,6 @@
 
+import { ProjectListItem } from "./project";
+
 /**
  * Types for workspace data
  */
@@ -27,7 +29,7 @@ export type WorkspaceData = {
   state?: string | null;
   country?: string | null;
   pincode?: string | null;
-  members?: any[];
+  members?: WorkspaceMemberRow[];
 };
 
 export type SlimMember = {
@@ -65,7 +67,7 @@ export type WorkspaceListItem = {
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
-  workspaceRole: any;
+  workspaceRole: WorkspaceRole;
   memberCount?: number;
 };
 
@@ -81,10 +83,10 @@ export type WorkspaceMembersResult = {
 
 export interface WorkspaceLayoutData {
   workspaces: WorkspacesResult;
-  metadata?: any;
-  projects: any[];
-  tags: any[];
-  projectManagers: Record<string, any[]>;
+  metadata?: Record<string, unknown> | null;
+  projects: ProjectListItem[];
+  tags: Array<{ id: string; name: string; workspaceId: string; requirePurchase: boolean }>;
+  projectManagers: Record<string, Array<{ id: string; surname: string | null }>>;
   unreadNotificationsCount: number;
   permissions: {
     isWorkspaceAdmin: boolean;

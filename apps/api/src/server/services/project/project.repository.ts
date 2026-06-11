@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
 
 export class ProjectRepository {
   static async getWorkspaceMember(workspaceId: string, userId: string) {
@@ -8,7 +9,7 @@ export class ProjectRepository {
     });
   }
 
-  static async getWorkspaceProjects(workspaceId: string, select: any, where: any = {}) {
+  static async getWorkspaceProjects<T extends Prisma.ProjectSelect>(workspaceId: string, select: T, where: Prisma.ProjectWhereInput = {}) {
     return getDb().project.findMany({
       where: { workspaceId, ...where },
       select,
@@ -106,11 +107,11 @@ export class ProjectRepository {
     });
   }
 
-  static async createProject(data: any) {
+  static async createProject(data: Prisma.ProjectCreateInput) {
     return getDb().project.create({ data });
   }
 
-  static async updateProject(projectId: string, data: any) {
+  static async updateProject(projectId: string, data: Prisma.ProjectUpdateInput) {
     return getDb().project.update({
       where: { id: projectId },
       data,
@@ -143,7 +144,7 @@ export class ProjectRepository {
     });
   }
 
-  static async addProjectMembers(data: any[]) {
+  static async addProjectMembers(data: Prisma.ProjectMemberCreateManyInput[]) {
     return getDb().projectMember.createMany({ data });
   }
 
@@ -159,6 +160,7 @@ export class ProjectRepository {
       select: {
         id: true,
         projectId: true,
+        projectRole: true,
         workspaceMember: {
           select: {
             id: true,
@@ -179,7 +181,7 @@ export class ProjectRepository {
     });
   }
 
-  static async updateProjectMember(id: string, data: any) {
+  static async updateProjectMember(id: string, data: Prisma.ProjectMemberUpdateInput) {
     return getDb().projectMember.update({
       where: { id },
       data,

@@ -2,15 +2,50 @@
  * TaskMapper — pure in-memory transformations.
  * No DB calls. No side effects.
  */
+
+import { ProjectRole } from "@/types/project";
+
+export type FlattenableUser = {
+  id?: string;
+  surname?: string | null;
+  user?: {
+    id?: string;
+    surname?: string | null;
+  };
+  workspaceMember?: {
+    user?: {
+      id?: string;
+      surname?: string | null;
+    };
+  };
+};
+
+export interface InvolvedProjectMemberInput {
+  id: string;
+  projectRole: string;
+  workspaceMember: {
+    id: string;
+    userId: string;
+    workspaceRole: string;
+    user: {
+      id: string;
+      name: string;
+      surname: string | null;
+      image: string | null;
+      email: string;
+    };
+  };
+}
+
 export class TaskMapper {
   /**
    * Flatten nested workspaceMember.user chain into { id, surname }.
    * Handles both legacy nested shape and already-flat objects.
    */
-  static flattenUser(obj: any): { id: string; surname: string } | null {
+  static flattenUser(obj: FlattenableUser | null | undefined): { id: string; surname: string } | null {
     if (!obj) return null;
-    const user = obj?.workspaceMember?.user || obj?.user || obj;
-    if (!user?.id) return null;
+    const user = obj.workspaceMember?.user || obj.user || obj;
+    if (!user || !user.id) return null;
     return { id: user.id, surname: user.surname || "" };
   }
 
@@ -18,25 +53,27 @@ export class TaskMapper {
    * Map task to a flat metadata format used in list/kanban/gantt responses.
    * Mutates in-place for performance (caller owns the data).
    */
-  static toFlatMetadata(task: any): any {
+  static toFlatMetadata<T extends Record<string, unknown>>(task: T): T {
     if (!task) return task;
 
-    if (task.assignee) task.assignee = this.flattenUser(task.assignee);
-    if (task.reviewer) task.reviewer = this.flattenUser(task.reviewer);
-    if (task.createdBy) task.createdBy = this.flattenUser(task.createdBy);
+    const t = task as Record<string, unknown>;
 
-    if (task._count) {
-      task.subtaskCount = task._count.subTasks;
-      delete task._count;
-    } else if (task.isParent && task.subtaskCount !== undefined) {
+    if (t.assignee) t.assignee = this.flattenUser(t.assignee as FlattenableUser);
+    if (t.reviewer) t.reviewer = this.flattenUser(t.reviewer as FlattenableUser);
+    if (t.createdBy) t.createdBy = this.flattenUser(t.createdBy as FlattenableUser);
+
+    if (t._count && typeof t._count === "object") {
+      t.subtaskCount = (t._count as { subTasks?: number }).subTasks;
+      delete t._count;
+    } else if (t.isParent && t.subtaskCount !== undefined) {
       // keep existing
     }
 
-    if (!task.isParent) {
-      delete task.subTasks;
-      delete task.subtaskCount;
-    } else if (task.subTasks && Array.isArray(task.subTasks)) {
-      task.subTasks = task.subTasks.map((st: any) => this.toFlatMetadata(st));
+    if (!t.isParent) {
+      delete t.subTasks;
+      delete t.subtaskCount;
+    } else if (t.subTasks && Array.isArray(t.subTasks)) {
+      t.subTasks = t.subTasks.map((st: Record<string, unknown>) => this.toFlatMetadata(st));
     }
 
     return task;
@@ -46,32 +83,34 @@ export class TaskMapper {
    * Legacy format: wraps user back into workspaceMember.user chain for
    * components still expecting the nested shape.
    */
-  static toLegacyMetadata(task: any): any {
+  static toLegacyMetadata<T extends Record<string, unknown>>(task: T): T {
     if (!task) return task;
 
-    const toLegacy = (obj: any) => {
-      const user = obj?.workspaceMember?.user || obj?.user || obj;
+    const t = task as Record<string, unknown>;
+
+    const toLegacy = (obj: unknown) => {
+      const user = (obj as FlattenableUser)?.workspaceMember?.user || (obj as FlattenableUser)?.user || (obj as FlattenableUser);
       if (!user?.id && !user?.surname) return obj;
       const userData = { id: user.id, surname: user.surname };
       return { ...userData, workspaceMember: { user: userData } };
     };
 
-    if (task.assignee) task.assignee = toLegacy(task.assignee);
-    if (task.reviewer) task.reviewer = toLegacy(task.reviewer);
-    if (task.createdBy) task.createdBy = toLegacy(task.createdBy);
+    if (t.assignee) t.assignee = toLegacy(t.assignee);
+    if (t.reviewer) t.reviewer = toLegacy(t.reviewer);
+    if (t.createdBy) t.createdBy = toLegacy(t.createdBy);
 
-    if (task._count) {
-      task.subtaskCount = task._count.subTasks;
-      delete task._count;
-    } else if (!task.subtaskCount && task.isParent) {
-      task.subtaskCount = 0;
+    if (t._count && typeof t._count === "object") {
+      t.subtaskCount = (t._count as { subTasks?: number }).subTasks;
+      delete t._count;
+    } else if (!t.subtaskCount && t.isParent) {
+      t.subtaskCount = 0;
     }
 
-    if (!task.isParent) {
-      delete task.subTasks;
-      delete task.subtaskCount;
-    } else if (task.subTasks && Array.isArray(task.subTasks)) {
-      task.subTasks = task.subTasks.map((st: any) => this.toLegacyMetadata(st));
+    if (!t.isParent) {
+      delete t.subTasks;
+      delete t.subtaskCount;
+    } else if (t.subTasks && Array.isArray(t.subTasks)) {
+      t.subTasks = t.subTasks.map((st: Record<string, unknown>) => this.toLegacyMetadata(st));
     }
 
     return task;
@@ -80,10 +119,13 @@ export class TaskMapper {
   /**
    * Strip parent tasks down to minimal shape for initial list view payloads.
    */
-  static stripParentMetadata(result: any) {
+  static stripParentMetadata(result: {
+    tasks?: Record<string, unknown>[];
+    tasksByStatus?: Record<string, Record<string, unknown>[] | { tasks?: Record<string, unknown>[] }>;
+  }) {
     if (!result) return;
 
-    const processTask = (task: any) => {
+    const processTask = (task: Record<string, unknown>) => {
       this.toFlatMetadata(task);
       if (task?.isParent) {
         const allowedFields = [
@@ -103,7 +145,7 @@ export class TaskMapper {
 
     if (result.tasksByStatus) {
       Object.keys(result.tasksByStatus).forEach((status) => {
-        const colData = result.tasksByStatus[status];
+        const colData = result.tasksByStatus![status];
         const colTasks = Array.isArray(colData) ? colData : colData?.tasks || [];
         colTasks.forEach(processTask);
       });
@@ -111,20 +153,21 @@ export class TaskMapper {
   }
 
   /**
-   * Map an involved workspace member to ProjectMemberUI shape.
+   * Map an involved project member to ProjectMemberUI shape.
    */
-  static toInvolvedUser(m: any) {
+  static toInvolvedUser(m: InvolvedProjectMemberInput) {
     return {
-      id: m.userId,
-      userId: m.userId,
-      projectMemberId: m.projectMembers[0]?.id || "",
-      projectRole: (m.projectMembers[0]?.projectRole as any) || "MEMBER",
-      workspaceRole: m.workspaceRole,
+      id: m.workspaceMember.userId,
+      userId: m.workspaceMember.userId,
+      projectMemberId: m.id,
+      projectRole: m.projectRole as ProjectRole,
+      workspaceRole: m.workspaceMember.workspaceRole,
       user: {
-        id: m.user.id,
-        name: m.user.name,
-        surname: m.user.surname,
-        image: m.user.image,
+        id: m.workspaceMember.user.id,
+        name: m.workspaceMember.user.name,
+        surname: m.workspaceMember.user.surname || "",
+        email: m.workspaceMember.user.email,
+        image: m.workspaceMember.user.image,
       },
     };
   }

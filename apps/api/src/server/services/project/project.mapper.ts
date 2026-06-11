@@ -6,11 +6,118 @@ import {
   FullProjectData
 } from "@/types/project";
 
+export interface DBWorkspaceMemberPermissionsInput {
+  id: string;
+  userId: string;
+  workspaceRole: string;
+  designation?: string | null;
+  user?: {
+    id: string;
+    name?: string | null;
+    surname?: string | null;
+    email?: string | null;
+  } | null;
+}
+
+export interface DBProjectMemberPermissionsInput {
+  id: string;
+  projectId?: string;
+  projectRole: string;
+  hasAccess?: boolean;
+  workspaceMember?: {
+    userId: string;
+    workspaceRole: string;
+    user: {
+      id: string;
+      name?: string | null;
+      surname?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  };
+}
+
+export interface DBProjectListItemInput {
+  id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  createdAt: Date;
+  createdBy: string | null;
+  projectMembers: Array<{
+    projectRole: string;
+  }>;
+  projectManager?: {
+    user?: {
+      id: string;
+      surname: string | null;
+    } | null;
+  } | null;
+}
+
+export interface DBProjectMetadataInput {
+  id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  workspaceId: string;
+  workspace: {
+    members: Array<{
+      workspaceRole: string;
+    }>;
+  };
+  projectMembers: Array<{
+    projectRole: string;
+  }>;
+}
+
+export interface DBFullProjectDataInput {
+  id: string;
+  name: string;
+  description: string | null;
+  slug: string;
+  color: string | null;
+  workspaceId: string;
+  projectManagerId: string | null;
+  projectManager?: {
+    user?: {
+      id: string;
+      surname: string | null;
+    } | null;
+  } | null;
+  projectMembers: Array<{
+    id: string;
+    projectRole: string;
+    hasAccess: boolean;
+    workspaceMemberId: string;
+    workspaceMember: {
+      userId: string;
+      user?: {
+        surname: string | null;
+      } | null;
+    };
+  }>;
+  clint?: {
+    name?: string | null;
+    registeredCompanyName?: string | null;
+    directorName?: string | null;
+    address?: string | null;
+    gstNumber?: string | null;
+    clintMembers?: Array<{
+      name?: string | null;
+      phoneNumber?: string | null;
+    }> | null;
+  } | null;
+  tags?: Array<{
+    id: string;
+  }> | null;
+}
+
 export class ProjectMapper {
   /**
    * Map database project to ProjectListItem for workspace list
    */
-  static toProjectListItem(project: any, userId: string, isOwnerOrAdmin: boolean): ProjectListItem {
+  static toProjectListItem(project: DBProjectListItemInput, userId: string, isOwnerOrAdmin: boolean): ProjectListItem {
     const userProjectMember = project.projectMembers[0];
     const isProjectManager = userProjectMember?.projectRole === "PROJECT_MANAGER";
     const isCreator = project.createdBy === userId;
@@ -33,7 +140,7 @@ export class ProjectMapper {
   /**
    * Map workspace member to a standard format for selection
    */
-  static toWorkspaceMemberListItem(m: any) {
+  static toWorkspaceMemberListItem(m: DBWorkspaceMemberPermissionsInput) {
     return {
       id: m.id,
       userId: m.userId,
@@ -48,16 +155,22 @@ export class ProjectMapper {
   /**
    * Map database member to ProjectMemberUI
    */
-  static toProjectMemberUI(m: any): ProjectMemberUI {
+  static toProjectMemberUI(m: DBProjectMemberPermissionsInput): ProjectMemberUI {
+    if (!m.workspaceMember) {
+      throw new Error("workspaceMember is required for mapping project member UI");
+    }
     return {
       id: m.workspaceMember.userId,
       userId: m.workspaceMember.userId,
-      projectId: m.projectId,
+      projectId: m.projectId || "",
       projectMemberId: m.id,
       projectRole: m.projectRole as ProjectRole,
       user: {
-        ...m.workspaceMember.user,
-        image: m.workspaceMember.user.image ?? null
+        id: m.workspaceMember.user.id,
+        name: m.workspaceMember.user.name || "",
+        surname: m.workspaceMember.user.surname || "",
+        email: m.workspaceMember.user.email || "",
+        image: m.workspaceMember.user.image || null,
       },
       workspaceRole: m.workspaceMember.workspaceRole
     };
@@ -66,8 +179,11 @@ export class ProjectMapper {
   /**
    * Map project metadata
    */
-  static toProjectMetadata(project: any, userId: string) {
+  static toProjectMetadata(project: DBProjectMetadataInput, userId: string) {
     const workspaceMember = project.workspace.members[0];
+    if (!workspaceMember) {
+      throw new Error("Workspace member is required for project metadata mapping");
+    }
     const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
     const projectMember = project.projectMembers[0];
 
@@ -97,8 +213,8 @@ export class ProjectMapper {
   /**
    * Map to FullProjectData
    */
-  static toFullProjectData(project: any, userId: string): FullProjectData {
-    const projectMembers: ProjectMember[] = project.projectMembers.map((pm: any) => ({
+  static toFullProjectData(project: DBFullProjectDataInput, userId: string): FullProjectData {
+    const projectMembers: ProjectMember[] = project.projectMembers.map((pm) => ({
       id: pm.id,
       userId: pm.workspaceMember.userId,
       userName: pm.workspaceMember.user?.surname || "Unknown",
@@ -118,23 +234,23 @@ export class ProjectMapper {
         id: project.projectManager.user.id,
         surname: project.projectManager.user.surname,
       } : undefined,
-      memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMemberId),
+      memberAccess: project.projectMembers.map((pm) => pm.workspaceMemberId),
       projectMembers,
       companyName: project.clint?.name || null,
       registeredCompanyName: project.clint?.registeredCompanyName || null,
       directorName: project.clint?.directorName || null,
       address: project.clint?.address || null,
       gstNumber: project.clint?.gstNumber || null,
-      contactPerson: project.clint?.clintMembers[0]?.name || null,
-      phoneNumber: project.clint?.clintMembers[0]?.phoneNumber || null,
-      tagIds: project.tags?.map((t: any) => t.id) || [],
+      contactPerson: project.clint?.clintMembers?.[0]?.name || null,
+      phoneNumber: project.clint?.clintMembers?.[0]?.phoneNumber || null,
+      tagIds: project.tags?.map((t) => t.id) || [],
     };
   }
 
   /**
    * Map database permissions
    */
-  static toPermissions(workspaceMember: any, projectMember: any) {
+  static toPermissions(workspaceMember: DBWorkspaceMemberPermissionsInput, projectMember: DBProjectMemberPermissionsInput | null | undefined) {
     const isWAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
     const isPManager = isWAdmin || projectMember?.projectRole === "PROJECT_MANAGER";
     const isCoordinator = !isWAdmin && projectMember?.projectRole === "PROJECT_COORDINATOR";

@@ -2,7 +2,7 @@
  * Types for project-related data
  */
 
-export type ProjectRole = "LEAD" | "MEMBER" | "VIEWER" | "PROJECT_MANAGER" | "PROJECT_COORDINATOR";
+export type ProjectRole = "LEAD" | "MEMBER" | "VIEWER" | "PROJECT_MANAGER" | "PROJECT_COORDINATOR" | "OWNER" | "ADMIN";
 
 export type ProjectMemberUI = {
   id: string; // userId
@@ -15,6 +15,7 @@ export type ProjectMemberUI = {
     name: string | null;
     surname: string | null;
     email: string | null;
+    image?: string | null;
   };
   workspaceRole?: string;
 };

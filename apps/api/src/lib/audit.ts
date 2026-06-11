@@ -1,5 +1,6 @@
 import type { DbClient } from "./db";
 import { broadcastActivityLog, broadcast } from "./realtime";
+import { Prisma } from "@/generated/prisma";
 
 export type AuditAction =
     | "USER_LOGIN"
@@ -31,8 +32,8 @@ interface RecordActivityOptions {
     action: AuditAction;
     entityType?: string;
     entityId?: string;
-    oldData?: any;
-    newData?: any;
+    oldData?: Record<string, unknown> | null;
+    newData?: Record<string, unknown> | null;
     ipAddress?: string;
     userAgent?: string;
     broadcastEvent?: string;
@@ -53,11 +54,11 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
     } = options;
 
     try {
-        let metadata: any = null;
+        let metadata: Prisma.InputJsonValue = null;
         if (oldData && newData) {
-            metadata = calculateDelta(oldData, newData);
+            metadata = calculateDelta(oldData, newData) as Prisma.InputJsonValue;
         } else if (newData) {
-            metadata = { payload: newData };
+            metadata = { payload: newData } as Prisma.InputJsonValue;
         }
 
         // Write audit log directly (CF Workers don't support setInterval reliably)
@@ -72,7 +73,7 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
                 ipAddress,
                 userAgent,
             },
-        }).catch((err: any) => console.error("[AUDIT] DB write error:", err));
+        }).catch((err: unknown) => console.error("[AUDIT] DB write error:", err));
 
     } catch (error) {
         console.error("[AUDIT_LOG_ERROR]", error);
@@ -96,11 +97,11 @@ export async function broadcastActivity(
 
     if (!workspaceId) return;
 
-    let metadata: any = null;
+    let metadata: Prisma.InputJsonValue = null;
     if (oldData && newData) {
-        metadata = calculateDelta(oldData, newData);
+        metadata = calculateDelta(oldData, newData) as Prisma.InputJsonValue;
     } else if (newData) {
-        metadata = { payload: newData };
+        metadata = { payload: newData } as Prisma.InputJsonValue;
     }
 
     try {
@@ -159,7 +160,7 @@ export async function broadcastActivity(
                 workspaceId,
                 targetUserIds: finalTargetUserIds,
                 payload: eventPayload,
-            }).catch((err: any) => console.error("[REALTIME] activity_log error:", err));
+            }).catch((err: unknown) => console.error("[REALTIME] activity_log error:", err));
         }
 
         // Persist notifications
@@ -173,11 +174,11 @@ export async function broadcastActivity(
                 type: action,
                 entityId,
                 entityType,
-                metadata: metadata || {},
+                metadata: (metadata || {}) as Prisma.InputJsonValue,
                 updatedAt: new Date(),
             }));
-            (db.notification as any).createMany({ data: notifications })
-                .catch((err: any) => console.error("[AUDIT] Notification error:", err));
+            (db.notification as unknown as { createMany: (args: { data: typeof notifications }) => Promise<unknown> }).createMany({ data: notifications })
+                .catch((err: unknown) => console.error("[AUDIT] Notification error:", err));
         }
 
         if (options.broadcastEvent) {
@@ -187,20 +188,20 @@ export async function broadcastActivity(
             if (normalizedType === "CREATED" || normalizedType === "REQUESTED") normalizedType = "CREATE";
             if (["UPDATED", "APPROVED", "REJECTED", "STATUS_CHANGED"].includes(normalizedType)) normalizedType = "UPDATE";
 
-            const payload = newData || metadata || {};
-            if (entityId && !payload.id) (payload as any).id = entityId;
+            const payload = (newData || metadata || {}) as Record<string, unknown>;
+            if (entityId && !payload.id) (payload as Record<string, unknown>).id = entityId;
 
             broadcast(workspaceId, options.broadcastEvent, {
                 workspaceId, userId, type: normalizedType, message, payload,
-            }, finalTargetUserIds).catch((err: any) => console.error(`[REALTIME] ${options.broadcastEvent} error:`, err));
+            }, finalTargetUserIds).catch((err: unknown) => console.error(`[REALTIME] ${options.broadcastEvent} error:`, err));
         }
     } catch (error) {
         console.error("[BROADCAST_ACTIVITY_ERROR]", error);
     }
 }
 
-function calculateDelta(oldObj: any, newObj: any) {
-    const delta: any = {};
+function calculateDelta(oldObj: Record<string, unknown>, newObj: Record<string, unknown>) {
+    const delta: Record<string, unknown> = {};
     Object.keys(newObj).forEach(key => {
         if (JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key])) {
             delta[key] = { from: oldObj[key], to: newObj[key] };

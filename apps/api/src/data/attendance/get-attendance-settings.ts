@@ -45,7 +45,15 @@ const DEFAULT_SETTINGS: AttendanceSettingsData = {
 export const getAttendanceSettings = async (workspaceId: string): Promise<AttendanceSettingsData> => {
     try {
         const [workspaceResult, holidays, locations] = await Promise.all([
-            getDb().$queryRawUnsafe<any[]>(
+            getDb().$queryRawUnsafe<Array<{
+                lateThreshold: string | null;
+                overtimeThreshold: string | null;
+                halfDayThreshold: string | null;
+                shiftStartTime: string | null;
+                shiftEndTime: string | null;
+                sickLeaveLimit: number | null;
+                casualLeaveAccrualDays: number | null;
+            }>>(
                 `SELECT "lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime", "sickLeaveLimit", "casualLeaveAccrualDays"
                  FROM "public"."Workspace"
                  WHERE "id" = $1

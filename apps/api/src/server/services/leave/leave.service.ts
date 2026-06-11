@@ -62,7 +62,7 @@ export class LeaveService {
             const current = new Date(start);
             while (current <= end) {
                 const dateOnly = getISTDateOnly(current);
-                await (getDb().attendance as any).upsert({
+                await getDb().attendance.upsert({
                     where: {
                         workspaceMemberId_date: {
                             workspaceMemberId: leave.workspaceMemberId,

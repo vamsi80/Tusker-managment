@@ -1,6 +1,6 @@
 
 import { getDb } from "@/lib/registry";
-import { WorkspaceRole, ProjectRole } from "@/generated/prisma";
+import { WorkspaceRole, ProjectRole, Prisma, TaskStatus } from "@/generated/prisma";
 import {
   getTaskSelect,
   buildOrderBy,
@@ -13,21 +13,21 @@ import {
 export class TaskRepository {
   // ─── Single Record ────────────────────────────────────────────────────────
 
-  static async findById(taskId: string, selectOverride?: any) {
+  static async findById(taskId: string, selectOverride?: Prisma.TaskSelect) {
     return getDb().task.findUnique({
       where: { id: taskId },
       select: selectOverride || { id: true, name: true, status: true, createdById: true, parentTaskId: true, projectId: true, taskSlug: true, subtaskCount: true },
     });
   }
 
-  static async findBySlug(workspaceId: string, slug: string, select: any) {
+  static async findBySlug(workspaceId: string, slug: string, select: Prisma.TaskSelect) {
     return getDb().task.findFirst({
       where: { workspaceId, taskSlug: slug },
       select,
     });
   }
 
-  static async findBySlugOrId(workspaceId: string, slugOrId: string, select?: any) {
+  static async findBySlugOrId(workspaceId: string, slugOrId: string, select?: Prisma.TaskSelect) {
     return getDb().task.findFirst({
       where: {
         workspaceId,
@@ -92,9 +92,9 @@ export class TaskRepository {
 
   // ─── Mutations ────────────────────────────────────────────────────────────
 
-  static async create(data: any) {
+  static async create(data: Prisma.TaskCreateInput | Prisma.TaskUncheckedCreateInput) {
     return getDb().task.create({
-      data,
+      data: data as any,
       include: {
         tags: { select: { id: true, name: true } },
         assignee: { select: { id: true, workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } } } },
@@ -103,27 +103,27 @@ export class TaskRepository {
     });
   }
 
-  static async createTask(data: any) {
+  static async createTask(data: Prisma.TaskCreateInput | Prisma.TaskUncheckedCreateInput) {
     return this.create(data);
   }
 
-  static async update(taskId: string, data: any) {
+  static async update(taskId: string, data: Prisma.TaskUpdateInput | Prisma.TaskUncheckedUpdateInput) {
     return getDb().task.update({
       where: { id: taskId },
-      data,
+      data: data as any,
     });
   }
 
-  static async updateTaskWithActivity(taskId: string, data: any, activityData: any) {
+  static async updateTaskWithActivity(taskId: string, data: Prisma.TaskUpdateInput | Prisma.TaskUncheckedUpdateInput, activityData: Record<string, unknown>) {
     return getDb().$transaction(async (tx) => {
       const updated = await tx.task.update({
         where: { id: taskId },
-        data,
+        data: data as any,
       });
       const commentActivity = await tx.activity.create({
         data: {
           subTaskId: taskId,
-          ...activityData,
+          ...(activityData as unknown as Prisma.ActivityUncheckedCreateWithoutSubTaskInput),
         },
       });
       return { updated, commentActivity };
@@ -132,7 +132,7 @@ export class TaskRepository {
 
   static async updateTaskAndParentCount(
     taskId: string,
-    data: any,
+    data: Prisma.TaskUpdateInput | Prisma.TaskUncheckedUpdateInput,
     parentTaskId: string | null,
     wasCompleted: boolean,
     isNowCompleted: boolean
@@ -140,7 +140,7 @@ export class TaskRepository {
     return getDb().$transaction(async (tx) => {
       const task = await tx.task.update({
         where: { id: taskId },
-        data,
+        data: data as any,
       });
       if (parentTaskId) {
         if (!wasCompleted && isNowCompleted) {
@@ -233,9 +233,14 @@ export class TaskRepository {
 
   static async updateStatus(
     taskId: string,
-    newStatus: any,
+    newStatus: TaskStatus,
     authorId: string,
-    activityData: any,
+    activityData: {
+      authorId: string;
+      workspaceId: string;
+      text: string;
+      attachment?: Prisma.InputJsonValue | null;
+    },
     parentTaskId: string | null,
     wasCompleted: boolean,
     isNowCompleted: boolean
@@ -252,7 +257,7 @@ export class TaskRepository {
           authorId: activityData.authorId,
           workspaceId: activityData.workspaceId,
           text: activityData.text,
-          attachment: activityData.attachment,
+          attachment: activityData.attachment || Prisma.DbNull,
         },
       });
 
@@ -274,10 +279,10 @@ export class TaskRepository {
     });
   }
 
-  static async createSubTask({ parentTaskId, taskData }: { parentTaskId: string; taskData: any }) {
+  static async createSubTask({ parentTaskId, taskData }: { parentTaskId: string; taskData: Prisma.TaskCreateInput | Prisma.TaskUncheckedCreateInput }) {
     return getDb().$transaction(async (tx) => {
       const task = await tx.task.create({
-        data: taskData,
+        data: taskData as any,
         include: {
           tags: {
             select: { id: true, name: true }
@@ -314,7 +319,7 @@ export class TaskRepository {
     });
   }
 
-  static async bulkCreateTasks(tasks: any[]) {
+  static async bulkCreateTasks(tasks: Prisma.TaskCreateInput[]) {
     return getDb().$transaction(async (tx) => {
       const createdTasks = [];
       for (const t of tasks) {
@@ -337,7 +342,15 @@ export class TaskRepository {
 
   // ─── List & Relationships ──────────────────────────────────────────────────
 
-  static async findMany(where: any, select?: any, sorts?: any, limit?: number, cursor?: any, viewMode?: string, projectId?: string) {
+  static async findMany(
+    where: Prisma.TaskWhereInput,
+    select?: Prisma.TaskSelect,
+    sorts?: Array<{ field: string; direction: "asc" | "desc" }>,
+    limit?: number,
+    cursor?: { id: string } | null,
+    viewMode?: string,
+    projectId?: string
+  ) {
     return getDb().task.findMany({
       where,
       select: select || undefined,
@@ -348,7 +361,7 @@ export class TaskRepository {
     });
   }
 
-  static async findTasksByIds(ids: string[], select?: any) {
+  static async findTasksByIds(ids: string[], select?: Prisma.TaskSelect) {
     return getDb().task.findMany({
       where: { id: { in: ids } },
       select: select || { id: true, name: true, status: true, taskSlug: true },
@@ -416,11 +429,21 @@ export class TaskRepository {
     });
   }
 
-  static async findSubtasksExpansion(where: any, select: any, orderBy: any, take: number) {
+  static async findSubtasksExpansion(
+    where: Prisma.TaskWhereInput,
+    select: Prisma.TaskSelect,
+    orderBy: Prisma.TaskOrderByWithRelationInput | Prisma.TaskOrderByWithRelationInput[],
+    take: number
+  ) {
     return getDb().task.findMany({ where, select, orderBy, take });
   }
 
-  static async findTasksByWhere(where: any, limit: number, select: any, orderBy: any) {
+  static async findTasksByWhere(
+    where: Prisma.TaskWhereInput,
+    limit: number,
+    select: Prisma.TaskSelect,
+    orderBy: Prisma.TaskOrderByWithRelationInput | Prisma.TaskOrderByWithRelationInput[]
+  ) {
     return getDb().task.findMany({
       where,
       take: limit + 1,
@@ -429,15 +452,20 @@ export class TaskRepository {
     });
   }
 
-  static async findTasksByStatus(where: any, limit: number, select: any, orderBy: any) {
+  static async findTasksByStatus(
+    where: Prisma.TaskWhereInput,
+    limit: number,
+    select: Prisma.TaskSelect,
+    orderBy: Prisma.TaskOrderByWithRelationInput | Prisma.TaskOrderByWithRelationInput[]
+  ) {
     return this.findTasksByWhere(where, limit, select, orderBy);
   }
 
-  static async findTaskCount(where: any) {
+  static async findTaskCount(where: Prisma.TaskWhereInput) {
     return getDb().task.count({ where });
   }
 
-  static async countTasks(where: any) {
+  static async countTasks(where: Prisma.TaskWhereInput) {
     return this.findTaskCount(where);
   }
 
@@ -457,8 +485,8 @@ export class TaskRepository {
     });
   }
 
-  static async createProjectMember(data: any) {
-    return getDb().projectMember.create({ data });
+  static async createProjectMember(data: Prisma.ProjectMemberCreateInput | Prisma.ProjectMemberUncheckedCreateInput) {
+    return getDb().projectMember.create({ data: data as any });
   }
 
   static async autoJoinAdmin(projectId: string, workspaceMemberId: string) {
@@ -571,10 +599,12 @@ export class TaskRepository {
       },
       select: {
         id: true,
+        projectRole: true,
         workspaceMember: {
           select: {
             id: true,
             userId: true,
+            workspaceRole: true,
             user: { select: { id: true, name: true, surname: true, image: true, email: true } },
           },
         },
@@ -582,7 +612,7 @@ export class TaskRepository {
     });
   }
 
-  static async groupByStatus(where: any) {
+  static async groupByStatus(where: Prisma.TaskWhereInput) {
     return getDb().task.groupBy({
       by: ['status'],
       where,
@@ -590,7 +620,7 @@ export class TaskRepository {
     });
   }
 
-  static async groupByAssignee(where: any) {
+  static async groupByAssignee(where: Prisma.TaskWhereInput) {
     return getDb().task.groupBy({
       by: ['assigneeId'],
       where,
@@ -598,7 +628,7 @@ export class TaskRepository {
     });
   }
 
-  static async groupByProjectId(where: any) {
+  static async groupByProjectId(where: Prisma.TaskWhereInput) {
     return getDb().task.groupBy({
       by: ['projectId'],
       where,
@@ -606,7 +636,7 @@ export class TaskRepository {
     });
   }
 
-  static async findTasksForExpansion(where: any, select: any) {
+  static async findTasksForExpansion(where: Prisma.TaskWhereInput, select: Prisma.TaskSelect) {
     return getDb().task.findMany({
       where,
       select,

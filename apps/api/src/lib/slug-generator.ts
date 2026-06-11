@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/registry";
 import slugify from "slugify";
+import { Prisma } from "@/generated/prisma";
 
 /**
  * Generate a unique slug by checking against existing slugs in the database
@@ -158,21 +159,21 @@ export async function generateUniqueSlugs(
     switch (tableName) {
         case 'task':
             const tasks = await getDb().task.findMany({
-                where: whereClause as any,
+                where: whereClause as unknown as Prisma.TaskWhereInput,
                 select: { taskSlug: true }
             });
             dbSlugs = tasks.map(t => t.taskSlug);
             break;
         case 'project':
             const projects = await getDb().project.findMany({
-                where: whereClause as any,
+                where: whereClause as unknown as Prisma.ProjectWhereInput,
                 select: { slug: true }
             });
             dbSlugs = projects.map(p => p.slug);
             break;
         case 'workspace':
             const workspaces = await getDb().workspace.findMany({
-                where: whereClause as any,
+                where: whereClause as unknown as Prisma.WorkspaceWhereInput,
                 select: { slug: true }
             });
             dbSlugs = workspaces.map(w => w.slug);

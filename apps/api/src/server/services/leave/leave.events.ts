@@ -1,5 +1,6 @@
 import { recordActivity } from "@/lib/audit";
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
 
 export class LeaveEvents {
     private static async getInvolvedUsers(workspaceId: string, requesterMemberId: string) {
@@ -29,7 +30,7 @@ export class LeaveEvents {
         return Array.from(targetUserIds);
     }
 
-    static async emitLeaveRequested(userId: string, workspaceId: string, leaveRequest: any) {
+    static async emitLeaveRequested(userId: string, workspaceId: string, leaveRequest: Prisma.leave_requestGetPayload<{}>) {
         const user = await getDb().user.findUnique({ 
             where: { id: userId }, 
             select: { surname: true } 
@@ -50,7 +51,12 @@ export class LeaveEvents {
         });
     }
 
-    static async emitLeaveStatusUpdated(actorId: string, workspaceId: string, leaveRequest: any, status: "APPROVED" | "REJECTED") {
+    static async emitLeaveStatusUpdated(
+        actorId: string,
+        workspaceId: string,
+        leaveRequest: Prisma.leave_requestGetPayload<{}>,
+        status: "APPROVED" | "REJECTED"
+    ) {
         const actor = await getDb().user.findUnique({ 
             where: { id: actorId }, 
             select: { surname: true } 

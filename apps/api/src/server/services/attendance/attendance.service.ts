@@ -13,6 +13,7 @@ import {
     AttendanceFilters, 
     UpdateSettingsParams 
 } from "@/types/attendance";
+import { Prisma } from "@/generated/prisma";
 
 export class AttendanceService {
     /**
@@ -85,7 +86,12 @@ export class AttendanceService {
         }
 
         // Fetch workspace thresholds
-        const workspaceData = await getDb().$queryRawUnsafe<any[]>(
+        interface DBWorkspaceThresholds {
+            lateThreshold: string | null;
+            halfDayThreshold: string | null;
+            casualLeaveAccrualDays: number | null;
+        }
+        const workspaceData = await getDb().$queryRawUnsafe<DBWorkspaceThresholds[]>(
             `SELECT "lateThreshold", "halfDayThreshold", "casualLeaveAccrualDays" FROM "public"."Workspace" WHERE "id" = $1 LIMIT 1`,
             workspaceId
         );
@@ -221,7 +227,11 @@ export class AttendanceService {
         if (!existing) throw AppError.NotFound("You must check in before checking out.");
         if (existing.checkOut) throw AppError.Conflict("You have already checked out today.");
 
-        const workspaceData = await getDb().$queryRawUnsafe<any[]>(
+        interface DBWorkspaceOTThresholds {
+            overtimeThreshold: string | null;
+            shiftStartTime: string | null;
+        }
+        const workspaceData = await getDb().$queryRawUnsafe<DBWorkspaceOTThresholds[]>(
             `SELECT "overtimeThreshold", "shiftStartTime" FROM "public"."Workspace" WHERE "id" = $1 LIMIT 1`,
             workspaceId
         );
@@ -302,7 +312,7 @@ export class AttendanceService {
 
         if (missingMembers.length === 0) return { count: 0 };
 
-        const approvedLeaves = await (getDb() as any).leave_request.findMany({
+        const approvedLeaves = await getDb().leave_request.findMany({
             where: {
                 workspaceId,
                 status: "APPROVED",
@@ -312,7 +322,7 @@ export class AttendanceService {
             select: { workspaceMemberId: true }
         });
 
-        const leaveMemberIds = new Set(approvedLeaves.map((l: any) => l.workspaceMemberId));
+        const leaveMemberIds = new Set(approvedLeaves.map((l) => l.workspaceMemberId));
 
         const data = missingMembers.map(m => ({
             id: crypto.randomUUID(),
@@ -368,7 +378,7 @@ export class AttendanceService {
                     finalMemberIdFilter = "UNAUTHORIZED_ACCESS";
                 }
 
-                const where: any = {
+                const where: Prisma.AttendanceWhereInput = {
                     workspaceId,
                     ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : {}),
                     ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
@@ -393,7 +403,7 @@ export class AttendanceService {
                 ]);
 
                 if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
-                    const approvedLeaves = await (getDb() as any).leave_request.findMany({
+                    const approvedLeaves = await getDb().leave_request.findMany({
                         where: {
                             workspaceId,
                             status: "APPROVED",
@@ -418,7 +428,8 @@ export class AttendanceService {
                         }
                     });
 
-                    const syntheticRecords: any[] = [];
+                    type SyntheticAttendancePayload = Partial<Prisma.AttendanceGetPayload<{ include: { WorkspaceMember: { include: { user: { select: { surname: true, email: true } } } } } }>>;
+                    const syntheticRecords: SyntheticAttendancePayload[] = [];
                     const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
 
                     for (const leave of approvedLeaves) {
@@ -458,7 +469,7 @@ export class AttendanceService {
     /**
      * Update an attendance record (Strict Admin/Owner use)
      */
-    static async updateAttendance(id: string, data: any, actorId: string, workspaceId: string) {
+    static async updateAttendance(id: string, data: Prisma.AttendanceUpdateInput, actorId: string, workspaceId: string) {
         const actor = await getDb().workspaceMember.findFirst({
             where: { workspaceId, userId: actorId },
             select: { workspaceRole: true }
@@ -471,7 +482,7 @@ export class AttendanceService {
         const existing = await getDb().attendance.findUnique({ where: { id } });
         if (!existing) throw AppError.NotFound("Attendance record not found.");
 
-        const updateData: any = { ...data };
+        const updateData: Prisma.AttendanceUpdateInput = { ...data };
         const checkIn = data.checkIn ? new Date(data.checkIn) : existing.checkIn;
         const lateThreshold = data.lateThreshold || existing.lateThreshold || "09:40";
 
@@ -506,8 +517,8 @@ export class AttendanceService {
     ) {
         const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
         ["lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime"].forEach(f => {
-            const val = (data as any)[f];
-            if (val && !timeRegex.test(val)) throw AppError.ValidationError(`Invalid time for ${f}.`);
+            const val = data[f as keyof UpdateSettingsParams];
+            if (val && !timeRegex.test(val as string)) throw AppError.ValidationError(`Invalid time for ${f}.`);
         });
 
         return await getDb().$transaction(async (tx) => {

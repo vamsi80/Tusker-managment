@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/registry";
+import { WorkspacePermissions } from "@/types/task";
 
 /**
  * Get workspace-level permissions for the current user
@@ -49,7 +50,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     memberProjectIds: [],
                     viewerProjectIds: []
                 })
-            } as any;
+            } as WorkspacePermissions;
         }
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
@@ -77,7 +78,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     userId: workspaceMember.userId,
                     userSurname: workspaceMember.user?.surname,
                     reportingManagerName,
-                } as any;
+                } as WorkspacePermissions;
             }
 
             // Fetch project IDs only for admin users on the non-lean path.
@@ -136,7 +137,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 memberProjectIds,
                 viewerProjectIds,
             })
-        } as any;
+        } as WorkspacePermissions;
     } catch (error) {
         console.error("Error fetching workspace permissions:", error);
         return {

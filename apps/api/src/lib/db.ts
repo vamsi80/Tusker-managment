@@ -41,7 +41,7 @@ export function createDbClient(source: string | Hyperdrive): PrismaClient {
 
     const adapter = new PrismaPg(pool);
     const prisma = new PrismaClient({ adapter });
-    (prisma as any).$pool = pool;
+    (prisma as PrismaClient & { $pool: Pool }).$pool = pool;
     return prisma;
 }
 

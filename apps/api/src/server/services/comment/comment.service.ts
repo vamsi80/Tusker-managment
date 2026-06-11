@@ -4,6 +4,7 @@ import { CommentRepository } from "./comment.repository";
 import { CommentEvents } from "./comment.events";
 import { CommentMapper } from "./comment.mapper";
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
 
 export class CommentService {
   /**
@@ -108,7 +109,7 @@ export class CommentService {
       throw AppError.ValidationError("Comment text or attachment is required");
     }
 
-    let attachmentJson: any = null;
+    let attachmentJson: Prisma.InputJsonValue = null;
     if (attachmentData || previousStatus || targetStatus) {
       attachmentJson = {
         ...(attachmentData ? {
@@ -197,7 +198,7 @@ export class CommentService {
       throw AppError.Forbidden("Access denied");
     }
 
-    const where: any = {
+    const where: Prisma.CommentWhereInput & { userId: { not: string } } = {
       task: { workspaceId: workspaceId },
       userId: { not: userId },
       isDeleted: false
@@ -264,13 +265,22 @@ export class CommentService {
 
     // Fetch related task details
     const taskIdsToFetch = new Set<string>();
-    directNotifications.forEach((dn: any) => {
+    directNotifications.forEach((dn) => {
       if (dn.entityId && dn.type !== "DM_MESSAGE") {
         taskIdsToFetch.add(dn.entityId);
       }
     });
 
-    const taskMap = new Map<string, any>();
+    type NotificationTaskPayload = Prisma.TaskGetPayload<{
+      select: {
+        id: true;
+        name: true;
+        taskSlug: true;
+        project: { select: { name: true } };
+        parentTask: { select: { name: true } };
+      };
+    }>;
+    const taskMap = new Map<string, NotificationTaskPayload>();
     if (taskIdsToFetch.size > 0) {
       const tasks = await getDb().task.findMany({
         where: { id: { in: Array.from(taskIdsToFetch) } },
@@ -285,10 +295,10 @@ export class CommentService {
       tasks.forEach(t => taskMap.set(t.id, t));
     }
 
-    const commentMap = new Map();
+    const commentMap = new Map<string, (typeof unreadComments)[number]>();
     [...unreadComments, ...recentComments].forEach(c => commentMap.set(c.id, c));
     const comments = Array.from(commentMap.values())
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return CommentMapper.toNotifications(comments, activities, limit, directNotifications, taskMap);
   }

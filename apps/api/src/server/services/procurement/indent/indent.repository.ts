@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
 
 export class IndentRepository {
   static async findById(id: string) {
@@ -69,7 +70,7 @@ export class IndentRepository {
       where: {
         workspaceId,
         ...(filter.projectId && { projectId: filter.projectId }),
-        ...(filter.status && { status: filter.status as any }),
+        ...(filter.status && { status: filter.status as Prisma.IndentWhereInput["status"] }),
       },
       orderBy: { createdAt: "desc" },
       take,
@@ -168,7 +169,12 @@ export class IndentRepository {
     });
   }
 
-  static async updateStatus(id: string, status: any, extra?: any, tx?: any) {
+  static async updateStatus(
+    id: string,
+    status: Prisma.IndentUpdateInput["status"],
+    extra?: Prisma.IndentUpdateInput,
+    tx?: Prisma.TransactionClient
+  ) {
     const client = tx || getDb();
     return client.indent.update({
       where: { id },

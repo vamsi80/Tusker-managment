@@ -35,7 +35,7 @@ export function buildTaskFilter(
     const hasExplicitFilters = Object.keys(subtaskConditions).length > 0;
 
     // Determine if we are in "Global Hierarchy" mode or "Search/Board" mode
-    const isKanban = (filters as any)._forceSubTask;
+    const isKanban = (filters as unknown as { _forceSubTask?: boolean })._forceSubTask;
     const isMemberOnlyMode = permissions && !permissions.isAdmin && permissions.fullAccessIds.length === 0;
 
     // hasActiveFilters determines if we pivot away from the "Root Parents" view
@@ -126,16 +126,16 @@ export function buildTaskFilter(
 /**
  * Builds the conditions for filtering subtasks directly
  */
-export function buildSubTaskConditions(filters: TaskFilters): any {
-    const conditions: any = {};
+export function buildSubTaskConditions(filters: TaskFilters): Prisma.TaskWhereInput {
+    const conditions: Prisma.TaskWhereInput = {};
 
     // ============================================================
     // PROJECT FILTER
     // ============================================================
     if (filters.projectId) {
         conditions.projectId = filters.projectId;
-    } else if ((filters as any).projectIds) {
-        conditions.projectId = { in: (filters as any).projectIds };
+    } else if ((filters as unknown as { projectIds?: string[] }).projectIds) {
+        conditions.projectId = { in: (filters as unknown as { projectIds?: string[] }).projectIds };
     }
 
     // ============================================================
@@ -156,7 +156,7 @@ export function buildSubTaskConditions(filters: TaskFilters): any {
         const assigneeVal = Array.isArray(filters.assigneeId) ? { in: filters.assigneeId } : filters.assigneeId;
         conditions.OR = [
             { assigneeId: assigneeVal },
-            { assignee: { workspaceMember: { userId: (Array.isArray(filters.assigneeId) ? { in: filters.assigneeId } : filters.assigneeId) as any } } }
+            { assignee: { workspaceMember: { userId: (Array.isArray(filters.assigneeId) ? { in: filters.assigneeId } : filters.assigneeId) as unknown as Prisma.StringFilter | string } } }
         ];
     }
 
@@ -227,7 +227,7 @@ export function buildFacetFilter(
     const facetFilters = { ...filters };
 
     // Remove the facet we're counting
-    delete (facetFilters as any)[excludeFacet];
+    delete (facetFilters as unknown as Record<string, unknown>)[excludeFacet];
 
     return buildTaskFilter(facetFilters, permissions);
 }

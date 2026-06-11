@@ -15,6 +15,9 @@ import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
 import { isProjectAdmin } from "@/lib/constants/project-access";
 import { getUniqueRandomColor } from "@tusker/shared/colors";
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
+
+type ProjectWithWorkspace = NonNullable<Awaited<ReturnType<typeof ProjectRepository.getProjectWithWorkspace>>>;
 
 export class ProjectService {
   /**
@@ -45,7 +48,7 @@ export class ProjectService {
       }
     } as const;
 
-    let where: any = {};
+    let where: Prisma.ProjectWhereInput = {};
     if (!isOwnerOrAdmin) {
       if (isManager) {
         where = {
@@ -75,7 +78,7 @@ export class ProjectService {
 
     const isOwnerOrAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
 
-    const where: any = {};
+    const where: Prisma.ProjectWhereInput = {};
     if (!isOwnerOrAdmin) {
       where.OR = [
         { createdBy: userId },
@@ -200,7 +203,7 @@ export class ProjectService {
     let finalColor = values.color;
     if (!finalColor) {
       const existing = await ProjectRepository.getWorkspaceProjects(workspaceId, { color: true });
-      const usedColors = (existing as any[]).map(p => p.color).filter(Boolean);
+      const usedColors = (existing as { color: string | null }[]).map(p => p.color).filter((c): c is string => Boolean(c));
       finalColor = getUniqueRandomColor(usedColors);
     }
 
@@ -224,7 +227,7 @@ export class ProjectService {
             .map(id => ({
               workspaceMemberId: id,
               hasAccess: true,
-              projectRole: "MEMBER",
+              projectRole: "MEMBER" as PrismaProjectRole,
             })),
         ],
       },
@@ -270,7 +273,7 @@ export class ProjectService {
     if (!project) throw AppError.NotFound("Project not found");
 
     const permissions = await this.getPermissions(project.workspaceId, project.id, userId);
-    if (!permissions.isWorkspaceAdmin && !isProjectAdmin(permissions.projectMember?.projectRole as any)) {
+    if (!permissions.isWorkspaceAdmin && !isProjectAdmin(permissions.projectMember?.projectRole as PrismaProjectRole)) {
       throw AppError.Forbidden("Insufficient permissions");
     }
 
@@ -474,7 +477,7 @@ export class ProjectService {
   /**
    * Update member role
    */
-  static async updateMemberRole(userId: string, projectId: string, targetUserId: string, newRole: ProjectRole) {
+  static async updateMemberRole(userId: string, projectId: string, targetUserId: string, newRole: PrismaProjectRole) {
     const project = await ProjectRepository.getProjectWithWorkspace(projectId);
     if (!project) throw AppError.NotFound("Project not found");
 
@@ -541,16 +544,16 @@ export class ProjectService {
   /**
    * Static helpers from original service
    */
-  static async getMembers(projectId: string, existingProject?: any): Promise<ProjectMemberUI[]> {
+  static async getMembers(projectId: string, existingProject?: ProjectWithWorkspace): Promise<ProjectMemberUI[]> {
     const project = existingProject || await ProjectRepository.getProjectWithWorkspace(projectId);
     if (!project) return [];
-
-    let projectMembers: any[];
-    let workspaceAdmins: any[];
-
+ 
+    let projectMembers: Awaited<ReturnType<typeof ProjectRepository.getProjectMembers>>;
+    let workspaceAdmins: Prisma.WorkspaceMemberGetPayload<{ include: { user: true } }>[];
+ 
     if (existingProject) {
       projectMembers = project.projectMembers || [];
-      workspaceAdmins = project.workspace?.members?.filter((m: any) =>
+      workspaceAdmins = project.workspace?.members?.filter((m) =>
         ["OWNER", "ADMIN"].includes(m.workspaceRole)
       ) || [];
     } else {
@@ -580,9 +583,9 @@ export class ProjectService {
         memberMap.set(wa.userId, {
           id: wa.userId,
           userId: wa.userId,
-          projectRole: wa.workspaceRole as any, 
+          projectRole: wa.workspaceRole as ProjectRole, 
           projectMemberId: wa.id,
-          workspaceRole: wa.workspaceRole as any,
+          workspaceRole: wa.workspaceRole,
           user: {
             id: wa.user.id,
             name: wa.user.name || "",
@@ -596,18 +599,18 @@ export class ProjectService {
     return Array.from(memberMap.values());
   }
 
-  static async getPermissions(workspaceId: string, projectId: string, userId: string, existingProject?: any) {
-    let workspaceMember: any;
-    let projectMember: any;
-
+  static async getPermissions(workspaceId: string, projectId: string, userId: string, existingProject?: ProjectWithWorkspace) {
+    let workspaceMember: Prisma.WorkspaceMemberGetPayload<{ include: { user: { select: { id: true, surname: true } } } }> | null = null;
+    let projectMember: Prisma.ProjectMemberGetPayload<{}> | null = null;
+ 
     if (existingProject) {
-      workspaceMember = existingProject.workspace?.members?.find((m: any) => m.userId === userId);
-      projectMember = existingProject.projectMembers?.find((pm: any) => pm.workspaceMember?.userId === userId);
+      workspaceMember = existingProject.workspace?.members?.find((m) => m.userId === userId) || null;
+      projectMember = existingProject.projectMembers?.find((pm) => pm.workspaceMember?.userId === userId) || null;
     } else {
       const [wMember, pMember] = await Promise.all([
         getDb().workspaceMember.findFirst({
           where: { workspaceId, userId },
-          include: { user: { select: { surname: true } } }
+          include: { user: { select: { id: true, surname: true } } }
         }),
         getDb().projectMember.findFirst({
           where: { projectId, workspaceMember: { userId } },
@@ -649,7 +652,7 @@ export class ProjectService {
 
     const leads = project.projectMembers.filter(pm => ["PROJECT_MANAGER", "PROJECT_COORDINATOR", "LEAD"].includes(pm.projectRole));
 
-    const reviewerMap = new Map<string, any>();
+    const reviewerMap = new Map<string, { id: string; surname: string; role: string }>();
     admins.forEach(m => reviewerMap.set(m.userId, { id: m.userId, surname: m.user.surname || "", role: m.workspaceRole }));
     leads.forEach(pm => {
       if (!reviewerMap.has(pm.workspaceMember.userId)) {
@@ -670,7 +673,13 @@ export class ProjectService {
       include: { workspaceMember: { include: { user: { select: { surname: true } } } } }
     });
 
-    const assignments: Record<string, any[]> = {};
+    interface ProjectAssignment {
+      memberId: string;
+      id: string;
+      surname: string;
+      role: string;
+    }
+    const assignments: Record<string, ProjectAssignment[]> = {};
     members.forEach(pm => {
       if (!assignments[pm.projectId]) assignments[pm.projectId] = [];
       assignments[pm.projectId].push({
@@ -694,7 +703,12 @@ export class ProjectService {
       }
     });
 
-    const pmMap: Record<string, any[]> = {};
+    interface ProjectLeader {
+      id: string;
+      surname: string | null;
+      name: string | null;
+    }
+    const pmMap: Record<string, ProjectLeader[]> = {};
     projects.forEach(p => {
       const user = p.projectManager?.user;
       // Exclude System user if needed, and wrap in array for backward compatibility with frontend
@@ -746,14 +760,14 @@ export class ProjectService {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    const baseTaskWhere: any = { projectId: project.id, isParent: false };
-
+    const baseTaskWhere: Prisma.TaskWhereInput = { projectId: project.id, isParent: false };
+ 
     // For MEMBERs: scope all task queries to only their assigned tasks
     const memberTaskWhere = hasFullAccess
       ? baseTaskWhere
       : { ...baseTaskWhere, assigneeId: permissions.projectMember?.id };
-
-    const dueThisWeekWhere: any = {
+ 
+    const dueThisWeekWhere: Prisma.TaskWhereInput = {
       projectId: project.id,
       isParent: false,
       dueDate: { gte: weekStart, lte: weekEnd },
@@ -832,12 +846,12 @@ export class ProjectService {
     ]);
 
     // Derive counts from the single groupBy result
-    const totalCount = taskCountsByStatus.reduce((sum: number, r: any) => sum + r._count._all, 0);
-    const completedCount = taskCountsByStatus.find((r: any) => r.status === "COMPLETED")?._count._all ?? 0;
+    const totalCount = taskCountsByStatus.reduce((sum: number, r) => sum + r._count._all, 0);
+    const completedCount = taskCountsByStatus.find((r) => r.status === "COMPLETED")?._count._all ?? 0;
     const PENDING_STATUSES = new Set(["TO_DO", "IN_PROGRESS", "REVIEW"]);
     const todoCount = taskCountsByStatus
-      .filter((r: any) => PENDING_STATUSES.has(r.status))
-      .reduce((sum: number, r: any) => sum + r._count._all, 0);
+      .filter((r) => r.status && PENDING_STATUSES.has(r.status))
+      .reduce((sum: number, r) => sum + r._count._all, 0);
 
     // Rename for clarity: these are members who DID mark attendance today
     const presentRecords = absentRecords;

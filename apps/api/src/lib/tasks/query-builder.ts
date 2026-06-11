@@ -28,7 +28,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
 
         if (extraFields && extraFields.length > 0) {
             extraFields.forEach(field => {
-                (select as any)[field] = true;
+                (select as Record<string, unknown>)[field] = true;
             });
         }
 
@@ -175,8 +175,8 @@ export function buildAssigneeFilter(memberIdOrUserId: string | string[]): Prisma
 
     return {
         OR: [
-            { assigneeId: idFilter as any },
-            { assignee: { workspaceMember: { userId: idFilter as any } } },
+            { assigneeId: idFilter as unknown as Prisma.StringFilter | string },
+            { assignee: { workspaceMember: { userId: idFilter as unknown as Prisma.StringFilter | string } } },
         ],
     };
 }
@@ -203,7 +203,7 @@ export function appendAnd(where: Prisma.TaskWhereInput, ...conditions: Prisma.Ta
     const existing = where.AND
         ? (Array.isArray(where.AND) ? where.AND : [where.AND])
         : [];
-    where.AND = [...existing, ...conditions] as any;
+    where.AND = [...existing, ...conditions] as Prisma.TaskWhereInput[];
 }
 
 /**
@@ -222,7 +222,15 @@ export function buildCursorWhere(cursor: TaskCursor, direction: "asc" | "desc" =
     };
 }
 
-export function buildKanbanCursorWhere(cursor: any): Prisma.TaskWhereInput {
+export interface KanbanCursorInput {
+    id: string;
+    projectCreatedAt?: Date | string | null;
+    parentTaskPosition?: number | null;
+    parentTaskId?: string | null;
+    position?: number | null;
+}
+
+export function buildKanbanCursorWhere(cursor: KanbanCursorInput): Prisma.TaskWhereInput {
     const { projectCreatedAt, parentTaskPosition, parentTaskId, position, id } = cursor;
 
     // Project-level seek conditions (reused for both levels)
@@ -264,7 +272,7 @@ export function buildKanbanCursorWhere(cursor: any): Prisma.TaskWhereInput {
  * Cross-project seek condition for list/gantt at workspace level.
  * ORDER BY: project.createdAt asc, position asc, id asc
  */
-export function buildWorkspaceListCursorWhere(cursor: any): Prisma.TaskWhereInput {
+export function buildWorkspaceListCursorWhere(cursor: KanbanCursorInput): Prisma.TaskWhereInput {
     const { projectCreatedAt, position, id } = cursor;
     if (!projectCreatedAt) {
         return {
@@ -345,16 +353,16 @@ export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "
         return [{ createdAt: "desc" as const }, { id: "desc" as const }];
     }
 
-    const primary: any = def.nulls
+    const primary = (def.nulls
         ? { [def.dbField]: { sort: direction, nulls: def.nulls } }
-        : { [def.dbField]: direction };
+        : { [def.dbField]: direction }) as Prisma.TaskOrderByWithRelationInput;
 
     return [primary, { id: direction as "asc" | "desc" }];
 }
 
 export function buildSeekCondition(
     sorts: Array<{ field: string; direction: "asc" | "desc" }>,
-    cursor: any
+    cursor: TaskCursor & Record<string, unknown>
 ): Prisma.TaskWhereInput {
     try {
         if (!sorts?.length || !cursor) return {};
@@ -373,15 +381,15 @@ export function buildSeekCondition(
 
         if (lastFieldValue === null || lastFieldValue === undefined) {
             return {
-                AND: [{ [dbField]: null }, { id: { [op]: lastId } }],
+                AND: [{ [dbField]: null } as Prisma.TaskWhereInput, { id: { [op]: lastId } }],
             };
         }
 
-        const conditions: any[] = [
-            { [dbField]: { [op]: lastFieldValue } },
+        const conditions: Prisma.TaskWhereInput[] = [
+            { [dbField]: { [op]: lastFieldValue } } as Prisma.TaskWhereInput,
             {
                 // ID tiebreaker must also respect direction so page boundaries are stable
-                AND: [{ [dbField]: lastFieldValue }, { id: { [op]: lastId } }],
+                AND: [{ [dbField]: lastFieldValue } as Prisma.TaskWhereInput, { id: { [op]: lastId } }],
             },
         ];
 
@@ -446,8 +454,8 @@ export function buildProjectRootWhere(
     if (opts.status && opts.status.length > 0) {
         appendAnd(where, {
             OR: [
-                { status: { in: opts.status as any } },
-                { subTasks: { some: { status: { in: opts.status as any } } } }
+                { status: { in: opts.status as unknown as TaskStatus[] } },
+                { subTasks: { some: { status: { in: opts.status as unknown as TaskStatus[] } } } }
             ]
         });
     }
@@ -473,7 +481,7 @@ export function buildProjectRootWhere(
     }
 
     if (opts.dueAfter || opts.dueBefore) {
-        let dateFilter: any = {
+        let dateFilter: Prisma.DateTimeFilter = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
             ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
         };
@@ -546,7 +554,7 @@ export function buildSubtaskExpansionWhere(
 
     // Status filter
     if (opts.status && opts.status.length > 0) {
-        where.status = { in: opts.status as any };
+        where.status = { in: opts.status as unknown as TaskStatus[] };
     }
 
     // Tag filter
@@ -566,7 +574,7 @@ export function buildSubtaskExpansionWhere(
     }
 
     if (opts.status && opts.status.length > 0) {
-        where.status = { in: opts.status as any };
+        where.status = { in: opts.status as unknown as TaskStatus[] };
     }
 
     if (opts.tagId) {
@@ -576,7 +584,7 @@ export function buildSubtaskExpansionWhere(
 
     // Date filters
     if (opts.dueAfter || opts.dueBefore) {
-        const dateFilter: any = {
+        const dateFilter: Prisma.DateTimeFilter = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
             ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
         };
@@ -597,13 +605,13 @@ export function buildSubtaskExpansionWhere(
 
     if (opts.cursor) {
         const cursor = opts.cursor;
-        if (typeof (cursor as any).position === "number") {
+        if (typeof cursor.position === "number") {
             appendAnd(where, {
                 OR: [
-                    { position: { gt: (cursor as any).position } },
+                    { position: { gt: cursor.position } },
                     {
                         AND: [
-                            { position: (cursor as any).position },
+                            { position: cursor.position },
                             { id: { gt: cursor.id } }
                         ]
                     }
@@ -712,7 +720,7 @@ export function buildWorkspaceFilterWhere(
     }
 
     // Helper to check for non-empty filter arrays
-    const cleanArray = (arr: any) => (Array.isArray(arr) ? arr.filter(v => v !== null && v !== undefined && v !== "") : (arr ? [arr] : []));
+    const cleanArray = (arr: unknown) => (Array.isArray(arr) ? arr.filter(v => v !== null && v !== undefined && v !== "") : (arr ? [arr] : []));
 
     // 2. Determine if any explicit filters are active
     const hasStatus = cleanArray(opts.status).length > 0;
@@ -727,12 +735,12 @@ export function buildWorkspaceFilterWhere(
     // 2. Apply Filters
     if (hasStatus) {
         if (opts.excludeParents || opts.view_mode === "kanban" || opts.onlySubtasks) {
-            where.status = { in: opts.status as any };
+            where.status = { in: opts.status as unknown as TaskStatus[] };
         } else {
             appendAnd(where, {
                 OR: [
-                    { status: { in: opts.status as any } },
-                    { subTasks: { some: { status: { in: opts.status as any } } } }
+                    { status: { in: opts.status as unknown as TaskStatus[] } },
+                    { subTasks: { some: { status: { in: opts.status as unknown as TaskStatus[] } } } }
                 ]
             });
         }
@@ -754,7 +762,7 @@ export function buildWorkspaceFilterWhere(
     }
 
     if (hasDate) {
-        const dateFilter: any = {
+        const dateFilter: Prisma.DateTimeFilter = {
             ...(opts.dueAfter ? { gte: opts.dueAfter } : {}),
             ...(opts.dueBefore ? { lt: new Date(new Date(opts.dueBefore).getTime() + 24 * 60 * 60 * 1000) } : {}),
         };

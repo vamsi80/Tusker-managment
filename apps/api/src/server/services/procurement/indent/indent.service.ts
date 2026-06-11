@@ -94,7 +94,7 @@ export class IndentService {
     const indent = await IndentRepository.findById(indentId);
     if (!indent) throw AppError.NotFound("Indent not found");
 
-    const hasPOCreated = indent.lineItems.some((li: any) => li.status === "PO_CREATED");
+    const hasPOCreated = indent.lineItems.some((li) => li.status === "PO_CREATED");
     if (hasPOCreated) throw AppError.Conflict("Cannot cancel: some line items are already PO generated");
 
     assertTransition(INDENT_TRANSITIONS, indent.status, "CANCELLED", "Indent");

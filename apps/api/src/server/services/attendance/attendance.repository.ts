@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
 
 export class AttendanceRepository {
     static async findByMemberAndDate(workspaceMemberId: string, date: Date) {
@@ -12,8 +13,12 @@ export class AttendanceRepository {
         });
     }
 
-    static async upsert(where: any, create: any, update: any) {
-        return await (getDb().attendance as any).upsert({
+    static async upsert(
+        where: Prisma.AttendanceWhereUniqueInput,
+        create: Prisma.AttendanceCreateInput,
+        update: Prisma.AttendanceUpdateInput
+    ) {
+        return await getDb().attendance.upsert({
             where,
             create,
             update,
@@ -32,8 +37,8 @@ export class AttendanceRepository {
         });
     }
 
-    static async update(id: string, data: any) {
-        return await (getDb().attendance as any).update({
+    static async update(id: string, data: Prisma.AttendanceUpdateInput) {
+        return await getDb().attendance.update({
             where: { id },
             data,
             include: {
@@ -51,7 +56,7 @@ export class AttendanceRepository {
         });
     }
 
-    static async getWorkspaceRecords(where: any, skip: number, take: number) {
+    static async getWorkspaceRecords(where: Prisma.AttendanceWhereInput, skip: number, take: number) {
         return await getDb().attendance.findMany({
             where,
             include: {
@@ -75,7 +80,7 @@ export class AttendanceRepository {
         });
     }
 
-    static async countRecords(where: any) {
+    static async countRecords(where: Prisma.AttendanceWhereInput) {
         return await getDb().attendance.count({ where });
     }
 }

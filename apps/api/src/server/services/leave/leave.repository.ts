@@ -1,9 +1,10 @@
 import { getDb } from "@/lib/registry";
-import { CreateLeaveParams, LeaveStatus, LeaveType } from "@/types/leave";
+import { Prisma } from "@/generated/prisma";
+import { CreateLeaveParams, LeaveStatus } from "@/types/leave";
 
 export class LeaveRepository {
     static async create(params: CreateLeaveParams, workspaceMemberId: string) {
-        return await (getDb() as any).leave_request.create({
+        return await getDb().leave_request.create({
             data: {
                 workspaceId: params.workspaceId,
                 workspaceMemberId,
@@ -33,7 +34,7 @@ export class LeaveRepository {
     }
 
     static async findById(id: string) {
-        return await (getDb() as any).leave_request.findUnique({
+        return await getDb().leave_request.findUnique({
             where: { id },
             include: {
                 WorkspaceMember: true,
@@ -43,7 +44,7 @@ export class LeaveRepository {
     }
 
     static async updateStatus(id: string, status: LeaveStatus, processedById: string) {
-        return await (getDb() as any).leave_request.update({
+        return await getDb().leave_request.update({
             where: { id },
             data: { 
                 status,
@@ -69,7 +70,7 @@ export class LeaveRepository {
     }
 
     static async getWorkspaceLeaves(workspaceId: string, memberIds?: string[], skip: number = 0, take: number = 10, search?: string) {
-        const where: any = {
+        const where: Prisma.leave_requestWhereInput = {
             workspaceId,
             ...(memberIds && memberIds.length > 0 ? { workspaceMemberId: { in: memberIds } } : {})
         };
@@ -87,7 +88,7 @@ export class LeaveRepository {
         }
 
         const [leaves, totalCount] = await Promise.all([
-            (getDb() as any).leave_request.findMany({
+            getDb().leave_request.findMany({
                 where,
                 include: {
                     WorkspaceMember: {
@@ -118,7 +119,7 @@ export class LeaveRepository {
                 skip,
                 take
             }),
-            (getDb() as any).leave_request.count({ where })
+            getDb().leave_request.count({ where })
         ]);
 
         return { leaves, totalCount };

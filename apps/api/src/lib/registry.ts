@@ -58,7 +58,8 @@ export async function runRequestContext<T>(env: Env, callback: () => Promise<T>)
         } finally {
             // End the pool so pg-cloudflare releases the TCP connection cleanly.
             // PgBouncer recycles it immediately for the next client.
-            const pool = (db as any).$pool;
+            const { Pool } = await import("pg");
+            const pool = (db as DbClient & { $pool: Pool }).$pool;
             if (pool) {
                 pool.end().catch(() => {});
             }

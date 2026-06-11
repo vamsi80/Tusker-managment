@@ -1,106 +1,286 @@
-# Plan: Vercel React Best Practices Audit & Fixes
+# Full `any` Type Elimination — Tusker Monorepo
+**Date:** 2026-06-11 | **Scope:** 1,111 `any` usages across 183 files
 
 ## Context
+All previous `any`-elimination work was lost when `git filter-repo --force` discarded uncommitted working-tree edits. This plan covers the complete remaining work from scratch. The API layer (`apps/api/src`) has 383 `any` instances across 44 files; the web layer (`apps/web/src`) has 728 across 139 files.
 
-The user's `.agents/skills/vercel-react-best-practices` skill defines 70+ rules across 8 impact categories (async waterfalls, bundle size, server performance, re-renders, rendering, JS perf, etc.). This audit checks whether `apps/web` complies and surfaces concrete violations to fix.
-
-6 candidates were found across 3 severity tiers — all CONFIRMED or PLAUSIBLE by a verifier agent.
-
----
-
-## Tier 1 — Security (Fix First)
-
-### 1. Server actions bypass auth (CONFIRMED × 4)
-The server actions in `src/actions/` forward calls to the Hono worker relying solely on browser cookies — no explicit `getSession()` check before any DB/API operation. A direct server-action call (e.g., via fetch or curl to the Next.js action endpoint) that carries no valid session cookie will succeed anyway if the worker's cookie-checking path has gaps.
-
-**Files to fix:**
-- `src/actions/daily-report-actions.ts` — `getDailyReportStatus`, `getDailyReportFormData`, `submitDailyReport` (lines 6–22)
-- `src/actions/tag/create-tag.ts` (line 13)
-- `src/actions/tag/update-tag.ts` (line 13)
-- `src/actions/tag/delete-tag.ts` (line 11)
-
-**Fix:** Add `const session = await auth.api.getSession({ headers: await headers() }); if (!session) return { error: "Unauthorized" }` at the top of each action, reusing the existing `requireUser` helper pattern from workspace layouts.
-
-### 2. `checkUserExistsByPhone` ignores session result (CONFIRMED)
-**File:** `src/app/actions/user.ts:62`  
-`await getSession()` result is discarded; unauthenticated callers can enumerate valid phone numbers.  
-**Fix:** Check the returned session; if null, return early with an unauthorized error.
+**Goal:** Zero `: any` / `as any` across both apps, with `tsc --noEmit` passing clean.
 
 ---
 
-## Tier 2 — Performance: Bundle Size (CONFIRMED × 3+)
+## Typing Rules (apply everywhere, no exceptions)
 
-### 3. Barrel imports of `apiClient` inflate client bundles
-The `@/lib/api-client` barrel exports 6 sub-clients. Every file that does `import { apiClient } from '@/lib/api-client'` pulls all 6 into the bundle even when only one is used.
-
-**Files to fix:**
-- `src/lib/store/workspace-member-store.ts:3` — only uses `workspaces` methods → `import { workspacesClient } from '@/lib/api-client/workspaces'`
-- `src/app/w/_components/sidebar/header/nav-workspaces-selector.tsx:16` — only uses `workspaces.getAll()` → same fix
-- `src/app/w/[workspaceId]/reports/_components/report-table.tsx:17` — only uses `reports.getReports()` → `import { reportsClient } from '@/lib/api-client/reports'`
-
-Grep for all occurrences of `from '@/lib/api-client'` (non-specific imports) and apply the same pattern throughout.
-
-### 4. DataTable barrel import in project-procurement-client.tsx
-**File:** `src/app/w/[workspaceId]/p/[slug]/procurement/_components/project-procurement-client.tsx:12`  
-`import { DataTable } from "@/components/data-table"` — only `<DataTable>` is used.  
-**Fix:** `import { DataTable } from "@/components/data-table/data-table"`
+| Pattern | Fix |
+|---|---|
+| `catch (err: any)` | `catch (err: unknown)` + `const e = err as { message?: string; code?: string }` at point of use |
+| `(e: any)` React event | `React.ChangeEvent<HTMLInputElement>`, `React.FormEvent<HTMLFormElement>`, etc. |
+| `payload: any` / `data: any` in event/pubsub | `Record<string, unknown>` |
+| `Record<string, any>` | `Record<string, unknown>` |
+| `as any` cast for Prisma JSON | `as Prisma.InputJsonValue` (import from `@/generated/prisma`) |
+| `as any` cast for HTTP status | `as StatusCode` (import from `hono/utils/http-status`) |
+| `opts: any` / `filters: any` | `Partial<WorkspaceFilterOpts>` (import from `@/types/task`) |
+| `task: any` / `t: any` | `WorkspaceTaskType` (import from `@/types/task`) |
+| `patchData: any` Prisma update | `Prisma.TaskUpdateInput` |
+| `cursor?: any` | `string | null | undefined` |
+| `meta: any` API response | `{ nextCursor?: string | null; totalCount?: number; hasMore?: boolean }` |
+| `row: any` in data-table | Generic `<TData>` parameter on the component |
+| `options?: any` (router.push) | `Parameters<typeof router.push>[1]` |
+| `(obj as any)[dynamicKey]` | `(obj as Record<string, unknown>)[dynamicKey]` |
+| `any[]` return / param | Replace with the correct domain type array |
+| `Promise<any>` in api-client | `Promise<ActualResponseType>` — define or import the shape |
+| `project: any` in events | `{ id: string; [key: string]: unknown }` |
+| `comment: any` in events | `{ user: { id: string; surname: string }; [key: string]: unknown }` |
+| `status as any` | `status as StatusCode` |
+| `metadata as any` | `metadata as Prisma.InputJsonValue` |
+| `(prisma as any).$pool` | `(prisma as PrismaClient & { $pool: Pool }).$pool` |
 
 ---
 
-## Tier 3 — Performance: Server & Client Rendering (CONFIRMED + PLAUSIBLE)
+## Batch 1 — API: Type Definitions (fix first, unblocks everything else)
 
-### 5. Duplicate project-metadata fetches — missing `React.cache()` (CONFIRMED)
-**File:** `src/app/w/[workspaceId]/p/[slug]/layout.tsx:16–18`  
-Layout and child pages (`gantt/page.tsx:25`, `list/page.tsx:25`) each call `serverApiFetch('/projects/slug/{slug}/metadata...')` independently — 2–3 identical requests per navigation.
+**Files:**
+- `apps/api/src/types/task.ts` — fix `permissions: any`, `nextCursor: any`, `cursor?: any`
+- `apps/api/src/types/workspace.ts` — fix `members?: any[]`, `projects: any[]`, `projectManagers: Record<string, any[]>`
 
-**Fix:** Extract the fetch into a cached helper:
-```ts
-// src/app/w/[workspaceId]/p/[slug]/_lib/get-project-metadata.ts
-import { cache } from 'react';
-export const getProjectMetadata = cache(async (slug: string, workspaceId: string) =>
-  serverApiFetch(`/projects/slug/${slug}/metadata?workspaceId=${workspaceId}`)
-);
+**What to do:**
+- In `types/task.ts`: Replace `nextCursor: any` → `string | null | undefined`; replace `permissions: any` → define an inline `WorkspacePermissions` interface with the real fields (role, canEdit, canDelete, etc.)
+- In `types/workspace.ts`: Replace `any[]` with the correct member/project types that already exist in the same file or adjacent type files
+
+---
+
+## Batch 2 — API: Infrastructure & Utilities
+
+**Files (in order):**
+1. `apps/api/src/lib/db.ts` — 1 instance: `(prisma as any).$pool` → `(prisma as PrismaClient & { $pool: Pool }).$pool`; import `Pool` from `@neondatabase/serverless` or `pg`
+2. `apps/api/src/lib/registry.ts` — 1 instance: same `$pool` pattern
+3. `apps/api/src/lib/audit.ts` — 12 instances:
+   - `oldData?: any` / `newData?: any` → `Record<string, unknown> | null | undefined`
+   - `metadata: any` → `Prisma.InputJsonValue`
+   - `catch (err: any)` (×4) → `catch (err: unknown)`
+   - `(payload as any).id` → `(payload as Record<string, unknown>).id`
+   - `calculateDelta(oldObj: any, newObj: any)` → `(oldObj: Record<string, unknown>, newObj: Record<string, unknown>)`
+   - `const delta: any` → `Record<string, unknown>`
+4. `apps/api/src/lib/realtime.ts` — 5 instances: all `payload: any` / `payload?: any` → `Record<string, unknown>`
+5. `apps/api/src/lib/slug-generator.ts` — 3 instances: read file, replace with `unknown` + narrow
+6. `apps/api/src/lib/tasks/filter-utils.ts` — 7 instances: params typed as `Partial<WorkspaceFilterOpts>`
+7. `apps/api/src/lib/tasks/query-builder.ts` — 23 instances: use `Prisma.TaskWhereInput`, `Prisma.TaskOrderByWithRelationInput`, `WorkspaceFilterOpts` throughout
+
+---
+
+## Batch 3 — API: Data Layer (repositories & mappers)
+
+**Files:**
+1. `apps/api/src/data/user/get-user-permissions.ts` — 3 instances: `} as any` → `} as WorkspacePermissionsLean | WorkspacePermissionsFull`
+2. `apps/api/src/data/attendance/get-attendance-settings.ts` — 1 instance
+3. `apps/api/src/server/services/task/task.mapper.ts` — 10 instances: export `FlattenableUser` type; use `WorkspaceTaskType` for task params
+4. `apps/api/src/server/services/task/task.repository.ts` — 24 instances:
+   - `attachment?: any` → inline attachment shape
+   - `findNotifications(where: any, commentInclude: any)` → `Prisma.NotificationWhereInput`, `Prisma.CommentInclude`
+   - `newStatus: any | TaskStatus` → `TaskStatus`
+   - `buildOrderBy(sorts as any)` → `Array<{ field: string; direction: "asc" | "desc" }> | undefined`
+5. `apps/api/src/server/services/project/project.mapper.ts` — 9 instances: export `DBWorkspaceMemberPermissionsInput`, `DBProjectMemberPermissionsInput`, `DBProjectMemberUIInput`
+6. `apps/api/src/server/services/project/project.repository.ts` — 5 instances
+7. `apps/api/src/server/services/comment/comment.mapper.ts` — 8 instances
+8. `apps/api/src/server/services/comment/comment.repository.ts` — 4 instances
+9. `apps/api/src/server/services/attendance/attendance.mapper.ts` — 1 instance
+10. `apps/api/src/server/services/attendance/attendance.repository.ts` — 6 instances
+11. `apps/api/src/server/services/leave/leave.mapper.ts` — 2 instances
+12. `apps/api/src/server/services/leave/leave.repository.ts` — 6 instances
+13. `apps/api/src/server/services/procurement/indent/indent.repository.ts` — 2 instances
+
+---
+
+## Batch 4 — API: Service Layer
+
+**Files:**
+1. `apps/api/src/server/services/task/tasks.service.ts` — 129 instances (largest file):
+   - `mapToLegacyMetadata(task: any)` → `WorkspaceTaskType`
+   - `toLegacy = (obj: any)` → `FlattenableUser` (exported from task.mapper.ts)
+   - All `mapToFlatMetadata(t as any)` → `(t as WorkspaceTaskType)` (use replace_all)
+   - `)) as any[]` → `)) as WorkspaceTaskType[]`
+   - `(lastTask as any)[SORT_MAP[...].dbField]` → `(lastTask as Record<string, unknown>)[...]`
+   - `patchData: any = {}` → `Prisma.TaskUpdateInput = {}`
+   - `filters: any = {}` → `Partial<WorkspaceFilterOpts> = {}` (replace_all across all methods)
+   - `const createdItems: any[]` → `WorkspaceTaskType[]`
+   - `catch (err: any)` (×many) → `catch (err: unknown)`
+   - `opts: any` → `WorkspaceFilterOpts`
+2. `apps/api/src/server/services/project/project.service.ts` — 23 instances:
+   - `projectMembers: any[]` → `DBProjectMemberUIInput[]`
+   - `workspaceAdmins: any[]` → explicit inline object type
+   - `workspaceMember: any` → `DBWorkspaceMemberPermissionsInput | null | undefined`
+   - `projectMember: any` → `DBProjectMemberPermissionsInput | null | undefined`
+   - Remove `as any[]` casts where TypeScript can infer
+3. `apps/api/src/server/services/workspace.service.ts` — 20 instances:
+   - `const where: any` → `Prisma.WorkspaceWhereInput`
+   - `catch (err: any)` → `catch (err: unknown)`
+   - `as any` casts → proper Prisma types
+4. `apps/api/src/server/services/attendance/attendance.service.ts` — 10 instances
+5. `apps/api/src/server/services/comment/comment.service.ts` — 4 instances:
+   - `let attachmentJson: any` → `Prisma.InputJsonValue | null`
+   - `const where: any` → `Prisma.CommentWhereInput`
+6. `apps/api/src/server/services/report.service.ts` — 2 instances: `entries?: any[]` → inline typed array
+7. `apps/api/src/server/services/leave/leave.service.ts` — 1 instance
+8. `apps/api/src/server/services/conversation/conversation.service.ts` — 2 instances
+9. `apps/api/src/server/services/procurement/indent/indent.service.ts` — 1 instance
+
+---
+
+## Batch 5 — API: Event Files
+
+**Files:**
+1. `apps/api/src/server/services/attendance/attendance.events.ts` — 4 instances: define `AttendanceRecord` type; type all params
+2. `apps/api/src/server/services/task/task.events.ts` — 4 instances: `task: any` → `{ id: string; projectId: string; [key: string]: unknown }`
+3. `apps/api/src/server/services/leave/leave.events.ts` — 2 instances: define `LeaveRequestBasic = { id: string; workspaceMemberId: string; [key: string]: unknown }`
+4. `apps/api/src/server/services/comment/comment.events.ts` — 1 instance: `comment: any` → `{ user: { id: string; surname: string }; [key: string]: unknown }`
+5. `apps/api/src/server/services/project/project.events.ts` — 1 instance: `project: any` → `{ id: string; [key: string]: unknown }`
+
+---
+
+## Batch 6 — API: Routes & Middleware
+
+**Files:**
+1. `apps/api/src/hono/routes/tasks.ts` — 5 instances:
+   - `const opts: any` → `WorkspaceFilterOpts`
+   - `const filters: any` → `Partial<WorkspaceFilterOpts>` (×2)
+   - `result as any` / `updated as any` → `as WorkspaceTaskType`
+   - `(q.hm as any)` → `(q.hm as WorkspaceFilterOpts["hierarchyMode"])`
+2. `apps/api/src/hono/routes/task-views.ts` — 1 instance: `const opts: any` → `WorkspaceFilterOpts`
+3. `apps/api/src/hono/routes/attendance.ts` — 17 instances: `status as any` → `status as StatusCode` (×multiple)
+4. `apps/api/src/hono/routes/auth.ts` — 1 instance
+5. `apps/api/src/hono/routes/cron.ts` — 2 instances
+6. `apps/api/src/hono/middleware/auth.ts` — 3 instances
+7. `apps/api/src/hono/middleware/rate-limit.ts` — 1 instance
+8. `apps/api/src/server/crons/registry.ts` — 3 instances
+
+---
+
+## Batch 7 — Web: API Client Layer (fix before components, unblocks return types)
+
+**Files:**
+- `apps/web/src/lib/api-client/projects.ts` — 30 instances: replace `Promise<any>` / `Promise<any[]>` with proper response types. Define response interfaces inline or import from `@/types/project`
+- `apps/web/src/lib/api-client/workspaces.ts` — 30 instances: same pattern
+- `apps/web/src/lib/api-client/tasks.ts` — 20 instances: use `WorkspaceTaskType`, define cursor/meta shapes
+- `apps/web/src/lib/api-client/comments.ts` — 18 instances: `items: any[]` → typed array; `error: any` → `unknown`
+- `apps/web/src/lib/api-client/reports.ts` — 6 instances
+- Any remaining `apps/web/src/lib/api-client/*.ts` files
+
+---
+
+## Batch 8 — Web: Infrastructure & Shared Utilities
+
+**Files:**
+1. `apps/web/src/lib/pubsub.ts` — `EventCallback = (data: any)` → `(data: unknown)`; `publish(event, data: any)` → `(data: unknown)`
+2. `apps/web/src/lib/realtime.ts` — all `payload: any` → `Record<string, unknown>` in all 4 event types
+3. `apps/web/src/lib/cache/invalidation.ts` — 27 instances: `"layout" as any` repeated pattern → cast to the correct revalidation tag union type
+4. `apps/web/src/lib/store/workspace-layout-store.ts` — `project: any` → import `ProjectListItem` from `@/types/project`; pubsub callback → typed
+5. `apps/web/src/lib/store/workspace-member-store.ts` — `EMPTY_ARRAY: any[]` → `never[]`
+6. `apps/web/src/hooks/use-filtered-fetch.ts` — `meta: any` → `{ nextCursor?: string | null; totalCount?: number; hasMore?: boolean }`; `cursor?: any` → `string | null | undefined`; `nextCursor: any` → same
+7. `apps/web/src/hooks/use-safe-navigation.ts` — `options?: any` → `Parameters<typeof router.push>[1]`
+8. `apps/web/src/contexts/subtask-sheet-context.tsx` — 6 instances
+
+---
+
+## Batch 9 — Web: Shared Component Types
+
+**Files:**
+1. `apps/web/src/components/task/shared/types.ts` — fix all `any` — this unblocks all task components
+2. `apps/web/src/components/task/gantt/types.ts` — same
+3. `apps/web/src/components/task/gantt/transform-tasks.ts` — 8 instances
+4. `apps/web/src/components/data-table/data-table.tsx` — `onRowSelectionChange?: (value: any)` → generic `<TData>` param
+5. `apps/web/src/components/data-table/column-helpers.tsx`
+6. `apps/web/src/components/data-table/row-actions.tsx` — `row: any` → generic `<TData>`
+7. `apps/web/src/components/ui/multi-select-tags.tsx`
+
+---
+
+## Batch 10 — Web: Task Components (kanban / list / gantt)
+
+**Files:**
+1. `apps/web/src/components/task/kanban/kanban-board.tsx` — 27 instances
+2. `apps/web/src/components/task/kanban/kanban-card.tsx` — 15 instances
+3. `apps/web/src/components/task/list/task-row.tsx` — 15 instances
+4. `apps/web/src/components/task/list/subtask-row.tsx` — 20 instances
+5. `apps/web/src/components/task/list/inline-subtask-form.tsx` — 6 instances
+6. `apps/web/src/components/task/list/group/flat-task-list.tsx` — 19 instances
+7. `apps/web/src/components/task/list/group/project-task-group.tsx` — 23 instances
+8. `apps/web/src/components/task/list/task-table/hooks/use-task-table-logic.ts` — 24 instances
+9. `apps/web/src/components/task/list/task-table/context/task-table-context-object.ts`
+10. `apps/web/src/components/task/list/task-table/components/task-table-body.tsx` — 11 instances
+11. `apps/web/src/components/task/gantt/gantt-chart.tsx`
+12. `apps/web/src/components/task/gantt/task-row.tsx`
+13. `apps/web/src/components/task/gantt/draggable-subtask-bar.tsx`
+14. `apps/web/src/components/task/gantt/sortable-subtask-list.tsx` — 7 instances
+15. `apps/web/src/components/task/gantt/export-utils.ts`
+16. `apps/web/src/components/task/shared/subtask-status-changer.tsx`
+17. `apps/web/src/components/task/shared/global-filter-toolbar.tsx`
+
+---
+
+## Batch 11 — Web: Auth & Sidebar
+
+**Files:**
+1. `apps/web/src/app/(auth)/sign-in/_components/loginForm.tsx`
+2. `apps/web/src/app/(auth)/sign-up/_components/signUpForm.tsx`
+3. `apps/web/src/app/(auth)/create-workspace/_components/create-workspace-form.tsx`
+4. `apps/web/src/app/(auth)/forgot-password/_components/forgot-password-form.tsx`
+5. `apps/web/src/app/(auth)/verify-request/_components/verifyRequestclinte.tsx`
+6. `apps/web/src/app/w/_components/sidebar/` — all files in this directory
+7. `apps/web/src/app/w/_components/auth/accept-invitation-form.tsx`
+8. `apps/web/src/app/(main)/_components/navbar.tsx`
+
+---
+
+## Batch 12 — Web: Workspace Pages
+
+**Files (all under `apps/web/src/app/w/[workspaceId]/`):**
+1. Route file: `app/w/route.ts`
+2. Project pages: `createProject/page.tsx`, `editProject/page.tsx`, `editProject/[projectId]/page.tsx`
+3. Info: `info/_components/workspace-info-form.tsx`
+4. Conversations: `myspace/conversations/` (4 files)
+5. Notifications: `notifications/_components/` (3 files) — `notifications-context.tsx` has 7 instances
+6. Project list: `p/page.tsx`, `p/_components/create-project-form.tsx`
+7. Project detail (15 files under `p/[slug]/_components/`):
+   - `forms/edit-subtask-form.tsx` — 26 instances (largest)
+   - `forms/bulk-upload-form.tsx` — 9 instances
+   - `gantt/project-gantt-client.tsx` — 11 instances
+   - `kanban/project-kanban-view.tsx`
+   - `list/project-task-list-view.tsx` — 8 instances
+   - `shared/subtaskSheet/subtask-details-sheet.tsx` — 7 instances
+   - remaining shared/dashboard files
+8. Materials: `p/[slug]/materials/_components/materials-table.tsx`
+9. Procurement (project-level): `p/[slug]/procurement/` (3 files)
+10. Procurement (workspace-level): `procurement/_components/` (5 files) + `procurement/rfqs/create/_components/create-rfq-client.tsx` (8 instances) + `procurement/indents/[indentId]/_components/indent-detail-client.tsx`
+11. Procurement components: `_components/procurement/` (4 files) + `_components/procurement/line-item-table.tsx` (12 instances)
+12. Reports: `reports/_components/report-table.tsx` (13 instances) + 2 other report files
+13. Settings: `settings/` (2 files)
+14. Tasks views: `tasks/_components/views/gantt/workspace-gantt-client.tsx` (14 instances) + `tasks/_components/views/kanban/workspace-kanban-view.tsx`
+15. Team: `team/` (7 files)
+16. Vendors: `vendors/[vendorId]/_components/vendor-capabilities.tsx` (6 instances) + 2 other vendor files
+17. Realtime: `_components/realtime-notification-listener.tsx`
+
+---
+
+## Execution Instructions for Codex
+
+1. **Work batch by batch in order** — later batches depend on types defined in earlier ones
+2. **Read each file before editing** — never guess at the current content
+3. **One file at a time** — edit, then move on; don't batch edits across files in one shot
+4. **After every 10 files**, run: `cd apps/api && npx tsc --noEmit 2>&1 | tail -20` and `cd apps/web && npx tsc --noEmit 2>&1 | tail -20` to catch regressions early
+5. **Never use `as any` as a fix** — if a type is hard, use `unknown` + narrow, or define a minimal interface
+6. **Prisma imports**: `import { Prisma } from "@/generated/prisma"` in API files
+7. **Domain type imports in API**: `import type { WorkspaceTaskType, WorkspaceFilterOpts } from "@/types/task"`
+8. **Domain type imports in Web**: `import type { WorkspaceTaskType } from "@/types/task"` (path may vary)
+
+---
+
+## Final Verification
+
+```bash
+# Must both return 0 results:
+grep -rn ": any\|as any\|any\[\]\|Promise<any>\|Record<string, any>" apps/api/src --include="*.ts"
+grep -rn ": any\|as any\|any\[\]\|Promise<any>\|Record<string, any>" apps/web/src --include="*.ts" --include="*.tsx"
+
+# Must both exit 0 with no errors:
+cd apps/api && npx tsc --noEmit
+cd apps/web && npx tsc --noEmit
 ```
-Import and call `getProjectMetadata` in layout and all child pages.
-
-### 6. `TaskTable` context value not memoized (CONFIRMED)
-**File:** `src/components/task/list/task-table.tsx:76–93`  
-`contextValue` object literal is recreated every render and passed to `TaskTableProvider`, causing all context consumers (`TaskRow`, `SubTaskRow`, etc.) to re-render on any parent state change.
-
-**Fix:** Wrap with `useMemo`:
-```ts
-const contextValue = useMemo(() => ({
-  workspaceId, projectId, members, ...
-}), [workspaceId, projectId, members, ...]);
-```
-
-### 7. `Object.values(kanbanTasks).flat().find()` in render path (PLAUSIBLE)
-**File:** `src/components/task/kanban/kanban-board.tsx:1099`  
-Executed on every render when `pendingReviewMove` is truthy — O(n) flat + find over all columns × tasks.
-
-**Fix:** Wrap in `useMemo` keyed on `kanbanTasks` and `pendingReviewMove.subTaskId`:
-```ts
-const pendingReviewTask = useMemo(() =>
-  pendingReviewMove
-    ? Object.values(kanbanTasks).flat().find(t => t.id === pendingReviewMove.subTaskId)
-    : null,
-  [kanbanTasks, pendingReviewMove?.subTaskId]
-);
-```
-
----
-
-## Not In Scope (Deferred)
-
-- `rerender-memo` for inline callbacks in KanbanBoard/SubTaskList — legitimate fixes but lower ROI without profiling data
-- `console.log` removal in `user.ts` — covered by the existing Critical Issues memory entry
-
----
-
-## Verification
-
-1. **Security**: Run `npx tsc --noEmit` to confirm types pass; test each action route unauthenticated (no session cookie) and confirm 401/error is returned.
-2. **Bundle**: Run `ANALYZE=true pnpm --filter @tusker/web run build` — check that `apiClient` barrel no longer appears in client chunks for the fixed files.
-3. **React.cache()**: Add a `console.log` temporarily in the metadata fetch helper; navigate to a project page and confirm it logs only once.
-4. **TaskTable useMemo**: Use React DevTools Profiler — sort or filter the task list and verify `TaskRow` components no longer flash re-renders from context changes.
-5. **Kanban useMemo**: Open a large workspace kanban board; trigger an activity dialog and confirm no jank from repeated flat/find traversal.

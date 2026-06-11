@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/registry";
+import { Prisma } from "@/generated/prisma";
 
 export class CommentRepository {
   /**
@@ -78,7 +79,7 @@ export class CommentRepository {
     authorId: string;
     workspaceId: string;
     text: string;
-    attachment?: any;
+    attachment?: Prisma.InputJsonValue | null;
   }) {
     return getDb().activity.create({
       data,
@@ -119,7 +120,12 @@ export class CommentRepository {
   /**
    * Find notifications (comments)
    */
-  static async findNotifications(where: any, commentInclude: any, limit: number, cursor?: string) {
+  static async findNotifications(
+    where: Prisma.CommentWhereInput & { userId: { not: string } },
+    commentInclude: Prisma.CommentInclude,
+    limit: number,
+    cursor?: string
+  ) {
     const [unreadComments, recentComments] = await Promise.all([
       getDb().comment.findMany({
         where: { ...where, readBy: { none: { userId: where.userId.not } } },
@@ -140,7 +146,11 @@ export class CommentRepository {
   /**
    * Find recent activities
    */
-  static async findRecentActivities(where: any, limit: number = 10, cursor?: string) {
+  static async findRecentActivities(
+    where: Prisma.ActivityWhereInput & { authorId?: { not?: string } | string },
+    limit: number = 10,
+    cursor?: string
+  ) {
     return getDb().activity.findMany({
       where: cursor ? { ...where, createdAt: { lt: new Date(cursor) } } : where,
       include: {
@@ -154,7 +164,7 @@ export class CommentRepository {
             parentTask: { select: { name: true } }
           }
         },
-        readBy: { where: { userId: (where.authorId as any)?.not || '' } }
+        readBy: { where: { userId: (where.authorId as { not?: string })?.not || '' } }
       },
       orderBy: { createdAt: 'desc' },
       take: limit

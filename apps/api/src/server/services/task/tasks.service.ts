@@ -91,7 +91,7 @@ export class TasksService {
       projectId,
       workspaceId,
       userId,
-      userName: permissions.userSurname,
+      userName: permissions.userSurname || "Unknown",
       taskData: flattenedTask,
       projectSlug: finalProjectSlug,
     });
@@ -1774,7 +1774,7 @@ export class TasksService {
         projectId,
         workspaceId,
         userId,
-        userName: permissions.userSurname,
+        userName: permissions.userSurname || "Unknown",
         taskData: flattenedSubTask,
         projectSlug: projectSlug,
       });
@@ -1921,8 +1921,8 @@ export class TasksService {
     };
 
     const result = await TaskRepository.updateStatus(
-      subTaskId, newStatus, subTaskId,
-      { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentJson },
+      subTaskId, newStatus, userId,
+      { authorId: userId, workspaceId, text: activityText, attachment: attachmentJson },
       subTask.parentTaskId, subTask.status === "COMPLETED", newStatus === "COMPLETED"
     );
 

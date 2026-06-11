@@ -90,12 +90,38 @@ export type KanbanSubTaskType = WorkspaceTaskType;
 /**
  * Params for Task Operations
  */
+export interface WorkspacePermissions {
+    isWorkspaceAdmin: boolean;
+    canCreateProject?: boolean;
+    isProjectLead?: boolean;
+    isProjectManager?: boolean;
+    isProjectCoordinator?: boolean;
+    hasAccess?: boolean;
+    workspaceMemberId: string | null;
+    workspaceRole?: string | null;
+    userId: string | null;
+    userSurname?: string | null;
+    reportingManagerName?: string | null;
+    leadProjectIds?: string[];
+    managedProjectIds?: string[];
+    coordinatorProjectIds?: string[];
+    memberProjectIds?: string[];
+    viewerProjectIds?: string[];
+    isMember?: boolean;
+    canCreateSubTask?: boolean;
+    canPerformBulkOperations?: boolean;
+    projectMember?: {
+        id: string;
+        projectRole: string;
+    } | null;
+}
+
 export interface CreateTaskParams {
     name: string;
     projectId: string;
     workspaceId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
     tagIds?: string[];
 }
 
@@ -106,7 +132,7 @@ export interface CreateSubTaskParams {
     workspaceId: string;
     parentTaskId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
     assigneeUserId?: string | null;
     reviewerUserId?: string | null;
     tagIds?: string[];
@@ -121,7 +147,7 @@ export interface UpdateTaskParams {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
     data: Partial<CreateSubTaskParams>;
 }
 
@@ -130,7 +156,7 @@ export interface DeleteTaskParams {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
 }
 
 export interface UpdateTaskDatesParams {
@@ -140,7 +166,7 @@ export interface UpdateTaskDatesParams {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
 }
 
 export interface AddDependencyParams {
@@ -148,7 +174,7 @@ export interface AddDependencyParams {
     dependsOnIds: string[];
     projectId: string;
     workspaceId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
 }
 
 export interface UpdateTaskAssigneeParams {
@@ -165,6 +191,6 @@ export interface SubTasksByStatusResponse {
     subTasks: KanbanSubTaskType[];
     totalCount: number;
     hasMore: boolean;
-    nextCursor: any;
+    nextCursor: string | null | undefined;
     currentPage: number;
 }
