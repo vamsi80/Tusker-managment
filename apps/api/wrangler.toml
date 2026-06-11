@@ -1,0 +1,66 @@
+name = "tusker-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+
+# Hyperdrive binding for PostgreSQL.
+# Step 1 — run once to create the config and get an ID:
+#   wrangler hyperdrive create tusker-hyperdrive \
+#     --connection-string="postgresql://postgres.huruairekknyibistusz:PASSWORD@aws-1-ap-south-1.pooler.supabase.com:5432/postgres"
+# Step 2 — paste the printed ID below and remove the TODO comment.
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "44209b43b2124f149feb225a8226b4ba"
+
+# Service Binding to tusker-ws (the self-hosted WebSocket server)
+[[services]]
+binding = "WS_SERVICE"
+service = "tusker-ws"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+# BETTER_AUTH_SECRET
+# BETTER_AUTH_URL         (e.g., https://tusker-api.workers.dev)
+# AUTH_GITHUB_CLIENT_ID
+# AUTH_GITHUB_SECRET
+# GOOGLE_CLIENT_ID
+# GOOGLE_CLIENT_SECRET
+# RESEND_API_KEY
+# RESEND_FROM_EMAIL       (e.g., noreply@yourdomain.com)
+# BROADCAST_SECRET        (shared with tusker-ws — used to authorize /broadcast calls)
+# TICKET_SECRET           (shared with tusker-ws — used to sign/verify WS connection tickets)
+# AWS_ACCESS_KEY_ID
+# AWS_SECRET_ACCESS_KEY
+# AWS_REGION
+# AWS_S3_BUCKET_NAME
+# CRON_SECRET
+# APP_URL                 (Vercel web app URL, e.g., https://app.yourdomain.com)
+# DATABASE_URL            (Direct PostgreSQL URL — used only until Hyperdrive is set up)
+
+# Cloudflare Workers Rate Limiting bindings (account-scoped; namespace_id is an
+# arbitrary unique integer per limiter). `period` must be 10 or 60 seconds.
+#   - API_RATE_LIMITER:  general ceiling for authenticated API traffic (keyed by user id)
+#   - AUTH_RATE_LIMITER: strict ceiling for sensitive public auth/invitation paths (keyed by client IP)
+[[unsafe.bindings]]
+name = "API_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 600, period = 60 }
+
+[[unsafe.bindings]]
+name = "AUTH_RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }
+
+[dev]
+port = 8787
+local_protocol = "http"
+
+[placement]
+mode = "smart"
+
+[triggers]
+crons = ["0 0 * * *"]
