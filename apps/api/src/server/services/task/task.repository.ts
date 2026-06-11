@@ -13,11 +13,14 @@ import {
 export class TaskRepository {
   // ─── Single Record ────────────────────────────────────────────────────────
 
-  static async findById(taskId: string, selectOverride?: Prisma.TaskSelect) {
+  static async findById<S extends Prisma.TaskSelect>(
+    taskId: string,
+    selectOverride: S,
+  ): Promise<Prisma.TaskGetPayload<{ select: S }> | null> {
     return getDb().task.findUnique({
       where: { id: taskId },
-      select: selectOverride || { id: true, name: true, status: true, createdById: true, parentTaskId: true, projectId: true, taskSlug: true, subtaskCount: true },
-    });
+      select: selectOverride,
+    }) as Promise<Prisma.TaskGetPayload<{ select: S }> | null>;
   }
 
   static async findBySlug(workspaceId: string, slug: string, select: Prisma.TaskSelect) {

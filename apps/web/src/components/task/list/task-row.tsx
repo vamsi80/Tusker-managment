@@ -6,7 +6,8 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { ColumnVisibility } from "../shared/column-visibility";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import type { UserPermissionsType } from "@/types/workspace";
-import { useRef, useEffect, useState, memo, cloneElement } from "react";
+import React, { useRef, useEffect, useState, memo, cloneElement } from "react";
+import type { SubTaskType } from "@/types/task";
 import { ChevronDown, ChevronRight, MoreHorizontal, CornerDownRight } from "lucide-react";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
@@ -72,7 +73,7 @@ export const TaskRow = memo(function TaskRow({
         setTask(initialTask);
     }, [initialTask]);
 
-    const subtaskCount = Math.max(task.subtaskCount || 0, (task as any)._count?.subTasks || 0);
+    const subtaskCount = Math.max(task.subtaskCount || 0, task._count?.subTasks || 0);
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     useEffect(() => {
@@ -108,22 +109,22 @@ export const TaskRow = memo(function TaskRow({
         setTask((prev) => ({ ...prev, name: updatedTask.name, taskSlug: updatedTask.taskSlug }));
     };
 
-    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: any) => {
+    const handleOptimisticSubTaskUpdated = (subTaskId: string, updatedData: Partial<SubTaskType>) => {
         setTask((prev) => ({
             ...prev,
-            subTasks: prev.subTasks?.map((st: any) =>
+            subTasks: prev.subTasks?.map((st) =>
                 st.id === subTaskId ? { ...st, ...updatedData } : st
             ),
         }));
     };
 
     const handleSubTaskDeleted = (subTaskId: string) => {
-        const subTaskToDelete = task.subTasks?.find((st: any) => st.id === subTaskId);
+        const subTaskToDelete = task.subTasks?.find((st) => st.id === subTaskId);
         const wasCompleted = subTaskToDelete?.status === "COMPLETED";
 
         setTask((prev) => ({
             ...prev,
-            subTasks: prev.subTasks?.filter((st: any) => st.id !== subTaskId),
+            subTasks: prev.subTasks?.filter((st) => st.id !== subTaskId),
             subtaskCount: Math.max(0, (prev.subtaskCount || 0) - 1),
             completedSubtaskCount: wasCompleted
                 ? Math.max(0, (prev.completedSubtaskCount || 0) - 1)
@@ -131,10 +132,10 @@ export const TaskRow = memo(function TaskRow({
         }));
     };
 
-    const handleSubTaskCreated = (newSubTask: any) => {
+    const handleSubTaskCreated = (newSubTask: SubTaskType) => {
         setTask((prev) => {
             const currentSubTasks = prev.subTasks || [];
-            if (currentSubTasks.some((st: any) => st.id === newSubTask.id)) return prev;
+            if (currentSubTasks.some((st) => st.id === newSubTask.id)) return prev;
 
             return {
                 ...prev,
@@ -279,28 +280,38 @@ export const TaskRow = memo(function TaskRow({
             </TableRow>
             {isExpanded &&
                 children &&
-                cloneElement(children as any, {
-                    task,
-                    onSubTaskUpdated: (subTaskId: string, updatedData: any) => {
-                        handleOptimisticSubTaskUpdated(subTaskId, updatedData);
-                        (children as any).props.onSubTaskUpdated?.(subTaskId, updatedData);
-                    },
-                    onSubTaskDeleted: (subTaskId: string) => {
-                        handleSubTaskDeleted(subTaskId);
-                        (children as any).props.onSubTaskDeleted?.(subTaskId);
-                    },
-                    onSubTaskCreated: (newSubTask: any) => {
-                        handleSubTaskCreated(newSubTask);
-                        (children as any).props.onSubTaskCreated?.(newSubTask);
-                    },
-                    onSubTasksReordered: (parentId: string, newSubTasks: any[]) => {
-                        setTask((prev) => ({
-                            ...prev,
-                            subTasks: newSubTasks,
-                        }));
-                        (children as any).props.onSubTasksReordered?.(parentId, newSubTasks);
-                    },
-                })}
+                (() => {
+                    type SubTaskListProps = {
+                        task?: TaskWithSubTasks;
+                        onSubTaskUpdated?: (id: string, data: Partial<SubTaskType>) => void;
+                        onSubTaskDeleted?: (id: string) => void;
+                        onSubTaskCreated?: (subTask: SubTaskType) => void;
+                        onSubTasksReordered?: (parentId: string, subTasks: SubTaskType[]) => void;
+                    };
+                    const child = children as React.ReactElement<SubTaskListProps>;
+                    return cloneElement(child, {
+                        task,
+                        onSubTaskUpdated: (subTaskId: string, updatedData: Partial<SubTaskType>) => {
+                            handleOptimisticSubTaskUpdated(subTaskId, updatedData);
+                            child.props.onSubTaskUpdated?.(subTaskId, updatedData);
+                        },
+                        onSubTaskDeleted: (subTaskId: string) => {
+                            handleSubTaskDeleted(subTaskId);
+                            child.props.onSubTaskDeleted?.(subTaskId);
+                        },
+                        onSubTaskCreated: (newSubTask: SubTaskType) => {
+                            handleSubTaskCreated(newSubTask);
+                            child.props.onSubTaskCreated?.(newSubTask);
+                        },
+                        onSubTasksReordered: (parentId: string, newSubTasks: SubTaskType[]) => {
+                            setTask((prev) => ({
+                                ...prev,
+                                subTasks: newSubTasks,
+                            }));
+                            child.props.onSubTasksReordered?.(parentId, newSubTasks);
+                        },
+                    });
+                })()}
         </>
     );
 });

@@ -40,6 +40,7 @@ export type WorkspaceTaskType = {
         id: string;
         name: string;
         taskSlug: string;
+        position?: number;
         reviewerId?: string | null;
         reviewer?: {
             id: string;

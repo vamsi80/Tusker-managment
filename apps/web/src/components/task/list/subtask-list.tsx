@@ -44,8 +44,8 @@ interface SubTaskListProps {
     onSubTaskClick?: (subTask: SubTaskType) => void;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
-    onSubTaskCreated?: (subTask: any, tempId?: string) => void;
-    onSubTasksReordered?: (parentId: string, newSubTasks: any[]) => void;
+    onSubTaskCreated?: (subTask: SubTaskType, tempId?: string) => void;
+    onSubTasksReordered?: (parentId: string, newSubTasks: SubTaskType[]) => void;
     selectedSubTasks?: Set<string>;
     onSelectSubTask?: (subTaskId: string, checked: boolean) => void;
     level?: "workspace" | "project";
@@ -56,7 +56,7 @@ interface SubTaskListProps {
     leadProjectIds?: string[];
     coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
-    projectMap?: Record<string, any>;
+    projectMap?: Record<string, { id: string; name: string; color?: string | null }>;
     scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -250,7 +250,7 @@ export function SubTaskList({
                     {items.map((subTask) => (
                         <SubTaskRow
                             key={subTask.id}
-                            subTask={subTask as any}
+                            subTask={subTask}
                             columnVisibility={columnVisibility}
                             onClick={onSubTaskClick}
                             members={members}

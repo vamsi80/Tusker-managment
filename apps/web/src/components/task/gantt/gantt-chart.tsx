@@ -7,7 +7,7 @@ import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
 import { ProjectOption } from "../shared/types";
 import { exportGanttToExcel, exportGanttToPDF } from "./export-utils";
-import { GanttTask, TimelineGranularity } from "./types";
+import { GanttTask, GanttSubtask, TimelineGranularity } from "./types";
 import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
@@ -21,7 +21,7 @@ interface GanttChartProps {
     projectId?: string;
     className?: string;
     onSubtaskClick?: (subtaskId: string) => void;
-    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<GanttSubtask>) => void;
     showProjectFilter?: boolean;
     projects?: ProjectOption[];
     selectedProjectId?: string;
@@ -93,7 +93,7 @@ export function GanttChart({
     // Initial expansion effects
     const initializedRef = useRef(false);
     useEffect(() => {
-        let timeoutId: any;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
         if (groupByProject && tasks.length > 0 && !initializedRef.current) {
             const firstTask = tasks.find(t => t.projectId);
             if (firstTask && firstTask.projectId) {
@@ -289,8 +289,8 @@ export function GanttChart({
             if (subtask) {
                 const project = projectMap?.get(subtask.projectId);
                 if (project) {
-                    (subtask as any).projectName = project.name;
-                    (subtask as any).projectColor = project.color;
+                    subtask.projectName = project.name;
+                    subtask.projectColor = project.color;
                 }
             }
 

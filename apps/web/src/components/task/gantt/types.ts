@@ -44,6 +44,8 @@ export interface GanttSubtask {
   updatedAt?: string; // dd MMM yyyy format
   dependsOnIds?: string[];
   progress: number;
+  projectName?: string;
+  projectColor?: string | null;
 }
 
 // ============================================================================

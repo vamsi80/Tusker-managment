@@ -10,9 +10,12 @@ import { cn, toTitleCase } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import type { WorkspaceTaskType } from "@/types/task";
+
+type AssigneeWithMember = { id?: string; surname?: string | null; workspaceMember?: { user?: { surname?: string | null } } } | null | undefined;
 
 interface SortedTaskRowProps {
-    task: any;
+    task: WorkspaceTaskType;
     columnVisibility: ColumnVisibility;
     onClick?: () => void;
 }
@@ -97,7 +100,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="size-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
-                                    {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                    {((assigneeUser as AssigneeWithMember)?.surname || (assigneeUser as AssigneeWithMember)?.workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                                 </AvatarFallback>
                             </Avatar>
                             <span className="text-sm truncate">
@@ -117,7 +120,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         <div className="flex items-center gap-2 min-w-0">
                             <Avatar className="size-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
-                                    {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                                    {((reviewerUser as AssigneeWithMember)?.surname || (reviewerUser as AssigneeWithMember)?.workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                                 </AvatarFallback>
                             </Avatar>
                             <span className="text-sm truncate">
@@ -210,7 +213,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                                     {toTitleCase(task.tags[0].name)}
                                 </Badge>
                                 {task.tags.length > 1 && (
-                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags.slice(1).map((t: any) => toTitleCase(t.name)).join(", ")}>
+                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags!.slice(1).map((t) => toTitleCase(t.name)).join(", ")}>
                                         +{task.tags.length - 1}
                                     </Badge>
                                 )}

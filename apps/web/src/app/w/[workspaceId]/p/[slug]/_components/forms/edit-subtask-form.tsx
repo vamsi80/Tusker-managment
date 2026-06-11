@@ -29,14 +29,15 @@ import { ProjectReviewer } from "@/types/project";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MultiSelectTags } from "@/components/ui/multi-select-tags";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import type { TaskStatus } from "@/types/task";
 
 type SubTaskBase = {
     id: string;
     name: string;
     description: string | null;
     taskSlug: string;
-    tags: { id: string }[] | null;
-    status: string | null;
+    tags?: { id: string }[] | null;
+    status: TaskStatus | null;
     startDate: Date | string | null;
     dueDate: Date | string | null;
     days: number | null;
@@ -357,7 +358,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                     const selectedReviewer = reviewers.find(r => r.id === values.reviewerId);
 
                     const enrichedData = {
-                        ...updatedData,
+                        ...(updatedData ?? {}),
                         assignee: selectedMember ? {
                             id: selectedMember.userId,
                             surname: selectedMember.user.surname || selectedMember.user.name,

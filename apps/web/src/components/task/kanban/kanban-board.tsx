@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { RenderProfiler } from "@/components/dev/render-profiler"; // PERF_TEMP
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/types/task";
+import type { KanbanColumnMeta } from "@/types/task-components";
 import type { ProjectMembersType } from "@/types/project";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
@@ -46,7 +47,7 @@ interface KanbanBoardProps {
   workspaceId: string;
   projectId: string;
   level?: "project" | "workspace";
-  projectManagers?: Record<string, any>;
+  projectManagers?: Record<string, Array<{ id?: string; surname?: string | null; name?: string | null; image?: string | null; user?: { image?: string | null; surname?: string | null; name?: string | null } }>>;
   permissions?: UserPermissionsType;
   userId?: string;
 }
@@ -69,7 +70,7 @@ export function KanbanBoard({
   const tags = useProjectTags(workspaceId, projectId || filters.projectId);
 
   const isMobile = useIsMobile();
-  const [kanbanTasks, setKanbanTasks] = useState<Record<string, any[]>>({});
+  const [kanbanTasks, setKanbanTasks] = useState<Partial<Record<TaskStatus, KanbanSubTaskType[]>>>({});
   const kanbanTasksRef = useRef(kanbanTasks);
   useEffect(() => { kanbanTasksRef.current = kanbanTasks; }, [kanbanTasks]);
 
@@ -88,25 +89,13 @@ export function KanbanBoard({
     isShell &&
     initialData &&
     Object.values(initialData).some(
-      (col: any) =>
-        (col.tasks || col.subTasks) &&
-        (col.tasks?.length > 0 || col.subTasks?.length > 0),
+      (col) => col.subTasks && col.subTasks.length > 0,
     ),
   );
 
   // State for each column's data - INITIALIZE WITH PROPS ONLY FOR HYDRATION SAFETY
-  const [columnData, setColumnData] = useState<
-    Record<
-      TaskStatus,
-      {
-        subTaskIds: string[];
-        totalCount: number;
-        hasMore: boolean;
-        nextCursor: any;
-      }
-    >
-  >(() => {
-    const map: any = {};
+  const [columnData, setColumnData] = useState<Record<TaskStatus, KanbanColumnMeta>>(() => {
+    const map = {} as Record<TaskStatus, KanbanColumnMeta>;
     COLUMNS.forEach((col) => {
       const serverCol = initialData ? initialData[col.id] : null;
       map[col.id] = {
@@ -117,12 +106,12 @@ export function KanbanBoard({
       };
 
       if (serverCol) {
-        const colTasks = (serverCol as any).tasks || (serverCol as any).subTasks || [];
+        const colTasks = serverCol.subTasks || [];
         map[col.id] = {
-          subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+          subTaskIds: Array.from(new Set(colTasks.map((t) => t.id))),
           totalCount: serverCol.totalCount,
           hasMore: serverCol.hasMore,
-          nextCursor: serverCol.nextCursor,
+          nextCursor: serverCol.nextCursor ?? null,
         };
       }
     });
@@ -132,11 +121,11 @@ export function KanbanBoard({
   // Hydrate tasks state
   useEffect(() => {
     if (initialData) {
-      const newTasks: Record<string, any[]> = {};
+      const newTasks: Partial<Record<TaskStatus, KanbanSubTaskType[]>> = {};
       COLUMNS.forEach((col) => {
         const serverCol = initialData[col.id];
         if (serverCol) {
-          newTasks[col.id] = (serverCol as any).tasks || (serverCol as any).subTasks || [];
+          newTasks[col.id] = serverCol.subTasks || [];
         }
       });
       setKanbanTasks(newTasks);
@@ -175,7 +164,7 @@ export function KanbanBoard({
             ...prev,
             [status]: [record, ...(prev[status] || [])]
           };
-          updated[status] = sortByPositionAndCreatedAt(updated[status]);
+          updated[status] = sortByPositionAndCreatedAt(updated[status] ?? []);
           return updated;
         });
 
@@ -198,8 +187,8 @@ export function KanbanBoard({
 
         setKanbanTasks(prev => {
           const next = { ...prev };
-          Object.keys(next).forEach(status => {
-            next[status] = next[status].filter(t => t.id !== entityId);
+          (Object.keys(next) as TaskStatus[]).forEach(status => {
+            next[status] = (next[status] || []).filter(t => t.id !== entityId);
           });
           return next;
         });
@@ -232,10 +221,10 @@ export function KanbanBoard({
             const next = { ...prev };
             const task = next[fromStatus]?.find(t => t.id === entityId);
             if (task) {
-              next[fromStatus] = next[fromStatus].filter(t => t.id !== entityId);
-              next[toStatus] = [{ ...task, ...record }, ...(next[toStatus] || [])];
-              next[fromStatus] = sortByPositionAndCreatedAt(next[fromStatus]);
-              next[toStatus] = sortByPositionAndCreatedAt(next[toStatus]);
+              next[fromStatus] = (next[fromStatus] || []).filter(t => t.id !== entityId);
+              next[toStatus] = [{ ...task, ...record } as KanbanSubTaskType, ...(next[toStatus] || [])];
+              next[fromStatus] = sortByPositionAndCreatedAt(next[fromStatus] ?? []);
+              next[toStatus] = sortByPositionAndCreatedAt(next[toStatus] ?? []);
             }
             return next;
           });
@@ -331,23 +320,25 @@ export function KanbanBoard({
 
   const [isManualFiltering, setIsManualFiltering] = useState(false);
 
-  const onFilteredResults = useCallback((_tasks: any[], meta: any) => {
-    const groupedData: any = {};
-    const groupedTasks: any = {};
-    const facetCounts = (meta.facets as any)?.status || {};
+  const onFilteredResults = useCallback((_tasks: KanbanSubTaskType[], meta: {
+    facets?: { status?: Record<string, number> };
+    tasksByStatus?: Record<string, { tasks?: KanbanSubTaskType[]; totalCount?: number; hasMore?: boolean; nextCursor?: string | null }>;
+  }) => {
+    const groupedData: Record<TaskStatus, KanbanColumnMeta> = {} as Record<TaskStatus, KanbanColumnMeta>;
+    const groupedTasks: Partial<Record<TaskStatus, KanbanSubTaskType[]>> = {};
+    const facetCounts = meta.facets?.status || {};
 
     COLUMNS.forEach((col) => {
       const serverCol = meta.tasksByStatus?.[col.id];
       // In kanban mode the API returns tasks grouped by status in tasksByStatus.
       // DB WHERE clause already excludes top-level containers (parentTaskId=null AND isParent=true).
-      const allColTasks = serverCol?.tasks || [];
-      const colTasks = allColTasks;
+      const colTasks = serverCol?.tasks || [];
 
       groupedData[col.id] = {
-        subTaskIds: Array.from(new Set(colTasks.map((t: any) => t.id))),
+        subTaskIds: Array.from(new Set(colTasks.map((t) => t.id))),
         totalCount: facetCounts[col.id] ?? serverCol?.totalCount ?? colTasks.length,
         hasMore: serverCol?.hasMore || false,
-        nextCursor: serverCol?.nextCursor || null,
+        nextCursor: serverCol?.nextCursor ?? null,
       };
       groupedTasks[col.id] = colTasks;
     });
@@ -356,14 +347,14 @@ export function KanbanBoard({
     setKanbanTasks(groupedTasks);
     setIsManualFiltering(false);
 
-    const totalLoaded = Object.values(groupedTasks).reduce((sum: number, tasks: any) => sum + tasks.length, 0);
+    const totalLoaded = Object.values(groupedTasks).reduce((sum: number, tasks) => sum + (tasks?.length ?? 0), 0);
     console.log("%c[KANBAN_LOAD] Initial load summary:", "color: #10b981; font-weight: bold;");
     COLUMNS.forEach((col) => {
-      const tasks: any[] = groupedTasks[col.id] || [];
+      const tasks = groupedTasks[col.id] || [];
       const data = groupedData[col.id];
       console.log(`  ${col.id}: ${tasks.length} loaded | total: ${data?.totalCount ?? "?"} | hasMore: ${data?.hasMore} | nextCursor:`, data?.nextCursor);
       if (tasks.length > 0) {
-        console.log(`    tasks:`, tasks.map((t: any) => ({
+        console.log(`    tasks:`, tasks.map((t) => ({
           id: t.id,
           name: t.name,
           position: t.position,
@@ -471,18 +462,16 @@ export function KanbanBoard({
       );
 
       // 1. Prepare data for update
-      const counts = (response.data.facets as any)?.status || {};
+      const counts: Record<string, number> = (response.data.facets as { status?: Record<string, number> } | undefined)?.status || {};
       const perStatusData = response.data.tasksByStatus?.[status];
-      const allNewTasks = perStatusData?.tasks || response.data.tasks || [];
+      const allNewTasks: KanbanSubTaskType[] = perStatusData?.tasks || response.data.tasks || [];
       // Only tasks whose status matches (isParent check removed — kanban WHERE handles exclusion at DB level)
-      const newTasks = allNewTasks.filter(
-        (t: any) => t.status === status,
-      );
+      const newTasks = allNewTasks.filter((t) => t.status === status);
       console.log(`%c[KANBAN_LOAD_MORE_DATA] ${status}: ${newTasks.length} new tasks | hasMore: ${perStatusData?.hasMore} | nextCursor:`, "color: #10b981; font-weight: bold;", perStatusData?.nextCursor);
 
       setKanbanTasks(prev => {
-        const existingIds = new Set((prev[status] || []).map((t: any) => t.id));
-        const deduped = newTasks.filter((t: any) => !existingIds.has(t.id));
+        const existingIds = new Set((prev[status] || []).map((t) => t.id));
+        const deduped = newTasks.filter((t) => !existingIds.has(t.id));
         return {
           ...prev,
           [status]: [...(prev[status] || []), ...deduped]
@@ -493,7 +482,7 @@ export function KanbanBoard({
         [status]: {
           ...prev[status],
           subTaskIds: Array.from(
-            new Set([...prev[status].subTaskIds, ...newTasks.map((t: any) => t.id)]),
+            new Set([...prev[status].subTaskIds, ...newTasks.map((t) => t.id)]),
           ),
           totalCount: counts[status] || prev[status].totalCount + newTasks.length,
           hasMore: perStatusData?.hasMore ?? response.data.hasMore ?? false,
@@ -509,7 +498,7 @@ export function KanbanBoard({
     }
   };
 
-  const sortByPositionAndCreatedAt = useCallback((taskList: any[]) => {
+  const sortByPositionAndCreatedAt = useCallback((taskList: KanbanSubTaskType[]) => {
     return [...taskList].sort((a, b) => {
       // Sort by parent task position first — groups all subtasks under the same parent together
       const aParentPos = typeof a?.parentTask?.position === "number"
@@ -668,7 +657,7 @@ export function KanbanBoard({
     // 1. Move the actual task object in kanbanTasks (Robust search)
     setKanbanTasks((prev) => {
       const next = { ...prev };
-      let taskToMove: any = null;
+      let taskToMove: KanbanSubTaskType | null = null;
       let actualFromStatus: TaskStatus | null = null;
 
       // Find the task anywhere to be safe
@@ -683,7 +672,7 @@ export function KanbanBoard({
 
       if (taskToMove && actualFromStatus) {
         // Remove from actual source
-        next[actualFromStatus] = next[actualFromStatus].filter(t => t.id !== subTaskId);
+        next[actualFromStatus] = (next[actualFromStatus] || []).filter(t => t.id !== subTaskId);
         // Add to target with updated status
         const updatedTask = { ...taskToMove, status: toStatus };
         next[toStatus] = [updatedTask, ...(next[toStatus] || [])];
@@ -697,7 +686,7 @@ export function KanbanBoard({
       let actualFromStatus: TaskStatus | null = null;
 
       for (const status of Object.keys(next) as TaskStatus[]) {
-        if (next[status].subTaskIds.includes(subTaskId)) {
+        if (next[status]?.subTaskIds.includes(subTaskId)) {
           actualFromStatus = status;
           break;
         }
@@ -733,7 +722,7 @@ export function KanbanBoard({
     return projectId;
   }, [projectId]);
 
-  const updateSubTaskInPlace = useCallback((subTaskId: string, data: any) => {
+  const updateSubTaskInPlace = useCallback((subTaskId: string, data: Partial<KanbanSubTaskType>) => {
     setKanbanTasks((prev) => {
       const newState = { ...prev };
       for (const status of Object.keys(newState) as TaskStatus[]) {
@@ -754,7 +743,7 @@ export function KanbanBoard({
       previousStatus: TaskStatus,
       activityId?: string,
       comment?: string,
-      attachmentData?: any,
+      attachmentData?: { url: string; name?: string } | null,
     ) => {
     console.log(`DEBUG [Kanban] performStatusUpdate starting for ${subTaskId}: ${previousStatus} -> ${newStatus}`);
     // Optimistic move only if status is actually changing and not already moved by drag-end
@@ -792,11 +781,11 @@ export function KanbanBoard({
           id: toastId,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`DEBUG [Kanban] Network/System error for ${subTaskId}:`, error);
       moveSubTaskBetweenColumns(subTaskId, newStatus, previousStatus);
       const errorMessage =
-        error?.message || "Failed to update subtask status. Let's try again.";
+        error instanceof Error ? error.message : "Failed to update subtask status. Let's try again.";
       toast.error(errorMessage, {
         id: toastId,
       });

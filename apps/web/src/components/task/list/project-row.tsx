@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 
 interface ProjectRowProps {
-    project: { id: string; name: string; color?: string };
+    project: { id: string; name: string; color?: string | null };
     totalTasksCount?: number;
     isExpanded: boolean;
     onToggle: () => void;

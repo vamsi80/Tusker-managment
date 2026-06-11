@@ -42,7 +42,7 @@ interface SubTaskRowProps {
     leadProjectIds?: string[];
     coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
-    projectMap?: Record<string, any>;
+    projectMap?: Record<string, { id: string; canManageMembers?: boolean; memberIds?: string[] }>;
 }
 
 export const SubTaskRow = memo(function SubTaskRow({
@@ -87,9 +87,9 @@ export const SubTaskRow = memo(function SubTaskRow({
 
     const canEditSubTask = () => {
         const subTaskCreatorUserId = subTask.createdBy?.id;
-        const subTaskCreatorMemberId = (subTask as any).createdById;
+        const subTaskCreatorMemberId = subTask.createdById;
         const subTaskAssigneeUserId = subTask.assignee?.id;
-        const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+        const subTaskAssigneeMemberId = subTask.assigneeId;
 
         const currentUserId = permissions?.userId || userId;
         const currentProjectMemberId = permissions?.projectMember?.id;
@@ -121,7 +121,7 @@ export const SubTaskRow = memo(function SubTaskRow({
 
         if (isUserWorkspaceAdmin) return true;
 
-        const projectIdToCheck = (subTask as any).projectId || projectId;
+        const projectIdToCheck = subTask.projectId || projectId;
 
         if (coordinatorProjectIds?.includes(projectIdToCheck)) return true;
 
@@ -151,19 +151,19 @@ export const SubTaskRow = memo(function SubTaskRow({
     const delayStyles = getDelayColors(remainingDays, subTask.status);
     const delayText = getDelayText(remainingDays, subTask.status);
 
-    // ðŸ‘¤ Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
-    const getUserDisplayName = (userObj: any) => {
+    // Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
+    const getUserDisplayName = (userObj: { id: string; surname?: string | null; name?: string | null; workspaceMember?: { user: { surname: string | null; name?: string | null } } } | null | undefined) => {
         if (!userObj) return "";
 
         // Check if the user object is nested inside workspaceMember
-        const user = userObj.workspaceMember?.user || userObj;
+        const user = userObj.workspaceMember?.user ?? userObj;
 
         // 1. Try pre-fetched data from the user object directly
         if (user.surname) return user.surname;
-        if (user.name) return user.name;
+        if ("name" in user && user.name) return user.name;
 
         // 2. Fallback to member list lookup using the ID
-        const member = members.find(m => m.id === user.id || m.userId === user.id);
+        const member = members.find(m => m.id === userObj.id || m.userId === userObj.id);
         return member?.user.surname || member?.user.name || "";
     };
 
@@ -302,9 +302,9 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[150px] sm:w-[200px]">
                         <span
                             className="truncate text-muted-foreground text-sm block"
-                            title={(subTask as any).description}
+                            title={subTask.description ?? undefined}
                         >
-                            {(subTask as any).description || "-"}
+                            {subTask.description || "-"}
                         </span>
                     </TableCell>
                 )}
@@ -324,10 +324,10 @@ export const SubTaskRow = memo(function SubTaskRow({
                             </div>
                         ) : (
                             <InlineAssigneePicker
-                                subTask={subTask as any}
+                                subTask={subTask}
                                 members={members}
-                                allowedUserIds={(projectMap ? projectMap[(subTask as any).projectId || projectId] : projects?.find(p => p.id === ((subTask as any).projectId || projectId)))?.memberIds}
-                                projectId={(subTask as any).projectId || projectId}
+                                allowedUserIds={(projectMap ? projectMap[subTask.projectId || projectId] : projects?.find(p => p.id === (subTask.projectId || projectId)))?.memberIds}
+                                projectId={subTask.projectId || projectId}
                                 parentTaskId={subTask.parentTaskId || parentTaskId}
                                 canEdit={canEditSubTask()}
                                 onAssigned={(_userId, member) => {
@@ -335,7 +335,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                                         assignee: {
                                             id: member.id,
                                             surname: member.user.surname,
-                                        } as any,
+                                        },
                                     });
                                 }}
                             />
@@ -367,7 +367,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                         <SubtaskStatusChanger
                             subTask={subTask}
                             onSubTaskUpdated={(id, updatedData) => handleSubTaskUpdated(updatedData)}
-                            projectId={(subTask as any).projectId || projectId}
+                            projectId={subTask.projectId || projectId}
                             permissions={permissions}
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
@@ -432,14 +432,14 @@ export const SubTaskRow = memo(function SubTaskRow({
                 {columnVisibility.tag && (
                     <TableCell className="w-[120px] sm:w-[150px]">
                         <div className="flex items-center gap-1">
-                            {subTask.tags && (subTask.tags as any[]).length > 0 ? (
+                            {subTask.tags && subTask.tags.length > 0 ? (
                                 <>
-                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={toTitleCase((subTask.tags as any[])[0].name)}>
-                                        {toTitleCase((subTask.tags as any[])[0].name)}
+                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={toTitleCase(subTask.tags[0].name)}>
+                                        {toTitleCase(subTask.tags[0].name)}
                                     </Badge>
-                                    {(subTask.tags as any[]).length > 1 && (
-                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={(subTask.tags as any[]).slice(1).map(t => toTitleCase(t.name)).join(", ")}>
-                                            +{(subTask.tags as any[]).length - 1}
+                                    {subTask.tags.length > 1 && (
+                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={subTask.tags.slice(1).map(t => toTitleCase(t.name)).join(", ")}>
+                                            +{subTask.tags.length - 1}
                                         </Badge>
                                     )}
                                 </>
@@ -474,10 +474,10 @@ export const SubTaskRow = memo(function SubTaskRow({
             {/* Render Dialog components OUTSIDE of DropdownMenu completely! */}
             {editOpen && (
                 <EditSubTaskForm
-                    subTask={subTask as any}
+                    subTask={subTask}
                     tags={tags}
                     members={members}
-                    projectId={(subTask as any).projectId || projectId}
+                    projectId={subTask.projectId || projectId}
                     parentTaskId={subTask.parentTaskId || parentTaskId}
                     onSubTaskUpdated={handleSubTaskUpdated}
                     open={editOpen}

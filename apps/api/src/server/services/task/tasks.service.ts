@@ -31,9 +31,9 @@ type RawTaskRow = {
   position?: number | null;
   createdAt: Date;
   isParent?: boolean;
-  status?: string;
-  parentTask?: { id?: string | null; position?: number | null };
-  project?: { id?: string | null; createdAt?: Date | null };
+  status?: string | null;
+  parentTask?: { id?: string | null; position?: number | null } | null;
+  project?: { id?: string | null; createdAt?: Date | null } | null;
 } & Record<string, unknown>;
 
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined => {
@@ -674,7 +674,7 @@ export class TasksService {
               const pid = st.parentTaskId;
               if (pid) {
                 if (!subtaskMap.has(pid)) subtaskMap.set(pid, []);
-                subtaskMap.get(pid)!.push(TasksService.mapToFlatMetadata(st));
+                subtaskMap.get(pid)!.push(TasksService.mapToFlatMetadata(st) as RawTaskRow);
               }
             });
 
@@ -1782,12 +1782,12 @@ export class TasksService {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
     comment?: string;
-    attachmentData?: any;
+    attachmentData?: { url: string; name?: string; type?: string } | null;
   }) {
     // 1. Fetch Task Data (Include updatedAt to ensure consistent return types)
-    const subTask = (await TaskRepository.findById(subTaskId, {
+    const subTask = await TaskRepository.findById(subTaskId, {
       id: true,
       status: true,
       name: true,
@@ -1796,7 +1796,7 @@ export class TasksService {
       reviewerId: true,
       parentTaskId: true,
       updatedAt: true,
-    })) as any;
+    });
 
     if (!subTask) {
       throw AppError.NotFound("Subtask not found");
@@ -1894,7 +1894,7 @@ export class TasksService {
       previousStatus: subTask.status,
       targetStatus: newStatus,
       ...(attachmentData ? {
-        url: typeof attachmentData === "string" ? attachmentData : (attachmentData.url || attachmentData.data || attachmentData),
+        url: typeof attachmentData === "string" ? attachmentData : ((attachmentData as any).url || (attachmentData as any).data || attachmentData),
       } : {})
     };
 
@@ -1962,17 +1962,17 @@ export class TasksService {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
     data: Partial<CreateSubTaskParams>;
   }) {
-    const task = (await TaskRepository.findById(taskId, {
+    const task = await TaskRepository.findById(taskId, {
       id: true,
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
       name: true,
       status: true,
-    })) as any;
+    });
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -2035,7 +2035,7 @@ export class TasksService {
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Prisma.TaskUncheckedUpdateInput = {};
     if (data.name) updateData.name = data.name;
     if (data.description !== undefined)
       updateData.description = data.description;
@@ -2109,9 +2109,9 @@ export class TasksService {
       }
       if (data.days !== undefined) updateData.days = data.days;
       if (data.startDate !== undefined)
-        updateData.startDate = parseIST(data.startDate as any);
+        updateData.startDate = parseIST(data.startDate);
       if (data.dueDate !== undefined)
-        updateData.dueDate = parseIST(data.dueDate as any);
+        updateData.dueDate = parseIST(data.dueDate);
 
       if (data.assigneeUserId !== undefined) {
         updateData.assigneeId = data.assigneeUserId
@@ -2154,7 +2154,7 @@ export class TasksService {
       });
     }
 
-    const oldData: any = {};
+    const oldData: Partial<Record<string, unknown>> = {};
     if (data.name) oldData.name = task.name;
     if (data.status) oldData.status = task.status;
     if (data.assigneeUserId) oldData.assigneeId = task.assigneeId;
@@ -2187,9 +2187,9 @@ export class TasksService {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
   }) {
-    const task = (await TaskRepository.findById(taskId, {
+    const task = await TaskRepository.findById(taskId, {
       id: true,
       name: true,
       status: true,
@@ -2197,7 +2197,7 @@ export class TasksService {
       parentTaskId: true,
       projectId: true,
       position: true,
-    })) as any;
+    });
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -2258,7 +2258,7 @@ export class TasksService {
       taskStatus: task.status || "",
       targetUserIds,
       position: task.position,
-      parentTaskId: task.parentTaskId,
+      parentTaskId: task.parentTaskId ?? undefined,
     });
 
     return { id: taskId };
@@ -2281,22 +2281,25 @@ export class TasksService {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
   }) {
-    const start = parseIST(startDate as any);
-    const end = parseIST(dueDate as any);
+    const start = parseIST(typeof startDate === "string" ? startDate : startDate.toISOString());
+    const end = parseIST(typeof dueDate === "string" ? dueDate : dueDate.toISOString());
 
     if (!start || !end) throw AppError.ValidationError("Invalid dates");
     if (start > end)
       throw AppError.ValidationError("Start date must be before end date");
 
-    const task = (await TaskRepository.findById(taskId, {
+    const task = await TaskRepository.findById(taskId, {
       id: true,
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
       name: true,
-    })) as any;
+      startDate: true,
+      dueDate: true,
+      days: true,
+    });
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -2380,19 +2383,19 @@ export class TasksService {
     dependsOnIds: string[];
     projectId: string;
     workspaceId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
   }) {
     if (!dependsOnIds || dependsOnIds.length === 0) {
       throw AppError.ValidationError("At least one dependency is required");
     }
 
-    const subtask = (await TaskRepository.findById(subtaskId, {
+    const subtask = await TaskRepository.findById(subtaskId, {
       id: true,
       createdById: true,
       startDate: true,
       days: true,
       projectId: true,
-    })) as any;
+    });
 
     if (!subtask) throw AppError.NotFound("Subtask not found");
 
@@ -2468,9 +2471,9 @@ export class TasksService {
   }: {
     subtaskId: string;
     dependsOnId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
   }) {
-    const subtask = (await TaskRepository.findById(subtaskId, { createdById: true })) as any;
+    const subtask = await TaskRepository.findById(subtaskId, { createdById: true });
     if (!subtask) throw AppError.NotFound("Subtask not found");
 
     const isAuthorized =
@@ -2524,7 +2527,7 @@ export class TasksService {
    */
   static async updateSubtasksOrder(subtaskIds: string[]) {
     if (!subtaskIds.length) return;
-    const firstSubTask = (await TaskRepository.findById(subtaskIds[0], { parentTaskId: true })) as any;
+    const firstSubTask = await TaskRepository.findById(subtaskIds[0], { parentTaskId: true });
     if (!firstSubTask?.parentTaskId) return;
     await TaskRepository.reorderSubtasks(firstSubTask.parentTaskId, subtaskIds);
   }
@@ -2546,10 +2549,10 @@ export class TasksService {
     parentId: string;
     workspaceId: string;
     projectId?: string;
-    filters: any;
+    filters: Partial<import("@/types/task-filters").TaskFilters>;
     pageSize: number;
     viewMode: string;
-    cursor?: any;
+    cursor?: TaskCursor;
     userId: string;
   }) {
     const results = await TasksService.getSubTasksByParentIds(
@@ -2598,7 +2601,7 @@ export class TasksService {
     parentIds: string[];
     workspaceId: string;
     projectId?: string;
-    filters: any;
+    filters: Partial<import("@/types/task-filters").TaskFilters>;
     pageSize: number;
     viewMode: string;
     extraFields?: string[];
@@ -2652,7 +2655,7 @@ export class TasksService {
         parentTaskId: true,
         name: true,
         status: true,
-      }) as any,
+      }),
       getUserPermissions(workspaceId, projectId, userId),
     ]);
 
@@ -2731,7 +2734,7 @@ export class TasksService {
     workspaceId: string;
     projectId: string;
     userId: string;
-    permissions: any;
+    permissions: WorkspacePermissions;
     data: {
       startDate?: string | Date;
       dueDate?: string | Date;
@@ -2739,7 +2742,7 @@ export class TasksService {
       tagIds?: string[];
     };
   }) {
-    const task = (await TaskRepository.findById(taskId, {
+    const task = await TaskRepository.findById(taskId, {
       id: true,
       createdById: true,
       assigneeId: true,
@@ -2748,7 +2751,7 @@ export class TasksService {
       dueDate: true,
       status: true,
       name: true,
-    })) as any;
+    });
 
     if (!task) throw AppError.NotFound("Task not found");
 
@@ -2807,18 +2810,22 @@ export class TasksService {
     }
 
     // Prepare update data
-    const patchData: any = {};
+    const patchData: Prisma.TaskUncheckedUpdateInput = {};
 
     // Handle Dates
     if (data.startDate !== undefined) {
-      patchData.startDate = data.startDate ? parseIST(data.startDate as any) : null;
+      patchData.startDate = data.startDate
+        ? parseIST(typeof data.startDate === "string" ? data.startDate : data.startDate.toISOString())
+        : null;
     }
     if (data.dueDate !== undefined) {
-      patchData.dueDate = data.dueDate ? parseIST(data.dueDate as any) : null;
+      patchData.dueDate = data.dueDate
+        ? parseIST(typeof data.dueDate === "string" ? data.dueDate : data.dueDate.toISOString())
+        : null;
     }
 
-    const start = patchData.startDate !== undefined ? patchData.startDate : task.startDate;
-    const end = patchData.dueDate !== undefined ? patchData.dueDate : task.dueDate;
+    const start = (patchData.startDate !== undefined ? patchData.startDate : task.startDate) as any;
+    const end = (patchData.dueDate !== undefined ? patchData.dueDate : task.dueDate) as any;
 
     if (start && end) {
       const startDateObj = new Date(start);
@@ -2862,7 +2869,7 @@ export class TasksService {
       task.status === "COMPLETED"
     );
 
-    const oldData: any = {};
+    const oldData: Partial<Record<string, unknown>> = {};
     if (data.startDate !== undefined) oldData.startDate = task.startDate;
     if (data.dueDate !== undefined) oldData.dueDate = task.dueDate;
     if (data.assigneeUserId !== undefined) oldData.assigneeId = task.assigneeId;
@@ -2925,16 +2932,17 @@ export class TasksService {
     pageSize: number = 30,
     viewMode: string = "list",
     extraFields?: string[],
-    cursor?: any,
+    cursor?: TaskCursor,
   ): Promise<BatchSubTasksResult> {
     if (parentTaskIds.length === 0) return [];
     const startTime = performance.now();
     const { buildSubTaskConditions } = await import("@/lib/tasks/filter-utils");
-    const normalize = (d: any) => d ? new Date(new Date(d).setUTCHours(0, 0, 0, 0)) : undefined;
-    const dueAfter = normalize(filters.dueAfter || (filters as any).startDate);
-    const dueBefore = normalize(filters.dueBefore || (filters as any).endDate);
+    const normalize = (d: Date | string | null | undefined): Date | undefined =>
+      d ? new Date(new Date(d).setUTCHours(0, 0, 0, 0)) : undefined;
+    const dueAfter = normalize(filters.dueAfter);
+    const dueBefore = normalize(filters.dueBefore);
 
-    const countWhere: any = {
+    const countWhere: Prisma.TaskWhereInput = {
       workspaceId,
       parentTaskId: { in: parentTaskIds },
       ...buildSubTaskConditions({ ...filters, workspaceId, projectId, dueAfter, dueBefore }),
@@ -2942,7 +2950,7 @@ export class TasksService {
 
     // Apply RBAC Access Control as an mandatory AND condition to avoid overwriting UI filters (like assignee filter)
     if (!isAdmin) {
-      const accessConditions: any[] = [];
+      const accessConditions: Prisma.TaskWhereInput[] = [];
       if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
         accessConditions.push({
           OR: [
@@ -2971,28 +2979,31 @@ export class TasksService {
       }
 
       if (accessConditions.length > 0) {
-        countWhere.AND = [...(countWhere.AND || []), ...accessConditions];
+        const existingAnd = countWhere.AND
+          ? (Array.isArray(countWhere.AND) ? countWhere.AND : [countWhere.AND])
+          : [];
+        countWhere.AND = [...existingAnd, ...accessConditions];
       }
     }
 
     // ── SINGLE PARENT FAST PATH ──────────────────────────────────────────
     if (parentTaskIds.length === 1) {
       const parentId = parentTaskIds[0];
-      const baseSelect: any = getTaskSelect("subtask", false, extraFields);
-      const subtaskSelect: any = { ...baseSelect };
+      const baseSelect: Prisma.TaskSelect = getTaskSelect("subtask", false, extraFields);
+      const subtaskSelect: Prisma.TaskSelect = { ...baseSelect };
       const parentRelationSelect = subtaskSelect.parentTask;
       delete subtaskSelect.parentTask;
       delete subtaskSelect._count;
       delete subtaskSelect.project;
 
-      const singleParentWhere: any = {
+      const singleParentWhere: Prisma.TaskWhereInput = {
         parentTaskId: parentId,
         ...buildSubTaskConditions({ ...filters, workspaceId, projectId, dueAfter, dueBefore }),
       };
 
       if (cursor) {
         const cursorDate = typeof cursor.createdAt === "string" ? new Date(cursor.createdAt) : cursor.createdAt;
-        let cursorClause: any;
+        let cursorClause: Prisma.TaskWhereInput;
         if (cursor.position !== undefined && cursor.position !== null) {
           cursorClause = {
             OR: [
@@ -3018,11 +3029,14 @@ export class TasksService {
         } else {
           cursorClause = { OR: [{ createdAt: { lt: cursorDate } }, { AND: [{ createdAt: cursorDate }, { id: { lt: cursor.id } }] }] };
         }
-        singleParentWhere.AND = [...(singleParentWhere.AND ?? []), cursorClause];
+        const existingAnd = singleParentWhere.AND
+          ? (Array.isArray(singleParentWhere.AND) ? singleParentWhere.AND : [singleParentWhere.AND])
+          : [];
+        singleParentWhere.AND = [...existingAnd, cursorClause];
       }
 
       if (!isAdmin) {
-        const accessConditions: any[] = [];
+        const accessConditions: Prisma.TaskWhereInput[] = [];
         if (fullAccessProjectIds.length > 0 && restrictedProjectIds.length > 0) {
           accessConditions.push({
             OR: [
@@ -3038,7 +3052,10 @@ export class TasksService {
         }
 
         if (accessConditions.length > 0) {
-          singleParentWhere.AND = [...(singleParentWhere.AND || []), ...accessConditions];
+          const existingAnd = singleParentWhere.AND
+            ? (Array.isArray(singleParentWhere.AND) ? singleParentWhere.AND : [singleParentWhere.AND])
+            : [];
+          singleParentWhere.AND = [...existingAnd, ...accessConditions];
         }
       }
 
@@ -3052,14 +3069,14 @@ export class TasksService {
         TaskRepository.findById(
           parentId,
           {
-            ...(parentRelationSelect?.select || { id: true, name: true }),
+            ...((parentRelationSelect && typeof parentRelationSelect === "object" && "select" in parentRelationSelect ? parentRelationSelect.select : null) || { id: true, name: true }),
             project: { select: { id: true, name: true, color: true } },
           }
         ),
       ]);
 
       const hasMore = rawTasks.length > pageSize;
-      const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map((t: any) => TasksService.mapToFlatMetadata(t));
+      const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map((t) => TasksService.mapToFlatMetadata(t as Record<string, unknown>)) as unknown as WorkspaceTaskType[];
       const nextCursor = hasMore && finalTasks.length > 0
         ? {
           id: finalTasks[finalTasks.length - 1].id,
@@ -3071,25 +3088,25 @@ export class TasksService {
     }
 
     // ── BATCH PATH ────────────────────────────────────────────────────────
-    const batchSelect: any = { ...getTaskSelect("subtask", false, extraFields) };
+    const batchSelect: Prisma.TaskSelect = { ...getTaskSelect("subtask", false, extraFields) };
     delete batchSelect._count;
 
-    const rawSubTasksAll = (await TaskRepository.findMany(
+    const rawSubTasksAll = await TaskRepository.findMany(
       countWhere,
       { ...batchSelect, parentTaskId: true },
       undefined,
       TasksService.BATCH_HARD_LIMIT
-    )) as any[];
+    );
 
-    const subTasksMap = new Map<string, any[]>();
+    const subTasksMap = new Map<string, WorkspaceTaskType[]>();
     const totalCountMap = new Map<string, number>();
-    rawSubTasksAll.forEach((task: any) => {
+    rawSubTasksAll.forEach((task) => {
       const pId = task.parentTaskId!;
       const currentCount = totalCountMap.get(pId) || 0;
       totalCountMap.set(pId, currentCount + 1);
       if (currentCount < pageSize) {
         if (!subTasksMap.has(pId)) subTasksMap.set(pId, []);
-        subTasksMap.get(pId)!.push(TasksService.mapToFlatMetadata(task));
+        subTasksMap.get(pId)!.push(TasksService.mapToFlatMetadata(task as Record<string, unknown>) as WorkspaceTaskType);
       }
     });
 
@@ -3126,16 +3143,16 @@ export class TasksService {
     extraFields?: string[],
     userId?: string,
     skipPermissionsCheck: boolean = false,
-    cursor?: any,
+    cursor?: TaskCursor,
   ): Promise<BatchSubTasksResult> {
     try {
       if (parentTaskIds.length === 0) return [];
       const { isWorkspaceAdmin, fullAccessProjectIds, restrictedProjectIds, permissions } =
         await TasksService.resolveTaskPermissions(workspaceId, projectId, userId);
-      if (!skipPermissionsCheck && !(permissions as any)?.workspaceMember) {
+      if (!skipPermissionsCheck && !permissions.workspaceMemberId) {
         throw new Error("User does not have access to this workspace");
       }
-      const resolvedUserId = (permissions as any)?.userId || userId || "";
+      const resolvedUserId = permissions.userId || userId || "";
       return TasksService._getSubTasksByParentIdsInternal(
         parentTaskIds, workspaceId, projectId, resolvedUserId,
         isWorkspaceAdmin, fullAccessProjectIds, restrictedProjectIds,
@@ -3195,10 +3212,10 @@ export class TasksService {
 
 export type BatchSubTasksResult = {
   parentTaskId: string;
-  subTasks: any[];
+  subTasks: WorkspaceTaskType[];
   totalCount: number;
   hasMore: boolean;
-  nextCursor?: any;
+  nextCursor?: TaskCursor;
 }[];
 
 export type BatchSubTasksResponse = BatchSubTasksResult;
@@ -3239,9 +3256,9 @@ export type TaskByIdType = Awaited<ReturnType<typeof TasksService.getTaskById>>;
  * Shape of task groups in Kanban view (grouped by status)
  */
 export type SubTasksByStatusResponse = {
-  tasks: import("@/types/task").WorkspaceTaskType[];
+  tasks: WorkspaceTaskType[];
   totalCount: number;
   hasMore: boolean;
   currentPage?: number;
-  nextCursor?: any;
+  nextCursor?: TaskCursor;
 };

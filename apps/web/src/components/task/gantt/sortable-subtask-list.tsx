@@ -12,7 +12,7 @@ import { cn, APP_DATE_FORMAT } from "@/lib/utils";
 import { InlineDateRangePicker } from "./inline-date-range-picker";
 import { InlineDaysPicker } from "./inline-days-picker";
 import { ganttDateToISO } from "./utils";
-import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
+import { InlineAssigneePicker, type AssignableSubTask } from "../shared/inline-assignee-picker";
 import { ProjectMembersType } from "@/types/project";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -29,7 +29,7 @@ interface SortableSubtaskRowProps {
     timelineStart: Date;
     totalDays: number;
     onSubtaskClick?: (subtaskId: string) => void;
-    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<GanttSubtask>) => void;
     workspaceId: string;
     projectId: string;
     members?: ProjectMembersType;
@@ -42,7 +42,7 @@ interface SortableSubtaskRowProps {
     };
     showDetails: boolean;
     allowedUserIds?: string[];
-    allTasks?: any[];
+    allTasks?: GanttSubtask[];
     highlightedSubtaskId?: string | null;
     onToggleSubtaskHighlight?: (id: string) => void;
 }
@@ -139,7 +139,7 @@ function SortableSubtaskRow({
         }
     };
 
-    const performStatusUpdate = async (newStatus: string, comment?: string, attachmentData?: any) => {
+    const performStatusUpdate = async (newStatus: string, comment?: string, attachmentData?: { url: string; name?: string }) => {
         const previousStatus = subtask.status;
         onSubTaskUpdate?.(subtask.id, { status: newStatus });
 
@@ -302,7 +302,7 @@ function SortableSubtaskRow({
                         <div className="w-[var(--col-assignee)] flex items-center px-1 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full overflow-hidden">
                             {members && (
                                 <InlineAssigneePicker
-                                    subTask={subtask as any}
+                                    subTask={subtask as AssignableSubTask}
                                     members={members}
                                     projectId={projectId}
                                     parentTaskId={subtask.parentTaskId || ""}
@@ -448,7 +448,7 @@ interface SortableSubtaskListProps {
     timelineStart: Date;
     totalDays: number;
     onSubtaskClick?: (subtaskId: string) => void;
-    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<GanttSubtask>) => void;
     workspaceId: string;
     projectId: string;
     members?: ProjectMembersType;
@@ -461,7 +461,7 @@ interface SortableSubtaskListProps {
     };
     showDetails: boolean;
     allowedUserIds?: string[];
-    allTasks?: any[];
+    allTasks?: GanttSubtask[];
     granularity: 'days' | 'weeks' | 'months';
     highlightedSubtaskId?: string | null;
     onToggleSubtaskHighlight?: (id: string) => void;
@@ -479,7 +479,7 @@ export function SortableSubtaskList({
         setItems(initialSubtasks);
     }, [initialSubtasks]);
 
-    const handleSubTaskUpdate = (subTaskId: string, data: Partial<any>) => {
+    const handleSubTaskUpdate = (subTaskId: string, data: Partial<GanttSubtask>) => {
         setItems((prev) =>
             prev.map((s) => (s.id === subTaskId ? { ...s, ...data } : s))
         );

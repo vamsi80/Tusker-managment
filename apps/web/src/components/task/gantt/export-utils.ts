@@ -84,8 +84,18 @@ export const exportGanttToExcel = async (
     return 0;
   };
 
+  type ExcelRow = {
+    name: string;
+    assignee: string;
+    status: string;
+    start: Date | null;
+    end: Date | null;
+    duration: number | null;
+    delayedDays: number | null;
+    _type: "Task" | "Subtask";
+  };
   // 2. Prepare Data Rows (Cols A-K)
-  const rows: any[] = [];
+  const rows: ExcelRow[] = [];
 
   tasks.forEach((task) => {
     // Add Parent Task
@@ -355,7 +365,7 @@ export const exportGanttToPDF = async (
   doc.setFontSize(16);
   doc.text("Gantt Chart Export", 14, 15);
 
-  const tableData: any[][] = [];
+  const tableData: (string | number)[][] = [];
 
   tasks.forEach((task) => {
     tableData.push([task.name, task.assignee?.surname || "", "", "", ""]);
@@ -403,7 +413,7 @@ export const exportGanttToPDF = async (
     styles: { fontSize: 9 },
     headStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0] },
     didParseCell: function (data) {
-      const raw = data.row.raw as any[];
+      const raw = data.row.raw as unknown[];
       if (
         raw &&
         raw[2] === "" &&

@@ -11,12 +11,13 @@ import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SingleTableSkeleton } from "./table/table-skeleton";
+import type { WorkspaceTaskType } from "@/types/task";
 
 interface InlineTaskFormProps {
     workspaceId: string;
     projectId: string;
     onCancel: () => void;
-    onTaskCreated?: (task: any, tempId?: string) => void;
+    onTaskCreated?: (task: WorkspaceTaskType, tempId?: string) => void;
     onTaskDeleted?: (taskId: string) => void;
     projects?: { id: string; name: string; canManageMembers?: boolean; }[];
     level?: "workspace" | "project";
@@ -84,7 +85,7 @@ export function InlineTaskForm({
 
         toast.promise(taskCreateCall, {
             loading: `Creating "${taskName.trim()}"â€¦`,
-            success: (res: any) => {
+            success: (res: { status: string; message?: string; data?: WorkspaceTaskType }) => {
                 if (res.status !== "success") {
                     throw new Error(res.message || "Failed to create task");
                 }
@@ -96,8 +97,8 @@ export function InlineTaskForm({
                 }));
                 return `"${taskName.trim()}" created successfully`;
             },
-            error: (err: any) => {
-                return err?.message || "Failed to create task";
+            error: (err: unknown) => {
+                return err instanceof Error ? err.message : "Failed to create task";
             },
         });
 

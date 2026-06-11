@@ -33,7 +33,7 @@ interface InlineSubTaskFormProps {
     tags?: { id: string; name: string; }[];
     columnVisibility: ColumnVisibility;
     onCancel: () => void;
-    onSubTaskCreated?: (subTask: any, tempId?: string) => void;
+    onSubTaskCreated?: (subTask: SubTaskType, tempId?: string) => void;
     onSubTaskUpdated?: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
     onSubTaskDeleted?: (subTaskId: string) => void;
     // Edit mode props
@@ -74,8 +74,8 @@ export function InlineSubTaskForm({
     const [startDate, setStartDate] = useState(() => 
         subTask?.startDate ? new Date(subTask.startDate).toISOString() : new Date(Date.now() + 10 * 60000).toISOString()
     );
-    const [dueDate, setDueDate] = useState(() => 
-        (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
+    const [dueDate, setDueDate] = useState(() =>
+        subTask?.dueDate ? new Date(subTask.dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
     );
     const [tagIds, setTagIds] = useState<string[]>(
         subTask?.tags?.map(t => t.id) || []
@@ -249,13 +249,13 @@ export function InlineSubTaskForm({
 
             toast.promise(apiCall, {
                 loading: `Creating "${validData.name}"â€¦`,
-                success: (result: any) => {
-                    const res = result as ApiResponse;
+                success: (result: ApiResponse) => {
+                    const res = result;
                     if (res.status !== "success") {
                         throw new Error(res.message || "Failed to create subtask");
                     }
 
-                    onSubTaskCreated?.(res.data);
+                    onSubTaskCreated?.(res.data as SubTaskType);
                     setSubTaskName("");
                     onCancel();
                     window.dispatchEvent(new CustomEvent("realtime-task-sync", {
@@ -264,8 +264,8 @@ export function InlineSubTaskForm({
 
                     return `"${validData.name}" created successfully`;
                 },
-                error: (err: any) => {
-                    return err?.message || "Failed to create subtask";
+                error: (err: unknown) => {
+                    return err instanceof Error ? err.message : "Failed to create subtask";
                 },
             });
 
@@ -289,8 +289,8 @@ export function InlineSubTaskForm({
                 assignee: selectedMember ? {
                     id: selectedMember.userId,
                     surname: selectedMember.user.surname,
-                } as any : null,
-                tags: selectedTags.map(t => ({ id: t.id, name: t.name })) as any
+                } as SubTaskType["assignee"] : null,
+                tags: selectedTags.map(t => ({ id: t.id, name: t.name })) as SubTaskType["tags"]
             };
 
             if (onSubTaskUpdated) {

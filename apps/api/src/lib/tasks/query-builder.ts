@@ -670,6 +670,10 @@ export interface WorkspaceFilterOpts {
     extraFields?: string[];
     includeFacets?: boolean;
     limit?: number;
+    startDate?: Date | string;
+    endDate?: Date | string;
+    expandedProjectIds?: string[];
+    isMinimal?: boolean;
 }
 
 /**

@@ -1,13 +1,20 @@
 import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
+import type { WorkspaceTaskType } from "@/types/task";
+
+type RawTaskInput = WorkspaceTaskType & {
+  subTasks?: RawTaskInput[];
+  Task_TaskDependency_A?: { id: string }[];
+  assignee?: WorkspaceTaskType["assignee"] & { projectRole?: string };
+};
 
 /**
  * Transform flat tasks list into Gantt structure
  * Handles Project -> Task -> Subtask hierarchy and date normalization
  */
-export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
+export function transformToGanttTasks(inputTasks: RawTaskInput[]): GanttTask[] {
   // 🚿 Flatten nested tasks if they arrive in Prisma-nested format
-  const taskMap = new Map<string, any>();
-  const flatten = (items: any[]) => {
+  const taskMap = new Map<string, RawTaskInput>();
+  const flatten = (items: RawTaskInput[]) => {
     items.forEach(item => {
       if (!taskMap.has(item.id)) {
         taskMap.set(item.id, item);
@@ -29,7 +36,7 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
     (task) => !task.parentTaskId || !allIds.has(task.parentTaskId),
   );
   // console.log("🟦 [GANTT TRANSFORM] parentTasks (roots) count:", parentTasks.length);
-  const subtasksMap = new Map<string, any[]>();
+  const subtasksMap = new Map<string, RawTaskInput[]>();
 
   allTasks.forEach((task) => {
     if (task.parentTaskId && allIds.has(task.parentTaskId)) {
@@ -162,11 +169,11 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
               }
               : undefined,
             assigneeRole:
-              subtask.projectRole || (subtask.assignee as any)?.projectRole,
+              subtask.assignee?.projectRole,
             createdById: subtask.createdById,
             position: subtask.position || 0,
             dependsOnIds:
-              subtask.Task_TaskDependency_A?.map((d: any) => d.id) || [],
+              subtask.Task_TaskDependency_A?.map((d) => d.id) || [],
             updatedAt: formatLocalDate(
               subtask.updatedAt ? new Date(subtask.updatedAt) : null,
             ),
@@ -234,7 +241,7 @@ export function transformToGanttTasks(inputTasks: any[]): GanttTask[] {
  * Transforms raw tasks into a flat list of GanttSubtask objects
  * This is useful for lazy-loading children of a specific parent
  */
-export function transformToGanttSubtasks(tasks: any[]): GanttSubtask[] {
+export function transformToGanttSubtasks(tasks: RawTaskInput[]): GanttSubtask[] {
   // Helper to format dates consistently (dd MMM yyyy)
   const formatLocalDate = (date: Date | null): string => {
     if (!date) return "";
@@ -321,10 +328,10 @@ export function transformToGanttSubtasks(tasks: any[]): GanttSubtask[] {
           }
           : undefined,
         assigneeRole:
-          subtask.projectRole || (subtask.assignee as any)?.projectRole,
+          subtask.assignee?.projectRole,
         createdById: subtask.createdById,
         position: subtask.position || 0,
-        dependsOnIds: subtask.Task_TaskDependency_A?.map((d: any) => d.id) || [],
+        dependsOnIds: subtask.Task_TaskDependency_A?.map((d) => d.id) || [],
         updatedAt: formatLocalDate(
           subtask.updatedAt ? new Date(subtask.updatedAt) : null,
         ),

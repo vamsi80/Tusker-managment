@@ -9,7 +9,8 @@ import {
   hasActiveFilters,
   getActiveFilters
 } from "@/components/task/shared/types";
-import type { SubTaskType } from "@/types/task";
+import type { SubTaskType, WorkspaceTaskType } from "@/types/task";
+import type { ProjectOption } from "@/types/task-components";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { apiClient } from "@/lib/api-client";
 import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context-object";
@@ -25,6 +26,22 @@ const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
   return taskList.filter((t, i, a) => a.findIndex(c => c.id === t.id) === i);
 };
 
+interface UseTaskTableLogicOptions {
+  initialTasks: TaskWithSubTasks[];
+  workspaceId: string;
+  projectId?: string;
+  level?: "workspace" | "project";
+  projectCounts?: Record<string, number>;
+  projects: ProjectOption[];
+}
+
+type ProjectPaginationEntry = { page: number; nextCursor: string | null | undefined; hasMore: boolean; isLoading: boolean };
+
+type RealtimeTaskSyncEvent = CustomEvent<{
+  action: "TASK_CREATED" | "TASK_UPDATED" | "TASK_DELETED";
+  record: Partial<WorkspaceTaskType & { previousStatus?: string; parentId?: string; subTasks?: SubTaskType[] }>;
+}>;
+
 export function useTaskTableLogic({
   initialTasks,
   workspaceId,
@@ -32,7 +49,7 @@ export function useTaskTableLogic({
   level,
   projectCounts,
   projects,
-}: any) {
+}: UseTaskTableLogicOptions) {
 
   const {
     filters, setFilters,
@@ -48,7 +65,7 @@ export function useTaskTableLogic({
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const fetchingIdsRef = useRef<Set<string>>(new Set());
   const isInitialMountRef = useRef<boolean>(true);
-  const projectPaginationRef = useRef<Record<string, any>>({});
+  const projectPaginationRef = useRef<Record<string, ProjectPaginationEntry>>({});
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
   const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
@@ -71,12 +88,12 @@ export function useTaskTableLogic({
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const [sorts, setSorts] = useState<SortConfig[]>([]);
-  const [sortedTasks, setSortedTasks] = useState<any[]>([]);
+  const [sortedTasks, setSortedTasks] = useState<TaskWithSubTasks[]>([]);
   const [sortedHasMore, setSortedHasMore] = useState(false);
-  const [sortedNextCursor, setSortedNextCursor] = useState<any>(null);
+  const [sortedNextCursor, setSortedNextCursor] = useState<string | null>(null);
   const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
   const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
-  const [projectPagination, setProjectPagination] = useState<Record<string, any>>({});
+  const [projectPagination, setProjectPagination] = useState<Record<string, ProjectPaginationEntry>>({});
   const [activeInlineProjectIdState, setActiveInlineProjectIdState] = useState<string | null>(null);
 
   const clearFilters = useCallback(() => {
@@ -89,7 +106,7 @@ export function useTaskTableLogic({
   const { openSubTaskSheet } = useSubTaskSheetActions();
 
   // Helper: CreatedAt Asc Comparison
-  const compareByCreatedAtAsc = useCallback((a: any, b: any) => {
+  const compareByCreatedAtAsc = useCallback((a: WorkspaceTaskType, b: WorkspaceTaskType) => {
     const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
     const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
     if (aTime !== bTime) return aTime - bTime;
@@ -97,7 +114,7 @@ export function useTaskTableLogic({
   }, []);
 
   // Helper: Field-based Comparison
-  const compareByField = useCallback((a: any, b: any, field: SortField, direction: "asc" | "desc") => {
+  const compareByField = useCallback((a: WorkspaceTaskType, b: WorkspaceTaskType, field: SortField, direction: "asc" | "desc") => {
     const dir = direction === "asc" ? 1 : -1;
     let aVal, bVal;
     switch (field) {
@@ -105,7 +122,7 @@ export function useTaskTableLogic({
         return dir * (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase());
       case "status":
         const statusOrder: Record<string, number> = { TO_DO: 0, IN_PROGRESS: 1, REVIEW: 2, HOLD: 3, COMPLETED: 4, CANCELLED: 5 };
-        return dir * ((statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
+        return dir * ((statusOrder[a.status ?? ""] ?? 99) - (statusOrder[b.status ?? ""] ?? 99));
       case "startDate":
       case "createdAt":
         aVal = a[field] ? new Date(a[field]).getTime() : 0;
@@ -121,7 +138,7 @@ export function useTaskTableLogic({
   }, []);
 
   const compareTasksFallback = useCallback(
-    (a: any, b: any) => {
+    (a: WorkspaceTaskType, b: WorkspaceTaskType) => {
       const aPos = typeof a?.position === "number" ? a.position : Number.MAX_SAFE_INTEGER;
       const bPos = typeof b?.position === "number" ? b.position : Number.MAX_SAFE_INTEGER;
       if (aPos !== bPos) return aPos - bPos;
@@ -131,7 +148,7 @@ export function useTaskTableLogic({
   );
 
   // Order Subtasks
-  const orderSubTasksForParent = useCallback((parentTaskId: string, subTasks: any[], preferredSource?: any[]) => {
+  const orderSubTasksForParent = useCallback((parentTaskId: string, subTasks: SubTaskType[], preferredSource?: SubTaskType[]) => {
     const deduped = subTasks.filter((s, i, a) => a.findIndex(c => c.id === s.id) === i);
     if (sorts.length > 0) {
       return deduped.sort((a, b) => {
@@ -149,7 +166,7 @@ export function useTaskTableLogic({
   const orderRootTasks = useCallback((taskList: TaskWithSubTasks[]) => {
     const deduped = dedupeTasks(taskList);
     const projectRank = new Map();
-    projects.forEach((p: any, i: number) => projectRank.set(p.id, i));
+    projects.forEach((p, i) => projectRank.set(p.id, i));
 
     return deduped.sort((a, b) => {
       const aPR = projectRank.get(a.projectId || "") ?? 9999;
@@ -207,9 +224,9 @@ export function useTaskTableLogic({
   } = useFilteredFetch({
     workspaceId,
     projectId,
-    level,
+    level: level ?? "project",
     viewMode: "list",
-    onResults: useCallback((fetchedTasks: TaskWithSubTasks[], meta: any) => {
+    onResults: useCallback((fetchedTasks: TaskWithSubTasks[], meta: { isSubtaskFirstMode?: boolean }) => {
       const isFirstMode = meta.isSubtaskFirstMode || false;
       setIsSubtaskFirstMode(isFirstMode);
 
@@ -269,8 +286,8 @@ export function useTaskTableLogic({
         const responseData = await res.json();
 
         if (responseData.success && Array.isArray(responseData.data)) {
-          const updates: Record<string, any> = {};
-          responseData.data.forEach((result: any) => {
+          const updates: Record<string, { subTasks: SubTaskType[]; subTasksHasMore: boolean; subTasksNextCursor: string | null }> = {};
+          responseData.data.forEach((result: { parentTaskId: string; subTasks: SubTaskType[]; hasMore: boolean; nextCursor: string | null }) => {
             const taskId = result.parentTaskId;
 
             // 🚀 CRITICAL FIX: Merge server tasks with existing local/optimistic tasks
@@ -374,8 +391,8 @@ export function useTaskTableLogic({
   // 🚀 Real-time synchronization is now handled via local state setters
   // mapped from global RealtimeNotificationListener events.
   useEffect(() => {
-    const handleSync = (event: any) => {
-      const { action, record } = event.detail;
+    const handleSync = (event: Event) => {
+      const { action, record } = (event as RealtimeTaskSyncEvent).detail;
 
       // Ensure record has necessary fields for TaskWithSubTasks
       const parentTaskId = record.parentTaskId || record.parentId;
@@ -424,7 +441,7 @@ export function useTaskTableLogic({
             if (t.id === taskRecord.id) {
               // Only remove from project view if we are SURE it moved projects
               if (level === "project" && projectId && taskRecord.projectId && taskRecord.projectId !== projectId) {
-                return null as any;
+                return null;
               }
               return { ...t, ...taskRecord };
             }
@@ -439,7 +456,7 @@ export function useTaskTableLogic({
             }
 
             return t;
-          }).filter(Boolean));
+          }).filter((t): t is TaskWithSubTasks => t !== null));
           break;
         case "TASK_DELETED":
           setTasks(prev => {
@@ -463,8 +480,8 @@ export function useTaskTableLogic({
       }
     };
 
-    window.addEventListener("realtime-task-sync", handleSync as any);
-    return () => window.removeEventListener("realtime-task-sync", handleSync as any);
+    window.addEventListener("realtime-task-sync", handleSync);
+    return () => window.removeEventListener("realtime-task-sync", handleSync);
   }, [hydrateTasks, orderRootTasks, level, projectId, orderSubTasksForParent]);
 
   // Auto-expand rows when filters are active OR when isAutoExpanded is toggled.
@@ -509,7 +526,7 @@ export function useTaskTableLogic({
     if (currentPagination.isLoading || !currentPagination.hasMore) return;
 
     projectPaginationRef.current = { ...projectPaginationRef.current, [targetProjectId]: { ...currentPagination, isLoading: true } };
-    setProjectPagination((prev: Record<string, any>) => ({ ...prev, [targetProjectId]: { ...currentPagination, isLoading: true } }));
+    setProjectPagination((prev) => ({ ...prev, [targetProjectId]: { ...currentPagination, isLoading: true } }));
 
     const params = new URLSearchParams({ limit: "50" });
     if (currentPagination.nextCursor) params.set("cursor", JSON.stringify(currentPagination.nextCursor));
@@ -701,10 +718,10 @@ export function useTaskTableLogic({
 
   // 🚀 INSTANT OPEN: Use partial data from the list immediately, fetch full data in background
   const handleSubTaskClick = useCallback((subTask: SubTaskType) => {
-    const slug = (subTask as any).taskSlug || subTask.id;
+    const slug = subTask.taskSlug || subTask.id;
 
     // 1. IMMEDIATELY open the sheet with whatever data we have (shows skeleton for missing fields)
-    openSubTaskSheet(subTask as any);
+    openSubTaskSheet(subTask);
 
     // 2. Fetch the full task data in the background to hydrate the sheet
     if (workspaceId && slug) {
@@ -716,7 +733,7 @@ export function useTaskTableLogic({
     }
   }, [openSubTaskSheet, workspaceId]);
 
-  const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
+  const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: Partial<SubTaskType>) => {
     setTasks(prev => prev.map(t => {
       if (t.subTasks) {
         return {
@@ -764,7 +781,7 @@ export function useTaskTableLogic({
       manuallyCollapsedRef.current.clear();
       setIsAutoExpanded(true);
       // Expand all projects
-      setExpandedProjects(projects.reduce((a: any, p: any) => ({ ...a, [p.id]: true }), {}));
+      setExpandedProjects(projects.reduce<Record<string, boolean>>((a, p) => ({ ...a, [p.id]: true }), {}));
 
       const newExpanded: Record<string, boolean> = {};
       const idsToFetch: string[] = [];
@@ -787,7 +804,7 @@ export function useTaskTableLogic({
 
       // Load tasks for projects that are visible (have a count) but have no tasks loaded yet
       const loadedProjectIds = new Set(tasks.map((t) => t.projectId).filter(Boolean));
-      projects.forEach((p: any) => {
+      projects.forEach((p) => {
         const hasCount = (projectCounts?.[p.id] ?? 0) > 0;
         const hasLoadedTasks = loadedProjectIds.has(p.id);
         if (hasCount && !hasLoadedTasks) {
@@ -799,7 +816,7 @@ export function useTaskTableLogic({
       manuallyCollapsedRef.current.clear();
       setIsAutoExpanded(false);
 
-      // If filters are active, we need to explicitly set all current parent tasks and projects to false 
+      // If filters are active, we need to explicitly set all current parent tasks and projects to false
       // because the UI defaults to 'true' if the ID is missing from the state.
       if (isSubtaskFirstMode) {
         const collapsedState: Record<string, boolean> = {};
@@ -808,7 +825,7 @@ export function useTaskTableLogic({
         tasks.forEach(t => {
           if (t.parentTaskId) collapsedState[t.parentTaskId] = false;
         });
-        projects.forEach((p: any) => {
+        projects.forEach((p) => {
           collapsedProjects[p.id] = false;
         });
 

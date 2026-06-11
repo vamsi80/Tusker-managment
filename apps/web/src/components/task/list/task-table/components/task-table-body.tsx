@@ -12,6 +12,8 @@ import { EmptyState } from "../../table/empty-state";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import { TaskRow } from "../../task-row";
 import { SubTaskRow } from "../../subtask-row";
+import type { SubTaskType, WorkspaceTaskType } from "@/types/task";
+import type { ProjectOption } from "@/components/task/shared/types";
 import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
 import { TableCell, TableRow } from "@/components/ui/table";
 
@@ -19,7 +21,7 @@ interface TaskTableBodyProps {
   mode: "sorted" | "hierarchy";
   tasks: TaskWithSubTasks[];
   groupedTasks: Record<string, TaskWithSubTasks[]> | null;
-  orderedWorkspaceProjects: any[];
+  orderedWorkspaceProjects: ProjectOption[];
   currentProjectCounts?: Record<string, number>;
   projectTaskCounts: Record<string, number>;
   expandedProjects: Record<string, boolean>;
@@ -32,25 +34,25 @@ interface TaskTableBodyProps {
   loadingSubTasks: Record<string, boolean>;
   loadingMoreSubTasks: Record<string, boolean>;
   loadMoreSubTasks: (id: string) => void;
-  handleSubTaskClick: (subTask: any) => void;
-  handleSubTaskUpdated: (subTaskId: string, updatedData: any) => void;
+  handleSubTaskClick: (subTask: SubTaskType) => void;
+  handleSubTaskUpdated: (subTaskId: string, updatedData: Partial<SubTaskType>) => void;
   handleRequestSubtasks: (taskId: string) => void;
-  getCachedSubTasks: (taskId: string) => any;
-  projectPagination: Record<string, any>;
+  getCachedSubTasks: (taskId: string) => WorkspaceTaskType | undefined;
+  projectPagination: Record<string, { hasMore: boolean; isLoading: boolean; nextCursor?: string | null }>;
   loadProjectTasks: (id: string) => void;
   filtersActive: boolean;
   activeInlineProjectId: string | null;
   setActiveInlineProjectId: (id: string | null) => void;
   ensureFilteredProjectLoad: (id: string) => void;
   isSortedViewLoading: boolean;
-  sortedTasks: any[];
+  sortedTasks: WorkspaceTaskType[];
   sortedHasMore: boolean;
   isLoadingMoreSorted: boolean;
   loadMoreSorted: () => void;
   isLoadingFilters: boolean;
   setTasks: React.Dispatch<React.SetStateAction<TaskWithSubTasks[]>>;
   isSubtaskFirstMode?: boolean;
-  filterPagination: { hasMore: boolean; nextCursor: any; isLoading: boolean };
+  filterPagination: { hasMore: boolean; nextCursor: string | null; isLoading: boolean };
   loadMoreFiltered: () => void;
 }
 
@@ -180,7 +182,7 @@ export function TaskTableBody({
       ) : isSubtaskFirstMode ? (
         (() => {
           // 1. Double grouping: Project ID -> Parent Task ID
-          const projectGroups: Record<string, Record<string, { parentTask: any; subtasks: TaskWithSubTasks[] }>> = {};
+          const projectGroups: Record<string, Record<string, { parentTask: TaskWithSubTasks; subtasks: TaskWithSubTasks[] }>> = {};
 
           tasks.forEach((t) => {
             const prId = t.projectId || "unknown";
@@ -192,8 +194,8 @@ export function TaskTableBody({
                 // Construct a minimal parent task object from embedded parentTask info
                 parentTask: {
                   id: t.parentTaskId || paId,
-                  name: (t as any).parentTask?.name || "Unknown Task",
-                  taskSlug: (t as any).parentTask?.taskSlug || "",
+                  name: t.parentTask?.name || "Unknown Task",
+                  taskSlug: t.parentTask?.taskSlug || "",
                   isParent: true,
                   subtaskCount: 0,
                   completedSubtaskCount: 0,
@@ -244,10 +246,10 @@ export function TaskTableBody({
                     {expanded[paId] !== false && group.subtasks.map((subTask) => (
                       <SubTaskRow
                         key={subTask.id}
-                        subTask={subTask as any}
+                        subTask={subTask}
                         columnVisibility={columnVisibility}
                         onClick={handleSubTaskClick}
-                        members={members as any}
+                        members={members}
                         projectId={subTask.projectId || projectId}
                         parentTaskId={subTask.parentTaskId || paId}
                         tags={tags}

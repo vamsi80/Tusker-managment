@@ -670,7 +670,7 @@ tasks.get("/:parentId/expand", async (c) => {
     }
   };
 
-  const filters: Partial<WorkspaceFilterOpts> = {
+  const filters: any = {
     status: parseParam("status", "s"),
     assigneeId: parseParam("assigneeId", "a"),
     tagId: parseParam("tagId", "t"),
@@ -734,7 +734,7 @@ tasks.get("/expansion/batch", async (c) => {
     }
   };
 
-  const filters: Partial<WorkspaceFilterOpts> = {
+  const filters: any = {
     status: parseParam("status", "s"),
     assigneeId: parseParam("assigneeId", "a"),
     tagId: parseParam("tagId", "t"),

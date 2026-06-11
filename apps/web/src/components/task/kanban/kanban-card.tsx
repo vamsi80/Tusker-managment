@@ -23,6 +23,7 @@ import type { KanbanSubTaskType } from "@/types/task";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { getColorFromString } from "@tusker/shared/colors";
 import { UserPermissionsType } from "@/types/workspace";
+import type { ProjectMembersType } from "@/types/project";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,17 +48,34 @@ import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@tusker/shared/colors";
 
 
+type ProjectManagerEntry = {
+  id?: string;
+  name?: string | null;
+  surname?: string | null;
+  image?: string | null;
+  userId?: string;
+  user?: { id?: string; surname?: string | null; name?: string | null; image?: string | null };
+};
+
+type KanbanCardPermissions = UserPermissionsType & {
+  managedProjectIds?: string[];
+  coordinatorProjectIds?: string[];
+  leadProjectIds?: string[];
+};
+
+type AssigneeWithMember = { id?: string; surname?: string | null; workspaceMember?: { user?: { surname?: string | null } } } | null | undefined;
+
 interface KanbanCardProps {
   subTask: KanbanSubTaskType;
   columnColor: string;
   isDragging?: boolean;
   onSubTaskClick?: (subTask: KanbanSubTaskType) => void;
-  projectManagers?: Record<string, any>;
+  projectManagers?: Record<string, ProjectManagerEntry[]>;
   isUpdating?: boolean;
-  permissions?: UserPermissionsType;
+  permissions?: KanbanCardPermissions;
   userId?: string;
-  onUpdateInPlace?: (subTaskId: string, data: any) => void;
-  projectMembers?: any[];
+  onUpdateInPlace?: (subTaskId: string, data: Partial<KanbanSubTaskType>) => void;
+  projectMembers?: ProjectMembersType;
   projects?: ProjectOption[];
   projectMap?: Record<string, ProjectOption>;
 
@@ -102,7 +120,7 @@ export const KanbanCard = React.memo(function KanbanCard({
   };
 
   const assigneeUser = subTask.assignee;
-  const activityCount = (subTask as any)._count?.activities || 0;
+  const activityCount = subTask._count?.activities || 0;
 
   // Resolve project metadata: Priority to explicit object, then lookup from map
   const project = subTask.project || (subTask.projectId && projectMap ? projectMap[subTask.projectId] : null);
@@ -152,14 +170,13 @@ export const KanbanCard = React.memo(function KanbanCard({
   const canEdit = () => {
     const creatorId =
       subTask.createdBy?.id ||
-      (subTask as any).createdById;
+      subTask.createdById;
 
     const subTaskAssigneeUserId =
       subTask.assignee?.id ||
-      (subTask.assignee as any)?.workspaceMember?.user?.id ||
-      (subTask as any).assigneeUserId;
+      (subTask.assignee as AssigneeWithMember)?.workspaceMember?.user?.id;
 
-    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+    const subTaskAssigneeMemberId = subTask.assigneeId;
 
     const currentUserId = permissions?.userId || userId;
     const currentProjectMemberId = permissions?.projectMember?.id;
@@ -180,18 +197,17 @@ export const KanbanCard = React.memo(function KanbanCard({
     if (permissions) {
       if (isUserWorkspaceAdmin) return true;
 
-      const workspacePerms = permissions as any;
       if (
-        workspacePerms.managedProjectIds ||
-        workspacePerms.coordinatorProjectIds ||
-        workspacePerms.leadProjectIds
+        permissions.managedProjectIds ||
+        permissions.coordinatorProjectIds ||
+        permissions.leadProjectIds
       ) {
         const projectIdToCheck = subTask.projectId || project?.id;
         if (!projectIdToCheck) return false;
 
-        if (workspacePerms.managedProjectIds?.includes(projectIdToCheck)) return true;
-        if (workspacePerms.coordinatorProjectIds?.includes(projectIdToCheck)) return true;
-        if (workspacePerms.leadProjectIds?.includes(projectIdToCheck) && creatorId === userId) return true;
+        if (permissions.managedProjectIds?.includes(projectIdToCheck)) return true;
+        if (permissions.coordinatorProjectIds?.includes(projectIdToCheck)) return true;
+        if (permissions.leadProjectIds?.includes(projectIdToCheck) && creatorId === userId) return true;
 
         return false;
       }
@@ -222,7 +238,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       ...subTask,
       project: subTask.project || project
     };
-    onSubTaskClick?.(subTaskWithMetadata as any);
+    onSubTaskClick?.(subTaskWithMetadata as KanbanSubTaskType);
   };
 
   return (
@@ -392,7 +408,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                         onSelect={(e) => e.preventDefault()}
                       >
                         <EditSubTaskForm
-                          subTask={subTask as any}
+                          subTask={subTask}
                           projectId={subTask.projectId}
                           parentTaskId={subTask.parentTaskId!}
                           members={projectMembers}
@@ -412,7 +428,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                         onSelect={(e) => e.preventDefault()}
                       >
                         <DeleteSubTaskForm
-                          subTask={subTask as any}
+                          subTask={subTask}
                           onSubTaskDeleted={() => {
                             // In Kanban, board state usually handles this via cache invalidation
                             // but we might want a local filter if we're feeling optimistic
@@ -510,19 +526,19 @@ export const KanbanCard = React.memo(function KanbanCard({
                       className="size-6 cursor-pointer border-2 border-background"
                     >
                       <AvatarFallback className="text-[10px]">
-                        {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
+                        {((assigneeUser as AssigneeWithMember)?.surname || (assigneeUser as AssigneeWithMember)?.workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                       </AvatarFallback>
                     </Avatar>
                   </TooltipTrigger>
                   <TooltipContent side="left">
-                    <p>Assignee: {assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname || "Unassigned"}</p>
+                    <p>Assignee: {(assigneeUser as AssigneeWithMember)?.surname || (assigneeUser as AssigneeWithMember)?.workspaceMember?.user?.surname || "Unassigned"}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : (
               <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <InlineAssigneePicker
-                  subTask={subTask as any}
+                  subTask={subTask}
                   members={projectMembers}
                   allowedUserIds={projects?.find(p => p.id === subTask.projectId)?.memberIds}
                   projectId={subTask.projectId}

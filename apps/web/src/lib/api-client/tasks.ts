@@ -1,6 +1,16 @@
-﻿import { apiFetch } from "./fetch-wrapper";
+import { apiFetch } from "./fetch-wrapper";
 import { TaskSchemaType, SubTaskSchemaType } from "@tusker/shared/schemas";
 import { type ApiResponse } from "./types";
+import type { WorkspaceTaskType } from "@/types/task";
+import type { TaskFilters } from "@/types/task-filters";
+
+type DependencyResponse = ApiResponse;
+
+interface BulkUploadData {
+  created: number;
+  failed: number;
+  errors?: string[];
+}
 
 /**
  * Tasks API Client
@@ -10,8 +20,8 @@ export const tasksClient = {
   /**
    * Create a base task
    */
-  createTask: async (values: TaskSchemaType): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>("/tasks", {
+  createTask: async (values: TaskSchemaType): Promise<ApiResponse<WorkspaceTaskType>> => {
+    const response = await apiFetch<{ success: boolean; data: WorkspaceTaskType }>("/tasks", {
       method: "POST",
       body: JSON.stringify(values),
     });
@@ -28,8 +38,8 @@ export const tasksClient = {
   /**
    * Create a subtask
    */
-  createSubTask: async (values: SubTaskSchemaType): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+  createSubTask: async (values: SubTaskSchemaType): Promise<ApiResponse<WorkspaceTaskType>> => {
+    const response = await apiFetch<{ success: boolean; data: WorkspaceTaskType }>(
       "/tasks/subtask",
       {
         method: "POST",
@@ -54,8 +64,8 @@ export const tasksClient = {
     workspaceId: string,
     projectId: string,
     data: Partial<SubTaskSchemaType>,
-  ): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+  ): Promise<ApiResponse<WorkspaceTaskType>> => {
+    const response = await apiFetch<{ success: boolean; data: WorkspaceTaskType }>(
       `/tasks/${taskId}`,
       {
         method: "PATCH",
@@ -103,16 +113,14 @@ export const tasksClient = {
     projectId: string,
     assigneeUserId: string | null,
     explanation?: string,
-  ): Promise<any> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+  ): Promise<{ success: boolean; data?: WorkspaceTaskType }> => {
+    return apiFetch<{ success: boolean; data?: WorkspaceTaskType }>(
       `/tasks/${taskId}/assignee`,
       {
         method: "PATCH",
         body: JSON.stringify({ workspaceId, projectId, assigneeUserId, explanation }),
       },
     );
-
-    return response;
   },
 
   /**
@@ -122,14 +130,18 @@ export const tasksClient = {
     parentId: string,
     workspaceId: string,
     projectId: string,
-    filters: any = {},
-  ): Promise<any> => {
+    filters: Partial<TaskFilters> = {},
+  ): Promise<{ success: boolean; data?: WorkspaceTaskType[] }> => {
     const query = new URLSearchParams({
       w: workspaceId,
       p: projectId,
-      ...filters,
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+      ),
     });
-    return apiFetch<any>(`/tasks/${parentId}/expand?${query.toString()}`);
+    return apiFetch<{ success: boolean; data?: WorkspaceTaskType[] }>(
+      `/tasks/${parentId}/expand?${query.toString()}`
+    );
   },
 
   /**
@@ -141,9 +153,9 @@ export const tasksClient = {
     projectId: string,
     newStatus: string,
     comment?: string,
-    attachmentData?: any,
-  ): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+    attachmentData?: { url: string; name?: string } | null,
+  ): Promise<ApiResponse<WorkspaceTaskType>> => {
+    const response = await apiFetch<{ success: boolean; data: WorkspaceTaskType }>(
       `/tasks/${taskId}/status`,
       {
         method: "PATCH",
@@ -196,8 +208,8 @@ export const tasksClient = {
     projectId: string,
     startDate: string | Date,
     dueDate: string | Date,
-  ): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+  ): Promise<ApiResponse<WorkspaceTaskType>> => {
+    const response = await apiFetch<{ success: boolean; data: WorkspaceTaskType }>(
       `/tasks/${taskId}/dates`,
       {
         method: "PATCH",
@@ -225,8 +237,8 @@ export const tasksClient = {
       assigneeUserId?: string | null;
       tagIds?: string[];
     },
-  ): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+  ): Promise<ApiResponse<WorkspaceTaskType>> => {
+    const response = await apiFetch<{ success: boolean; data: WorkspaceTaskType }>(
       `/tasks/${taskId}/fields`,
       {
         method: "PATCH",
@@ -273,11 +285,12 @@ export const tasksClient = {
     workspaceId: string,
     projectId: string,
     dependsOnIds: string[],
-  ): Promise<any> => {
-    return apiFetch<any>(`/tasks/${taskId}/dependencies`, {
+  ): Promise<DependencyResponse> => {
+    const response = await apiFetch<{ success: boolean; message?: string }>(`/tasks/${taskId}/dependencies`, {
       method: "POST",
       body: JSON.stringify({ workspaceId, projectId, dependsOnIds }),
     });
+    return { status: response.success ? "success" : "error", message: response.message ?? "" };
   },
 
   /**
@@ -288,21 +301,25 @@ export const tasksClient = {
     workspaceId: string,
     projectId: string,
     dependsOnId: string,
-  ): Promise<any> => {
-    return apiFetch<any>(`/tasks/${taskId}/dependencies/${dependsOnId}`, {
+  ): Promise<DependencyResponse> => {
+    const response = await apiFetch<{ success: boolean; message?: string }>(`/tasks/${taskId}/dependencies/${dependsOnId}`, {
       method: "DELETE",
       body: JSON.stringify({ workspaceId, projectId }),
     });
+    return { status: response.success ? "success" : "error", message: response.message ?? "" };
   },
 
   /**
    * Bulk upload tasks and subtasks
    */
-  bulkUpload: async (projectId: string, tasks: any[]): Promise<ApiResponse> => {
+  bulkUpload: async (
+    projectId: string,
+    tasks: Array<Record<string, unknown>>,
+  ): Promise<ApiResponse<BulkUploadData>> => {
     const response = await apiFetch<{
       success: boolean;
       message: string;
-      data: any;
+      data: BulkUploadData;
     }>("/tasks/bulk", {
       method: "POST",
       body: JSON.stringify({ projectId, tasks }),
@@ -318,9 +335,12 @@ export const tasksClient = {
   /**
    * Get a task by its slug or ID
    */
-  getTaskBySlug: async (workspaceId: string, slug: string): Promise<any> => {
-    return apiFetch<any>(`/tasks/slug/${slug}?w=${workspaceId}`);
+  getTaskBySlug: async (
+    workspaceId: string,
+    slug: string,
+  ): Promise<{ success: boolean; data?: WorkspaceTaskType }> => {
+    return apiFetch<{ success: boolean; data?: WorkspaceTaskType }>(
+      `/tasks/slug/${slug}?w=${workspaceId}`
+    );
   },
 };
-
-

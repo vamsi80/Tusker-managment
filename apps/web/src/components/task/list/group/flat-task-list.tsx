@@ -9,6 +9,9 @@ import { InlineTaskForm } from "../inline-task-form";
 import type { TaskWithSubTasks } from "../../shared/types";
 import type { ColumnVisibility } from "../../shared/column-visibility";
 import type { UserPermissionsType } from "@/types/workspace";
+import type { SubTaskType } from "@/types/task";
+import type { ProjectMembersType } from "@/types/project";
+import type { ProjectOption, TasksChangeUpdater } from "@/types/task-components";
 
 
 interface FlatTaskListProps {
@@ -24,23 +27,23 @@ interface FlatTaskListProps {
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
     coordinatorProjectIds?: string[];
-    projects?: any[];
+    projects?: ProjectOption[];
     onRequestSubtasks: (taskId: string) => void;
-    getCachedSubTasks: (taskId: string) => any;
-    tags: any[];
-    members: any[];
+    getCachedSubTasks: (taskId: string) => TaskWithSubTasks | undefined;
+    tags: Array<{ id: string; name: string }>;
+    members: ProjectMembersType;
     workspaceId: string;
     projectId: string; // the default or active context project
     canCreateSubTask: boolean;
     loadingSubTasks: Record<string, boolean>;
     loadingMoreSubTasks: Record<string, boolean>;
     onLoadMoreSubTasks: (taskId: string) => void;
-    handleSubTaskClick: (subTask: any) => void;
+    handleSubTaskClick: (subTask: SubTaskType) => void;
     level: "workspace" | "project";
     filtersActive: boolean;
     activeInlineProjectId: string | null;
     setActiveInlineProjectId: (id: string | null) => void;
-    onTasksChange?: (update: any) => void;
+    onTasksChange?: (update: TasksChangeUpdater) => void;
     scrollContainerRef: React.RefObject<HTMLDivElement | null>;
     isSubTaskRow?: boolean;
 }
@@ -80,46 +83,46 @@ export function FlatTaskList({
 }: FlatTaskListProps) {
     const tasks = initialTasks || [];
 
-    const handleTaskUpdated = useCallback((taskId: string, updatedTask: any) => {
-        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, ...updatedTask } : t));
+    const handleTaskUpdated = useCallback((taskId: string, updatedTask: Partial<TaskWithSubTasks>) => {
+        if (onTasksChange) onTasksChange((prev) => prev.map((t) => t.id === taskId ? { ...t, ...updatedTask } : t));
     }, [onTasksChange]);
 
     const handleTaskDeleted = useCallback((taskId: string) => {
-        if (onTasksChange) onTasksChange((prev: any) => prev.filter((t: any) => t.id !== taskId));
+        if (onTasksChange) onTasksChange((prev) => prev.filter((t) => t.id !== taskId));
     }, [onTasksChange]);
 
     const handleTaskCreated = useCallback((task: TaskWithSubTasks) => {
-        if (onTasksChange) onTasksChange((prev: any) => {
-            if (prev.some((t: any) => t.id === task.id)) return prev;
+        if (onTasksChange) onTasksChange((prev) => {
+            if (prev.some((t) => t.id === task.id)) return prev;
             return [task, ...prev];
         });
         setActiveInlineProjectId(null);
     }, [setActiveInlineProjectId, onTasksChange]);
 
-    const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
-        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => ({
+    const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: Partial<SubTaskType>) => {
+        if (onTasksChange) onTasksChange((prev) => prev.map((t) => ({
             ...t,
-            subTasks: t.subTasks ? t.subTasks.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
+            subTasks: t.subTasks ? t.subTasks.map((st) => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
         })));
     }, [onTasksChange]);
 
     const handleSubTaskDeleted = useCallback((subTaskId: string, parentId: string) => {
-        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === parentId ? { ...t, subTasks: (t.subTasks || []).filter((st: any) => st.id !== subTaskId) } : t));
+        if (onTasksChange) onTasksChange((prev) => prev.map((t) => t.id === parentId ? { ...t, subTasks: (t.subTasks || []).filter((st) => st.id !== subTaskId) } : t));
     }, [onTasksChange]);
 
-    const handleSubTaskCreated = useCallback((subTask: any, parentId: string) => {
-        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => {
+    const handleSubTaskCreated = useCallback((subTask: SubTaskType, parentId: string) => {
+        if (onTasksChange) onTasksChange((prev) => prev.map((t) => {
             if (t.id === parentId) {
                 const currentSubTasks = t.subTasks || [];
-                if (currentSubTasks.some((st: any) => st.id === subTask.id)) return t;
+                if (currentSubTasks.some((st) => st.id === subTask.id)) return t;
                 return { ...t, subTasks: [...currentSubTasks, subTask] };
             }
             return t;
         }));
     }, [onTasksChange]);
 
-    const handleSubTasksReordered = useCallback((parentId: string, newSubTasks: any[]) => {
-        if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => t.id === parentId ? { ...t, subTasks: newSubTasks } : t));
+    const handleSubTasksReordered = useCallback((parentId: string, newSubTasks: SubTaskType[]) => {
+        if (onTasksChange) onTasksChange((prev) => prev.map((t) => t.id === parentId ? { ...t, subTasks: newSubTasks } : t));
     }, [onTasksChange]);
 
     return (

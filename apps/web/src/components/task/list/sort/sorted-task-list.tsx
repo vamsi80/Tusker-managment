@@ -7,16 +7,17 @@ import { SortedTaskRow } from "./sorted-task-row";
 import { SingleTableSkeleton } from "../table/table-skeleton";
 import { EmptyState } from "../table/empty-state";
 import { ColumnVisibility } from "../../shared/column-visibility";
+import type { WorkspaceTaskType } from "@/types/task";
 
 interface SortedTaskListProps {
-    sortedTasks: any[];
+    sortedTasks: WorkspaceTaskType[];
     isLoading: boolean;
     hasMore: boolean;
     isLoadingMore: boolean;
     columnVisibility: ColumnVisibility;
     visibleColumnsCount: number;
     onLoadMore: () => void;
-    handleSubTaskClick: (task: any) => void;
+    handleSubTaskClick: (task: WorkspaceTaskType) => void;
 }
 
 export function SortedTaskList({
@@ -72,7 +73,7 @@ export function SortedTaskList({
 
     return (
         <>
-            {localTasks.map((task: any) => (
+            {localTasks.map((task) => (
                 <SortedTaskRow
                     key={task.id}
                     task={task}
