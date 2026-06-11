@@ -182,7 +182,7 @@ procurementIndents.get("/line-items", async (c) => {
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
   const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"];
-  if (!perms || !allowedRoles.includes(perms.workspaceRole)) {
+  if (!perms || !allowedRoles.includes(perms.workspaceRole!)) {
     throw AppError.Forbidden("Insufficient permissions to view workspace procurement line items");
   }
 

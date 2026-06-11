@@ -54,7 +54,7 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
     } = options;
 
     try {
-        let metadata: Prisma.InputJsonValue = null;
+        let metadata: Prisma.InputJsonValue | null = null;
         if (oldData && newData) {
             metadata = calculateDelta(oldData, newData) as Prisma.InputJsonValue;
         } else if (newData) {
@@ -69,7 +69,7 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
                 action,
                 entityType,
                 entityId,
-                metadata,
+                metadata: metadata as Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue,
                 ipAddress,
                 userAgent,
             },
@@ -97,7 +97,7 @@ export async function broadcastActivity(
 
     if (!workspaceId) return;
 
-    let metadata: Prisma.InputJsonValue = null;
+    let metadata: Prisma.InputJsonValue | null = null;
     if (oldData && newData) {
         metadata = calculateDelta(oldData, newData) as Prisma.InputJsonValue;
     } else if (newData) {
@@ -141,7 +141,7 @@ export async function broadcastActivity(
             const delta = oldData && newData ? calculateDelta(oldData, newData) : null;
             if (delta?.status) {
                 const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
-                actionLabel = `updated status of ${namePart} from ${formatStatus(delta.status.from)} to ${formatStatus(delta.status.to)}`;
+                actionLabel = `updated status of ${namePart} from ${formatStatus(String(delta.status.from))} to ${formatStatus(String(delta.status.to))}`;
             } else if (delta?.name) {
                 actionLabel = `renamed "${oldData?.name || "task"}" to "${newData?.name || ""}"`;
             } else {
@@ -177,7 +177,7 @@ export async function broadcastActivity(
                 metadata: (metadata || {}) as Prisma.InputJsonValue,
                 updatedAt: new Date(),
             }));
-            (db.notification as unknown as { createMany: (args: { data: typeof notifications }) => Promise<unknown> }).createMany({ data: notifications })
+            (db.notification as unknown as { createMany: (args: { data: unknown[] }) => Promise<unknown> }).createMany({ data: notifications })
                 .catch((err: unknown) => console.error("[AUDIT] Notification error:", err));
         }
 
@@ -200,8 +200,8 @@ export async function broadcastActivity(
     }
 }
 
-function calculateDelta(oldObj: Record<string, unknown>, newObj: Record<string, unknown>) {
-    const delta: Record<string, unknown> = {};
+function calculateDelta(oldObj: Record<string, unknown>, newObj: Record<string, unknown>): Record<string, { from: unknown; to: unknown }> | null {
+    const delta: Record<string, { from: unknown; to: unknown }> = {};
     Object.keys(newObj).forEach(key => {
         if (JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key])) {
             delta[key] = { from: oldObj[key], to: newObj[key] };

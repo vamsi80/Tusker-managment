@@ -212,7 +212,9 @@ export class CommentMapper {
           id: dn.id,
           taskId: dn.entityId || "",
           taskName: "Direct Message",
+          taskSlug: null,
           projectName: "Messages",
+          parentTaskName: null,
           type: "DM_MESSAGE",
           conversationId: dn.entityId,
           latestComment: {

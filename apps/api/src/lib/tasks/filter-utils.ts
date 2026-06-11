@@ -188,23 +188,23 @@ export function buildSubTaskConditions(filters: TaskFilters): Prisma.TaskWhereIn
     // ============================================================
     if (filters.search && filters.search.trim().length > 0) {
         const searchTerm = filters.search.trim();
-        const searchOR = [
-            { name: { contains: searchTerm, mode: 'insensitive' } },
-            { description: { contains: searchTerm, mode: 'insensitive' } },
-            { taskSlug: { contains: searchTerm, mode: 'insensitive' } },
+        const searchOR: Prisma.TaskWhereInput[] = [
+            { name: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } },
+            { description: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } },
+            { taskSlug: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } },
         ];
 
         if (conditions.OR) {
             // Merge existing OR with search OR using AND
             const existingOR = conditions.OR;
             delete conditions.OR;
-            conditions.AND = [
-                ...(conditions.AND || []),
-                { OR: existingOR },
-                { OR: searchOR }
-            ];
+            const existingAND = conditions.AND
+                ? (Array.isArray(conditions.AND) ? conditions.AND : [conditions.AND])
+                : [];
+            conditions.AND = [...existingAND, { OR: existingOR }, { OR: searchOR }];
         } else if (conditions.AND) {
-            conditions.AND.push({ OR: searchOR });
+            const andArray = Array.isArray(conditions.AND) ? conditions.AND : [conditions.AND];
+            conditions.AND = [...andArray, { OR: searchOR }];
         } else {
             conditions.OR = searchOR;
         }

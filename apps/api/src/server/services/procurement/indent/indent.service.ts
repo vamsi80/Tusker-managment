@@ -67,7 +67,7 @@ export class IndentService {
     if (!assignee) throw AppError.NotFound("Assignee not found in workspace");
 
     return IndentRepository.updateStatus(indentId, "ASSIGNED", {
-      assignedToId: assigneeId,
+      assignedTo: { connect: { id: assigneeId } },
     });
   }
 
@@ -86,7 +86,7 @@ export class IndentService {
 
     return IndentRepository.updateStatus(indentId, "APPROVED", {
       finalApprovedAt: new Date(),
-      finalApprovedById: member.id,
+      finalApprovedBy: { connect: { id: member.id } },
     });
   }
 

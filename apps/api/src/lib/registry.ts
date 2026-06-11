@@ -4,6 +4,7 @@ import { createAuth } from "./auth";
 import { createEmailClient } from "./email";
 import type { Env } from "../types";
 import type { Resend } from "resend";
+import type { Pool } from "pg";
 
 /**
  * WHY per-request DB/auth (not singletons):
@@ -58,7 +59,6 @@ export async function runRequestContext<T>(env: Env, callback: () => Promise<T>)
         } finally {
             // End the pool so pg-cloudflare releases the TCP connection cleanly.
             // PgBouncer recycles it immediately for the next client.
-            const { Pool } = await import("pg");
             const pool = (db as DbClient & { $pool: Pool }).$pool;
             if (pool) {
                 pool.end().catch(() => {});

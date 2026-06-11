@@ -378,7 +378,7 @@ export class AttendanceService {
                     finalMemberIdFilter = "UNAUTHORIZED_ACCESS";
                 }
 
-                const where: Prisma.AttendanceWhereInput = {
+                const where: Prisma.attendanceWhereInput = {
                     workspaceId,
                     ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : {}),
                     ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
@@ -428,7 +428,7 @@ export class AttendanceService {
                         }
                     });
 
-                    type SyntheticAttendancePayload = Partial<Prisma.AttendanceGetPayload<{ include: { WorkspaceMember: { include: { user: { select: { surname: true, email: true } } } } } }>>;
+                    type SyntheticAttendancePayload = Partial<Prisma.attendanceGetPayload<{ include: { WorkspaceMember: { include: { user: { select: { surname: true, email: true } } } } } }>>;
                     const syntheticRecords: SyntheticAttendancePayload[] = [];
                     const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
 
@@ -458,7 +458,7 @@ export class AttendanceService {
                         }
                     }
 
-                    const combined = [...records, ...syntheticRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    const combined = [...records, ...syntheticRecords].sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
                     return { data: combined, totalCount: totalCount + syntheticRecords.length };
                 }
 
@@ -469,7 +469,7 @@ export class AttendanceService {
     /**
      * Update an attendance record (Strict Admin/Owner use)
      */
-    static async updateAttendance(id: string, data: Prisma.AttendanceUpdateInput, actorId: string, workspaceId: string) {
+    static async updateAttendance(id: string, data: Prisma.attendanceUpdateInput, actorId: string, workspaceId: string) {
         const actor = await getDb().workspaceMember.findFirst({
             where: { workspaceId, userId: actorId },
             select: { workspaceRole: true }
@@ -482,9 +482,13 @@ export class AttendanceService {
         const existing = await getDb().attendance.findUnique({ where: { id } });
         if (!existing) throw AppError.NotFound("Attendance record not found.");
 
-        const updateData: Prisma.AttendanceUpdateInput = { ...data };
-        const checkIn = data.checkIn ? new Date(data.checkIn) : existing.checkIn;
-        const lateThreshold = data.lateThreshold || existing.lateThreshold || "09:40";
+        const updateData: Prisma.attendanceUpdateInput = { ...data };
+        const rawCheckIn = data.checkIn;
+        const checkIn = rawCheckIn && (typeof rawCheckIn === 'string' || rawCheckIn instanceof Date)
+            ? new Date(rawCheckIn)
+            : existing.checkIn;
+        const rawLate = data.lateThreshold;
+        const lateThreshold = (typeof rawLate === 'string' ? rawLate : null) || existing.lateThreshold || "09:40";
 
         if (checkIn && lateThreshold) {
             const [lateH, lateM] = lateThreshold.split(":").map(Number);
@@ -493,8 +497,12 @@ export class AttendanceService {
                 ? AttendanceStatus.LATE : AttendanceStatus.PRESENT;
         }
 
-        const checkOut = data.checkOut ? new Date(data.checkOut) : existing.checkOut;
-        const overtimeThreshold = data.overtimeThreshold || existing.overtimeThreshold || "19:00";
+        const rawCheckOut = data.checkOut;
+        const checkOut = rawCheckOut && (typeof rawCheckOut === 'string' || rawCheckOut instanceof Date)
+            ? new Date(rawCheckOut)
+            : existing.checkOut;
+        const rawOvertime = data.overtimeThreshold;
+        const overtimeThreshold = (typeof rawOvertime === 'string' ? rawOvertime : null) || existing.overtimeThreshold || "19:00";
 
         if (checkOut && overtimeThreshold) {
             const [otH, otM] = overtimeThreshold.split(":").map(Number);
@@ -560,7 +568,7 @@ export class AttendanceService {
                 action: "ATTENDANCE_SETTINGS_UPDATED",
                 entityType: "WORKSPACE",
                 entityId: workspaceId,
-                newData: data,
+                newData: data as unknown as Record<string, unknown>,
                 broadcastEvent: "workspace_update",
             });
 

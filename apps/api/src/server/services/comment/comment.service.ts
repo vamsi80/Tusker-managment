@@ -109,7 +109,7 @@ export class CommentService {
       throw AppError.ValidationError("Comment text or attachment is required");
     }
 
-    let attachmentJson: Prisma.InputJsonValue = null;
+    let attachmentJson: Prisma.InputJsonValue | null = null;
     if (attachmentData || previousStatus || targetStatus) {
       attachmentJson = {
         ...(attachmentData ? {
@@ -130,7 +130,7 @@ export class CommentService {
       authorId: userId,
       workspaceId,
       text: text.trim() || "(No comment - attachment only)",
-      attachment: attachmentJson,
+      attachment: attachmentJson ?? Prisma.JsonNull,
     });
 
     // 5. Record Activity & Invalidate
@@ -220,7 +220,7 @@ export class CommentService {
             ? [{ projectId: { in: privilegedProjectIds } }]
             : [])
         ]
-      };
+      } as Prisma.TaskWhereInput;
     }
 
     const commentInclude = {
@@ -300,7 +300,7 @@ export class CommentService {
     const comments = Array.from(commentMap.values())
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return CommentMapper.toNotifications(comments, activities, limit, directNotifications, taskMap);
+    return CommentMapper.toNotifications(comments as unknown as import("./comment.mapper").DBCommentInput[], activities, limit, directNotifications, taskMap);
   }
 
   /**

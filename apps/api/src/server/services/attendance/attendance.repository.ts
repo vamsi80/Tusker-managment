@@ -14,9 +14,9 @@ export class AttendanceRepository {
     }
 
     static async upsert(
-        where: Prisma.AttendanceWhereUniqueInput,
-        create: Prisma.AttendanceCreateInput,
-        update: Prisma.AttendanceUpdateInput
+        where: Prisma.attendanceWhereUniqueInput,
+        create: Prisma.attendanceUncheckedCreateInput,
+        update: Prisma.attendanceUpdateInput
     ) {
         return await getDb().attendance.upsert({
             where,
@@ -37,7 +37,7 @@ export class AttendanceRepository {
         });
     }
 
-    static async update(id: string, data: Prisma.AttendanceUpdateInput) {
+    static async update(id: string, data: Prisma.attendanceUpdateInput) {
         return await getDb().attendance.update({
             where: { id },
             data,
@@ -56,7 +56,7 @@ export class AttendanceRepository {
         });
     }
 
-    static async getWorkspaceRecords(where: Prisma.AttendanceWhereInput, skip: number, take: number) {
+    static async getWorkspaceRecords(where: Prisma.attendanceWhereInput, skip: number, take: number) {
         return await getDb().attendance.findMany({
             where,
             include: {
@@ -80,7 +80,7 @@ export class AttendanceRepository {
         });
     }
 
-    static async countRecords(where: Prisma.AttendanceWhereInput) {
+    static async countRecords(where: Prisma.attendanceWhereInput) {
         return await getDb().attendance.count({ where });
     }
 }

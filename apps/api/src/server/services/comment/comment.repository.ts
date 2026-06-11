@@ -79,7 +79,7 @@ export class CommentRepository {
     authorId: string;
     workspaceId: string;
     text: string;
-    attachment?: Prisma.InputJsonValue | null;
+    attachment?: Prisma.NullableJsonNullValueInput | Prisma.InputJsonValue;
   }) {
     return getDb().activity.create({
       data,
@@ -154,7 +154,7 @@ export class CommentRepository {
     return getDb().activity.findMany({
       where: cursor ? { ...where, createdAt: { lt: new Date(cursor) } } : where,
       include: {
-        author: { select: { name: true, surname: true, image: true } },
+        author: { select: { id: true, name: true, surname: true, image: true } },
         subTask: {
           select: {
             id: true,

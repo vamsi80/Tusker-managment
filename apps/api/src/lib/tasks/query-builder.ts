@@ -1,4 +1,4 @@
-import { Prisma } from "@/generated/prisma";
+import { Prisma, TaskStatus } from "@/generated/prisma";
 
 export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = false, extraFields?: string[], subtaskFilter?: Prisma.TaskWhereInput, isSubtaskFirst: boolean = false): Prisma.TaskSelect {
     const isList = view_mode === "list" || view_mode === "default" || !view_mode;
@@ -225,13 +225,16 @@ export function buildCursorWhere(cursor: TaskCursor, direction: "asc" | "desc" =
 export interface KanbanCursorInput {
     id: string;
     projectCreatedAt?: Date | string | null;
+    projectId?: string | null;
     parentTaskPosition?: number | null;
     parentTaskId?: string | null;
     position?: number | null;
 }
 
 export function buildKanbanCursorWhere(cursor: KanbanCursorInput): Prisma.TaskWhereInput {
-    const { projectCreatedAt, parentTaskPosition, parentTaskId, position, id } = cursor;
+    const { projectCreatedAt, parentTaskId, id } = cursor;
+    const position = cursor.position ?? undefined;
+    const parentTaskPosition = cursor.parentTaskPosition ?? undefined;
 
     // Project-level seek conditions (reused for both levels)
     const projectLevelSeek: Prisma.TaskWhereInput =
@@ -273,7 +276,8 @@ export function buildKanbanCursorWhere(cursor: KanbanCursorInput): Prisma.TaskWh
  * ORDER BY: project.createdAt asc, position asc, id asc
  */
 export function buildWorkspaceListCursorWhere(cursor: KanbanCursorInput): Prisma.TaskWhereInput {
-    const { projectCreatedAt, position, id } = cursor;
+    const { projectCreatedAt, id } = cursor;
+    const position = cursor.position ?? undefined;
     if (!projectCreatedAt) {
         return {
             OR: [
@@ -362,7 +366,7 @@ export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "
 
 export function buildSeekCondition(
     sorts: Array<{ field: string; direction: "asc" | "desc" }>,
-    cursor: TaskCursor & Record<string, unknown>
+    cursor: TaskCursor
 ): Prisma.TaskWhereInput {
     try {
         if (!sorts?.length || !cursor) return {};
@@ -372,7 +376,7 @@ export function buildSeekCondition(
         if (!def) return {};
 
         const dbField = def.dbField;
-        const lastFieldValue = cursor[dbField];
+        const lastFieldValue = (cursor as unknown as Record<string, unknown>)[dbField];
         const lastId = cursor.id;
 
         if (lastId === undefined || lastId === null) return {};

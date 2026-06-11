@@ -19,9 +19,9 @@ reports.get("/:workspaceId", async (c) => {
   const skip = parseInt(c.req.query("skip") || "0");
   const take = parseInt(c.req.query("take") || "30");
 
-  const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId, user.id);
-  
-  if (!workspaceMember) {
+  const { isWorkspaceAdmin, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+
+  if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
 
@@ -32,7 +32,7 @@ reports.get("/:workspaceId", async (c) => {
     skip,
     take,
     isWorkspaceAdmin,
-    currentWorkspaceMemberId: workspaceMember.id
+    currentWorkspaceMemberId: workspaceMemberId
   });
 
   return c.json({ success: true, data: result });
@@ -47,9 +47,9 @@ reports.get("/:workspaceId/entries/:reportId", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   const reportId = c.req.param("reportId");
 
-  const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId, user.id);
-  
-  if (!workspaceMember) {
+  const { isWorkspaceAdmin, workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+
+  if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
 
