@@ -1,0 +1,16 @@
+{
+  "name": "@tusker/types",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@tusker/db": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./task": "./src/task.ts",
+    "./project": "./src/project.ts",
+    "./workspace": "./src/workspace.ts",
+    "./attendance": "./src/attendance.ts",
+    "./leave": "./src/leave.ts"
+  }
+}

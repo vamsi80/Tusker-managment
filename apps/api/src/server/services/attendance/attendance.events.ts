@@ -1,6 +1,16 @@
-import { recordActivity } from "@/lib/audit";
-import { broadcastAttendanceUpdate } from "@/lib/realtime";
+import { recordActivity, AuditAction } from "@/lib/audit";
+import { broadcastAttendanceUpdate, AttendanceEventData } from "@/lib/realtime";
 import { getDb } from "@/lib/registry";
+
+type AttendanceRecord = {
+    id: string;
+    WorkspaceMember: {
+        id: string;
+        userId: string;
+        user?: { surname?: string | null } | null;
+    };
+    [key: string]: unknown;
+};
 
 export class AttendanceEvents {
     private static async getInvolvedUsers(workspaceId: string, memberUserId: string) {
@@ -20,7 +30,7 @@ export class AttendanceEvents {
         return Array.from(targetUserIds);
     }
 
-    static async emitAttendanceUpdate(workspaceId: string, type: "CHECK_IN" | "CHECK_OUT", action: string, attendance: any, networkLocation?: string) {
+    static async emitAttendanceUpdate(workspaceId: string, type: "CHECK_IN" | "CHECK_OUT", action: AuditAction, attendance: AttendanceRecord, networkLocation?: string) {
         // Clear cache
 
         const userId = attendance.WorkspaceMember.userId;
@@ -30,8 +40,8 @@ export class AttendanceEvents {
         await broadcastAttendanceUpdate({
             workspaceId,
             type,
-            action: action as any,
-            payload: { ...attendance, networkLocation },
+            action: action as AttendanceEventData["action"],
+            payload: { ...attendance, networkLocation } as Record<string, unknown>,
             targetUserIds
         });
 
@@ -42,7 +52,7 @@ export class AttendanceEvents {
             userId,
             userName,
             workspaceId,
-            action: action as any,
+            action,
             entityType: "ATTENDANCE",
             entityId: attendance.id,
             newData: {
@@ -53,7 +63,7 @@ export class AttendanceEvents {
         });
     }
 
-    static async emitAdminUpdate(actorId: string, workspaceId: string, attendanceId: string, oldData: any, newData: any) {
+    static async emitAdminUpdate(actorId: string, workspaceId: string, attendanceId: string, oldData: Record<string, unknown>, newData: Record<string, unknown>) {
         const attendance = await getDb().attendance.findUnique({
             where: { id: attendanceId },
             include: { WorkspaceMember: { select: { userId: true } } }

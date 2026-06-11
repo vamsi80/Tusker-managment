@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { StatusCode } from "hono/utils/http-status";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { AttendanceService } from "@/server/services/attendance";
 import { LeaveService } from "@/server/services/leave";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
@@ -15,8 +15,8 @@ const DEFAULT_ATTENDANCE_SETTINGS = {
     shiftEndTime: "07:00",
     sickLeaveLimit: 12,
     casualLeaveAccrualDays: 20,
-    publicHolidays: [] as any[],
-    attendanceLocations: [] as any[],
+    publicHolidays: [] as Record<string, unknown>[],
+    attendanceLocations: [] as Record<string, unknown>[],
 };
 
 export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
@@ -59,8 +59,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 pageSize
             );
             return c.json({ success: true, ...result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -74,8 +74,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         try {
             const record = await AttendanceService.getTodayAttendance(workspaceId, user.id);
             return c.json({ success: true, data: record });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -103,8 +103,9 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 notes,
             });
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
+        } catch (error: unknown) {
+            const e = error as { message?: string; statusCode?: string };
+            return c.json({ success: false, error: e.message ?? "An error occurred" }, (parseInt(e.statusCode ?? "400") || 400) as ContentfulStatusCode);
         }
     })
 
@@ -131,8 +132,9 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 notes,
             });
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, (parseInt(error.statusCode) || 400) as any);
+        } catch (error: unknown) {
+            const e = error as { message?: string; statusCode?: string };
+            return c.json({ success: false, error: e.message ?? "An error occurred" }, (parseInt(e.statusCode ?? "400") || 400) as ContentfulStatusCode);
         }
     })
 
@@ -148,8 +150,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             const targetDate = date ? new Date(date) : new Date();
             const result = await AttendanceService.reconcileAttendance(workspaceId, targetDate);
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -163,7 +165,15 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         try {
             const db = getDb();
             const [workspaceResult, holidays, locations] = await Promise.all([
-                db.$queryRawUnsafe<any[]>(
+                db.$queryRawUnsafe<Array<{
+                    lateThreshold: string | null;
+                    overtimeThreshold: string | null;
+                    halfDayThreshold: string | null;
+                    shiftStartTime: string | null;
+                    shiftEndTime: string | null;
+                    sickLeaveLimit: number | null;
+                    casualLeaveAccrualDays: number | null;
+                }>>(
                     `SELECT "lateThreshold", "overtimeThreshold", "halfDayThreshold", "shiftStartTime", "shiftEndTime", "sickLeaveLimit", "casualLeaveAccrualDays"
                      FROM "public"."Workspace"
                      WHERE "id" = $1
@@ -191,8 +201,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                     attendanceLocations:    locations || [],
                 },
             });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -212,8 +222,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             const body = await c.req.json();
             const result = await AttendanceService.updateSettings(workspaceId, body, user.id);
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -229,8 +239,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
             const body = await c.req.json();
             const result = await AttendanceService.updateAttendance(id, body, user.id, workspaceId);
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -248,8 +258,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
             const { leaves, totalCount } = await LeaveService.getWorkspaceLeaves(workspaceId, user.id, page, pageSize, search);
             return c.json({ success: true, data: leaves, totalCount });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -263,8 +273,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         try {
             const result = await LeaveService.getMemberBalances(workspaceId, user.id);
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -286,8 +296,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 type,
             });
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     })
 
@@ -310,7 +320,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 workspaceId
             });
             return c.json({ success: true, data: result });
-        } catch (error: any) {
-            return c.json({ success: false, error: error.message }, 400);
+        } catch (error: unknown) {
+            return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 400);
         }
     });

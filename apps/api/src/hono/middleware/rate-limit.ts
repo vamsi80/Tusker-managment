@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
-import type { Env } from "../../types";
+import type { Env, HonoVariables } from "../../types";
 
 /**
  * Rate limiting backed by the Cloudflare Workers Rate Limiting bindings
@@ -62,7 +62,7 @@ export const authRateLimiter = createMiddleware<{ Bindings: Env }>(async (c, nex
     return next();
 });
 
-export const apiRateLimiter = createMiddleware<{ Bindings: Env; Variables: any }>(async (c, next) => {
+export const apiRateLimiter = createMiddleware<{ Bindings: Env; Variables: HonoVariables }>(async (c, next) => {
     const limiter = c.env.API_RATE_LIMITER;
     if (!limiter) return next();
 

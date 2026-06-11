@@ -48,7 +48,7 @@ export class ConversationService {
 
     // Map to remove current user and flatten structure
     return conversations.map(conv => {
-      const otherUser = conv.UserConversations.find((uc: any) => uc.user.id !== userId)?.user;
+      const otherUser = conv.UserConversations.find((uc) => uc.user.id !== userId)?.user;
       return {
         id: conv.id,
         lastMessageAt: conv.lastMessageAt,
@@ -217,7 +217,7 @@ export class ConversationService {
             userId: senderId,
             userName: message.user.surname || "Member",
             workspaceId,
-            action: "DM_MESSAGE" as any,
+            action: "DM_MESSAGE",
             entityType: "CONVERSATION",
             entityId: conversationId,
             newData: { content: content.substring(0, 100) },

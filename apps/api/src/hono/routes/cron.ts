@@ -1,10 +1,12 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { getDb } from "@/lib/registry";
 import { CRON_JOBS } from "../../server/crons/registry";
+import type { Env } from "../../types";
 
-const cron = new Hono();
+const cron = new Hono<{ Bindings: Env }>();
 
-const verifyCronSecret = (c: any) => {
+const verifyCronSecret = (c: Context<{ Bindings: Env }>) => {
     const authHeader = c.req.header("authorization");
     const secret = c.env?.CRON_SECRET;
     if (!secret) return false; // fail-closed: deny all if secret not configured
@@ -31,8 +33,8 @@ cron.post("/trigger", async (c) => {
     try {
         const result = await handler();
         return c.json(result);
-    } catch (error: any) {
-        return c.json({ success: false, error: error.message }, 500);
+    } catch (error: unknown) {
+        return c.json({ success: false, error: (error as { message?: string }).message ?? "An error occurred" }, 500);
     }
 });
 

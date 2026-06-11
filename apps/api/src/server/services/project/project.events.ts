@@ -1,7 +1,7 @@
 import { broadcastProjectUpdate, broadcastTeamUpdate } from "@/lib/realtime";
 
 export class ProjectEvents {
-  static async onProjectCreated(workspaceId: string, project: any) {
+  static async onProjectCreated(workspaceId: string, project: { id: string; [key: string]: unknown }) {
     await broadcastProjectUpdate({
       workspaceId,
       type: "CREATE",

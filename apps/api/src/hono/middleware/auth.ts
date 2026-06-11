@@ -1,8 +1,8 @@
 import { createMiddleware } from "hono/factory";
 import { getAuth } from "../../lib/registry";
-import type { Env } from "../../types";
+import type { Env, HonoVariables, TuskerUser } from "../../types";
 
-export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: any }>(async (c, next) => {
+export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: HonoVariables }>(async (c, next) => {
     try {
         const session = await getAuth().api.getSession({
             headers: c.req.raw.headers,
@@ -16,8 +16,8 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: any }
             }, 401);
         }
 
-        c.set("user" as any, session.user);
-        c.set("session" as any, session.session);
+        c.set("user", session.user as unknown as TuskerUser);
+        c.set("session", session.session);
 
         await next();
     } catch (error) {

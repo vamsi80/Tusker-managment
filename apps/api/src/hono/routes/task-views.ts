@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { Context } from "hono";
 import { HonoVariables } from "../types";
 import { TasksService } from "@/server/services/task/tasks.service";
+import type { WorkspaceFilterOpts } from "@/lib/tasks/query-builder";
 
 /**
  * RESTful task view endpoints matching the frontend route segments.
@@ -36,7 +37,7 @@ function buildViewOpts(c: Context<{ Variables: HonoVariables }>, view_mode: View
     const q = c.req.query();
     const cursorParam = q.cursor;
 
-    const opts: any = {
+    const opts: WorkspaceFilterOpts = {
         workspaceId,
         // Path param wins; `project`/`projectId` query params allow a project filter at workspace level
         projectId: projectId || q.project || q.projectId || undefined,

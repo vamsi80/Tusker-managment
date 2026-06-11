@@ -161,9 +161,14 @@ export const TASK_CORE_SELECT = getTaskSelect("list");
 //  TYPE: Cursor for pagination
 // ============================================================
 export interface TaskCursor {
-    id: string;
-    createdAt: Date;
-    position?: number;
+  id: string;
+  createdAt?: Date | string;
+  position?: number | null;
+  parentTaskPosition?: number | null;
+  parentTaskId?: string | null;
+  projectId?: string | null;
+  projectCreatedAt?: Date | string | null;
+  [key: string]: unknown;
 }
 
 /**
@@ -640,10 +645,10 @@ export interface WorkspaceFilterOpts {
     ids?: string[];
     projectId?: string;         // narrows to a project — uses project index
     assigneeId?: string | string[];
-    status?: string[];
+    status?: string | string[];
     tagId?: string | string[];
-    dueBefore?: Date;
-    dueAfter?: Date;
+    dueBefore?: Date | string;
+    dueAfter?: Date | string;
     dueDateType?: string;
     search?: string;
     cursor?: TaskCursor;
@@ -658,6 +663,13 @@ export interface WorkspaceFilterOpts {
     view_mode?: string;
     parentTaskId?: string;
     sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
+    // Service-level options (consumed by TasksService.listTasks)
+    filterParentTaskId?: string;
+    hierarchyMode?: string;
+    groupBy?: string;
+    extraFields?: string[];
+    includeFacets?: boolean;
+    limit?: number;
 }
 
 /**

@@ -7,6 +7,11 @@ import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "@/lib/involved-users";
+import { Prisma } from "@/generated/prisma";
+import type { WorkspacePermissions } from "@/types/task";
+import type { ProjectListItem } from "@/types/project";
+
+type BetterAuthInternalApi = Record<string, ((opts: unknown) => Promise<unknown>) | undefined>;
 
 export class WorkspaceService {
   /**
@@ -105,14 +110,14 @@ export class WorkspaceService {
   static async getMembers(workspaceId: string, page: number = 1, limit: number = 10, search?: string) {
     const skip = (page - 1) * limit;
 
-    const where: any = { workspaceId };
-    if (search && search.trim() !== "") {
-      where.OR = [
+    const searchFilter: Prisma.WorkspaceMemberWhereInput = search && search.trim() !== "" ? {
+      OR: [
         { user: { name: { contains: search, mode: 'insensitive' } } },
         { user: { surname: { contains: search, mode: 'insensitive' } } },
         { user: { email: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
+      ]
+    } : {};
+    const where: Prisma.WorkspaceMemberWhereInput = { workspaceId, ...searchFilter };
 
     const [workspaceMembers, totalCount] = await Promise.all([
       getDb().workspaceMember.findMany({
@@ -165,7 +170,7 @@ export class WorkspaceService {
         reportToId: m.reportToId,
         workspaceId: m.workspaceId,
         userId: m.userId,
-        status: m.user?.emailVerified || (m.user as any)?._count?.accounts > 0 ? "Verified" : "Pending",
+        status: m.user?.emailVerified ? "Verified" : "Pending",
         emailVerified: m.user?.emailVerified ?? false,
       })),
       totalCount,
@@ -329,7 +334,7 @@ export class WorkspaceService {
       });
 
       return { success: true, userId: authUserId };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[WorkspaceService.inviteMember] Error:", err);
 
       // 6. ROBUST CLEANUP (Rollback)
@@ -337,10 +342,9 @@ export class WorkspaceService {
       if (createdAuthUserId) {
         try {
           // Path A: Better-Auth internal state cleanup
-          if ((getAuth().api as any).deleteUser) {
-            await (getAuth().api as any).deleteUser({
-              body: { userId: createdAuthUserId },
-            });
+          const api = getAuth().api as BetterAuthInternalApi;
+          if (api.deleteUser) {
+            await api.deleteUser({ body: { userId: createdAuthUserId } });
           }
 
           // Path B: Direct DB cleanup (Safety net)
@@ -452,11 +456,9 @@ export class WorkspaceService {
     // 2. Trigger password reset through Better Auth
     // We use the email from the user record
     try {
-      await (getAuth().api as any).requestPasswordReset({
-        body: {
-          email: member.user.email,
-          redirectTo: "/reset-password",
-        }
+      const api = getAuth().api as BetterAuthInternalApi;
+      await api.requestPasswordReset?.({
+        body: { email: member.user.email, redirectTo: "/reset-password" },
       });
 
       // 3. Record Activity
@@ -470,16 +472,16 @@ export class WorkspaceService {
       });
 
       return { status: "success", message: "Password reset email sent successfully" };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[WorkspaceService.resetMemberPassword] Error:", err);
-      throw new Error(err.message || "Failed to send password reset email");
+      throw new Error((err as { message?: string }).message || "Failed to send password reset email");
     }
   }
 
   /**
    * Accept invitation and set password
    */
-  static async acceptInvitation(values: any) {
+  static async acceptInvitation(values: { email: string; token: string; password: string; name?: string | null; niceName?: string | null }) {
     const { email, token, password, name, niceName } = values;
 
     // 1. Verify token
@@ -690,10 +692,9 @@ export class WorkspaceService {
 
     // 3. Delete from Better Auth
     try {
-      if ((getAuth().api as any).removeUser) {
-        await (getAuth().api as any).removeUser({
-          body: { userId: userIdToDelete },
-        });
+      const api = getAuth().api as BetterAuthInternalApi;
+      if (api.removeUser) {
+        await api.removeUser({ body: { userId: userIdToDelete } });
       }
     } catch (authDeleteErr) {
       console.error("Failed to delete auth user:", authDeleteErr);
@@ -810,7 +811,7 @@ export class WorkspaceService {
       const updatedMember = await tx.workspaceMember.update({
         where: { id: memberId },
         data: {
-          workspaceRole: data.role as any,
+          workspaceRole: data.role as Prisma.EnumWorkspaceRoleFieldUpdateOperationsInput["set"],
           designation: data.designation,
           employeeId: data.employeeId,
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
@@ -1044,37 +1045,13 @@ export class WorkspaceService {
   /**
    * Get unread notifications count for a user in a workspace
    */
-  static async getUnreadNotificationsCount(workspaceId: string, userId: string, preFetchedPermissions?: any, preFetchedProjectIds?: string[]) {
+  static async getUnreadNotificationsCount(workspaceId: string, userId: string, preFetchedPermissions?: WorkspacePermissions) {
     const perms = preFetchedPermissions || await getWorkspacePermissions(workspaceId, userId, true);
     if (!perms.workspaceMemberId) return 0;
 
-    const where: any = {
-      task: { workspaceId },
-      userId: { not: userId },
-      readBy: { none: { userId } }
-    };
-
-    if (!perms.isWorkspaceAdmin) {
-      // Use provided project IDs if available (faster), otherwise fall back to perms
-      const privilegedProjectIds = preFetchedProjectIds || [
-        ...((perms as any).leadProjectIds || []),
-        ...((perms as any).managedProjectIds || []),
-        ...((perms as any).coordinatorProjectIds || [])
-      ];
-
-      where.task.OR = [
-        { assignee: { workspaceMember: { userId } } },
-        { createdBy: { workspaceMember: { userId } } },
-        { reviewer: { workspaceMember: { userId } } },
-        ...(privilegedProjectIds.length > 0
-          ? [{ projectId: { in: privilegedProjectIds } }]
-          : [])
-      ];
-    }
-
     // NOTE: Prisma groupBy uses prepared statements which are incompatible with
     // PgBouncer in transaction mode (Supabase port 6543). Use a raw count instead.
-    const unreadResult: Array<{ count: number }> = await (getDb() as any).$queryRawUnsafe(
+    const unreadResult: Array<{ count: number }> = await getDb().$queryRawUnsafe(
       `SELECT COUNT(DISTINCT c."taskId")::int AS count
        FROM "comment" c
        JOIN "Task" t ON t.id = c."taskId"
@@ -1103,7 +1080,7 @@ export class WorkspaceService {
       projects,
       tags,
       unreadNotificationsCount,
-    ]: any[] = await Promise.all([
+    ] = await Promise.all([
       getWorkspacePermissions(workspaceId, userId, false),
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
@@ -1114,7 +1091,7 @@ export class WorkspaceService {
     // Step 3: Efficiently construct the project leaders map from the fetched projects
     const pmMap: Record<string, Array<{ id: string; surname: string | null }>> = {};
 
-    projects.forEach((p: any) => {
+    projects.forEach((p: ProjectListItem) => {
       const pm = p.projectManager;
 
       // If a manager is assigned, they MUST have a surname for the UI
@@ -1197,7 +1174,7 @@ export class WorkspaceService {
         data: {
           workspaceId,
           userId,
-          workspaceRole: role as any,
+          workspaceRole: role as Prisma.EnumWorkspaceRoleFieldUpdateOperationsInput["set"],
         },
       });
     }

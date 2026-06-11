@@ -62,11 +62,11 @@ auth.post("/accept-invitation", async (c) => {
             message: "Account activated successfully. You can now log in.",
             data: result
         });
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error("[Hono.Auth.AcceptInvitation] Error:", err);
         return c.json({
             status: "error",
-            message: err.message || "Failed to accept invitation"
+            message: (err as { message?: string }).message || "Failed to accept invitation"
         }, 500);
     }
 });

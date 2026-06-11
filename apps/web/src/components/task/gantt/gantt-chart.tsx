@@ -147,7 +147,7 @@ export function GanttChart({
         targetProjects?.forEach(project => {
             groups.set(project.id, {
                 name: project.name,
-                color: project.color,
+                color: project.color ?? undefined,
                 tasks: []
             });
         });
@@ -160,7 +160,7 @@ export function GanttChart({
                     const projectFromMap = projectMap.get(task.projectId);
                     groups.set(task.projectId, {
                         name: projectFromMap?.name || "Unknown Project",
-                        color: projectFromMap?.color,
+                        color: projectFromMap?.color ?? undefined,
                         tasks: [task]
                     });
                 }

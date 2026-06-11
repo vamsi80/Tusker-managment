@@ -157,7 +157,7 @@ export interface ProjectOption {
     id: string;
     name: string;
     slug?: string;
-    color?: string;
+    color?: string | null;
     memberIds?: string[];
     createdAt?: string | Date;
 }

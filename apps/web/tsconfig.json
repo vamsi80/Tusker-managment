@@ -32,6 +32,18 @@
       "@tusker/auth/*": [
         "../../packages/auth/src/*"
       ],
+      "@tusker/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@tusker/types/*": [
+        "../../packages/types/src/*"
+      ],
+      "@tusker/db": [
+        "../../packages/db/src/generated/prisma"
+      ],
+      "@tusker/db/*": [
+        "../../packages/db/src/generated/prisma/*"
+      ],
       "@/generated/prisma": [
         "../../packages/db/src/generated/prisma"
       ],

@@ -78,7 +78,15 @@ export class ReportService {
       take
     });
 
-    const rows: any[] = [];
+    type ReportRow = {
+      id: string; userId: string;
+      user: { id: string; surname: string | null; email: string | null };
+      status: string; submittedAt: Date | null; type?: string;
+      task: { id: string; name: string; taskSlug: string; project: { name: string; color: string }; parentTask: { name: string } | null } | null | undefined;
+      description: string | null; date: Date;
+      entries?: typeof reports[number]["entries"];
+    };
+    const rows: ReportRow[] = [];
 
     for (const report of reports) {
       if (report.status === "ABSENT" || report.status === "NOT_SUBMITTED") {
@@ -254,7 +262,7 @@ export class ReportService {
     const startOfDay = clientDate ? new Date(`${clientDate}T00:00:00Z`) : new Date();
     if (!clientDate) startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const result = await getDb().$transaction(async (tx: any) => {
+    const result = await getDb().$transaction(async (tx) => {
       let report = await tx.dailyReport.findUnique({
         where: {
           workspaceId_userId_date: {

@@ -94,7 +94,7 @@ export class TaskRepository {
 
   static async create(data: Prisma.TaskCreateInput | Prisma.TaskUncheckedCreateInput) {
     return getDb().task.create({
-      data: data as any,
+      data: data as Prisma.TaskUncheckedCreateInput,
       include: {
         tags: { select: { id: true, name: true } },
         assignee: { select: { id: true, workspaceMember: { select: { userId: true, user: { select: { id: true, surname: true } } } } } },
@@ -110,7 +110,7 @@ export class TaskRepository {
   static async update(taskId: string, data: Prisma.TaskUpdateInput | Prisma.TaskUncheckedUpdateInput) {
     return getDb().task.update({
       where: { id: taskId },
-      data: data as any,
+      data: data as Prisma.TaskUncheckedUpdateInput,
     });
   }
 
@@ -118,7 +118,7 @@ export class TaskRepository {
     return getDb().$transaction(async (tx) => {
       const updated = await tx.task.update({
         where: { id: taskId },
-        data: data as any,
+        data: data as Prisma.TaskUncheckedUpdateInput,
       });
       const commentActivity = await tx.activity.create({
         data: {
@@ -140,7 +140,7 @@ export class TaskRepository {
     return getDb().$transaction(async (tx) => {
       const task = await tx.task.update({
         where: { id: taskId },
-        data: data as any,
+        data: data as Prisma.TaskUncheckedUpdateInput,
       });
       if (parentTaskId) {
         if (!wasCompleted && isNowCompleted) {
@@ -282,7 +282,7 @@ export class TaskRepository {
   static async createSubTask({ parentTaskId, taskData }: { parentTaskId: string; taskData: Prisma.TaskCreateInput | Prisma.TaskUncheckedCreateInput }) {
     return getDb().$transaction(async (tx) => {
       const task = await tx.task.create({
-        data: taskData as any,
+        data: taskData as Prisma.TaskUncheckedCreateInput,
         include: {
           tags: {
             select: { id: true, name: true }
@@ -486,7 +486,7 @@ export class TaskRepository {
   }
 
   static async createProjectMember(data: Prisma.ProjectMemberCreateInput | Prisma.ProjectMemberUncheckedCreateInput) {
-    return getDb().projectMember.create({ data: data as any });
+    return getDb().projectMember.create({ data: data as Prisma.ProjectMemberUncheckedCreateInput });
   }
 
   static async autoJoinAdmin(projectId: string, workspaceMemberId: string) {

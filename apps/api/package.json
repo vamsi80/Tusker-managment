@@ -21,6 +21,7 @@
     "@tusker/auth": "workspace:*",
     "@tusker/db": "workspace:*",
     "@tusker/shared": "workspace:*",
+    "@tusker/types": "workspace:*",
     "better-auth": "^1.6.9",
     "exceljs": "^4.4.0",
     "hono": "^4.12.12",

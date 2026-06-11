@@ -41,7 +41,7 @@ export class TaskEvents {
     workspaceId: string;
     userId: string;
     userName: string;
-    taskData: any;
+    taskData: Record<string, unknown>;
     projectSlug?: string | null;
   }) {
 
@@ -77,7 +77,7 @@ export class TaskEvents {
     workspaceId: string;
     userId: string;
     userName: string;
-    taskData: any;
+    taskData: Record<string, unknown>;
     projectSlug?: string | null;
   }) {
 
@@ -114,8 +114,8 @@ export class TaskEvents {
     workspaceId: string;
     userId: string;
     userName: string;
-    oldData: any;
-    newData: any;
+    oldData: Record<string, unknown>;
+    newData: Record<string, unknown>;
   }) {
 
     try {
@@ -124,19 +124,19 @@ export class TaskEvents {
 
       if (opts.oldData.assigneeId !== undefined || opts.newData.assigneeId !== undefined) {
         if (opts.oldData.assigneeId) {
-          enrichedOldData.assigneeName = await getMemberName(opts.oldData.assigneeId);
+          enrichedOldData.assigneeName = await getMemberName(opts.oldData.assigneeId as string);
         }
         if (opts.newData.assigneeId) {
-          enrichedNewData.assigneeName = await getMemberName(opts.newData.assigneeId);
+          enrichedNewData.assigneeName = await getMemberName(opts.newData.assigneeId as string);
         }
       }
 
       if (opts.oldData.reviewerId !== undefined || opts.newData.reviewerId !== undefined) {
         if (opts.oldData.reviewerId) {
-          enrichedOldData.reviewerName = await getMemberName(opts.oldData.reviewerId);
+          enrichedOldData.reviewerName = await getMemberName(opts.oldData.reviewerId as string);
         }
         if (opts.newData.reviewerId) {
-          enrichedNewData.reviewerName = await getMemberName(opts.newData.reviewerId);
+          enrichedNewData.reviewerName = await getMemberName(opts.newData.reviewerId as string);
         }
       }
 

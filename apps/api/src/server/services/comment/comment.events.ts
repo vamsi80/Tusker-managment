@@ -8,7 +8,7 @@ export class CommentEvents {
     workspaceId: string;
     taskId: string;
     content: string;
-    comment: any;
+    comment: { user: { id: string; surname: string }; [key: string]: unknown };
   }) {
     const { recordActivity } = await import("@/lib/audit");
     const targetUserIds = await getTaskInvolvedUserIds(getDb(), params.taskId);
