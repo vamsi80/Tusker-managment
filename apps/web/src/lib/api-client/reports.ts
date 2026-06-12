@@ -22,7 +22,7 @@ export const reportsClient = {
     if (params.skip) query.append("skip", params.skip.toString());
     if (params.take) query.append("take", params.take.toString());
 
-    const response = await apiFetch<{ success: boolean; data: any }>(
+    const response = await apiFetch<{ success: boolean; data: unknown }>(
       `/reports/${params.workspaceId}?${query.toString()}`
     );
 
@@ -37,7 +37,7 @@ export const reportsClient = {
    * Get detailed entries for a specific report
    */
   getReportEntries: async (workspaceId: string, reportId: string): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+    const response = await apiFetch<{ success: boolean; data: unknown }>(
       `/reports/${workspaceId}/entries/${reportId}`
     );
 
@@ -52,7 +52,7 @@ export const reportsClient = {
    * Get today's report status for the current user
    */
   getStatus: async (workspaceId: string): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+    const response = await apiFetch<{ success: boolean; data: unknown }>(
       `/reports/${workspaceId}/status`
     );
 
@@ -67,7 +67,7 @@ export const reportsClient = {
    * Get data for report form
    */
   getFormData: async (workspaceId: string): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+    const response = await apiFetch<{ success: boolean; data: unknown }>(
       `/reports/${workspaceId}/form-data`
     );
 
@@ -81,8 +81,8 @@ export const reportsClient = {
   /**
    * Submit a daily report
    */
-  submitReport: async (values: any): Promise<ApiResponse> => {
-    const response = await apiFetch<{ success: boolean; data: any }>(
+  submitReport: async (values: { workspaceId: string } & Record<string, unknown>): Promise<ApiResponse> => {
+    const response = await apiFetch<{ success: boolean; data: unknown }>(
       `/reports/${values.workspaceId}`,
       {
         method: "POST",

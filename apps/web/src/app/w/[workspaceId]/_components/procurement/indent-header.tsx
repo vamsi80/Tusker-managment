@@ -10,12 +10,22 @@ import { toast } from "sonner";
 import { Check, Send, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface IndentData {
+  id: string;
+  indentId?: string | null;
+  name: string;
+  description?: string | null;
+  status: string;
+  cancelReason?: string | null;
+  [key: string]: unknown;
+}
+
 interface IndentHeaderProps {
-  indent: any;
+  indent: IndentData;
   workspaceId: string;
   workspaceRole?: string;
   isWorkspaceAdmin?: boolean;
-  onUpdate: (updatedIndent: any) => void;
+  onUpdate: (updatedIndent: IndentData) => void;
 }
 
 export function IndentHeader({
@@ -49,7 +59,7 @@ export function IndentHeader({
     }
   };
 
-  const handleAction = async (endpoint: string, method = "POST", body?: any) => {
+  const handleAction = async (endpoint: string, method = "POST", body?: Record<string, unknown>) => {
     try {
       setIsActionLoading(true);
       const res = await fetch(`/api/v1/procurement/indents/${indent.id}/${endpoint}?w=${workspaceId}`, {
@@ -70,8 +80,8 @@ export function IndentHeader({
         // For cancel or other endpoints that might not return updated model directly
         onUpdate({ ...indent, status: endpoint === "cancel" ? "CANCELLED" : indent.status });
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update indent");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update indent");
     } finally {
       setIsActionLoading(false);
     }

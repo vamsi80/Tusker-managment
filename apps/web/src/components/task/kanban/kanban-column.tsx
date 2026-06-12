@@ -40,7 +40,7 @@ interface KanbanColumnProps {
     isOverColumn?: boolean;
     permissions?: UserPermissionsType;
     userId?: string;
-    projectMembers?: any[];
+    projectMembers?: import("@/types/project").ProjectMembersType;
     projects?: ProjectOption[];
     projectMap?: Record<string, ProjectOption>;
     isMobile?: boolean;

@@ -106,7 +106,7 @@ export const SignUpForm = () => {
               }).toString();
               router.push(`/verify-request?${query}`);
             },
-            onError: (ctx: any) => {
+            onError: (ctx: { error: { message?: string } }) => {
               const errorMessage = ctx.error.message || "Signup failed";
               toast.error(errorMessage);
               console.error("Signup error full context:", ctx);
@@ -114,9 +114,9 @@ export const SignUpForm = () => {
             },
           },
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Unexpected signup error:", err);
-        toast.error(err?.message ?? "Unexpected error");
+        toast.error(err instanceof Error ? err.message : "Unexpected error");
       }
     });
   }

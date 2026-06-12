@@ -69,9 +69,9 @@ export function SubtaskStatusChanger({
     const isCoordinator = permissions?.isProjectCoordinator || coordinatorProjectIds?.includes(projectId || "");
     const isLead = permissions?.isProjectLead || leadProjectIds?.includes(projectId || "");
     const subTaskCreatorUserId = subTask.createdBy?.id;
-    const subTaskCreatorMemberId = (subTask as any).createdById;
+    const subTaskCreatorMemberId = subTask.createdById;
     const subTaskAssigneeUserId = subTask.assignee?.id;
-    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+    const subTaskAssigneeMemberId = subTask.assigneeId;
 
     const isCreator = !!(
         (currentUserId && subTaskCreatorUserId && currentUserId === subTaskCreatorUserId) ||

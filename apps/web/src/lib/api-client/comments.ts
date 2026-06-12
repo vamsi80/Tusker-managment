@@ -4,7 +4,7 @@ import { apiFetch } from "./fetch-wrapper";
  * Comments API Client
  * Replaces legacy Server Actions in @/actions/comment
  */
-export interface CommentActionResponse<T = any> {
+export interface CommentActionResponse<T = unknown> {
   data?: T;
   error?: { message: string };
   success?: boolean;
@@ -14,32 +14,32 @@ export const commentsClient = {
   /**
    * Fetch all comments for a task
    */
-  getComments: async (taskId: string, cursor?: string, limit: number = 10): Promise<CommentActionResponse<{ items: any[], nextCursor: string | null }>> => {
+  getComments: async (taskId: string, cursor?: string, limit: number = 10): Promise<CommentActionResponse<{ items: unknown[], nextCursor: string | null }>> => {
     try {
       const query = new URLSearchParams({ limit: limit.toString() });
       if (cursor) query.set("cursor", cursor);
-      const response = await apiFetch<any>(
+      const response = await apiFetch<{ items: unknown[]; nextCursor?: string | null }>(
         `/comments/task/${taskId}?${query.toString()}`
       );
       return { data: { items: response.items || [], nextCursor: response.nextCursor || null } };
-    } catch (error: any) {
-      return { error: { message: error.message || "Failed to fetch comments" } };
+    } catch (error: unknown) {
+      return { error: { message: error instanceof Error ? error.message : "Failed to fetch comments" } };
     }
   },
 
   /**
    * Fetch all activities for a subtask
    */
-  getActivities: async (subTaskId: string, cursor?: string, limit: number = 10): Promise<CommentActionResponse<{ items: any[], nextCursor: string | null }>> => {
+  getActivities: async (subTaskId: string, cursor?: string, limit: number = 10): Promise<CommentActionResponse<{ items: unknown[], nextCursor: string | null }>> => {
     try {
       const query = new URLSearchParams({ limit: limit.toString() });
       if (cursor) query.set("cursor", cursor);
-      const response = await apiFetch<any>(
+      const response = await apiFetch<{ items: unknown[]; nextCursor?: string | null }>(
         `/comments/activities/${subTaskId}?${query.toString()}`
       );
       return { data: { items: response.items || [], nextCursor: response.nextCursor || null } };
-    } catch (error: any) {
-      return { error: { message: error.message || "Failed to fetch activities" } };
+    } catch (error: unknown) {
+      return { error: { message: error instanceof Error ? error.message : "Failed to fetch activities" } };
     }
   },
 
@@ -54,7 +54,7 @@ export const commentsClient = {
     parentCommentId?: string;
   }): Promise<CommentActionResponse> => {
     try {
-      const response = await apiFetch<{ success: boolean; data: any }>(
+      const response = await apiFetch<{ success: boolean; data: unknown }>(
         "/comments",
         {
           method: "POST",
@@ -62,8 +62,8 @@ export const commentsClient = {
         }
       );
       return { data: response.data };
-    } catch (error: any) {
-      return { error: { message: error.message || "Failed to create comment" } };
+    } catch (error: unknown) {
+      return { error: { message: error instanceof Error ? error.message : "Failed to create comment" } };
     }
   },
 
@@ -75,12 +75,12 @@ export const commentsClient = {
     text: string;
     workspaceId: string;
     projectId: string;
-    attachmentData?: any;
+    attachmentData?: { url: string; name?: string; type?: string } | null;
     previousStatus?: string;
     targetStatus?: string;
   }): Promise<CommentActionResponse> => {
     try {
-      const response = await apiFetch<{ success: boolean; data: any }>(
+      const response = await apiFetch<{ success: boolean; data: unknown }>(
         "/comments/activity",
         {
           method: "POST",
@@ -88,8 +88,8 @@ export const commentsClient = {
         }
       );
       return { data: response.data };
-    } catch (error: any) {
-      return { error: { message: error.message || "Failed to record activity" } };
+    } catch (error: unknown) {
+      return { error: { message: error instanceof Error ? error.message : "Failed to record activity" } };
     }
   },
 
@@ -101,7 +101,7 @@ export const commentsClient = {
     content: string
   ): Promise<CommentActionResponse> => {
     try {
-      const response = await apiFetch<{ success: boolean; data: any }>(
+      const response = await apiFetch<{ success: boolean; data: unknown }>(
         `/comments/${commentId}`,
         {
           method: "PATCH",
@@ -109,8 +109,8 @@ export const commentsClient = {
         }
       );
       return { data: response.data };
-    } catch (error: any) {
-      return { error: { message: error.message || "Failed to update comment" } };
+    } catch (error: unknown) {
+      return { error: { message: error instanceof Error ? error.message : "Failed to update comment" } };
     }
   },
 
@@ -126,8 +126,8 @@ export const commentsClient = {
         }
       );
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: { message: error.message || "Failed to delete comment" } };
+    } catch (error: unknown) {
+      return { success: false, error: { message: error instanceof Error ? error.message : "Failed to delete comment" } };
     }
   },
 
@@ -141,10 +141,10 @@ export const commentsClient = {
   ): Promise<CommentActionResponse> => {
     try {
       const url = `/comments/notifications/${workspaceId}?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
-      const data = await apiFetch<any>(url);
+      const data = await apiFetch<{ data: unknown }>(url);
       return { data: data.data };
-    } catch (error: any) {
-      return { error: { message: error.message || "Failed to fetch notifications" } };
+    } catch (error: unknown) {
+      return { error: { message: error instanceof Error ? error.message : "Failed to fetch notifications" } };
     }
   },
 
@@ -160,8 +160,8 @@ export const commentsClient = {
         }
       );
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: { message: error.message || "Failed to mark as read" } };
+    } catch (error: unknown) {
+      return { success: false, error: { message: error instanceof Error ? error.message : "Failed to mark as read" } };
     }
   },
 
@@ -177,8 +177,8 @@ export const commentsClient = {
         }
       );
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: { message: error.message || "Failed to mark all as read" } };
+    } catch (error: unknown) {
+      return { success: false, error: { message: error instanceof Error ? error.message : "Failed to mark all as read" } };
     }
   },
 };

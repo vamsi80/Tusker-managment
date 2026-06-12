@@ -26,7 +26,7 @@ export function CreateWorkspaceForm() {
     const hasToasted = useRef(false);
 
     const form = useForm<WorkSpaceSchemaType>({
-        resolver: zodResolver(workSpaceSchema as any),
+        resolver: zodResolver(workSpaceSchema),
         defaultValues: { name: " ", description: '', slug: '' },
     });
 

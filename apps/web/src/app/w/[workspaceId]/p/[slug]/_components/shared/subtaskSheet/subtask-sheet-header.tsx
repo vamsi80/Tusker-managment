@@ -1,6 +1,6 @@
 "use client";
 
-type TaskByIdType = any;
+import type { WorkspaceTaskType as TaskByIdType } from "@/types/task";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

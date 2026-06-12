@@ -83,11 +83,11 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
                                                 Activity
                                             </Badge>
-                                            {activity.attachment && typeof activity.attachment === "object" && (activity.attachment as any).previousStatus && (activity.attachment as any).targetStatus && (
+                                            {activity.attachment && typeof activity.attachment === "object" && activity.attachment.previousStatus && activity.attachment.targetStatus && (
                                                 <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium bg-muted px-1.5 py-0.5 rounded-sm whitespace-nowrap border animate-in fade-in duration-300">
-                                                    {(activity.attachment as any).previousStatus.replace("_", " ")}
+                                                    {activity.attachment.previousStatus.replace("_", " ")}
                                                     <ArrowRight className="size-3" />
-                                                    {(activity.attachment as any).targetStatus.replace("_", " ")}
+                                                    {activity.attachment.targetStatus.replace("_", " ")}
                                                 </span>
                                             )}
                                         </div>
@@ -100,10 +100,10 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                             const hasTransitionPrefix = lines[0]?.includes(" -> ");
                                             
                                             // Fallback to text header only if we don't have structured statuses
-                                            const hasStructuredStatus = activity.attachment && 
-                                                typeof activity.attachment === "object" && 
-                                                (activity.attachment as any).previousStatus && 
-                                                (activity.attachment as any).targetStatus;
+                                            const hasStructuredStatus = activity.attachment &&
+                                                typeof activity.attachment === "object" &&
+                                                activity.attachment.previousStatus &&
+                                                activity.attachment.targetStatus;
                                                 
                                             const showTransitionHeader = hasTransitionPrefix && !hasStructuredStatus;
                                             const commentText = hasTransitionPrefix ? lines.slice(1).join("\n").trim() : (activity.text || "").trim();
@@ -131,7 +131,7 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                                 if (typeof attachment === "string") {
                                                     attachmentUrl = attachment;
                                                 } else if (typeof attachment === "object") {
-                                                    attachmentUrl = (attachment as any).url || (attachment as any).data || "";
+                                                    attachmentUrl = attachment.url || "";
                                                 }
                                             }
                                             if (!attachmentUrl) return null;

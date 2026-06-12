@@ -48,7 +48,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
     const reportingManager = data.permissions.reportingManagerName || "Not Assigned";
 
     const form = useForm<LeaveRequestFormType>({
-        resolver: zodResolver(leaveRequestSchema as any),
+        resolver: zodResolver(leaveRequestSchema),
         defaultValues: {
             type: "CASUAL",
             reason: "",

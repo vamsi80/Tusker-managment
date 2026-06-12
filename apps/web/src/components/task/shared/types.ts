@@ -368,8 +368,8 @@ export function hasActiveFilters(filters: TaskFilters): boolean {
 export type TaskWithSubTasks = WorkspaceTaskType & {
     subTasks?: SubTaskType[];
     subTasksHasMore?: boolean;
-    subTasksNextCursor?: any;
-    nextCursor?: any;
+    subTasksNextCursor?: string | null;
+    nextCursor?: string | null;
     isOptimistic?: boolean;
     taskSlug?: string;
 };

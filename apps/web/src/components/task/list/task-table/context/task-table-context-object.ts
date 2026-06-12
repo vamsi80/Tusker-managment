@@ -2,6 +2,7 @@ import React, { createContext } from "react";
 import type { ProjectMembersType } from "@/types/project";
 import type { UserPermissionsType } from "@/types/workspace";
 import { ColumnVisibility } from "../../../shared/column-visibility";
+import type { ProjectOption } from "../../../shared/types";
 
 export interface TaskTableContextValue {
   workspaceId: string;
@@ -15,8 +16,8 @@ export interface TaskTableContextValue {
   userId?: string;
   canCreateSubTask: boolean;
   tags: { id: string; name: string }[];
-  projects: any[];
-  projectMap: Record<string, any>;
+  projects: ProjectOption[];
+  projectMap: Record<string, ProjectOption>;
   leadProjectIds: string[];
   coordinatorProjectIds: string[];
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;

@@ -75,7 +75,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
     }, [workspaceId, open]);
 
     const form = useForm<InviteUserSchemaType>({
-        resolver: zodResolver(inviteUserSchema as any),
+        resolver: zodResolver(inviteUserSchema),
         defaultValues: {
             name: "",
             email: "",
@@ -128,7 +128,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
     }
 
 
-    function onInvalid(errors: any) {
+    function onInvalid(errors: Record<string, unknown>) {
         console.error("Validation errors:", errors);
         toast.error("Please check all required fields");
     }

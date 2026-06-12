@@ -9,14 +9,14 @@ import { TaskTableProvider } from "./task-table/context/task-table-context";
 import { useTaskTableLogic } from "./task-table/hooks/use-task-table-logic";
 import { TaskTableHeader } from "./task-table/components/task-header";
 import { TaskTableBody } from "./task-table/components/task-table-body";
-import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { TaskWithSubTasks, ProjectOption } from "@/components/task/shared/types";
 import type { ProjectMembersType } from "@/types/project";
 import type { UserPermissionsType } from "@/types/workspace";
 
 interface TaskTableProps {
   initialTasks: TaskWithSubTasks[];
   initialHasMore: boolean;
-  initialNextCursor?: any;
+  initialNextCursor?: string | null;
   initialTotalCount?: number;
   members: ProjectMembersType;
   assignees?: Array<{ id: string; name: string; surname?: string }>;
@@ -55,7 +55,7 @@ function TaskTable(props: TaskTableProps) {
   });
 
   const projectMap = useMemo(() => {
-    const map: Record<string, any> = {};
+    const map: Record<string, ProjectOption> = {};
     projects?.forEach((p) => { map[p.id] = p; });
     return map;
   }, [projects]);
@@ -164,7 +164,7 @@ function TaskTable(props: TaskTableProps) {
                 onCollapseAll={logic.handleCollapseAll}
               />
               <TaskTableBody
-                mode={mode as any}
+                mode={mode}
                 tasks={logic.tasks}
                 groupedTasks={groupedTasks}
                 orderedWorkspaceProjects={orderedWorkspaceProjects}

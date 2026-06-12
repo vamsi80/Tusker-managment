@@ -1894,7 +1894,7 @@ export class TasksService {
       previousStatus: subTask.status,
       targetStatus: newStatus,
       ...(attachmentData ? {
-        url: typeof attachmentData === "string" ? attachmentData : ((attachmentData as any).url || (attachmentData as any).data || attachmentData),
+        url: typeof attachmentData === "string" ? attachmentData : attachmentData.url,
       } : {})
     };
 
@@ -2824,8 +2824,8 @@ export class TasksService {
         : null;
     }
 
-    const start = (patchData.startDate !== undefined ? patchData.startDate : task.startDate) as any;
-    const end = (patchData.dueDate !== undefined ? patchData.dueDate : task.dueDate) as any;
+    const start = (patchData.startDate !== undefined ? patchData.startDate : task.startDate) as Date | string | null;
+    const end = (patchData.dueDate !== undefined ? patchData.dueDate : task.dueDate) as Date | string | null;
 
     if (start && end) {
       const startDateObj = new Date(start);

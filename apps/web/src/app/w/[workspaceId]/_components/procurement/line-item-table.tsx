@@ -12,31 +12,36 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, CornerDownRight, ChevronRight, Check, ChevronsUpDown, Loader2 } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Trash2, Plus, CornerDownRight, ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VendorMatchPill } from "./vendor-match-pill";
 import { RfqSheet } from "./rfq-sheet";
 
-function AutoCompleteInput({ 
-  value, 
-  onChange, 
+interface CatalogItem {
+  id: string;
+  name: string;
+  type: "material" | "tag";
+  unit?: string;
+}
+
+function AutoCompleteInput({
+  value,
+  onChange,
   onUnitAutoFill,
-  disabled, 
+  disabled,
   catalog,
-  isLoading 
-}: { 
-  value: string; 
+  isLoading
+}: {
+  value: string;
   onChange: (val: string) => void;
   onUnitAutoFill?: (unit: string) => void;
   disabled: boolean;
-  catalog: any[];
+  catalog: CatalogItem[];
   isLoading: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  
+
   const filtered = value
     ? catalog.filter(c => c.name.toLowerCase().includes(value.toLowerCase()))
     : catalog;
@@ -81,12 +86,31 @@ function AutoCompleteInput({
   );
 }
 
+interface LineItem {
+  id: string;
+  materialName: string;
+  unit: string;
+  quantity: number;
+  estimatedUnitPrice?: number | null;
+  status: string;
+  specifications?: string | null;
+  rfqDeadline?: string | Date | null;
+  rfqSentAt?: string | Date | null;
+}
+
+interface IndentWithItems {
+  id: string;
+  status: string;
+  lineItems?: LineItem[];
+  [key: string]: unknown;
+}
+
 interface LineItemTableProps {
-  indent: any;
+  indent: IndentWithItems;
   workspaceId: string;
   workspaceRole?: string;
   isWorkspaceAdmin?: boolean;
-  onUpdate: (updatedIndent: any) => void;
+  onUpdate: (updatedIndent: IndentWithItems) => void;
 }
 
 export function LineItemTable({
@@ -107,7 +131,7 @@ export function LineItemTable({
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
 
   // RFQ sheet state
-  const [rfqLineItem, setRfqLineItem] = useState<any | null>(null);
+  const [rfqLineItem, setRfqLineItem] = useState<LineItem | null>(null);
   const [rfqSheetOpen, setRfqSheetOpen] = useState(false);
 
   const isDraft = indent.status === "DRAFT";
@@ -130,10 +154,10 @@ export function LineItemTable({
         const tagRes = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
         const tagData = await tagRes.json();
 
-        const items: any[] = [];
+        const items: CatalogItem[] = [];
 
         if (matData.success && matData.data) {
-          matData.data.forEach((m: any) => {
+          matData.data.forEach((m: { id: string; name: string; defaultUnit?: { abbreviation: string } }) => {
             items.push({
               id: m.id,
               name: m.name,
@@ -144,7 +168,7 @@ export function LineItemTable({
         }
 
         if (tagData.success && tagData.tags) {
-          tagData.tags.forEach((t: any) => {
+          tagData.tags.forEach((t: { id: string; name: string }) => {
             items.push({
               id: t.id,
               name: t.name,
@@ -173,7 +197,7 @@ export function LineItemTable({
   }, [workspaceId, isDraft]);
 
 
-  const openRfqSheet = (item: any) => {
+  const openRfqSheet = (item: LineItem) => {
     setRfqLineItem(item);
     setRfqSheetOpen(true);
   };
@@ -210,7 +234,7 @@ export function LineItemTable({
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const finalMaterialName = materialName.trim();
 
     if (!finalMaterialName) {
@@ -249,14 +273,14 @@ export function LineItemTable({
       if (fetchRes.ok && fetchJson.data) onUpdate(fetchJson.data);
 
       toast.success("Line item added");
-      
+
       // Reset form
       setMaterialName("");
       setUnit("pcs");
       setQuantity("");
       setEstimatedUnitPrice("");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to add item");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add item");
     } finally {
       setIsAdding(false);
     }
@@ -278,12 +302,12 @@ export function LineItemTable({
       if (fetchRes.ok && fetchJson.data) onUpdate(fetchJson.data);
 
       toast.success("Line item removed");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to remove item");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove item");
     }
   };
 
-  const handleLineItemUpdated = async (updatedItem: any) => {
+  const handleLineItemUpdated = async (updatedItem: LineItem) => {
     const fetchRes = await fetch(
       `/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`
     );

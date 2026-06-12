@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 
 interface iAppProps {
-  session?: any; // Optional session from server
+  session?: Record<string, unknown>; // Optional session from server
 }
 
 export function Navbar({ session: serverSession }: iAppProps) {

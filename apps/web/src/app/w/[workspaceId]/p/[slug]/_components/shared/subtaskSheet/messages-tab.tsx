@@ -10,12 +10,29 @@ import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "sonner";
 
+interface CommentItem {
+    id: string;
+    content: string;
+    createdAt: string;
+    userId?: string;
+    authorId?: string;
+    user?: { name?: string | null; surname?: string | null; image?: string | null };
+    author?: {
+        workspaceMember?: {
+            user?: { name?: string | null; surname?: string | null; image?: string | null };
+        };
+        name?: string | null;
+        surname?: string | null;
+        image?: string | null;
+    };
+}
+
 interface MessagesTabProps {
     taskId: string;
     workspaceId: string;
     projectId: string;
-    comments: any[];
-    setComments: (comments: any[] | ((prev: any[]) => any[])) => void;
+    comments: CommentItem[];
+    setComments: (comments: CommentItem[] | ((prev: CommentItem[]) => CommentItem[])) => void;
     currentUserId: string | null;
     isLoading: boolean;
     hasMore: boolean;

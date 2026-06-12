@@ -101,7 +101,7 @@ export function TaskRow({
 
     const { remainingDays, isOverdue: isDueDateOverdue } = useRemainingDays(
         start,
-        (task as any).days,
+        task.days,
         end
     );
 

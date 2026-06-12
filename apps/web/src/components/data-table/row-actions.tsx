@@ -26,7 +26,7 @@ export function RowActions<T>({
     row,
     actions
 }: {
-    row: any;
+    row: { original: T };
     actions: DataTableCellAction<T>[];
 }) {
     const mounted = useMounted();

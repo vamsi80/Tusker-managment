@@ -9,6 +9,7 @@ import { ActivityTab } from "./activity-tab";
 import { Tabs } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
 import type { SubTaskType } from "@/types/task";
+import type { WorkspaceMemberRow } from "@/types/workspace";
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
@@ -18,7 +19,7 @@ interface SubTaskDetailsSheetProps {
     subTask: SubTaskType | null;
     isOpen: boolean;
     onClose: () => void;
-    onSubTaskAssigned?: (subTaskId: string, updatedData: any) => void;
+    onSubTaskAssigned?: (subTaskId: string, updatedData: Record<string, unknown>) => void;
 }
 
 export function SubTaskDetailsSheet({
@@ -33,7 +34,7 @@ export function SubTaskDetailsSheet({
     const { data: workspaceData, workspaceId: workspaceIdFromContext } = useWorkspaceLayout();
     
     // Fallback to local state if project context is missing or mismatched
-    const [localMembers, setLocalMembers] = useState<any[]>([]);
+    const [localMembers, setLocalMembers] = useState<WorkspaceMemberRow[]>([]);
     const [isLocalLoading, setIsLocalLoading] = useState(false);
 
     const isDifferentProject = !!(subTask?.projectId && projectCtx?.projectId && subTask.projectId !== projectCtx.projectId);
@@ -61,8 +62,8 @@ export function SubTaskDetailsSheet({
     const isProjectManager = permissions.isProjectManager;
 
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
-    const [comments, setComments] = useState<any[]>([]);
-    const [activities, setActivities] = useState<any[]>([]);
+    const [comments, setComments] = useState<Record<string, unknown>[]>([]);
+    const [activities, setActivities] = useState<Record<string, unknown>[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingActivity, setIsLoadingActivity] = useState(false);
     
@@ -72,7 +73,7 @@ export function SubTaskDetailsSheet({
     const [nextActivitiesCursor, setNextActivitiesCursor] = useState<string | null>(null);
     const [hasMoreActivities, setHasMoreActivities] = useState(true);
 
-    const [cachedData, setCachedData] = useState<Record<string, any>>({});
+    const [cachedData, setCachedData] = useState<Record<string, Record<string, unknown>>>({});
 
     const lastValidTask = useRef<SubTaskType | null>(null);
     if (subTask) {
@@ -198,7 +199,7 @@ export function SubTaskDetailsSheet({
         setActiveTab(tab);
     };
 
-    const handleSubTaskUpdated = useCallback(async (updatedData: any) => {
+    const handleSubTaskUpdated = useCallback(async (updatedData: Record<string, unknown>) => {
         if (!subTask?.id || !workspaceId || !projectId) return;
         try {
             const res = await apiClient.tasks.updateTask(subTask.id, workspaceId, projectId, updatedData);
@@ -236,7 +237,7 @@ export function SubTaskDetailsSheet({
             {task ? (
                 <>
                     <SubtaskSheetHeader
-                        subTask={task as any}
+                        subTask={task}
                         currentUserId={currentUserId || ""}
                         members={members}
                         tags={tags}

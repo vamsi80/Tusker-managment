@@ -1,6 +1,6 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, Column } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { cn, formatIST, APP_DATE_FORMAT } from "@/lib/utils";
  * Creates a sortable header component
  */
 export function createSortableHeader<T>(
-    column: any,
+    column: Column<T>,
     title: string
 ) {
     return (

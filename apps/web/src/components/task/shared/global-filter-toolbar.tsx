@@ -369,7 +369,7 @@ export function GlobalFilterToolbar({
                                                                     variant={filters.dueDateFilter === p.id ? "secondary" : "ghost"}
                                                                     size="sm"
                                                                     className="justify-start h-8 text-xs font-medium px-2 py-1"
-                                                                    onClick={() => applyPreset(p.id as any)}
+                                                                    onClick={() => applyPreset(p.id as 'today' | '4days' | 'week' | 'month' | 'delayed')}
                                                                 >
                                                                     {p.label}
                                                                 </Button>

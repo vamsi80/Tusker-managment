@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableFacetedFilter } from "./data-table-faceted-filter";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronLeft, ChevronRight, Columns, Search, Plus, X, Filter } from "lucide-react";
-import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
+import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, Row, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useMounted } from "@/hooks/use-mounted";
 import {
@@ -47,10 +47,10 @@ interface DataTableProps<TData, TValue> {
     addButtonLabel?: string;
     filterFields?: DataTableFilterField<TData>[];
     rowSelection?: Record<string, boolean>;
-    onRowSelectionChange?: (value: any) => void;
+    onRowSelectionChange?: (value: Record<string, boolean>) => void;
     filterDisplay?: "default" | "menu";
-    enableRowSelection?: (row: any) => boolean;
-    getRowClassName?: (row: any) => string;
+    enableRowSelection?: (row: Row<TData>) => boolean;
+    getRowClassName?: (row: Row<TData>) => string;
     extraToolbarContent?: React.ReactNode;
     onFilterChange?: (filters: ColumnFiltersState) => void;
     onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;

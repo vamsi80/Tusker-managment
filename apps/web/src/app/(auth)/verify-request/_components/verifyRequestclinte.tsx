@@ -33,12 +33,11 @@ export default function VerifyRequestClient() {
           phoneNumber,
           code: otp,
           fetchOptions: {
-            onSuccess: async (ctx: any) => {
-
+            onSuccess: async () => {
               toast.success('Signed In')
               window.location.href = "/"
             },
-            onError: (ctx: any) => {
+            onError: (ctx: { error: { message?: string } }) => {
               toast.error(ctx.error.message || "Error verifying phone/OTP")
             }
           }
@@ -60,7 +59,7 @@ export default function VerifyRequestClient() {
                     phoneNumber,
                   });
                 }
-              } catch (syncError: any) {
+              } catch (syncError: unknown) {
                 console.error("Profile sync error:", syncError);
                 toast.error("Account verified but profile details could not be updated. You can update them in settings.");
               }
@@ -69,7 +68,7 @@ export default function VerifyRequestClient() {
               toast.success('Account Verified')
               window.location.href = "/"
             },
-            onError: (ctx: any) => {
+            onError: (ctx: { error: { message?: string } }) => {
               toast.error(ctx.error.message || "Error verifying email/OTP")
             }
           }

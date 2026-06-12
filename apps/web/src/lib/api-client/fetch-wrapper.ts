@@ -53,10 +53,10 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
         }
 
         return data as T;
-    } catch (error: any) {
+    } catch (error: unknown) {
         if (error instanceof ApiError) throw error;
-        
-        const rawMessage: string = error.message || "An unexpected error occurred";
+
+        const rawMessage: string = error instanceof Error ? error.message : "An unexpected error occurred";
         console.error(`[API_FETCH_ERROR] ${url}:`, error);
 
         // Surface a friendly message for DB/network timeouts instead of raw pg errors

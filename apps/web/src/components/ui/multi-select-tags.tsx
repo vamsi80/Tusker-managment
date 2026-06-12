@@ -70,7 +70,7 @@ export function MultiSelectTags({
     setIsProcessing(true);
     const formattedTagName = toTitleCase(tagName);
     try {
-      const response = await apiFetch<{ success: boolean; data: any }>("/workspace-tags", {
+      const response = await apiFetch<{ success: boolean; data: { id: string; name: string } }>("/workspace-tags", {
         method: "POST",
         body: JSON.stringify({
           name: formattedTagName,
@@ -93,8 +93,8 @@ export function MultiSelectTags({
       } else {
         toast.error("Failed to process tag");
       }
-    } catch (err: any) {
-      toast.error(err.message || "An error occurred");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsProcessing(false);
     }

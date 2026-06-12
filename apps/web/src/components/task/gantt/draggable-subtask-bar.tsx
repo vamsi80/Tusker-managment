@@ -154,7 +154,7 @@ export function DraggableSubtaskBar({
         const isProjectCoordinator = (permissions.coordinatorProjectIds || []).includes(projectId);
         const isProjectLead = (permissions.leadProjectIds || []).includes(projectId);
         const isCreator = optimisticSubtask.createdById === currentUser.id;
-        const assigneeRole = (optimisticSubtask as any).assigneeRole;
+        const assigneeRole = optimisticSubtask.assigneeRole;
 
         // 1. Hierarchy Rules (Strict)
         // If task is assigned to a PM, only Workspace Admin can edit/move it
@@ -171,7 +171,7 @@ export function DraggableSubtaskBar({
         if (isProjectLead && isCreator) return true;
 
         return false;
-    }, [currentUser, permissions, projectId, optimisticSubtask.createdById, optimisticSubtask.assignee, (optimisticSubtask as any).assigneeRole]);
+    }, [currentUser, permissions, projectId, optimisticSubtask.createdById, optimisticSubtask.assignee, optimisticSubtask.assigneeRole]);
 
     const handleBarMouseDown = (e: React.MouseEvent) => {
         if (!canEdit || isResizing || !startDate) return;

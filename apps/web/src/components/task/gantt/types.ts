@@ -71,7 +71,8 @@ export interface GanttTask {
   progress: number;
   subtaskCount?: number;
   hasMoreSubtasks?: boolean;
-  subtaskCursor?: any;
+  subtaskCursor?: string | null;
+  days?: number | null;
   tags?: { id: string; name: string }[];
 }
 

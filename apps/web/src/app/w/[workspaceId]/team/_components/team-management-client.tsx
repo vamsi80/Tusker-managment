@@ -6,7 +6,7 @@ import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
-import { WorkspaceMembersResult } from "@/types/workspace";
+import { WorkspaceMembersResult, WorkspaceMemberRow } from "@/types/workspace";
 
 interface TeamManagementClientProps {
     workspaceId: string;
@@ -19,7 +19,7 @@ interface TeamManagementClientProps {
 export function TeamManagementClient({ workspaceId }: TeamManagementClientProps) {
     const { data: layoutData } = useWorkspaceLayout();
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-    const [members, setMembers] = useState<any[]>([]);
+    const [members, setMembers] = useState<WorkspaceMemberRow[]>([]);
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
@@ -35,7 +35,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     }, [search]);
 
     // Helper to flatten Prisma records into the shape the UI expects
-    const flattenRecord = (r: any) => {
+    const flattenRecord = (r: WorkspaceMemberRow | null | undefined): WorkspaceMemberRow | null | undefined => {
         if (!r) return r;
         // Ensure user object exists or is flattened correctly
         return r;
@@ -66,7 +66,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     }, [workspaceId, debouncedSearch, setIsQuerying]);
 
     useEffect(() => {
-        const handler = (e: any) => {
+        const handler = (e: CustomEvent<{ action?: string; record?: WorkspaceMemberRow; oldRecord?: WorkspaceMemberRow }>) => {
             const { action, record, oldRecord } = e.detail || {};
             const flatRecord = flattenRecord(record);
             
@@ -113,8 +113,8 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
                 fetchData(page, limit, debouncedSearch, true, true); 
             }
         };
-        window.addEventListener("realtime-sync-refresh", handler);
-        return () => window.removeEventListener("realtime-sync-refresh", handler);
+        window.addEventListener("realtime-sync-refresh", handler as EventListener);
+        return () => window.removeEventListener("realtime-sync-refresh", handler as EventListener);
     }, [workspaceId, page, limit, debouncedSearch, fetchData]);
 
     // Fetch data when page, limit, or debouncedSearch changes

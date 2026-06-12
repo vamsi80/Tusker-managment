@@ -29,7 +29,10 @@ export const ForgotPasswordForm = () => {
     setIsPending(true);
     try {
       console.log("Attempting requestPasswordReset for:", email.trim());
-      const res = await (authClient as any).requestPasswordReset({
+      const clientWithReset = authClient as unknown as {
+        requestPasswordReset: (opts: { email: string; redirectTo: string }) => Promise<{ error?: { message?: string } }>;
+      };
+      const res = await clientWithReset.requestPasswordReset({
         email: email.trim(),
         redirectTo: "/reset-password",
       });

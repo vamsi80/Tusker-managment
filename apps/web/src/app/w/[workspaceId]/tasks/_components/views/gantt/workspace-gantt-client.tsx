@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/types/project";
+import type { WorkspaceTaskType } from "@/types/task";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useWorkspaceLayout } from "../../../../_components/workspace-layout-context";
 import { useProjectTags } from "@/hooks/use-project-tags";
@@ -25,8 +26,8 @@ import { taskViewUrl } from "@/lib/api-client/task-views";
 interface WorkspaceGanttClientProps {
   workspaceId: string;
   initialTasks: GanttTask[];
-  allTasks: any[];
-  subtaskDataMap: Record<string, any>;
+  allTasks: WorkspaceTaskType[];
+  subtaskDataMap: Record<string, WorkspaceTaskType>;
   members: ProjectMembersType;
   projectCounts?: Record<string, number>;
   currentUser: { id: string };
@@ -52,7 +53,7 @@ export function WorkspaceGanttClient({
   const filteredProjects = useMemo(
     () =>
       projects.filter(
-        (p: any) =>
+        (p) =>
           !filters.assigneeId ||
           (p.memberIds && p.memberIds.includes(filters.assigneeId)),
       ),
@@ -72,8 +73,8 @@ export function WorkspaceGanttClient({
     () =>
       toolbarMembers.filter((m) => {
         if (!filters.projectId) return true;
-        const project = projects.find((p: any) => p.id === filters.projectId);
-        return (project as any)?.memberIds?.includes(m.id);
+        const project = projects.find((p) => p.id === filters.projectId);
+        return project?.memberIds?.includes(m.id);
       }),
     [toolbarMembers, filters.projectId, projects],
   );
@@ -81,26 +82,26 @@ export function WorkspaceGanttClient({
   const lastFiltersActiveRef = useRef(false);
 
   const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
-  const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, any>>(subtaskDataMap);
+  const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, WorkspaceTaskType>>(subtaskDataMap);
   const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
   const [loadingProjects, setLoadingProjects] = useState<Set<string>>(new Set());
   const fetchingIdsRef = useRef<Set<string>>(new Set());
   const fetchingSubtasksRef = useRef<Set<string>>(new Set());
   const expandedTaskIdsRef = useRef<Set<string>>(new Set());
 
-  const onFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
+  const onFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[]) => {
     const newGanttTasks = transformToGanttTasks(newRawTasks);
     setTasks(newGanttTasks);
     setLocalTaskDataMap(prev => {
       const next = { ...prev };
-      newRawTasks.forEach((t: any) => {
+      newRawTasks.forEach((t) => {
         next[t.id] = t;
       });
       return next;
     });
   }, []);
 
-  const onAppendFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
+  const onAppendFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[]) => {
     const newGanttTasks = transformToGanttTasks(newRawTasks);
     setTasks(prev => {
       const existingIds = new Set(prev.map(t => t.id));
@@ -109,7 +110,7 @@ export function WorkspaceGanttClient({
     });
     setLocalTaskDataMap(prev => {
       const next = { ...prev };
-      newRawTasks.forEach((t: any) => {
+      newRawTasks.forEach((t) => {
         next[t.id] = t;
       });
       return next;
@@ -216,17 +217,17 @@ export function WorkspaceGanttClient({
 
       if (json.success && Array.isArray(json.data)) {
         // 2. Process all results
-        const newLocalData: any = {};
+        const newLocalData: Record<string, WorkspaceTaskType> = {};
 
         setTasks(prev => {
           let updatedTasks = [...prev];
 
-          json.data.forEach((batchResult: any) => {
+          json.data.forEach((batchResult: { parentTaskId: string; subTasks: WorkspaceTaskType[]; hasMore: boolean; nextCursor: string | null }) => {
             const tid = batchResult.parentTaskId;
             const subTasks = batchResult.subTasks || [];
 
             // Collect for local map
-            subTasks.forEach((st: any) => {
+            subTasks.forEach((st) => {
               newLocalData[st.id] = st;
             });
 

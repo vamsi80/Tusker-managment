@@ -143,12 +143,12 @@ export const LoginForm = () => {
             },
           },
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast.error("An error occurred during sign in");
         console.error("[Login Error Details]:", {
-          message: error?.message,
+          message: error instanceof Error ? error.message : String(error),
           error: error,
-          stack: error?.stack
+          stack: error instanceof Error ? error.stack : undefined,
         });
       }
     });
@@ -178,7 +178,7 @@ export const LoginForm = () => {
               setOtpSent(true);
               toast.success("OTP sent to your phone!");
             },
-            onError: (ctx: any) => {
+            onError: (ctx: { error: { message?: string } }) => {
               toast.error(ctx.error.message || "Failed to send OTP");
             },
           },

@@ -5,30 +5,37 @@ import {
     WorkspaceLayoutData,
     type WorkspaceData,
     type WorkspaceMembersResult,
-    type WorkspacesResult
+    type WorkspacesResult,
+    type SlimMember,
 } from "@/types/workspace";
+
+type WorkspaceTag = { id: string; name: string; workspaceId: string; requirePurchase: boolean };
+type WorkspaceAssignmentMaps = {
+    projectLeaders: Record<string, unknown>;
+    projectAssignments: Record<string, unknown>;
+};
 
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
     getMembers(workspaceId: string, page?: number, limit?: number, search?: string): Promise<WorkspaceMembersResult>;
-    getMembersSlim(workspaceId: string): Promise<any[]>;
+    getMembersSlim(workspaceId: string): Promise<SlimMember[]>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
-    updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
+    updateMember(workspaceId: string, memberId: string, values: Record<string, unknown>): Promise<ApiResponse>;
     resendInvite(workspaceId: string, memberId: string): Promise<ApiResponse>;
     resetPassword(workspaceId: string, memberId: string): Promise<ApiResponse>;
     getManagers(workspaceId: string): Promise<ApiResponse>;
     getAll(): Promise<WorkspacesResult>;
     getById(workspaceId: string): Promise<WorkspaceData>;
-    getMetadata(workspaceId: string): Promise<any>;
+    getMetadata(workspaceId: string): Promise<Record<string, unknown>>;
     getLayoutData(workspaceId: string, timestamp?: number): Promise<WorkspaceLayoutData>;
     getUnreadCount(workspaceId: string): Promise<number>;
-    getAssignmentMaps(workspaceId: string): Promise<any>;
-    getTaskCreationData(workspaceId: string): Promise<any>;
-    getTags(workspaceId: string, projectId?: string): Promise<any[]>;
-    createTag(data: { name: string; requirePurchase: boolean; workspaceId: string; projectId?: string }): Promise<{ success: boolean; data?: any; error?: string }>;
-    updateTag(data: { tagId: string; workspaceId: string; name?: string; requirePurchase?: boolean }): Promise<{ success: boolean; data?: any; error?: string }>;
+    getAssignmentMaps(workspaceId: string): Promise<WorkspaceAssignmentMaps>;
+    getTaskCreationData(workspaceId: string): Promise<Record<string, unknown>>;
+    getTags(workspaceId: string, projectId?: string): Promise<WorkspaceTag[]>;
+    createTag(data: { name: string; requirePurchase: boolean; workspaceId: string; projectId?: string }): Promise<{ success: boolean; data?: WorkspaceTag; error?: string }>;
+    updateTag(data: { tagId: string; workspaceId: string; name?: string; requirePurchase?: boolean }): Promise<{ success: boolean; data?: WorkspaceTag; error?: string }>;
     deleteTag(tagId: string, workspaceId: string): Promise<{ success: boolean; error?: string }>;
     markNotificationRead(workspaceId: string, id: string): Promise<ApiResponse>;
     update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
@@ -39,7 +46,7 @@ export const workspacesClient: WorkspacesClient = {
      * Create a new workspace
      */
     create: async (values: WorkSpaceSchemaType): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean; data: any }>("/workspaces", {
+        const response = await apiFetch<{ success: boolean; data: unknown }>("/workspaces", {
             method: "POST",
             body: JSON.stringify(values),
         });
@@ -55,7 +62,7 @@ export const workspacesClient: WorkspacesClient = {
      * Update workspace info
      */
     update: async (workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}`, {
+        const response = await apiFetch<{ success: boolean; data: unknown }>(`/workspaces/${workspaceId}`, {
             method: "PATCH",
             body: JSON.stringify(values),
         });
@@ -92,8 +99,8 @@ export const workspacesClient: WorkspacesClient = {
         const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(url);
         return response.data;
     },
-    getMembersSlim: async (workspaceId: string): Promise<any[]> => {
-        const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/members/slim`);
+    getMembersSlim: async (workspaceId: string): Promise<SlimMember[]> => {
+        const response = await apiFetch<{ success: boolean; data: SlimMember[] }>(`/workspaces/${workspaceId}/members/slim`);
         return response.data;
     },
 
@@ -101,7 +108,7 @@ export const workspacesClient: WorkspacesClient = {
      * Invite a new member
      */
     invite: async (workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean; message: string; data: any }>(`/workspaces/${workspaceId}/invite`, {
+        const response = await apiFetch<{ success: boolean; message: string; data: unknown }>(`/workspaces/${workspaceId}/invite`, {
             method: "POST",
             body: JSON.stringify(values),
         });
@@ -130,8 +137,8 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Update a member's information
      */
-    updateMember: async (workspaceId: string, memberId: string, values: any): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/members/${memberId}`, {
+    updateMember: async (workspaceId: string, memberId: string, values: Record<string, unknown>): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; data: unknown }>(`/workspaces/${workspaceId}/members/${memberId}`, {
             method: "PATCH",
             body: JSON.stringify(values),
         });
@@ -152,7 +159,7 @@ export const workspacesClient: WorkspacesClient = {
         });
 
         return {
-            status: (response.status as any) || (response.success ? "success" : "error"),
+            status: (response.status as "success" | "error" | undefined) ?? (response.success ? "success" : "error"),
             message: response.message || "Invitation resent",
         };
     },
@@ -166,7 +173,7 @@ export const workspacesClient: WorkspacesClient = {
         });
 
         return {
-            status: (response.status as any) || (response.success ? "success" : "error"),
+            status: (response.status as "success" | "error" | undefined) ?? (response.success ? "success" : "error"),
             message: response.message || "Password reset email sent",
         };
     },
@@ -175,7 +182,7 @@ export const workspacesClient: WorkspacesClient = {
      * Get all managers in a workspace
      */
     getManagers: async (workspaceId: string): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/managers`);
+        const response = await apiFetch<{ success: boolean; data: unknown[] }>(`/workspaces/${workspaceId}/managers`);
         return {
             status: response.success ? "success" : "error",
             data: response.data,
@@ -202,17 +209,17 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get lightweight workspace metadata
      */
-    getMetadata: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/metadata`);
+    getMetadata: async (workspaceId: string): Promise<Record<string, unknown>> => {
+        const response = await apiFetch<{ success: boolean; data: Record<string, unknown> }>(`/workspaces/${workspaceId}/metadata`);
         return response.data;
     },
 
     /**
      * Get unified layout data
      */
-    getLayoutData: async (workspaceId: string, timestamp?: number): Promise<any> => {
+    getLayoutData: async (workspaceId: string, timestamp?: number): Promise<WorkspaceLayoutData> => {
         const url = `/workspaces/${workspaceId}/layout${timestamp ? `?t=${timestamp}` : ""}`;
-        const response = await apiFetch<{ success: boolean; data: any }>(url);
+        const response = await apiFetch<{ success: boolean; data: WorkspaceLayoutData }>(url);
         return response.data;
     },
 
@@ -227,8 +234,8 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get Project Assignment maps (members & leaders)
      */
-    getAssignmentMaps: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/assignment-maps`);
+    getAssignmentMaps: async (workspaceId: string): Promise<WorkspaceAssignmentMaps> => {
+        const response = await apiFetch<{ success: boolean; data: WorkspaceAssignmentMaps }>(`/workspaces/${workspaceId}/assignment-maps`);
         return {
             projectLeaders: response.data.projectLeaders || {},
             projectAssignments: response.data.projectAssignments || {},
@@ -238,25 +245,25 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get workspace task creation data
      */
-    getTaskCreationData: async (workspaceId: string): Promise<any> => {
-        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/task-creation-data`);
+    getTaskCreationData: async (workspaceId: string): Promise<Record<string, unknown>> => {
+        const response = await apiFetch<{ success: boolean; data: Record<string, unknown> }>(`/workspaces/${workspaceId}/task-creation-data`);
         return response.data;
     },
 
     /**
      * Get workspace tags
      */
-    getTags: async (workspaceId: string, projectId?: string): Promise<any[]> => {
+    getTags: async (workspaceId: string, projectId?: string): Promise<WorkspaceTag[]> => {
         let url = `/workspace-tags?workspaceId=${workspaceId}`;
         if (projectId) {
             url += `&projectId=${projectId}`;
         }
-        const response = await apiFetch<{ success: boolean; tags: any[] }>(url);
+        const response = await apiFetch<{ success: boolean; tags: WorkspaceTag[] }>(url);
         return response.tags || [];
     },
 
     createTag: async (data) => {
-        const response = await apiFetch<{ success: boolean; data: any }>("/workspace-tags", {
+        const response = await apiFetch<{ success: boolean; data: WorkspaceTag }>("/workspace-tags", {
             method: "POST",
             body: JSON.stringify(data),
         });
@@ -264,7 +271,7 @@ export const workspacesClient: WorkspacesClient = {
     },
 
     updateTag: async (data) => {
-        const response = await apiFetch<{ success: boolean; data: any }>("/workspace-tags", {
+        const response = await apiFetch<{ success: boolean; data: WorkspaceTag }>("/workspace-tags", {
             method: "PATCH",
             body: JSON.stringify(data),
         });
