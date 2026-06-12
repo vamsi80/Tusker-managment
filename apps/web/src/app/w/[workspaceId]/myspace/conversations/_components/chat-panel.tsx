@@ -9,13 +9,26 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import Link from "next/link";
 
+interface ChatMessage {
+  id?: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+}
+
+interface OtherUser {
+  surname?: string | null;
+  name?: string | null;
+  lastActiveAt?: string | null;
+}
+
 interface ChatPanelProps {
   conversationId: string;
   workspaceId: string;
-  messages: any[];
+  messages: ChatMessage[];
   isLoading: boolean;
   onSendMessage: (content: string) => Promise<void>;
-  otherUser: any;
+  otherUser: OtherUser | null | undefined;
   currentUserId: string;
 }
 

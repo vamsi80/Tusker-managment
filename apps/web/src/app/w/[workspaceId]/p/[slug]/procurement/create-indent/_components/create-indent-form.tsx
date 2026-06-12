@@ -51,7 +51,7 @@ function AutoCompleteInput({
   onChange: (val: string) => void;
   onUnitAutoFill?: (unit: string) => void;
   disabled: boolean;
-  catalog: any[];
+  catalog: { id: string; name: string; defaultUnit?: { abbreviation?: string } }[];
   isLoading: boolean;
   currentUnit?: string;
   onFocusTrigger?: () => void;
@@ -198,7 +198,7 @@ function AutoCompleteInput({
         workspaceId={workspaceId}
         units={unitsList}
         initialName={newMaterialName}
-        onSuccess={async (created: any) => {
+        onSuccess={async (created: { name: string; defaultUnit?: { abbreviation?: string }; unit?: string }) => {
           onChange(created.name);
           const unitAbbr = created.defaultUnit?.abbreviation || created.unit;
           if (onUnitAutoFill && unitAbbr) {
@@ -247,7 +247,7 @@ interface CreateIndentFormProps {
   workspaceId: string;
   tasks?: { id: string; name: string; taskSlug?: string; dueDate?: Date | string | null }[];
   projects?: { id: string; name: string; slug: string }[];
-  onSuccess: (indent: any) => void;
+  onSuccess: (indent: { id?: string; [key: string]: unknown }) => void;
   onCancel?: () => void;
 }
 
@@ -283,7 +283,7 @@ export function CreateIndentForm({
     { materialName: "", unit: "pcs", quantity: 1, specifications: "" },
   ]);
   const [shouldLoadCatalog, setShouldLoadCatalog] = useState(false);
-  const [catalog, setCatalog] = useState<any[]>([]);
+  const [catalog, setCatalog] = useState<{ id: string; name: string; defaultUnit?: { abbreviation?: string } }[]>([]);
   const [units, setUnits] = useState<{ abbreviation: string; name: string }[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
 
@@ -394,7 +394,7 @@ export function CreateIndentForm({
     setLineItems(lineItems.filter((_, i) => i !== index));
   };
 
-  const handleRowChange = (index: number, field: keyof LineItemInput, value: any) => {
+  const handleRowChange = (index: number, field: keyof LineItemInput, value: LineItemInput[keyof LineItemInput]) => {
     setLineItems((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
@@ -458,8 +458,8 @@ export function CreateIndentForm({
 
       toast.success("Indent created successfully");
       onSuccess(json.data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create indent");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create indent");
     } finally {
       setIsSubmitting(false);
     }

@@ -62,8 +62,8 @@ export function QuoteCard({
       if (!res.ok) throw new Error(json.error || "Failed to approve quote");
       toast.success("Quote approved — vendor capability updated automatically");
       onUpdate();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to approve quote");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve quote");
     } finally {
       setIsLoading(false);
     }
@@ -87,8 +87,8 @@ export function QuoteCard({
       setShowRejectReason(false);
       setRejectReason("");
       onUpdate();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reject quote");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject quote");
     } finally {
       setIsLoading(false);
     }

@@ -31,7 +31,7 @@ interface iAppProps {
     workspaceId: string;
     projectId?: string;
     parentTaskId?: string;
-    onSubTaskCreated?: (subTask: any) => void;
+    onSubTaskCreated?: (subTask: Record<string, unknown>) => void;
     level?: "workspace" | "project";
     tags?: { id: string; name: string; }[];
     parentTasks?: { id: string; name: string; projectId: string; }[];
@@ -107,7 +107,7 @@ export const CreateSubTaskForm = ({
     }, [projectId, parentTaskId, tags, level, parentTasks]);
 
     const form = useForm<SubTaskSchemaType>({
-        resolver: zodResolver(subTaskSchema as any),
+        resolver: zodResolver(subTaskSchema) as Resolver<SubTaskSchemaType>,
         defaultValues,
     });
 

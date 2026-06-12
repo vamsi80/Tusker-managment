@@ -49,6 +49,17 @@ import {
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { type WorkspaceMembersResult } from "@/types/workspace";
+import { type FullProjectData } from "@/types/project";
+
+interface ClientItem {
+    id: string;
+    name?: string | null;
+    registeredCompanyName?: string | null;
+    gstNumber?: string | null;
+    directorName?: string | null;
+    address?: string | null;
+    clintMembers?: { name?: string | null; phoneNumber?: string | null }[];
+}
 import Link from "next/link";
 
 export default function EditProjectPage() {
@@ -59,11 +70,11 @@ export default function EditProjectPage() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
 
-    const [projectData, setProjectData] = useState<any>(null);
+    const [projectData, setProjectData] = useState<FullProjectData | null>(null);
     const [isLoadingProject, setIsLoadingProject] = useState(true);
 
     const [members, setMembers] = useState<WorkspaceMembersResult["workspaceMembers"]>([]);
-    const [existingClients, setExistingClients] = useState<any[]>([]);
+    const [existingClients, setExistingClients] = useState<ClientItem[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isLoadingClients, setIsLoadingClients] = useState(true);
 
@@ -105,7 +116,7 @@ export default function EditProjectPage() {
             try {
                 const result = await projectsClient.getWorkspaceMembers(workspaceId);
                 if (result) {
-                    setMembers(result as any);
+                    setMembers(result as WorkspaceMembersResult["workspaceMembers"]);
                 }
             } catch (error) {
                 console.error("Failed to load members:", error);
@@ -123,7 +134,7 @@ export default function EditProjectPage() {
             try {
                 const result = await projectsClient.getWorkspaceClients(workspaceId);
                 if (result) {
-                    const uniqueClients = result.reduce((acc: any[], curr: any) => {
+                    const uniqueClients = (result as ClientItem[]).reduce((acc: ClientItem[], curr: ClientItem) => {
                         const exists = acc.find(c =>
                             (c.name === curr.name && c.registeredCompanyName === curr.registeredCompanyName) ||
                             (curr.gstNumber && c.gstNumber === curr.gstNumber)
@@ -143,7 +154,7 @@ export default function EditProjectPage() {
     }, [workspaceId]);
 
     const form = useForm<EditProjectSchemaType>({
-        resolver: zodResolver(editProjectSchema as any),
+        resolver: zodResolver(editProjectSchema) as Resolver<EditProjectSchemaType>,
         defaultValues: {
             projectId: projectId,
             name: "",
@@ -182,7 +193,7 @@ export default function EditProjectPage() {
                 memberAccess: projectData.memberAccess || [],
                 tagIds: projectData.tagIds || [],
                 isInternal: isInternalProject,
-            } as any);
+            } as EditProjectSchemaType);
         }
     }, [projectData, form]);
 
@@ -464,7 +475,7 @@ export default function EditProjectPage() {
                                                                 {field.value && field.value.length > 0 ? (
                                                                     field.value.map(id => (
                                                                         <Badge key={id} variant="outline" className="bg-primary/5">
-                                                                            {toTitleCase(layoutData?.tags?.find((t: any) => t.id === id)?.name) || "Tag"}
+                                                                            {toTitleCase(layoutData?.tags?.find((t) => t.id === id)?.name) || "Tag"}
                                                                         </Badge>
                                                                     ))
                                                                 ) : (
@@ -478,7 +489,7 @@ export default function EditProjectPage() {
                                                             <CommandInput placeholder="Search workspace tags..." />
                                                             <CommandEmpty>No tags found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
-                                                                {(layoutData?.tags || []).map((t: any) => {
+                                                                {(layoutData?.tags || []).map((t) => {
                                                                     const isSelected = field.value?.includes(t.id);
                                                                     return (
                                                                         <CommandItem

@@ -40,7 +40,7 @@ interface RfqSheetProps {
   workspaceId: string;
   canSendRfq: boolean;
   canReviewQuotes: boolean;
-  onLineItemUpdated: (updatedItem: any) => void;
+  onLineItemUpdated: (updatedItem: { id: string; status?: string; [key: string]: unknown }) => void;
 }
 
 type RfqView = "rfq" | "quotes";
@@ -56,9 +56,29 @@ export function RfqSheet({
   onLineItemUpdated,
 }: RfqSheetProps) {
   const [view, setView] = useState<RfqView>("rfq");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  interface RfqSuggestion {
+    vendor: { id: string; name: string; companyName?: string | null; email?: string | null; phoneNumber?: string | null };
+    similarityScore: number;
+    hasSuppliedBefore: boolean;
+    performanceScore: number | null;
+    totalQuotes: number;
+  }
+  interface RfqQuote {
+    id: string;
+    vendorId: string;
+    unitPrice: number;
+    quantity: number;
+    totalPrice: number;
+    leadTimeDays?: number | null;
+    validUntil?: string | Date | null;
+    notes?: string | null;
+    status: string;
+    rejectionReason?: string | null;
+    vendor: { id: string; name: string; companyName?: string | null };
+  }
+  const [suggestions, setSuggestions] = useState<RfqSuggestion[]>([]);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
-  const [quotes, setQuotes] = useState<any[]>([]);
+  const [quotes, setQuotes] = useState<RfqQuote[]>([]);
   const [isQuotesLoading, setIsQuotesLoading] = useState(false);
 
   // Determine the initial view based on line item status

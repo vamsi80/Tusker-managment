@@ -25,7 +25,13 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
     const [isPending, startTransition] = useTransition();
 
     const [entries, setEntries] = useState<DailyReportFormType["entries"]>([{ taskId: "", description: "" }]);
-    const [suggestedTasks, setSuggestedTasks] = useState<any[]>([]);
+    interface SuggestedTask {
+        id: string;
+        name: string;
+        parentTask?: { name: string } | null;
+        project?: { color?: string | null } | null;
+    }
+    const [suggestedTasks, setSuggestedTasks] = useState<SuggestedTask[]>([]);
     const [openPopoverIndex, setOpenPopoverIndex] = useState<number | null>(null);
 
     useEffect(() => {
@@ -45,7 +51,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
         }
     };
 
-    const updateEntry = (index: number, field: keyof DailyReportFormType["entries"][0], value: any) => {
+    const updateEntry = (index: number, field: keyof DailyReportFormType["entries"][0], value: string) => {
         setEntries((prev) => {
             const newEntries = [...prev];
             newEntries[index] = { ...newEntries[index], [field]: value };
@@ -80,8 +86,8 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                 toast.success("Daily report submitted successfully!");
                 onSubmitted?.();
                 onClose();
-            } catch (error: any) {
-                toast.error(error.message || "Failed to submit report");
+            } catch (error: unknown) {
+                toast.error(error instanceof Error ? error.message : "Failed to submit report");
             }
         });
     };

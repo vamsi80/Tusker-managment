@@ -24,6 +24,8 @@ import { useReloadView } from "@/hooks/use-reload-view";
 type SubTaskBase = {
     id: string;
     name: string;
+    workspaceId?: string;
+    projectId?: string;
 };
 
 interface DeleteSubTaskFormProps<T extends SubTaskBase> {
@@ -49,8 +51,8 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
     const [pending, startTransition] = useTransition();
     const params = useParams();
     const reloadView = useReloadView();
-    const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
-    const projectId = (subTask as any).projectId || "";
+    const workspaceId = (params.workspaceId as string) || subTask.workspaceId || "";
+    const projectId = subTask.projectId || "";
 
     const handleDelete = () => {
         startTransition(async () => {

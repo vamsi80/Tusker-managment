@@ -44,6 +44,12 @@ interface MaterialsTableProps {
     onDeleteMaterial: (itemId: string) => Promise<void>;
 }
 
+interface CatalogItem {
+    id: string;
+    name: string;
+    defaultUnit?: { abbreviation?: string };
+}
+
 function AutoCompleteInput({
     value,
     onChange,
@@ -58,7 +64,7 @@ function AutoCompleteInput({
     onChange: (val: string) => void;
     onUnitAutoFill?: (unit: string) => void;
     disabled: boolean;
-    catalog: any[];
+    catalog: CatalogItem[];
     isLoading: boolean;
     onCreateClick?: (val: string) => void;
     placeholder?: string;
@@ -212,7 +218,7 @@ export function MaterialsTable({
     const [editNotes, setEditNotes] = useState("");
 
     // Catalog search/autocomplete and creation states
-    const [catalog, setCatalog] = useState<any[]>([]);
+    const [catalog, setCatalog] = useState<CatalogItem[]>([]);
     const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [createMaterialName, setCreateMaterialName] = useState("");
@@ -292,7 +298,7 @@ export function MaterialsTable({
         }
     }, [workspaceId]);
 
-    const handleCreateMaterialSuccess = async (createdMaterial: any) => {
+    const handleCreateMaterialSuccess = async (createdMaterial: CatalogItem) => {
         // Refresh catalog cache
         await fetchCatalog();
 

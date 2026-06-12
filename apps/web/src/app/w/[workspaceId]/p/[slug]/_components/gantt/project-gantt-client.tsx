@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef, useMemo, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { GanttTask } from "../../../../../../../components/task/gantt/types";
+import { GanttTask, GanttSubtask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import type { WorkspaceTaskType } from "@/types/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
@@ -22,7 +22,7 @@ interface ProjectGanttClientProps {
     workspaceId: string;
     projectId: string;
     initialTasks: GanttTask[];
-    allTasks: any[];
+    allTasks: WorkspaceTaskType[];
     subtaskDataMap: Record<string, WorkspaceTaskType>;
     members: ProjectMembersType;
     projectCounts?: Record<string, number>;
@@ -55,14 +55,14 @@ export function ProjectGanttClient({
     const [isPending, startTransition] = useTransition();
     const lastFiltersActiveRef = useRef(false);
 
-    const onFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
+    const onFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[], _meta?: unknown) => {
         const newGanttTasks = transformToGanttTasks(newRawTasks);
 
         setLocalTaskDataMap(prev => {
             const next = { ...prev };
-            newRawTasks.forEach((t: any) => {
+            newRawTasks.forEach((t: WorkspaceTaskType) => {
                 next[t.id] = t;
-                if (t.subTasks) t.subTasks.forEach((s: any) => next[s.id] = s);
+                if (t.subTasks) t.subTasks.forEach((s: WorkspaceTaskType) => { next[s.id] = s; });
             });
             return next;
         });
@@ -70,14 +70,14 @@ export function ProjectGanttClient({
         setTasks(newGanttTasks);
     }, []);
 
-    const onAppendFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
+    const onAppendFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[], _meta?: unknown) => {
         const newGanttTasks = transformToGanttTasks(newRawTasks);
 
         setLocalTaskDataMap(prev => {
             const next = { ...prev };
-            newRawTasks.forEach((t: any) => {
+            newRawTasks.forEach((t: WorkspaceTaskType) => {
                 next[t.id] = t;
-                if (t.subTasks) t.subTasks.forEach((s: any) => next[s.id] = s);
+                if (t.subTasks) t.subTasks.forEach((s: WorkspaceTaskType) => { next[s.id] = s; });
             });
             return next;
         });
@@ -297,7 +297,7 @@ export function ProjectGanttClient({
                 // 🚀 Sync: Store raw subtask data for the sheet
                 setLocalTaskDataMap(prev => {
                     const next = { ...prev };
-                    subTasks.forEach((s: any) => { next[s.id] = s; });
+                    subTasks.forEach((s: WorkspaceTaskType) => { next[s.id] = s; });
                     return next;
                 });
 
@@ -368,7 +368,7 @@ export function ProjectGanttClient({
                 // 🚀 Sync: Store raw subtask data for the sheet
                 setLocalTaskDataMap(prev => {
                     const next = { ...prev };
-                    rawSubtasks.forEach((s: any) => { next[s.id] = s; });
+                    rawSubtasks.forEach((s: WorkspaceTaskType) => { next[s.id] = s; });
                     return next;
                 });
 
@@ -406,7 +406,7 @@ export function ProjectGanttClient({
     };
 
     // Surgical update for subtasks (e.g. assignee change)
-    const handleSubTaskUpdate = (subTaskId: string, updatedData: Partial<any>) => {
+    const handleSubTaskUpdate = (subTaskId: string, updatedData: Partial<GanttTask> | Partial<GanttSubtask>) => {
         setTasks(prevTasks => {
             return prevTasks.map(task => {
                 // If the updated task is a parent task
@@ -446,7 +446,7 @@ export function ProjectGanttClient({
                 view="gantt"
                 filters={filters}
                 searchQuery={searchQuery}
-                members={toolbarMembers as any}
+                members={toolbarMembers}
                 tags={tags}
                 onFilterChange={handleFilterChange}
                 onSearchChange={handleSearchChange}

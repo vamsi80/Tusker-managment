@@ -5,8 +5,8 @@ import type { UserPermissionsType } from "@/types/workspace";
 export interface ProjectLayoutContextType {
     projectMembers: ProjectMembersType;
     projectPermissions: UserPermissionsType;
-    projectManagers: Record<string, any[]>;
-    workspaceTags: any[];
+    projectManagers: Record<string, Array<{ id?: string; surname?: string | null; name?: string | null; image?: string | null; user?: { image?: string | null; surname?: string | null; name?: string | null } }>>;
+    workspaceTags: Array<{ id: string; name: string }>;
     workspaceId: string;
     projectId: string;
     isLoading: boolean;

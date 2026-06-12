@@ -1,6 +1,8 @@
 "use client";
 
 import type { WorkspaceTaskType as TaskByIdType } from "@/types/task";
+import type { ProjectMembersType } from "@/types/project";
+import type { AssignableSubTask } from "@/components/task/shared/inline-assignee-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,7 +20,7 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 interface SubtaskSheetHeaderProps {
     subTask: TaskByIdType;
     currentUserId?: string | null;
-    members?: any[];
+    members?: ProjectMembersType;
     onSubTaskAssigned?: (memberObj: { id: string; name: string | null; surname: string | null }) => void;
     onSubTaskUpdated?: (updatedTask: Partial<TaskByIdType>) => void;
     isAdmin?: boolean;
@@ -50,13 +52,14 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
     // Get project name — always prioritize the task's actual projectId.
     // The URL slug (params.slug) is the currently viewed page and can mismatch when opened via notifications.
-    const currentProject = workspaceData.projects?.find((p: any) => 
+    const currentProject = workspaceData.projects?.find((p) =>
         subTask.projectId ? p.id === subTask.projectId : (params.slug && p.slug === params.slug)
     );
-    const projectName = currentProject?.name || (subTask as any).project?.name;
+    const projectName = currentProject?.name || subTask.project?.name;
 
-    // Assignee calculation
-    const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
+    // Assignee calculation — runtime data may have an enriched shape with workspaceMember
+    type EnrichedAssignee = { id: string; surname: string | null; workspaceMember?: { user?: { id: string; surname?: string | null } } };
+    const assignee = (subTask.assignee as EnrichedAssignee | null)?.workspaceMember?.user || subTask.assignee;
 
     return (
         <div className="px-4 sm:px-6 pt-6 pb-4 border-b flex-shrink-0">
@@ -131,11 +134,11 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                     </div>
                                 ) : (
                                     <InlineAssigneePicker
-                                        subTask={subTask as any}
-                                        members={members}
+                                        subTask={subTask as AssignableSubTask}
+                                        members={members ?? []}
                                         projectId={subTask.projectId || ""}
                                         parentTaskId={subTask.parentTaskId || ""}
-                                        canEdit={!!(isAdmin || isProjectManager || subTask.createdBy?.id === currentUserId || (subTask as any).createdById === currentUserId)}
+                                        canEdit={!!(isAdmin || isProjectManager || subTask.createdBy?.id === currentUserId || subTask.createdById === currentUserId)}
                                         onAssigned={(_userId, member) => {
                                             onSubTaskAssigned?.({
                                                 id: member.userId,

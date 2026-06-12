@@ -11,8 +11,25 @@ import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
+interface ConvOtherUser {
+  id: string;
+  surname?: string | null;
+  name?: string | null;
+  image?: string | null;
+  lastActiveAt?: string | null;
+  [key: string]: unknown;
+}
+
+interface ConversationListItem {
+  id?: string;
+  otherUser?: ConvOtherUser;
+  lastMessageAt?: string | null;
+  lastMessage?: { content?: string; [key: string]: unknown } | null;
+  [key: string]: unknown;
+}
+
 interface ConversationListProps {
-  conversations: any[];
+  conversations: ConversationListItem[];
   isLoading: boolean;
 }
 
@@ -34,9 +51,9 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
     const list: Array<{
       type: "conversation" | "member";
       id: string;
-      otherUser: any;
+      otherUser: ConvOtherUser | undefined;
       lastMessageAt: string | null;
-      lastMessage: any | null;
+      lastMessage: { content?: string; [key: string]: unknown } | null;
       name: string;
     }> = [...conversations].map(conv => ({
       type: "conversation",

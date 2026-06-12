@@ -16,6 +16,34 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { cn, toTitleCase } from "@/lib/utils";
+import type { WorkspaceTaskType } from "@/types/task";
+import type { ProjectMembersType } from "@/types/project";
+
+interface CommentItem {
+  id: string;
+  content: string;
+  createdAt: string;
+  userId?: string;
+  authorId?: string;
+  user?: { name?: string | null; surname?: string | null; image?: string | null };
+  author?: {
+    workspaceMember?: { user?: { name?: string | null; surname?: string | null; image?: string | null } };
+    name?: string | null;
+    surname?: string | null;
+    image?: string | null;
+  };
+}
+
+interface ActivityItem {
+  id: string;
+  text: string;
+  attachment: {
+    fileName?: string; fileType?: string; fileSize?: number; url?: string;
+    previousStatus?: string; targetStatus?: string;
+  } | null;
+  author: { id: string; surname: string };
+  createdAt: Date;
+}
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -27,13 +55,13 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
   const allNotifs = [...unreadNotifications, ...readNotifications];
   const matchedNotif = allNotifs.find(n => n.id === notificationId || n.taskId === notificationId);
 
-  const [task, setTask] = useState<any | null>(null);
+  const [task, setTask] = useState<WorkspaceTaskType | null>(null);
   const [isTaskLoading, setIsTaskLoading] = useState(true);
-  const [projectMembers, setProjectMembers] = useState<any[]>([]);
+  const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
 
   const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
-  const [comments, setComments] = useState<any[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
   const [isActivitiesLoading, setIsActivitiesLoading] = useState(false);
 
@@ -99,7 +127,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     const fetchMembers = async () => {
       try {
         const membersList = await apiClient.projects.getMembers(projectId);
-        setProjectMembers(membersList || []);
+        setProjectMembers((membersList || []) as unknown as ProjectMembersType);
       } catch (e) {
         console.error("Failed to fetch project members:", e);
       }
@@ -178,14 +206,14 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     }
   }, [task?.id]);
 
-  const handleSubTaskUpdated = useCallback(async (updatedData: any) => {
+  const handleSubTaskUpdated = useCallback(async (updatedData: Partial<WorkspaceTaskType>) => {
     if (!task?.id || !workspaceId || !projectId) return;
     try {
       const res = await apiClient.tasks.updateTask(task.id, workspaceId, projectId, updatedData);
       if (res.status === "success") {
         toast.success("Task updated successfully");
         // Update local task state
-        setTask((prev: any) => prev ? { ...prev, ...updatedData } : prev);
+        setTask((prev) => prev ? { ...prev, ...updatedData } : prev);
       } else {
         toast.error(res.message || "Failed to update task");
       }

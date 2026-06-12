@@ -3,6 +3,7 @@ import { useEffect, useMemo } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
 import { useProjectLayout } from "../project-layout-context";
 import { KanbanBoard } from "@/components/task/kanban/kanban-board";
+import type { TaskStatus, SubTasksByStatusResponse } from "@/types/task";
 
 interface ProjectKanbanViewProps {
     workspaceId: string;
@@ -29,7 +30,7 @@ export function ProjectKanbanView({
                 currentPage: 1
             };
             return acc;
-        }, { isShell: true } as any);
+        }, {} as Record<TaskStatus, SubTasksByStatusResponse>);
     }, [COLUMNS]);
 
     useEffect(() => {
@@ -51,7 +52,7 @@ export function ProjectKanbanView({
     return (
         <KanbanBoard
             initialData={initialData}
-            projectMembers={projectMembers as any}
+            projectMembers={projectMembers}
             workspaceId={workspaceId}
             projectId={projectId}
             projectManagers={projectManagers}

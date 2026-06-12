@@ -3,9 +3,25 @@ import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import TaskTable from "@/components/task/list/task-table";
 
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { ProjectMembersType } from "@/types/project";
 
 interface WorkspaceListViewProps {
     workspaceId: string;
+}
+
+interface MemberApiItem {
+    userId: string;
+    projectRole: string;
+    workspaceRole?: string;
+    user?: { id: string; surname?: string | null; image?: string | null };
+}
+
+interface TaskListApiData {
+    tasks?: TaskWithSubTasks[];
+    hasMore?: boolean;
+    nextCursor?: string | null;
+    totalCount?: number;
+    facets?: { projects?: Record<string, number> };
 }
 
 export async function WorkspaceListView({
@@ -15,13 +31,13 @@ export async function WorkspaceListView({
 
     const viewStartTime = performance.now();
     const [membersRes, { data: permissions }, tasksRes] = await Promise.all([
-        serverApiFetch<{ success: boolean; data: any[] }>(
+        serverApiFetch<{ success: boolean; data: MemberApiItem[] }>(
             `/projects/project-members?workspaceId=${workspaceId}`
-        ).catch(() => ({ data: [] })),
+        ).catch(() => ({ data: [] as MemberApiItem[] })),
         serverApiFetch<{ success: boolean; data: { hasAccess: boolean } }>(
             `/workspaces/${workspaceId}/permissions`
         ).catch(() => ({ data: { hasAccess: false } })),
-        serverApiFetch<{ success: boolean; data: any }>(
+        serverApiFetch<{ success: boolean; data: TaskListApiData }>(
             `/workspaces/${workspaceId}/tasks/list?limit=25&facets=true`
         ).catch(() => ({ data: { tasks: [], hasMore: false, nextCursor: null } })),
     ]);
@@ -30,7 +46,7 @@ export async function WorkspaceListView({
         console.warn(`[PERF_WARN] WorkspaceListView rendered in ${duration.toFixed(2)}ms`);
     }
 
-    const members = (membersRes.data ?? []).map((m: any) => ({
+    const members = (membersRes.data ?? []).map((m) => ({
         userId: m.userId,
         projectRole: m.projectRole,
         workspaceRole: m.workspaceRole,
@@ -39,9 +55,9 @@ export async function WorkspaceListView({
 
     const tasksData = tasksRes.data;
     const rawTasks = tasksData?.tasks ?? [];
-    const initialTasks = rawTasks.map((t: any) => ({
+    const initialTasks = rawTasks.map((t) => ({
         ...t,
-        subtaskCount: t.subtaskCount ?? t._count?.subTasks ?? 0,
+        subtaskCount: (t as TaskWithSubTasks & { _count?: { subTasks?: number } })._count?.subTasks ?? 0,
         subTasks: undefined
     })) as TaskWithSubTasks[];
 
@@ -51,7 +67,7 @@ export async function WorkspaceListView({
             initialHasMore={tasksData?.hasMore ?? false}
             initialNextCursor={tasksData?.nextCursor ?? null}
             initialTotalCount={tasksData?.totalCount ?? undefined}
-            members={members as any}
+            members={members as unknown as ProjectMembersType}
             workspaceId={workspaceId}
             projectId=""
             canCreateSubTask={permissions?.hasAccess ?? false}

@@ -34,9 +34,25 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 
 const UNITS = ["pcs", "kg", "meter", "box", "bag", "ton", "liter", "sqft", "cum"];
 
+interface IndentLineItem {
+  id: string;
+  materialName: string;
+  quantity: number;
+  unit?: string;
+  specifications?: string;
+  [key: string]: unknown;
+}
+
+interface IndentDetail {
+  id: string;
+  status: string;
+  lineItems?: IndentLineItem[];
+  [key: string]: unknown;
+}
+
 interface IndentDetailClientProps {
   workspaceId: string;
-  indent: any;
+  indent: IndentDetail;
 }
 
 export function IndentDetailClient({ workspaceId, indent: initialIndent }: IndentDetailClientProps) {
@@ -67,15 +83,15 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     setIndent(initialIndent);
   }, [initialIndent]);
 
-  const showErrorToast = (errPayload: any, fallback: string) => {
+  const showErrorToast = (errPayload: unknown, fallback: string) => {
     if (!errPayload) {
       toast.error(fallback);
       return;
     }
     if (typeof errPayload === "string") {
       toast.error(errPayload);
-    } else if (errPayload && typeof errPayload.message === "string") {
-      toast.error(errPayload.message);
+    } else if (errPayload && typeof errPayload === "object" && "message" in errPayload && typeof (errPayload as { message: unknown }).message === "string") {
+      toast.error((errPayload as { message: string }).message);
     } else {
       toast.error(fallback);
     }
@@ -171,7 +187,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     });
   };
 
-  const handleEditStart = (item: any) => {
+  const handleEditStart = (item: IndentLineItem) => {
     setEditingItemId(item.id);
     setEditMaterialName(item.materialName);
     setEditQuantity(item.quantity);
@@ -207,9 +223,9 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         const data = await res.json();
         if (data.success) {
           toast.success("Material updated");
-          const updatedItems = indent.lineItems.map((li: any) =>
-            li.id === itemId ? data.data : li
-          );
+          const updatedItems = indent.lineItems?.map((li) =>
+            li.id === itemId ? (data.data as IndentLineItem) : li
+          ) ?? [];
           setIndent({ ...indent, lineItems: updatedItems });
           setEditingItemId(null);
         } else {
@@ -231,7 +247,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         const data = await res.json();
         if (data.success) {
           toast.success("Material removed");
-          const updatedItems = indent.lineItems.filter((li: any) => li.id !== itemId);
+          const updatedItems = indent.lineItems?.filter((li) => li.id !== itemId) ?? [];
           setIndent({ ...indent, lineItems: updatedItems });
         } else {
           showErrorToast(data.error, "Failed to delete item");

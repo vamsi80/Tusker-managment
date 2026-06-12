@@ -18,8 +18,27 @@ interface VendorCapabilitiesProps {
   workspaceId: string;
 }
 
+interface CapabilityItem {
+  id: string;
+  materialName: string;
+  unit?: string;
+  serviceType?: string;
+  [key: string]: unknown;
+}
+
+interface MaterialApiItem {
+  id: string;
+  name: string;
+  defaultUnit?: { abbreviation?: string };
+}
+
+interface TagApiItem {
+  id: string;
+  name: string;
+}
+
 export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilitiesProps) {
-  const [capabilities, setCapabilities] = useState<any[]>([]);
+  const [capabilities, setCapabilities] = useState<CapabilityItem[]>([]);
   const [loadingCaps, setLoadingCaps] = useState(true);
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const [customMaterialName, setCustomMaterialName] = useState("");
@@ -43,10 +62,10 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
       const tagRes = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
       const tagData = await tagRes.json();
 
-      const items: any[] = [];
+      const items: { id: string; name: string; type: "material" | "tag"; unit?: string }[] = [];
 
       if (matData.success && matData.data) {
-        matData.data.forEach((m: any) => {
+        (matData.data as MaterialApiItem[]).forEach((m) => {
           items.push({
             id: m.id,
             name: m.name,
@@ -57,7 +76,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
       }
 
       if (tagData.success && tagData.tags) {
-        tagData.tags.forEach((t: any) => {
+        (tagData.tags as TagApiItem[]).forEach((t) => {
           items.push({
             id: t.id,
             name: t.name,
@@ -164,7 +183,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
     }
   };
 
-  const columns = useMemo<ColumnDef<any>[]>(
+  const columns = useMemo<ColumnDef<CapabilityItem>[]>(
     () => [
       {
         accessorKey: "materialName",
@@ -353,7 +372,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
               <label className="text-xs font-semibold text-muted-foreground">Service Type</label>
               <select
                 value={newServiceType}
-                onChange={(e) => setNewServiceType(e.target.value as any)}
+                onChange={(e) => setNewServiceType(e.target.value as "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL")}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
               >
                 <option value="SUPPLY" className="bg-background text-foreground">📦 Supply Only</option>

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useWorkspaceLayout } from "../_components/workspace-layout-context";
+import type { ProjectListItem } from "@/types/project";
 import { 
   Building2, 
   Plus, 
@@ -47,7 +48,7 @@ const roleLabels: Record<string, { label: string; color: string; bg: string; bor
   },
 };
 
-const getRoleDetails = (proj: any, isWorkspaceAdmin: boolean) => {
+const getRoleDetails = (proj: ProjectListItem, isWorkspaceAdmin: boolean) => {
   const role = proj.projectRole;
   if (role && roleLabels[role]) return roleLabels[role];
   if (isWorkspaceAdmin) {
@@ -77,14 +78,14 @@ export default function WorkspaceProjectsPage() {
 
   const rolesAvailable = useMemo(() => {
     const roles = new Set<string>();
-    projects.forEach((p: any) => {
+    projects.forEach((p) => {
       if (p.projectRole) roles.add(p.projectRole);
     });
     return Array.from(roles);
   }, [projects]);
 
   const filteredProjects = useMemo(() => {
-    return projects.filter((proj: any) => {
+    return projects.filter((proj) => {
       const matchesSearch = proj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (proj.description && proj.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -208,7 +209,7 @@ export default function WorkspaceProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredProjects.map((proj: any) => {
+          {filteredProjects.map((proj) => {
             const roleDetails = getRoleDetails(proj, isWorkspaceAdmin);
             const projectColor = proj.color || "#3b82f6"; // Fallback blue
 

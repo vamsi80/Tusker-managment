@@ -126,7 +126,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
     const [sickLeaveLimit, setSickLeaveLimit] = useState(initialData.sickLeaveLimit || 12);
     const [casualLeaveAccrualDays, setCasualLeaveAccrualDays] = useState(initialData.casualLeaveAccrualDays || 20);
     const [publicHolidays, setPublicHolidays] = useState<(PublicHoliday | { name: string; date: string })[]>(initialData.publicHolidays || []);
-    const [attendanceLocations, setAttendanceLocations] = useState<any[]>(initialData.attendanceLocations || []);
+    const [attendanceLocations, setAttendanceLocations] = useState<AttendanceLocation[]>(initialData.attendanceLocations || []);
 
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
@@ -334,7 +334,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             hint: "CASUAL",
             hintClass: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
         },
-    ] as const;
+    ];
+
+    type SettingsRow = typeof rows[number];
 
     return (
         <div className="space-y-6">
@@ -370,12 +372,12 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                         <div className={cn("px-2 py-1 rounded-md border text-[10px] font-black uppercase tracking-tighter shrink-0", r.hintClass)}>
                                             {r.hint}
                                         </div>
-                                        {(r as any).isInput ? (
+                                        {"isInput" in r && r.isInput ? (
                                             <div className="flex items-center gap-2">
                                                 <Input
                                                     type="number"
-                                                    value={r.value}
-                                                    onChange={(e) => (r as any).onChange(parseInt(e.target.value) || 0)}
+                                                    value={r.value as number}
+                                                    onChange={(e) => (r.onChange as (val: number) => void)(parseInt(e.target.value) || 0)}
                                                     className="w-20 h-9 bg-background/50 border-muted-foreground/20 text-center font-bold"
                                                     disabled={!isAdmin || isLoading}
                                                 />
@@ -386,7 +388,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                         ) : (
                                             <TimePicker12
                                                 value={r.value as string}
-                                                onChange={r.onChange as any}
+                                                onChange={r.onChange as (val: string) => void}
                                                 disabled={!isAdmin || isLoading}
                                             />
                                         )}

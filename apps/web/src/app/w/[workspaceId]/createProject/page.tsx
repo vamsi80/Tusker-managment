@@ -58,8 +58,17 @@ export default function CreateProjectPage() {
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
 
+    interface ClientItem {
+        id: string;
+        name?: string;
+        registeredCompanyName?: string;
+        gstNumber?: string;
+        directorName?: string;
+        address?: string;
+    }
+
     const [members, setMembers] = useState<WorkspaceMembersResult["workspaceMembers"]>([]);
-    const [existingClients, setExistingClients] = useState<any[]>([]);
+    const [existingClients, setExistingClients] = useState<ClientItem[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isLoadingClients, setIsLoadingClients] = useState(true);
 
@@ -81,7 +90,7 @@ export default function CreateProjectPage() {
             try {
                 const result = await projectsClient.getWorkspaceMembers(workspaceId);
                 if (result) {
-                    setMembers(result as any);
+                    setMembers(result as WorkspaceMembersResult["workspaceMembers"]);
                 }
             } catch (error) {
                 console.error("Failed to load members:", error);
@@ -99,7 +108,7 @@ export default function CreateProjectPage() {
                 const result = await projectsClient.getWorkspaceClients(workspaceId);
                 if (result) {
                     // De-duplicate by name and registered company name to avoid duplicates in the list
-                    const uniqueClients = result.reduce((acc: any[], curr: any) => {
+                    const uniqueClients = (result as ClientItem[]).reduce((acc: ClientItem[], curr: ClientItem) => {
                         const exists = acc.find(c =>
                             (c.name === curr.name && c.registeredCompanyName === curr.registeredCompanyName) ||
                             (curr.gstNumber && c.gstNumber === curr.gstNumber)
@@ -119,7 +128,7 @@ export default function CreateProjectPage() {
     }, [workspaceId]);
 
     const form = useForm<ProjectSchemaType>({
-        resolver: zodResolver(projectSchema as any),
+        resolver: zodResolver(projectSchema) as Resolver<ProjectSchemaType>,
         defaultValues: {
             name: "",
             description: "",
@@ -427,7 +436,7 @@ export default function CreateProjectPage() {
                                                                 {field.value && field.value.length > 0 ? (
                                                                     field.value.map(id => (
                                                                         <Badge key={id} variant="outline" className="bg-primary/5">
-                                                                            {toTitleCase(layoutData?.tags?.find((t: any) => t.id === id)?.name) || "Tag"}
+                                                                            {toTitleCase(layoutData?.tags?.find((t) => t.id === id)?.name) || "Tag"}
                                                                         </Badge>
                                                                     ))
                                                                 ) : (
@@ -441,7 +450,7 @@ export default function CreateProjectPage() {
                                                             <CommandInput placeholder="Search workspace tags..." />
                                                             <CommandEmpty>No tags found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
-                                                                {(layoutData?.tags || []).map((t: any) => {
+                                                                {(layoutData?.tags || []).map((t) => {
                                                                     const isSelected = field.value?.includes(t.id);
                                                                     return (
                                                                         <CommandItem

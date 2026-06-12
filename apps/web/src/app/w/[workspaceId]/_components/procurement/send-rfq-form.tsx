@@ -28,7 +28,7 @@ interface SendRfqFormProps {
   workspaceId: string;
   suggestions: Suggestion[];
   isSuggestionsLoading: boolean;
-  onSuccess: (updatedItem: any) => void;
+  onSuccess: (updatedItem: { id: string; status?: string; [key: string]: unknown }) => void;
 }
 
 export function SendRfqForm({
@@ -83,8 +83,8 @@ export function SendRfqForm({
       if (!res.ok) throw new Error(json.error || "Failed to send RFQ");
       toast.success(`RFQ sent to ${selectedVendorIds.size} vendor${selectedVendorIds.size > 1 ? "s" : ""}`);
       onSuccess(json.data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send RFQ");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send RFQ");
     } finally {
       setIsSending(false);
     }

@@ -7,9 +7,15 @@ import { authClient } from "@/lib/auth-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { toast } from "sonner";
 
+interface NotificationItem {
+  taskId: string;
+  isNew?: boolean;
+  [key: string]: unknown;
+}
+
 interface NotificationsContextType {
-  unreadNotifications: any[];
-  readNotifications: any[];
+  unreadNotifications: NotificationItem[];
+  readNotifications: NotificationItem[];
   unreadCount: number;
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -23,8 +29,8 @@ const NotificationsContext = createContext<NotificationsContextType | undefined>
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { workspaceId } = useParams();
-  const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
-  const [readNotifications, setReadNotifications] = useState<any[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState<NotificationItem[]>([]);
+  const [readNotifications, setReadNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -56,12 +62,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       } else {
         setUnreadNotifications(prev => {
           const existingIds = new Set(prev.map(n => n.taskId));
-          const newUnread = (data.unreadNotifications || []).filter((n: any) => !existingIds.has(n.taskId));
+          const newUnread = (data.unreadNotifications || []).filter((n: NotificationItem) => !existingIds.has(n.taskId));
           return [...prev, ...newUnread];
         });
         setReadNotifications(prev => {
           const existingIds = new Set(prev.map(n => n.taskId));
-          const newRead = (data.readNotifications || []).filter((n: any) => !existingIds.has(n.taskId));
+          const newRead = (data.readNotifications || []).filter((n: NotificationItem) => !existingIds.has(n.taskId));
           return [...prev, ...newRead];
         });
       }
@@ -114,7 +120,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!workspaceId) return;
 
-    const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
+    const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: { action: string; userId?: string }) => {
       if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
         if (data.userId !== session?.user?.id) {
           // Trigger a re-fetch of notifications to keep list fully accurate

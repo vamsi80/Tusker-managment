@@ -2,9 +2,24 @@ import { serverApiFetch } from "@/lib/api-client/server-fetch";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
+import type { WorkspaceTaskType } from "@/types/task";
+import type { ProjectMembersType } from "@/types/project";
 
 interface WorkspaceGanttViewProps {
     workspaceId: string;
+}
+
+interface MemberApiItem {
+    userId: string;
+    projectRole: string;
+    workspaceRole?: string;
+    user?: { id: string; surname?: string | null; image?: string | null };
+}
+
+interface GanttApiData {
+    tasks?: WorkspaceTaskType[];
+    hasMore?: boolean;
+    facets?: { projects?: Record<string, number> };
 }
 
 export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProps) {
@@ -12,8 +27,8 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
 
     const viewStartTime = performance.now();
     const [tasksRes, membersRes] = await Promise.all([
-        serverApiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/tasks/gantt?limit=25&facets=true`).catch(() => ({ data: { tasks: [], hasMore: false } })),
-        serverApiFetch<{ success: boolean; data: any[] }>(`/projects/project-members?workspaceId=${workspaceId}`).catch(() => ({ data: [] })),
+        serverApiFetch<{ success: boolean; data: GanttApiData }>(`/workspaces/${workspaceId}/tasks/gantt?limit=25&facets=true`).catch(() => ({ data: { tasks: [], hasMore: false } })),
+        serverApiFetch<{ success: boolean; data: MemberApiItem[] }>(`/projects/project-members?workspaceId=${workspaceId}`).catch(() => ({ data: [] as MemberApiItem[] })),
     ]);
     const duration = performance.now() - viewStartTime;
     if (duration > 800) {
@@ -21,10 +36,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     }
 
     const tasksData = tasksRes.data;
-    const projectMembers = membersRes.data;
-
-    const rawTasks = tasksData?.tasks ?? [];
-    const allTasks: any[] = [...rawTasks];
+    const allTasks: WorkspaceTaskType[] = [...(tasksData?.tasks ?? [])];
 
     const ganttTasks = transformToGanttTasks(allTasks);
 
@@ -34,7 +46,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             initialTasks={ganttTasks}
             allTasks={allTasks}
             subtaskDataMap={{}}
-            members={projectMembers as any}
+            members={membersRes.data as unknown as ProjectMembersType}
             projectCounts={tasksData?.facets?.projects || {}}
             currentUser={{ id: user.id }}
         />

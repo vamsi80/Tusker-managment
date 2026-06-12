@@ -17,8 +17,15 @@ import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search, Chevron
 import { apiClient } from "@/lib/api-client";
 import { useWorkspaceMemberStore, useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
+type ReportEntry = Record<string, unknown>;
+type ReportRecord = Record<string, unknown> & { id: string; entries?: ReportEntry[]; status?: string; userId?: string; date?: string; submittedAt?: string | null; user?: Record<string, unknown>; description?: string };
+type ReportRow =
+    | { id: string; type: "date"; date: string; count: number; level: number }
+    | { id: string; type: "user"; user: Record<string, unknown>; report: ReportRecord; level: number }
+    | { id: string; type: "entry"; entry: ReportEntry | null; report: ReportRecord; description?: string; level: number };
+
 interface Props {
-    initialData: any[];
+    initialData: ReportRecord[];
     workspaceId: string;
     initialDate?: string;
     initialUserId?: string;
@@ -34,7 +41,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(initialData.length >= 30);
     const [skip, setSkip] = useState(30);
-    const [selectedReport, setSelectedReport] = useState<any>(null);
+    const [selectedReport, setSelectedReport] = useState<ReportRecord | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
@@ -71,7 +78,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
     };
 
     const populatedData = useMemo(() => {
-        const dateGroups: Record<string, any[]> = {};
+        const dateGroups: Record<string, ReportRecord[]> = {};
 
         // 1. Group existing data by date
         data.forEach(report => {
@@ -91,7 +98,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
             ...(initialDate ? [initialDate] : [])
         ])).sort((a, b) => b.localeCompare(a));
 
-        const result: Record<string, any[]> = {};
+        const result: Record<string, ReportRecord[]> = {};
 
         // 3. For each date, create a fully populated list
         datesToShow.forEach(dateStr => {
@@ -144,7 +151,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                     const user = item.user;
                     const userName = `${user?.name || ""} ${user?.surname || ""} ${user?.email || ""}`.toLowerCase();
                     const entries = item.entries || [];
-                    const taskMatch = entries.some((e: any) =>
+                    const taskMatch = entries.some((e: ReportEntry) =>
                         (e.task?.name?.toLowerCase() || "").includes(lowSearch) ||
                         (e.task?.taskSlug?.toLowerCase() || "").includes(lowSearch) ||
                         (e.description?.toLowerCase() || "").includes(lowSearch)
@@ -194,7 +201,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
             if (response.status === "error" || !response.data || response.data.length === 0) {
                 setHasMore(false);
             } else {
-                setData((prev: any[]) => [...prev, ...response.data]);
+                setData((prev) => [...prev, ...(response.data as ReportRecord[])]);
                 setSkip((prev: number) => prev + 30);
             }
         } catch (error) {
@@ -225,7 +232,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
     }, [loadMore, hasMore, isLoadingMore]);
 
     const processedRows = useMemo(() => {
-        const rows: any[] = [];
+        const rows: ReportRow[] = [];
 
         // Sort dates desc
         const sortedDateKeys = Object.keys(populatedData).sort((a, b) => b.localeCompare(a));
@@ -240,7 +247,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                     const user = item.user;
                     const userName = `${user?.name || ""} ${user?.surname || ""} ${user?.email || ""}`.toLowerCase();
                     const entries = item.entries || [];
-                    const taskMatch = entries.some((e: any) =>
+                    const taskMatch = entries.some((e: ReportEntry) =>
                         (e.task?.name?.toLowerCase() || "").includes(lowSearch) ||
                         (e.task?.taskSlug?.toLowerCase() || "").includes(lowSearch) ||
                         (e.description?.toLowerCase() || "").includes(lowSearch)
@@ -293,7 +300,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                                 level: 2
                             });
                         } else {
-                            entries.forEach((entry: any) => {
+                            entries.forEach((entry: ReportEntry) => {
                                 rows.push({
                                     id: `e-${entry.id}`,
                                     type: "entry",
@@ -311,7 +318,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
         return rows;
     }, [populatedData, expandedDates, expandedReports, searchQuery]);
 
-    const reportColumns = useMemo<ColumnDef<any>[]>(() => [
+    const reportColumns = useMemo<ColumnDef<ReportRow>[]>(() => [
         {
             accessorKey: "hierarchy",
             header: () => {
@@ -334,7 +341,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                     </div>
                 );
             },
-            meta: { className: "[&_td]:align-top text-left" } as any,
+            meta: { className: "[&_td]:align-top text-left" },
             cell: ({ row }) => {
                 const data = row.original;
 

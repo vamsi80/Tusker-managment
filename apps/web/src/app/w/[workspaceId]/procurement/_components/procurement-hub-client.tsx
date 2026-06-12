@@ -59,6 +59,45 @@ interface Project {
   slug: string;
 }
 
+interface IndentRecord {
+  id: string;
+  name: string;
+  indentId?: string | null;
+  status: string;
+  project: { name: string };
+  _count: { lineItems: number };
+  requestedBy?: { user?: { name?: string | null; surname?: string | null } } | null;
+  expectedDelivery?: string | null;
+}
+
+interface VendorSuggestion {
+  vendor: { id: string; name: string; companyName?: string | null };
+  hasSuppliedBefore?: boolean;
+  performanceScore?: number | null;
+}
+
+interface QuoteRecord {
+  id: string;
+  status: string;
+  unitPrice: number | string;
+  quantity: number | string;
+  totalPrice: number | string;
+  leadTimeDays?: number | null;
+  vendor: { name: string; companyName?: string | null };
+}
+
+interface WorkspaceVendorItem {
+  id: string;
+  name: string;
+  companyName?: string | null;
+}
+
+interface ApiLineItem {
+  status: string;
+  quantity: number;
+  estimatedUnitPrice?: number | null;
+}
+
 interface LineItemRow {
   id: string;
   materialName: string;
@@ -105,7 +144,7 @@ export function ProcurementHubClient({
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Tab 2: Indents Data
-  const [indents, setIndents] = useState<any[]>([]);
+  const [indents, setIndents] = useState<IndentRecord[]>([]);
   const [isLoadingIndents, setIsLoadingIndents] = useState(false);
   const [indentSearch, setIndentSearch] = useState("");
 
@@ -117,9 +156,9 @@ export function ProcurementHubClient({
   const [materialSearch, setMaterialSearch] = useState("");
 
   // Loaded material details
-  const [suggestedVendors, setSuggestedVendors] = useState<any[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [workspaceVendors, setWorkspaceVendors] = useState<any[]>([]);
+  const [suggestedVendors, setSuggestedVendors] = useState<VendorSuggestion[]>([]);
+  const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
+  const [workspaceVendors, setWorkspaceVendors] = useState<WorkspaceVendorItem[]>([]);
   
   // Loading details
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -164,13 +203,13 @@ export function ProcurementHubClient({
       const itemsData = await itemsRes.json();
 
       if (indentsData.success && itemsData.success) {
-        const indentsList = indentsData.data;
-        const itemsList = itemsData.data;
+        const indentsList = indentsData.data as IndentRecord[];
+        const itemsList = itemsData.data as ApiLineItem[];
 
         const totalInd = indentsList.length;
-        const pendingApp = indentsList.filter((i: any) => i.status === "SUBMITTED").length;
-        const activeRf = itemsList.filter((item: any) => item.status === "RFQ_SENT").length;
-        const completed = itemsList.filter((item: any) => item.status === "APPROVED" || item.status === "PO_CREATED").length;
+        const pendingApp = indentsList.filter((i) => i.status === "SUBMITTED").length;
+        const activeRf = itemsList.filter((item) => item.status === "RFQ_SENT").length;
+        const completed = itemsList.filter((item) => item.status === "APPROVED" || item.status === "PO_CREATED").length;
 
         // Prime indents state so the first tab-switch to "indent" doesn't re-fetch
         setIndents(indentsList);
@@ -180,7 +219,7 @@ export function ProcurementHubClient({
           pendingApprovals: pendingApp,
           activeRfqs: activeRf,
           completedProcurements: completed,
-          totalBudgetEstimated: itemsList.reduce((acc: number, item: any) => acc + (item.quantity * (item.estimatedUnitPrice || 0)), 0),
+          totalBudgetEstimated: itemsList.reduce((acc: number, item) => acc + (item.quantity * (item.estimatedUnitPrice || 0)), 0),
         });
       }
     } catch (e) {
@@ -250,7 +289,7 @@ export function ProcurementHubClient({
       if (vendorsData.success) {
         setSuggestedVendors(vendorsData.data);
         const initialSels: Record<string, boolean> = {};
-        vendorsData.data.forEach((v: any) => {
+        (vendorsData.data as VendorSuggestion[]).forEach((v) => {
           initialSels[v.vendor.id] = false;
         });
         setSelectedVendors(initialSels);

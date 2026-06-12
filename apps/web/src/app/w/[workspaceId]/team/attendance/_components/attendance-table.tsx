@@ -97,7 +97,7 @@ export function AttendanceTable({
     const fetchRecordsRef = useRef<((force?: boolean, silent?: boolean) => Promise<void>) | null>(null);
 
     // Helper to flatten Prisma records into the shape the table expects
-    const flattenRecord = (r: any) => {
+    const flattenRecord = (r: AttendanceRecord | (Record<string, unknown> & { memberSurname?: string; WorkspaceMember?: { user?: { surname?: string; email?: string } } })) => {
         if (!r) return r;
         // If it's already flat (has memberSurname), return it
         if (r.memberSurname) return r;
@@ -111,8 +111,8 @@ export function AttendanceTable({
     };
 
     useEffect(() => {
-        const handler = (e: any) => {
-            const { action, record, oldRecord } = e.detail || {};
+        const handler = (e: Event) => {
+            const { action, record, oldRecord } = (e as CustomEvent<{ action?: string; record?: Record<string, unknown>; oldRecord?: Record<string, unknown> }>).detail || {};
             const flatRecord = flattenRecord(record);
 
             console.log(`[AttendanceTable][SURGICAL_V2] 🔄 Event received: ${action}`, {
@@ -194,7 +194,7 @@ export function AttendanceTable({
             }));
     }, [slimMembers]);
 
-    const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+    const isValidDate = (d: unknown) => d instanceof Date && !isNaN(d.getTime());
 
     const handleMonthChange = (direction: 'prev' | 'next') => {
         const newDate = direction === 'prev' ? subMonths(selectedDate, 1) : addMonths(selectedDate, 1);
@@ -565,7 +565,7 @@ export function AttendanceTable({
 
     const selectedMember = useMemo(() => {
         if (!activeFilters.memberId) return null;
-        return slimMembers.find((m: any) => m.id === activeFilters.memberId);
+        return slimMembers.find((m) => m.id === activeFilters.memberId);
     }, [slimMembers, activeFilters.memberId]);
 
     const handleApplyFilters = () => {

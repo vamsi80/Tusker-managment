@@ -29,7 +29,13 @@ export function NotificationList() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("new");
 
-  const filterList = (list: any[]) => {
+  interface NotifItem {
+    taskId: string;
+    isNew?: boolean;
+    [key: string]: unknown;
+  }
+
+  const filterList = (list: NotifItem[]) => {
     return list.filter((notif) => {
       const searchLower = search.toLowerCase();
       const taskName = (notif.taskName || "").toLowerCase();
@@ -51,7 +57,7 @@ export function NotificationList() {
   const filteredUnread = filterList(unreadNotifications);
   const filteredRead = filterList(readNotifications);
 
-  const handleSelectNotif = (notif: any) => {
+  const handleSelectNotif = (notif: NotifItem) => {
     const targetId = notif.id || notif.taskId;
     // If notif is in unread notifications, mark it read
     if (notif.isNew !== false) {

@@ -24,9 +24,17 @@ interface DashboardData {
   totalCount: number;
   todoCount: number;
   completedCount: number;
-  allMembers: any[];
-  presentRecords: any[];
-  dueThisWeek: any[];
+  allMembers: Array<{
+    id: string;
+    projectRole: string;
+    workspaceMember: { id: string; userId: string; workspaceRole: string; user: { id: string; surname: string | null; image: string | null } };
+    assignedTasks: { id: string }[];
+  }>;
+  presentRecords: Array<{ workspaceMemberId: string; [key: string]: unknown }>;
+  dueThisWeek: Array<{
+    id: string; name: string; taskSlug: string; dueDate: Date | null; status: string | null;
+    assignee: { workspaceMember: { user: { surname: string | null; image: string | null } } } | null;
+  }>;
   weekStart: Date | string;
   weekEnd: Date | string;
   hasFullAccess: boolean;

@@ -36,6 +36,13 @@ type SubTaskBase = {
     name: string;
     description: string | null;
     taskSlug: string;
+    projectId?: string;
+    parentTaskId?: string;
+    workspaceId?: string;
+    assigneeId?: string | null;
+    assigneeUserId?: string | null;
+    reviewerId?: string | null;
+    createdById?: string | null;
     tags?: { id: string }[] | null;
     status: TaskStatus | null;
     startDate: Date | string | null;
@@ -43,16 +50,20 @@ type SubTaskBase = {
     days: number | null;
     assignee?: {
         id: string;
-        // workspaceMember?: {
-        //     userId: string;
-        // };
+        workspaceMember?: { user?: { id?: string } };
     } | null;
     reviewer?: {
         id: string;
-        // workspaceMember?: {
-        //     userId: string;
-        // };
     } | null;
+};
+
+type EditPermissions = {
+    userId?: string | null;
+    isWorkspaceAdmin?: boolean;
+    managedProjectIds?: string[];
+    coordinatorProjectIds?: string[];
+    leadProjectIds?: string[];
+    workspaceMemberId?: string | null;
 };
 
 interface EditSubTaskFormProps<T extends SubTaskBase> {
@@ -94,7 +105,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     const router = useRouter();
     const params = useParams();
     const reloadView = useReloadView();
-    const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
+    const workspaceId = (params.workspaceId as string) || subTask.workspaceId || "";
     // Note: 'projectId' from URL is a slug, we need the UUID. 
     // Usually 'subTask.projectId' or 'projectId' prop works.
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
@@ -105,7 +116,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     }, [tags]);
 
     // Resolve permissions from WorkspaceLayoutContext
-    let permissions: any = null;
+    let permissions: EditPermissions | null = null;
     try {
         const layoutContext = useWorkspaceLayout();
         permissions = layoutContext?.data?.permissions;
@@ -115,17 +126,17 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
     const currentUserId = permissions?.userId;
     const isWorkspaceAdmin = !!permissions?.isWorkspaceAdmin;
-    const targetProjectId = selectedProjectId || projectId || (subTask as any).projectId || "";
+    const targetProjectId = selectedProjectId || projectId || subTask.projectId || "";
     
     const isPM = isWorkspaceAdmin || permissions?.managedProjectIds?.includes(targetProjectId);
     const isCoordinator = permissions?.coordinatorProjectIds?.includes(targetProjectId);
     const isLead = permissions?.leadProjectIds?.includes(targetProjectId);
 
-    const subTaskAssigneeUserId = 
-        subTask.assignee?.id || 
-        (subTask.assignee as any)?.workspaceMember?.user?.id || 
-        (subTask as any).assigneeUserId;
-    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+    const subTaskAssigneeUserId =
+        subTask.assignee?.id ||
+        subTask.assignee?.workspaceMember?.user?.id ||
+        subTask.assigneeUserId;
+    const subTaskAssigneeMemberId = subTask.assigneeId;
 
     // Check if the current user is the assignee/worker
     const isAssignee = !!(
@@ -144,7 +155,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         }
 
         // 2. Role check: COMPLETED, HOLD, CANCELLED require acting as manager/creator lead
-        const leadCanComplete = !isAssignee && isLead && ((subTask as any).createdById === permissions?.workspaceMemberId);
+        const leadCanComplete = !isAssignee && isLead && (subTask.createdById === permissions?.workspaceMemberId);
         const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
 
         if (["COMPLETED", "HOLD", "CANCELLED"].includes(statusOption) && !canCompleteOrHoldOrCancel) {
@@ -198,20 +209,20 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     };
 
     const form = useForm<SubTaskSchemaType>({
-        resolver: zodResolver(subTaskSchema as any),
+        resolver: zodResolver(subTaskSchema) as Resolver<SubTaskSchemaType>,
         defaultValues: {
             name: subTask.name || "",
             description: subTask.description || "",
             taskSlug: subTask.taskSlug || "",
-            projectId: projectId || (subTask as any).projectId || "",
-            parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
-            assignee: (subTask.assignee as any)?.id || (subTask as any).assigneeId || "",
+            projectId: projectId || subTask.projectId || "",
+            parentTaskId: parentTaskId || subTask.parentTaskId || "",
+            assignee: subTask.assignee?.id || subTask.assigneeId || "",
             tagIds: (subTask.tags?.map(t => t.id) || []),
-            status: (subTask.status || "TO_DO") as any,
+            status: (subTask.status || "TO_DO") as SubTaskSchemaType["status"],
             startDate: getFormattedDate(subTask.startDate),
             dueDate: getFormattedDate(subTask.dueDate),
-            reviewerId: (subTask.reviewer as any)?.id || (subTask as any).reviewerId || "",
-            days: (subTask as any).days || 1,
+            reviewerId: subTask.reviewer?.id || subTask.reviewerId || "",
+            days: subTask.days || 1,
         },
     });
 
@@ -222,15 +233,15 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 name: subTask.name || "",
                 description: subTask.description || "",
                 taskSlug: subTask.taskSlug || "",
-                projectId: projectId || (subTask as any).projectId || "",
-                parentTaskId: parentTaskId || (subTask as any).parentTaskId || "",
-                assignee: (subTask.assignee as any)?.id || (subTask as any).assigneeId || "",
+                projectId: projectId || subTask.projectId || "",
+                parentTaskId: parentTaskId || subTask.parentTaskId || "",
+                assignee: subTask.assignee?.id || subTask.assigneeId || "",
                 tagIds: (subTask.tags?.map(t => t.id) || []),
-                status: (subTask.status || "TO_DO") as any,
+                status: (subTask.status || "TO_DO") as SubTaskSchemaType["status"],
                 startDate: getFormattedDate(subTask.startDate),
                 dueDate: getFormattedDate(subTask.dueDate),
-                reviewerId: (subTask.reviewer as any)?.id || (subTask as any).reviewerId || "",
-                days: (subTask as any).days || 1,
+                reviewerId: subTask.reviewer?.id || subTask.reviewerId || "",
+                days: subTask.days || 1,
             });
         }
     }, [subTask, open, form, projectId, parentTaskId]);
@@ -239,7 +250,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     useEffect(() => {
         if (!open) return;
         const fetchData = async () => {
-            const targetId = selectedProjectId || projectId || (subTask as any).projectId || "";
+            const targetId = selectedProjectId || projectId || subTask.projectId || "";
             if (!targetId) return;
 
             try {
@@ -318,13 +329,13 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             values.name !== subTask.name ||
             values.description !== (subTask.description || "") ||
             values.status !== (subTask.status || "TO_DO") ||
-            values.assignee !== ((subTask.assignee as any)?.id || (subTask as any).assigneeId || "") ||
+            values.assignee !== (subTask.assignee?.id || subTask.assigneeId || "") ||
             JSON.stringify(sortTags(values.tagIds)) !== JSON.stringify(sortTags(subTask.tags?.map(t => t.id) || [])) ||
             values.startDate !== getFormattedDate(subTask.startDate) ||
             values.dueDate !== getFormattedDate(subTask.dueDate) ||
-            values.reviewerId !== ((subTask.reviewer as any)?.id || (subTask as any).reviewerId || "") ||
-            values.days !== ((subTask as any).days || 1) ||
-            values.projectId !== ((subTask as any).projectId || "");
+            values.reviewerId !== (subTask.reviewer?.id || subTask.reviewerId || "") ||
+            values.days !== (subTask.days || 1) ||
+            values.projectId !== (subTask.projectId || "");
 
         if (!hasChanges) {
             toast.info("No changes detected");
@@ -373,7 +384,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                         })
                     };
 
-                    onSubTaskUpdated(enrichedData as any);
+                    onSubTaskUpdated(enrichedData as Partial<T>);
                 }
 
                 window.dispatchEvent(new CustomEvent("realtime-task-sync", {

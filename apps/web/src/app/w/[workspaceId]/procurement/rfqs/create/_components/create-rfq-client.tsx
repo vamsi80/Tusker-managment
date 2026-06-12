@@ -30,10 +30,41 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+interface IndentLineItem {
+  id: string;
+  materialName: string;
+  quantity: number;
+  unit: string;
+  specifications?: string;
+  status?: string;
+}
+
+interface IndentForRfq {
+  id: string;
+  name: string;
+  project?: { name: string };
+  lineItems: IndentLineItem[];
+}
+
+interface VendorForRfq {
+  id: string;
+  name: string;
+  companyName?: string | null;
+  contactPerson?: string | null;
+  phoneNumber?: string | null;
+  city?: string | null;
+  state?: string | null;
+}
+
+interface RowItem extends IndentLineItem {
+  indentName: string;
+  project?: { name: string };
+}
+
 interface CreateRfqClientProps {
   workspaceId: string;
-  indents: any[];
-  vendors: any[];
+  indents: IndentForRfq[];
+  vendors: VendorForRfq[];
 }
 
 export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClientProps) {
@@ -45,7 +76,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
 
   // Grid/Sheet states
   const [selectedVendorIds, setSelectedVendorIds] = useState<(string | null)[]>([null, null, null, null]);
-  const [selectedRowItems, setSelectedRowItems] = useState<any[]>([]);
+  const [selectedRowItems, setSelectedRowItems] = useState<RowItem[]>([]);
   const [rfqDeadline, setRfqDeadline] = useState<string>(
     format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd") // Default: 7 days from now
   );
@@ -62,7 +93,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
 
   // Flattened pending line items list across all approved indents for material picker
   const allPendingItems = indents.flatMap((ind) =>
-    ind.lineItems.map((item: any) => ({
+    ind.lineItems.map((item) => ({
       ...item,
       indentName: ind.name,
       project: ind.project,
@@ -99,7 +130,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
     const targetIndent = indents.find((ind) => ind.id === bulkIndentId);
     if (!targetIndent) return;
 
-    const newItems = targetIndent.lineItems.map((item: any) => ({
+    const newItems: RowItem[] = targetIndent.lineItems.map((item) => ({
       ...item,
       indentName: targetIndent.name,
       project: targetIndent.project,
@@ -108,7 +139,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
     setSelectedRowItems((prev) => {
       // Avoid duplicate line item ids
       const filteredPrev = prev.filter(
-        (p) => !newItems.some((n: any) => n.id === p.id)
+        (p) => !newItems.some((n) => n.id === p.id)
       );
       return [...filteredPrev, ...newItems];
     });
@@ -118,7 +149,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
   };
 
   // Add individual material row
-  const handleAddMaterial = (item: any) => {
+  const handleAddMaterial = (item: RowItem) => {
     setSelectedRowItems((prev) => [...prev, item]);
     toast.success(`Added ${item.materialName} to comparison`);
   };
@@ -153,7 +184,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
 
   // Helper to calculate total cost for a vendor column
   const getVendorTotal = (vendorId: string) => {
-    return selectedRowItems.reduce((sum: number, item: any) => {
+    return selectedRowItems.reduce((sum: number, item) => {
       const rate = rates[`${vendorId}_${item.id}`] || 0;
       return sum + rate * item.quantity;
     }, 0);

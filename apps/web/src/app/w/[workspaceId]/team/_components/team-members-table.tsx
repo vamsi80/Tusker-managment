@@ -37,7 +37,7 @@ import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { type WorkspaceMemberRow } from "@/types/workspace";
 import { format } from "date-fns";
 
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@tusker/shared/schemas";
 import {
@@ -99,7 +99,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
     }, [workspaceId, editDialogOpen]);
 
     const editForm = useForm<UpdateMemberSchemaType>({
-        resolver: zodResolver(updateMemberSchema as any),
+        resolver: zodResolver(updateMemberSchema) as Resolver<UpdateMemberSchemaType>,
         defaultValues: {
             name: "",
             surname: "",
@@ -126,7 +126,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             surname: member.surname || "",
             email: member.email || "",
             phoneNumber: member.phoneNumber || "",
-            role: member.workspaceRole as any,
+            role: member.workspaceRole as UpdateMemberSchemaType["role"],
             designation: member.designation || "",
             employeeId: member.employeeId || "",
             dateOfBirth: member.dateOfBirth ? (member.dateOfBirth instanceof Date ? member.dateOfBirth.toISOString().split('T')[0] : member.dateOfBirth.toString().split('T')[0]) : "",
@@ -145,7 +145,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
 
             if (result.status === "success") {
                 toast.success(result.message);
-                if ((result as any).emailChanged) {
+                if ((result as ApiResponse<{ emailChanged?: boolean }>).data?.emailChanged) {
                     toast.info("Email was changed. A new verification link has been sent.");
                 }
                 setEditDialogOpen(false);
@@ -154,8 +154,8 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             } else {
                 toast.error(result.message);
             }
-        } catch (error: any) {
-            toast.error(error.message || "Failed to update member");
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : "Failed to update member");
         } finally {
             setIsUpdating(false);
         }
@@ -195,7 +195,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             apiClient.workspaces.resetPassword(workspaceId, member.id),
             {
                 loading: `Sending password reset email to ${member.name}...`,
-                success: (result: any) => {
+                success: (result: ApiResponse) => {
                     if (result.status === "error") throw new Error(result.message);
                     return result.message || "Password reset email sent successfully";
                 },

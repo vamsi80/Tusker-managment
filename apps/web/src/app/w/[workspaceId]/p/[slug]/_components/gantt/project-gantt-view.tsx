@@ -6,6 +6,7 @@ import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { useProjectLayout } from "../project-layout-context";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { ProjectGanttClient } from "./project-gantt-client";
+import type { WorkspaceTaskType } from "@/types/task";
 
 interface GanttServerWrapperProps {
     workspaceId: string;
@@ -24,7 +25,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
     const { projectMembers, projectPermissions, isLoading: isProjectLoading, revalidate: revalidateProject } = useProjectLayout();
 
     const [isLoadingTasks, setIsLoadingTasks] = useState(true);
-    const [taskData, setTaskData] = useState<{ allTasks: any[]; projectCounts: any } | null>(null);
+    const [taskData, setTaskData] = useState<{ allTasks: WorkspaceTaskType[]; projectCounts: Record<string, number> } | null>(null);
 
     useEffect(() => {
         // Trigger background revalidation on mount
@@ -50,7 +51,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
                 }
 
                 const rawTasks = result.tasks || [];
-                const allTasks: any[] = [...rawTasks]; // Only parent tasks initially
+                const allTasks: WorkspaceTaskType[] = [...rawTasks];
 
 
                 setTaskData({

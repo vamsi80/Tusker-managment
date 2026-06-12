@@ -36,9 +36,9 @@ interface SubtaskHierarchy {
 // }
 
 export function MaterialsClient({ workspaceId, projectId }: { workspaceId: string; projectId: string }) {
-    const [subtasks, setSubtasks] = useState<any[]>([]);
-    const [materialItems, setMaterialItems] = useState<any[]>([]);
-    const [unitsOfMeasure, setUnitsOfMeasure] = useState<any[]>([]);
+    const [subtasks, setSubtasks] = useState<SubtaskHierarchy[]>([]);
+    const [materialItems, setMaterialItems] = useState<Material[]>([]);
+    const [unitsOfMeasure, setUnitsOfMeasure] = useState<{ abbreviation: string; [key: string]: unknown }[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [searchQuery, setSearchQuery] = useState("");

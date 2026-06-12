@@ -54,7 +54,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const { data: layoutData, revalidate } = useWorkspaceLayout();
 
     const form = useForm<ProjectSchemaType>({
-        resolver: zodResolver(projectSchema as any),
+        resolver: zodResolver(projectSchema) as Resolver<ProjectSchemaType>,
         defaultValues: {
             name: "",
             description: "",
@@ -418,7 +418,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                             <div className="flex flex-wrap gap-1">
                                                                 {field.value && field.value.length > 0 ? (
                                                                     field.value.map(id => {
-                                                                        const t = layoutData?.tags?.find((tag: any) => tag.id === id);
+                                                                        const t = layoutData?.tags?.find((tag) => tag.id === id);
                                                                         return (
                                                                             <Badge key={id} variant="secondary" className="px-1 font-normal">
                                                                                 {toTitleCase(t?.name) || "Tag"}
@@ -438,7 +438,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                             <CommandEmpty>No tags found.</CommandEmpty>
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">
-                                                                    {(layoutData?.tags || []).map((t: any) => {
+                                                                    {(layoutData?.tags || []).map((t) => {
                                                                         const isSelected = field.value?.includes(t.id);
 
                                                                         return (

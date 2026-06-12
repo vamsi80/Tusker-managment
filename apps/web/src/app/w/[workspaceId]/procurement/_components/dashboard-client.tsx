@@ -53,15 +53,15 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
       const vendorsData = await vendorsRes.json();
 
       if (indentsData.success && itemsData.success) {
-        const indentsList = indentsData.data;
-        const itemsList = itemsData.data;
+        const indentsList = indentsData.data as { status: string }[];
+        const itemsList = itemsData.data as { status: string; quantity: number; estimatedUnitPrice?: number }[];
 
         setStats({
           totalIndents: indentsList.length,
-          pendingApprovals: indentsList.filter((i: any) => i.status === "SUBMITTED").length,
-          activeRfqs: itemsList.filter((item: any) => item.status === "RFQ_SENT").length,
-          completedProcurements: itemsList.filter((item: any) => item.status === "APPROVED" || item.status === "PO_CREATED").length,
-          totalBudgetEstimated: itemsList.reduce((acc: number, item: any) => acc + (item.quantity * (item.estimatedUnitPrice || 0)), 0),
+          pendingApprovals: indentsList.filter((i) => i.status === "SUBMITTED").length,
+          activeRfqs: itemsList.filter((item) => item.status === "RFQ_SENT").length,
+          completedProcurements: itemsList.filter((item) => item.status === "APPROVED" || item.status === "PO_CREATED").length,
+          totalBudgetEstimated: itemsList.reduce((acc: number, item) => acc + (item.quantity * (item.estimatedUnitPrice || 0)), 0),
         });
       }
       if (vendorsData.success) {

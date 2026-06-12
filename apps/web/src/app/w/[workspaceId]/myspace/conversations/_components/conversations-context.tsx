@@ -3,14 +3,25 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useParams } from "next/navigation";
 
+interface ConversationItem {
+  id?: string;
+  otherUser?: { id: string; lastActiveAt?: string } & Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface ConversationMember {
+  user: { id: string; lastActiveAt?: string } & Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 interface ConversationsContextType {
-  conversations: any[];
-  members: any[];
+  conversations: ConversationItem[];
+  members: ConversationMember[];
   isLoading: boolean;
   isMembersLoading: boolean;
   fetchConversations: () => Promise<void>;
   fetchMembers: () => Promise<void>;
-  setConversations: React.Dispatch<React.SetStateAction<any[]>>;
+  setConversations: React.Dispatch<React.SetStateAction<ConversationItem[]>>;
 }
 
 import { pubsub, EVENTS } from "@/lib/pubsub";
@@ -19,8 +30,8 @@ const ConversationsContext = createContext<ConversationsContextType | undefined>
 
 export function ConversationsProvider({ children }: { children: ReactNode }) {
   const { workspaceId } = useParams();
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [members, setMembers] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [members, setMembers] = useState<ConversationMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMembersLoading, setIsMembersLoading] = useState(false);
 
@@ -78,7 +89,7 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
     });
 
     // 2. Conversation Updates (New messages, list reordering)
-    const unsubscribeConversation = pubsub.subscribe(EVENTS.CONVERSATION_UPDATE, (data: any) => {
+    const unsubscribeConversation = pubsub.subscribe(EVENTS.CONVERSATION_UPDATE, (data: { conversationId?: string }) => {
       console.log(`💬 [Conversations] List update triggered by:`, data.conversationId);
       fetchConversations(); // Re-fetch list to get latest order and previews
     });

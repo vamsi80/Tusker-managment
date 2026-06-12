@@ -22,7 +22,7 @@ export function RealtimeNotificationListener() {
   useEffect(() => {
     if (!workspaceId) return;
 
-    let refreshTimeout: any = null;
+    let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // 1. Initialize the central Real-Time Service
     pubsub.init(workspaceId, session?.user?.id);
@@ -30,7 +30,22 @@ export function RealtimeNotificationListener() {
     /**
      * CENTRAL HANDLER: Handles both Activity Log and Team Updates
      */
-    const handleSurgicalSync = (data: any) => {
+    type RealtimeEventData = {
+      userId?: string;
+      pusherEventId?: string;
+      entityId?: string;
+      action?: string;
+      type?: string;
+      newData?: Record<string, unknown> & { text?: string; id?: string };
+      oldData?: Record<string, unknown>;
+      payload?: Record<string, unknown> & { id?: string };
+      metadata?: Record<string, unknown> & { payload?: Record<string, unknown> & { id?: string } };
+      createdAt?: string | number;
+      message?: string;
+      broadcastEvent?: string;
+    };
+
+    const handleSurgicalSync = (data: RealtimeEventData) => {
       const isActor = data.userId === session?.user?.id;
 
       // 🚀 DEDUPLICATION: Prevent double-processing of the same event (activity_log + team_update)
@@ -103,7 +118,7 @@ export function RealtimeNotificationListener() {
     };
 
     // 2. Subscribe to events
-    const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
+    const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: RealtimeEventData) => {
       const isActor = data.userId === session?.user?.id;
 
       // 1. Show Toast (Only for other users to avoid duplicates for the actor)
@@ -133,7 +148,7 @@ export function RealtimeNotificationListener() {
       }
     });
 
-    const unsubscribeTeam = pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
+    const unsubscribeTeam = pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: RealtimeEventData) => {
       // Team update carries the main surgical payload
       handleSurgicalSync(data);
     });

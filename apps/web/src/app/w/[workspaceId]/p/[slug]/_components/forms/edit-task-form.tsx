@@ -62,7 +62,7 @@ export function EditTaskDialog({
     const resolvedProjectIdFromSlug = layoutData.projects?.find(p => p.slug === urlProjectSlug)?.id;
 
     const form = useForm<TaskSchemaType>({
-        resolver: zodResolver(taskSchema as any),
+        resolver: zodResolver(taskSchema) as Resolver<TaskSchemaType>,
         defaultValues: {
             name: task.name,
             taskSlug: task.taskSlug,
@@ -81,7 +81,7 @@ export function EditTaskDialog({
 
                     // Default to Task Creator if no reviewer set
                     if (!form.getValues("reviewerId")) {
-                        const creatorId = (task as any).createdById || (task as any).createdBy?.userId;
+                        const creatorId = task.createdById || task.createdBy?.id;
                         const creator = fetchedReviewers.find(r => r.id === creatorId);
 
                         if (creator) {

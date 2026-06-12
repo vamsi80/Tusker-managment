@@ -11,6 +11,7 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "sonner";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { ApiResponse } from "@/types/api";
+import type { ProjectMemberUI } from "@tusker/types/project";
 
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
@@ -125,8 +126,8 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         // Add reviewer candidates (Owner/Admin/Lead/PM)
         const reviewerEmails = projectMembers.length > 0
             ? projectMembers
-                .filter((m: any) => m.projectRole && ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole))
-                .map((m: any) => {
+                .filter((m: ProjectMemberUI) => m.projectRole && ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole))
+                .map((m: ProjectMemberUI) => {
                     const role = m.projectRole ? ` [${m.projectRole.replace('_', ' ')}]` : "";
                     return m.user.surname ? `${m.user.email} (${m.user.surname}${role})` : `${m.user.email}${role}`;
                 })
@@ -265,8 +266,8 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     };
 
     const downloadInstructions = () => {
-        const tagList = workspaceTags.length > 0 ? workspaceTags.map((t: any) => `                * ${t.name}`).join('\n') : "                * DESIGN\n                * PROCUREMENT\n                * CONTRACTOR";
-        const memberList = projectMembers.length > 0 ? projectMembers.map((m: any) => `                * ${m.user.email} (${m.user.surname})`).join('\n') : "                * (No members found in project)";
+        const tagList = workspaceTags.length > 0 ? workspaceTags.map((t) => `                * ${t.name}`).join('\n') : "                * DESIGN\n                * PROCUREMENT\n                * CONTRACTOR";
+        const memberList = projectMembers.length > 0 ? projectMembers.map((m) => `                * ${m.user.email} (${m.user.surname})`).join('\n') : "                * (No members found in project)";
 
 
         const instructionsContent = `BULK UPLOAD INSTRUCTIONS
@@ -508,7 +509,7 @@ ${tagList}
                         projectId,
                         filteredData.map((task: ParsedTask) => ({
                             ...task,
-                            reviewerEmail: task.reviewerEmail || projectMembers.find((m: any) => m.userId === selectedReviewerId)?.user.email
+                            reviewerEmail: task.reviewerEmail || projectMembers.find((m) => m.userId === selectedReviewerId)?.user.email
                         })),
                     )
                 );
@@ -528,9 +529,9 @@ ${tagList}
 
                     // Dispatch only parent tasks — subtasks load from DB on expand
                     if (result.data && Array.isArray(result.data)) {
-                        result.data
-                            .filter((t: any) => t.isParent)
-                            .forEach((task: any) => {
+                        (result.data as Array<{ id: string; isParent: boolean }>)
+                            .filter((t) => t.isParent)
+                            .forEach((task) => {
                                 window.dispatchEvent(
                                     new CustomEvent("realtime-task-sync", {
                                         detail: {
@@ -773,8 +774,8 @@ ${tagList}
                                 </SelectTrigger>
                                 <SelectContent>
                                     {projectMembers
-                                        .filter((m: any) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
-                                        .map((member: any) => (
+                                        .filter((m) => ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole) || ["OWNER", "ADMIN"].includes(m.workspaceRole || ""))
+                                        .map((member) => (
                                             <SelectItem key={member.userId} value={member.userId}>
                                                 {member.user.email} ({member.user.surname}{member.projectRole ? ` - ${member.projectRole.replace('_', ' ')}` : ""})
                                             </SelectItem>

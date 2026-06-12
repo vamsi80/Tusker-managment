@@ -13,7 +13,7 @@ interface ActivityLog {
     action: string;
     entityType: string | null;
     entityId: string | null;
-    metadata: any;
+    metadata: Record<string, unknown>;
     ipAddress: string | null;
     userAgent: string | null;
     createdAt: Date;
@@ -95,14 +95,14 @@ const columns: ColumnDef<ActivityLog>[] = [
     }
 ];
 
-export function ActivityList({ logs, workspaceId }: { logs: any[]; workspaceId: string }) {
+export function ActivityList({ logs, workspaceId }: { logs: ActivityLog[]; workspaceId: string }) {
     const router = useRouter();
 
     // Refresh logic is now handled globally via RealtimeNotificationListener
 
     return (
         <DataTable 
-            columns={columns as any} 
+            columns={columns}
             data={logs} 
             searchKey="action" 
             searchPlaceholder="Filter by action..."
