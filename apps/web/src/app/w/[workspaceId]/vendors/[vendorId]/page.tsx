@@ -9,13 +9,29 @@ import { VendorHeader } from "./_components/vendor-header";
 import { VendorProfileInfo } from "./_components/vendor-profile-info";
 import { VendorCapabilities } from "./_components/vendor-capabilities";
 
+type VendorDetail = {
+  name: string;
+  status: string;
+  contactPerson?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
+  gstNumber?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  country?: string | null;
+  address?: string | null;
+};
+
 export default function VendorDetailPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
   const vendorId = params.vendorId as string;
 
-  const [vendor, setVendor] = useState<any>(null);
+  const [vendor, setVendor] = useState<VendorDetail | null>(null);
   const [loadingVendor, setLoadingVendor] = useState(true);
 
   useEffect(() => {

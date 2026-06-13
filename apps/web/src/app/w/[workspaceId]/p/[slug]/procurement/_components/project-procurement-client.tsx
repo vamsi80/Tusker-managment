@@ -17,7 +17,7 @@ interface LineItemData {
   materialName: string;
   unit: string;
   quantity: number;
-  specifications?: string;
+  specifications?: string | null;
   status: string;
 }
 
@@ -72,10 +72,23 @@ const lineItemColumns: ColumnDef<LineItemData>[] = [
   },
 ];
 
+interface IndentItem {
+  id: string;
+  indentId: string | null;
+  status: string;
+  name?: string | null;
+  description?: string | null;
+  cancelReason?: string | null;
+  expectedDelivery?: Date | string | null;
+  lineItems: LineItemData[];
+  task?: { name?: string | null; taskSlug?: string | null } | null;
+  requestedBy?: { user?: { name?: string | null; surname?: string | null } | null } | null;
+}
+
 interface ProjectProcurementClientProps {
   workspaceId: string;
   projectId: string;
-  indents: Array<{ id: string; indentId: string; status: string; [key: string]: unknown }>;
+  indents: IndentItem[];
   userRole: string;
 }
 

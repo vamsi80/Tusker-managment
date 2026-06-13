@@ -168,9 +168,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                         id: l.id,
                         name: l.name,
                         address: l.address,
-                        latitude: parseFloat(l.latitude),
-                        longitude: parseFloat(l.longitude),
-                        radius: parseFloat(l.radius || 100),
+                        latitude: l.latitude,
+                        longitude: l.longitude,
+                        radius: l.radius ?? 100,
                     })),
                 }),
             });
@@ -550,7 +550,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') {
                                                         e.preventDefault();
-                                                        handleSearchAddress(idx, loc.address);
+                                                        handleSearchAddress(idx, loc.address ?? "");
                                                     }
                                                 }}
                                             />
@@ -558,7 +558,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                                 size="icon"
                                                 variant="outline"
                                                 className="size-9 shrink-0"
-                                                onClick={() => handleSearchAddress(idx, loc.address)}
+                                                onClick={() => handleSearchAddress(idx, loc.address ?? "")}
                                                 disabled={!isAdmin || isLoading}
                                                 title="Find Coordinates"
                                             >
@@ -652,6 +652,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                 setAttendanceLocations([...attendanceLocations, {
                                     id: `new-${Date.now()}`,
                                     name: "New Office",
+                                    address: null,
                                     latitude: 0,
                                     longitude: 0,
                                     radius: 100

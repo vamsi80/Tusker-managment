@@ -49,7 +49,7 @@ export default async function WorkspaceProcurementCreateRfq({ params }: PageProp
   return (
     <CreateRfqClient
       workspaceId={workspaceId}
-      indents={filteredIndents}
+      indents={filteredIndents as unknown as Parameters<typeof CreateRfqClient>[0]["indents"]}
       vendors={vendors}
     />
   );

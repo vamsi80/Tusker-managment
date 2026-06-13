@@ -23,6 +23,7 @@ interface CapabilityItem {
   materialName: string;
   unit?: string;
   serviceType?: string;
+  source?: string;
   [key: string]: unknown;
 }
 

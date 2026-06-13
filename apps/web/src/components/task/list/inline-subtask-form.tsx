@@ -149,7 +149,7 @@ export function InlineSubTaskForm({
                     // Fetch real project members and filter out viewers
                     const pMembers = await projectsClient.getMembers(projectId);
                     if (pMembers && pMembers.length > 0) {
-                        setAvailableMembers(pMembers.filter(m => m.projectRole !== "VIEWER"));
+                        setAvailableMembers((pMembers as ProjectMembersType).filter(m => m.projectRole !== "VIEWER") as ProjectMembersType);
                     }
                 } catch (error) {
                     console.error("Failed to fetch project members", error);
@@ -165,7 +165,7 @@ export function InlineSubTaskForm({
             try {
                 if (!projectId) return;
                 const fetchedReviewers = await projectsClient.getReviewers(projectId);
-                setReviewers(fetchedReviewers);
+                setReviewers(fetchedReviewers as ProjectReviewer[]);
 
                 // For create mode, set Project Manager as default reviewer if available
                 if (mode === "create" && !reviewer && fetchedReviewers && Array.isArray(fetchedReviewers)) {

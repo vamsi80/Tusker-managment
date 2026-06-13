@@ -89,7 +89,7 @@ export function InlineTaskForm({
                 if (res.status !== "success") {
                     throw new Error(res.message || "Failed to create task");
                 }
-                onTaskCreated?.(res.data);
+                if (res.data) onTaskCreated?.(res.data);
                 setTaskName("");
                 onCancel();
                 window.dispatchEvent(new CustomEvent("realtime-task-sync", {

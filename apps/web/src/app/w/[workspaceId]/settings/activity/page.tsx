@@ -12,7 +12,7 @@ async function ActivityContent({ workspaceId }: { workspaceId: string }) {
         const { data: logs } = await serverApiFetch<{ success: boolean; data: Record<string, unknown>[] }>(
             `/workspaces/${workspaceId}/activity`
         );
-        return <ActivityList logs={logs} workspaceId={workspaceId} />;
+        return <ActivityList logs={logs as unknown as Parameters<typeof ActivityList>[0]["logs"]} workspaceId={workspaceId} />;
     } catch {
         return (
             <div className="p-4 border border-destructive/50 bg-destructive/5 text-destructive rounded-md text-sm">

@@ -75,7 +75,7 @@ export function DueThisWeekWidget({ dueThisWeek, weekStart, weekEnd }: DueThisWe
                 >
                   <div className="flex-1 min-w-0">
                     <button
-                      onClick={() => openSubTaskSheet(task)}
+                      onClick={() => openSubTaskSheet(task as unknown as Record<string, unknown>)}
                       className="text-sm font-medium leading-relaxed truncate text-foreground hover:text-primary hover:underline text-left w-full transition-colors"
                     >
                       {task.name}

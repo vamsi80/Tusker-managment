@@ -37,7 +37,7 @@ type SubTaskBase = {
     description: string | null;
     taskSlug: string;
     projectId?: string;
-    parentTaskId?: string;
+    parentTaskId?: string | null;
     workspaceId?: string;
     assigneeId?: string | null;
     assigneeUserId?: string | null;
@@ -45,8 +45,8 @@ type SubTaskBase = {
     createdById?: string | null;
     tags?: { id: string }[] | null;
     status: TaskStatus | null;
-    startDate: Date | string | null;
-    dueDate: Date | string | null;
+    startDate: Date | null;
+    dueDate: Date | null;
     days: number | null;
     assignee?: {
         id: string;

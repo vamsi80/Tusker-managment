@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { cn } from "@/lib/utils";
-import { GanttTask } from "./types";
+import { GanttTask, GanttSubtask } from "./types";
 import { ProjectOption } from "../shared/types";
 import { ProjectMembersType } from "@/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
@@ -30,7 +30,7 @@ interface TaskRowProps {
     isExpanded: boolean;
     onToggle: () => void;
     onSubtaskClick?: (subtaskId: string) => void;
-    onSubTaskUpdate?: (subTaskId: string, data: Partial<any>) => void;
+    onSubTaskUpdate?: (subTaskId: string, data: Partial<GanttSubtask>) => void;
     allTasks?: GanttTask[]; // All tasks for dependency picker
     workspaceId?: string;
     projectId?: string;

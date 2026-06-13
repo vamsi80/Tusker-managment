@@ -241,7 +241,7 @@ export function MaterialsHubClient({
     const projectsCount = distinctProjects.size;
 
     const coverage = vendorCoverages.find(
-      (c) => c.materialName.toLowerCase().trim() === group.materialName.toLowerCase().trim()
+      (c) => (c.materialName?.toLowerCase().trim() ?? "") === group.materialName.toLowerCase().trim()
     );
     const vendorCount = coverage ? coverage.vendorCount : 0;
 

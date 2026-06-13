@@ -30,14 +30,36 @@ interface SubtaskHierarchy {
     materials: Material[];
 }
 
+interface RawSubtaskItem {
+    id: string;
+    name: string;
+    status?: string;
+    parentTask?: { name?: string | null } | null;
+}
+
+interface RawMaterialItem {
+    id: string;
+    materialName?: string;
+    name?: string;
+    unit?: string;
+    quantity?: number;
+    notes?: string | null;
+    specifications?: string | null;
+    status?: string;
+    addedBy?: { user?: { name?: string | null; surname?: string | null } | null } | null;
+    subtaskId?: string | null;
+    subtaskNameSnapshot?: string | null;
+    parentTaskNameSnapshot?: string | null;
+}
+
 // interface MaterialsClientProps {
 //     workspaceId: string;
 //     projectId: string;
 // }
 
 export function MaterialsClient({ workspaceId, projectId }: { workspaceId: string; projectId: string }) {
-    const [subtasks, setSubtasks] = useState<SubtaskHierarchy[]>([]);
-    const [materialItems, setMaterialItems] = useState<Material[]>([]);
+    const [subtasks, setSubtasks] = useState<RawSubtaskItem[]>([]);
+    const [materialItems, setMaterialItems] = useState<RawMaterialItem[]>([]);
     const [unitsOfMeasure, setUnitsOfMeasure] = useState<{ abbreviation: string; [key: string]: unknown }[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -86,7 +108,7 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
                 id: st.id,
                 name: st.name,
                 taskName: st.parentTask?.name || "Uncategorized Work",
-                status: st.status || "TODO",
+                status: (st.status as SubtaskHierarchy["status"]) || "TODO",
                 materials: [],
             });
         });
@@ -96,13 +118,13 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
         materialItems.forEach((item) => {
             const shapedMaterial: Material = {
                 id: item.id,
-                name: item.materialName,
-                unit: item.unit,
-                quantity: item.quantity,
-                specifications: item.notes || "",
+                name: item.materialName || item.name || "",
+                unit: item.unit || "",
+                quantity: item.quantity ?? 0,
+                specifications: item.notes || item.specifications || "",
                 status: "DRAFT", // Planning materials are always draft/planned by default
                 addedBy: `${item.addedBy?.user?.name || ""} ${item.addedBy?.user?.surname || ""}`.trim(),
-                subtaskId: item.subtaskId,
+                subtaskId: item.subtaskId ?? null,
                 subtaskNameSnapshot: item.subtaskNameSnapshot,
                 parentTaskNameSnapshot: item.parentTaskNameSnapshot,
             };

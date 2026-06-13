@@ -41,6 +41,6 @@ export default async function IndentDetailPage({ params }: PageProps) {
   }
 
   return (
-    <IndentDetailClient workspaceId={workspaceId} indent={indent} />
+    <IndentDetailClient workspaceId={workspaceId} indent={indent as unknown as Parameters<typeof IndentDetailClient>[0]["indent"]} />
   );
 }

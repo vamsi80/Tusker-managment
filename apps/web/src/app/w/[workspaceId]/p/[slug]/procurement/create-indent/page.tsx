@@ -64,7 +64,7 @@ async function CreateIndentServer({
       projectName={project.name}
       lockedProject={true}
       slug={slug}
-      tasks={tasksRes.data}
+      tasks={tasksRes.data as { id: string; name: string; taskSlug: string; dueDate?: Date | null }[]}
       prefilledTaskId={taskId}
     />
   );

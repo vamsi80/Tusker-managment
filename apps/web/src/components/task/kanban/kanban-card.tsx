@@ -63,7 +63,7 @@ type KanbanCardPermissions = UserPermissionsType & {
   leadProjectIds?: string[];
 };
 
-type AssigneeWithMember = { id?: string; surname?: string | null; workspaceMember?: { user?: { surname?: string | null } } } | null | undefined;
+type AssigneeWithMember = { id?: string; surname?: string | null; workspaceMember?: { user?: { id?: string; surname?: string | null } } } | null | undefined;
 
 interface KanbanCardProps {
   subTask: KanbanSubTaskType;
@@ -334,7 +334,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                     <TooltipTrigger asChild>
                       <Avatar className="size-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
                         {(firstManager?.image || firstManager?.user?.image) ? (
-                          <AvatarImage src={firstManager?.image || firstManager?.user?.image} alt={firstManager?.surname || firstManager?.name || "Manager"} />
+                          <AvatarImage src={firstManager?.image || firstManager?.user?.image || undefined} alt={firstManager?.surname || firstManager?.name || "Manager"} />
                         ) : null}
                         <AvatarFallback className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 font-bold uppercase">
                           {(firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name)?.[0] || "?"}
@@ -413,7 +413,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           parentTaskId={subTask.parentTaskId!}
                           members={projectMembers}
                           onSubTaskUpdated={(data) =>
-                            onUpdateInPlace?.(subTask.id, data)
+                            onUpdateInPlace?.(subTask.id, data as Partial<KanbanSubTaskType>)
                           }
                           trigger={
                             <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm transition-colors text-xs">

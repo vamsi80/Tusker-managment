@@ -33,7 +33,7 @@ export default async function ReportsPage({
     return (
         <div className="flex flex-col gap-6">
             <ReportsTable
-                initialData={rows}
+                initialData={rows as unknown as { id: string; [key: string]: unknown }[]}
                 workspaceId={workspaceId}
                 initialDate={search.date}
                 initialUserId={search.userId}

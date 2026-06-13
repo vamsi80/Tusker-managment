@@ -54,7 +54,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                 <TabsContent value="attendance" className="mt-0 focus-visible:outline-none">
                     <AttendanceSettings
                         workspaceId={workspaceId}
-                        initialData={attendanceSettings}
+                        initialData={attendanceSettings as import("../../settings/_components/attendance-settings").AttendanceSettingsData}
                         isAdmin={permissions.isWorkspaceAdmin}
                     />
                 </TabsContent>

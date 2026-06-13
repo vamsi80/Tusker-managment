@@ -90,7 +90,7 @@ export function LeavesTable({
     useEffect(() => {
         const handler = (e: Event) => {
             const { action, record, oldRecord } = (e as CustomEvent<{ action?: string; record?: LeaveRequest; oldRecord?: LeaveRequest }>).detail || {};
-            const flatRecord = flattenRecord(record);
+            const flatRecord = flattenRecord(record ?? null);
 
             console.log(`[LeavesTable][SURGICAL_V2] 🔄 Event received: ${action}`, {
                 record: flatRecord,
@@ -109,7 +109,7 @@ export function LeavesTable({
 
             // 2. Handle Updates
             const updateActions = ["LEAVE_UPDATED", "LEAVE_STATUS_CHANGED", "LEAVE_APPROVED", "LEAVE_REJECTED"];
-            if (flatRecord && updateActions.includes(action)) {
+            if (flatRecord && updateActions.includes(action ?? "")) {
                 setRequests(prev => prev.map(r => r.id === flatRecord.id ? flatRecord : r));
                 return;
             }

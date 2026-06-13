@@ -29,7 +29,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
         id: string;
         name: string;
         parentTask?: { name: string } | null;
-        project?: { color?: string | null } | null;
+        project?: { color?: string | null; name?: string | null } | null;
     }
     const [suggestedTasks, setSuggestedTasks] = useState<SuggestedTask[]>([]);
     const [openPopoverIndex, setOpenPopoverIndex] = useState<number | null>(null);

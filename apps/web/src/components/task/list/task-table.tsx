@@ -182,7 +182,7 @@ function TaskTable(props: TaskTableProps) {
                 handleSubTaskClick={logic.handleSubTaskClick}
                 handleSubTaskUpdated={logic.handleSubTaskUpdated}
                 handleRequestSubtasks={logic.handleRequestSubtasks}
-                getCachedSubTasks={() => ({})}
+                getCachedSubTasks={() => undefined}
                 projectPagination={logic.projectPagination}
                 loadProjectTasks={logic.loadProjectTasks}
                 filtersActive={logic.filtersActive}

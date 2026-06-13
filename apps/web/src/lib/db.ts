@@ -4,7 +4,10 @@ import fs from "fs";
 
 // Dynamically point Prisma to the traced query engine binary in production.
 // This solves engine lookup issues caused by custom generator output paths in monorepos.
-if (process.env.NODE_ENV === "production") {
+// Only override on Linux (the deployment target) — on other platforms (e.g. Windows dev
+// builds) this would force the rhel `.so.node` engine, which cannot load and throws
+// PrismaClientInitializationError. There, let Prisma auto-detect the `native` engine.
+if (process.env.NODE_ENV === "production" && process.platform === "linux") {
   const possiblePaths = [
     path.join(process.cwd(), "packages/db/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),
     path.join(process.cwd(), "../../packages/db/src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node"),

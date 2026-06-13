@@ -17,11 +17,13 @@ import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search, Chevron
 import { apiClient } from "@/lib/api-client";
 import { useWorkspaceMemberStore, useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
-type ReportEntry = Record<string, unknown>;
-type ReportRecord = Record<string, unknown> & { id: string; entries?: ReportEntry[]; status?: string; userId?: string; date?: string; submittedAt?: string | null; user?: Record<string, unknown>; description?: string };
+type ReportUser = { id?: string; name?: string | null; surname?: string | null; image?: string | null; email?: string | null };
+type ReportTask = { name?: string | null; taskSlug?: string | null; project?: { name?: string | null; color?: string | null } | null };
+type ReportEntry = { id?: string; task?: ReportTask | null; description?: string | null; [key: string]: unknown };
+type ReportRecord = { id: string; entries?: ReportEntry[]; status?: string; userId?: string; date?: string; submittedAt?: string | null; user?: ReportUser; description?: string; [key: string]: unknown };
 type ReportRow =
     | { id: string; type: "date"; date: string; count: number; level: number }
-    | { id: string; type: "user"; user: Record<string, unknown>; report: ReportRecord; level: number }
+    | { id: string; type: "user"; user: ReportUser | undefined; report: ReportRecord; level: number }
     | { id: string; type: "entry"; entry: ReportEntry | null; report: ReportRecord; description?: string; level: number };
 
 interface Props {
@@ -390,7 +392,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             </Button>
                             <div className="size-6 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 border shadow-sm">
                                 {user?.image ? (
-                                    <img src={user.image} alt={user.surname} className="size-full object-cover" />
+                                    <img src={user.image as string} alt={user.surname ?? ""} className="size-full object-cover" />
                                 ) : (
                                     <span className="text-[10px] font-medium text-secondary-foreground">
                                         {user?.surname?.charAt(0) || "U"}
@@ -406,7 +408,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                                     report.status === "NOT_SUBMITTED" && "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"
                                 )}
                             >
-                                {report.status.replace("_", " ")}
+                                {(report.status ?? "").replace("_", " ")}
                             </Badge>
                         </div>
                     );

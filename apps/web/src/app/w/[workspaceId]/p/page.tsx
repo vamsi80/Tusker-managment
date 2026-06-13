@@ -87,7 +87,7 @@ export default function WorkspaceProjectsPage() {
   const filteredProjects = useMemo(() => {
     return projects.filter((proj) => {
       const matchesSearch = proj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (proj.description && proj.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        ((proj as { description?: string | null }).description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
       const matchesRole = selectedRoleFilter === "ALL" || 
         proj.projectRole === selectedRoleFilter;

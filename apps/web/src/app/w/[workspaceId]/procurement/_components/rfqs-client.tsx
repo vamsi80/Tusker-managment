@@ -14,8 +14,20 @@ interface RfqsClientProps {
   workspaceId: string;
 }
 
+type RfqLineItem = {
+  id: string;
+  status: string;
+  materialName?: string;
+  quantity?: number;
+  unit?: string;
+  rfqDeadline?: string | Date | null;
+  quotesCount?: number;
+  indent?: { project?: { name?: string } | null } | null;
+  [key: string]: unknown;
+};
+
 export function RfqsClient({ workspaceId }: RfqsClientProps) {
-  const [lineItems, setLineItems] = useState<Array<{ id: string; status: string; materialName?: string; [key: string]: unknown }>>([]);
+  const [lineItems, setLineItems] = useState<RfqLineItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchRfqItems = async () => {
@@ -26,7 +38,7 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
       if (data.success) {
         // filter for active RFQs
         const activeRfqs = data.data.filter(
-          (item) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED"
+          (item: { status?: string }) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED"
         );
         setLineItems(activeRfqs);
       }
@@ -52,7 +64,7 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
     }
   };
 
-  const rfqColumns: ColumnDef<any>[] = [
+  const rfqColumns: ColumnDef<RfqLineItem>[] = [
     {
       accessorKey: "materialName",
       header: "Material",

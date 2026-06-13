@@ -34,8 +34,8 @@ export function ProjectLayoutProvider({
             if (!isSilent) setIsLoading(true);
             const res = await projectsClient.getLayoutData(workspaceId, projectId);
 
-            setProjectMembers(res.members || []);
-            setProjectPermissions(res.permissions || null);
+            setProjectMembers((res.members as ProjectMembersType) || []);
+            setProjectPermissions((res.permissions as UserPermissionsType) || null);
         } catch (error) {
             console.error("Failed to fetch project layout data:", error);
         } finally {

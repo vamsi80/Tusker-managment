@@ -168,7 +168,7 @@ export function transformToGanttTasks(inputTasks: RawTaskInput[]): GanttTask[] {
             assigneeId: subtask.assigneeId,
             assignee: subtask.assignee
               ? {
-                id: subtask.assignee.id || subtask.assigneeId,
+                id: subtask.assignee.id || subtask.assigneeId || "",
                 surname: subtask.assignee.surname || "Unknown",
               }
               : undefined,
@@ -327,7 +327,7 @@ export function transformToGanttSubtasks(tasks: RawTaskInput[]): GanttSubtask[] 
         assigneeId: subtask.assigneeId,
         assignee: subtask.assignee
           ? {
-            id: subtask.assignee.id || subtask.assigneeId,
+            id: subtask.assignee.id || subtask.assigneeId || "",
             surname: subtask.assignee.surname || "Unknown",
           }
           : undefined,

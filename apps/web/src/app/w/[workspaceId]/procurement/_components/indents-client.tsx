@@ -15,9 +15,13 @@ interface IndentRow {
   id: string;
   indentId: string;
   status: string;
+  name?: string | null;
   projectId?: string;
   project?: { name?: string };
   createdAt?: string;
+  expectedDelivery?: string | null;
+  _count?: { lineItems?: number };
+  requestedBy?: { user?: { name?: string | null; surname?: string | null } | null } | null;
   [key: string]: unknown;
 }
 

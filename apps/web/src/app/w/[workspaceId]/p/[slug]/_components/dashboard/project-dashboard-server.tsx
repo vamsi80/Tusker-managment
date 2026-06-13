@@ -21,5 +21,5 @@ export async function ProjectDashboardServer({ workspaceId, slug }: ProjectDashb
     );
   }
 
-  return <ProjectDashboard data={data} workspaceId={workspaceId} />;
+  return <ProjectDashboard data={data as unknown as Parameters<typeof ProjectDashboard>[0]["data"]} workspaceId={workspaceId} />;
 }

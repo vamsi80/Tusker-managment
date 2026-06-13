@@ -125,7 +125,7 @@ export function DataTable<TData, TValue>({
         getFacetedRowModel: getFacetedRowModel(),
         getFacetedUniqueValues: getFacetedUniqueValues(),
         onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
+        onRowSelectionChange: setRowSelection as (value: unknown) => void,
         onGlobalFilterChange: setGlobalFilter,
         getRowId,
         enableRowSelection,

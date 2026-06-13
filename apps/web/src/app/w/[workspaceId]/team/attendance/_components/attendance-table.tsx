@@ -97,23 +97,23 @@ export function AttendanceTable({
     const fetchRecordsRef = useRef<((force?: boolean, silent?: boolean) => Promise<void>) | null>(null);
 
     // Helper to flatten Prisma records into the shape the table expects
-    const flattenRecord = (r: AttendanceRecord | (Record<string, unknown> & { memberSurname?: string; WorkspaceMember?: { user?: { surname?: string; email?: string } } })) => {
-        if (!r) return r;
+    const flattenRecord = (r: AttendanceRecord | (Record<string, unknown> & { memberSurname?: string; WorkspaceMember?: { user?: { surname?: string; email?: string } } })): AttendanceRecord => {
+        if (!r) return r as AttendanceRecord;
         // If it's already flat (has memberSurname), return it
-        if (r.memberSurname) return r;
+        if ((r as { memberSurname?: string }).memberSurname) return r as AttendanceRecord;
         // If it's nested (Prisma), flatten it
         return {
             ...r,
-            memberSurname: r.WorkspaceMember?.user?.surname || "User",
-            memberEmail: r.WorkspaceMember?.user?.email || "",
-            workspaceMember: r.WorkspaceMember
-        };
+            memberSurname: (r as { WorkspaceMember?: { user?: { surname?: string } } }).WorkspaceMember?.user?.surname || "User",
+            memberEmail: (r as { WorkspaceMember?: { user?: { email?: string } } }).WorkspaceMember?.user?.email || "",
+            workspaceMember: (r as { WorkspaceMember?: unknown }).WorkspaceMember
+        } as unknown as AttendanceRecord;
     };
 
     useEffect(() => {
         const handler = (e: Event) => {
             const { action, record, oldRecord } = (e as CustomEvent<{ action?: string; record?: Record<string, unknown>; oldRecord?: Record<string, unknown> }>).detail || {};
-            const flatRecord = flattenRecord(record);
+            const flatRecord = record ? flattenRecord(record) : undefined;
 
             console.log(`[AttendanceTable][SURGICAL_V2] 🔄 Event received: ${action}`, {
                 record: flatRecord,
@@ -132,14 +132,14 @@ export function AttendanceTable({
 
             // 2. Handle Updates (Check-outs, etc.)
             const updateActions = ["CHECKED_OUT", "ATTENDANCE_UPDATED"];
-            if (flatRecord && updateActions.includes(action)) {
+            if (flatRecord && updateActions.includes(action ?? "")) {
                 setRecords(prev => prev.map(r => r.id === flatRecord.id ? flatRecord : r));
                 return;
             }
 
             // 3. Handle Deletions
             if (action === "ATTENDANCE_DELETED") {
-                const deletedId = record?.id || oldRecord?.id;
+                const deletedId = (record?.id || oldRecord?.id) as string | undefined;
                 if (deletedId) {
                     setRecords(prev => prev.filter(r => r.id !== deletedId));
                     setTotalCount(prev => Math.max(0, prev - 1));

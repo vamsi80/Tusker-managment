@@ -203,7 +203,7 @@ export function TaskTableBody({
                   workspaceId: t.workspaceId,
                   createdAt: t.createdAt,
                   subTasks: [],
-                },
+                } as unknown as TaskWithSubTasks,
                 subtasks: [],
               };
             }

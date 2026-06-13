@@ -47,6 +47,7 @@ interface MaterialsTableProps {
 interface CatalogItem {
     id: string;
     name: string;
+    unit?: string;
     defaultUnit?: { abbreviation?: string };
 }
 

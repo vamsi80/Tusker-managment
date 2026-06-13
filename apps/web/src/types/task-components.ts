@@ -18,6 +18,8 @@ export interface ProjectOption {
 
 export interface ProjectMapEntry {
   id: string;
+  name: string;
+  color?: string | null;
   canManageMembers?: boolean;
   memberIds?: string[];
 }

@@ -18,10 +18,18 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
+type AttendanceTodayRecord = {
+    checkIn?: string | Date | null;
+    checkOut?: string | Date | null;
+    checkInAddress?: string | null;
+    checkOutAddress?: string | null;
+    [key: string]: unknown;
+};
+
 export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState<"IDLE" | "CHECKED_IN" | "CHECKED_OUT">("IDLE");
-    const [record, setRecord] = useState<any>(null);
+    const [record, setRecord] = useState<AttendanceTodayRecord | null>(null);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [showNoteDialog, setShowNoteDialog] = useState(false);
@@ -289,9 +297,9 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                 </div>
                                 <div className="relative z-10">
                                     <p className="text-2xl font-black text-foreground tabular-nums tracking-tight">
-                                        {mounted ? format(new Date(record.checkIn), "h:mm a") : "Loading..."}
+                                        {mounted && record?.checkIn ? format(new Date(record.checkIn), "h:mm a") : "Loading..."}
                                     </p>
-                                    {record.checkInAddress && (
+                                    {record?.checkInAddress && (
                                         <p className="text-[10px] text-muted-foreground mt-3 font-medium leading-relaxed italic truncate opacity-80 hover:opacity-100 transition-opacity">
                                             At: {record.checkInAddress}
                                         </p>
@@ -331,19 +339,19 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                             <div className="flex flex-col">
                                                 <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">In</span>
                                                 <span className="text-sm font-bold tabular-nums">
-                                                    {mounted ? format(new Date(record.checkIn), "h:mm a") : "..."}
+                                                    {mounted && record?.checkIn ? format(new Date(record.checkIn), "h:mm a") : "..."}
                                                 </span>
                                             </div>
                                             <div className="h-8 w-px bg-border/50" />
                                             <div className="flex flex-col items-end">
                                                 <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">Out</span>
                                                 <span className="text-sm font-bold tabular-nums text-primary">
-                                                    {mounted ? format(new Date(record.checkOut), "h:mm a") : "..."}
+                                                    {mounted && record?.checkOut ? format(new Date(record.checkOut), "h:mm a") : "..."}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
-                                    {record.checkOutAddress && (
+                                    {record?.checkOutAddress && (
                                         <p className="text-[9px] text-muted-foreground/60 mt-3 font-medium truncate italic border-t pt-2 border-border/30">
                                             Last Loc: {record.checkOutAddress}
                                         </p>

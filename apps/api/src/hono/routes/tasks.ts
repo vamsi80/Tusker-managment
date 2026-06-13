@@ -7,6 +7,7 @@ import { TasksService } from "@/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@tusker/shared";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import type { WorkspaceFilterOpts } from "@/lib/tasks/query-builder";
+import type { TaskFilters } from "@/types/task-filters";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
 
@@ -670,7 +671,7 @@ tasks.get("/:parentId/expand", async (c) => {
     }
   };
 
-  const filters: any = {
+  const filters: Partial<TaskFilters> = {
     status: parseParam("status", "s"),
     assigneeId: parseParam("assigneeId", "a"),
     tagId: parseParam("tagId", "t"),
@@ -734,7 +735,7 @@ tasks.get("/expansion/batch", async (c) => {
     }
   };
 
-  const filters: any = {
+  const filters: Partial<TaskFilters> = {
     status: parseParam("status", "s"),
     assigneeId: parseParam("assigneeId", "a"),
     tagId: parseParam("tagId", "t"),

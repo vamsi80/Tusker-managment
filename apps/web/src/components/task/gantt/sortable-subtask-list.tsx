@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { GanttSubtask } from "./types";
+import { GanttSubtask, GanttTask } from "./types";
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +42,7 @@ interface SortableSubtaskRowProps {
     };
     showDetails: boolean;
     allowedUserIds?: string[];
-    allTasks?: GanttSubtask[];
+    allTasks?: GanttTask[];
     highlightedSubtaskId?: string | null;
     onToggleSubtaskHighlight?: (id: string) => void;
 }
@@ -312,7 +312,7 @@ function SortableSubtaskRow({
                                             assigneeId: member.projectMemberId,
                                             assignee: {
                                                 id: member.userId,
-                                                surname: member.user.surname,
+                                                surname: member.user.surname || "",
                                             }
                                         });
                                     }}
@@ -461,7 +461,7 @@ interface SortableSubtaskListProps {
     };
     showDetails: boolean;
     allowedUserIds?: string[];
-    allTasks?: GanttSubtask[];
+    allTasks?: GanttTask[];
     granularity: 'days' | 'weeks' | 'months';
     highlightedSubtaskId?: string | null;
     onToggleSubtaskHighlight?: (id: string) => void;

@@ -40,13 +40,28 @@ interface IndentLineItem {
   quantity: number;
   unit?: string;
   specifications?: string;
+  status?: string | null;
   [key: string]: unknown;
+}
+
+interface IndentUser {
+  name?: string | null;
+  surname?: string | null;
+  email?: string | null;
 }
 
 interface IndentDetail {
   id: string;
   status: string;
+  name?: string | null;
+  indentId?: string | null;
+  description?: string | null;
+  expectedDelivery?: string | null;
+  cancelReason?: string | null;
   lineItems?: IndentLineItem[];
+  requestedBy?: { user?: IndentUser | null } | null;
+  finalApprovedBy?: { user?: IndentUser | null } | null;
+  project?: { id?: string; name?: string | null } | null;
   [key: string]: unknown;
 }
 

@@ -25,6 +25,14 @@ interface ReportEntry {
     id?: string;
     taskName?: string;
     hoursSpent?: number;
+    description?: string | null;
+    createdAt?: string | null;
+    task?: {
+        name?: string | null;
+        taskSlug?: string | null;
+        project?: { name?: string | null; color?: string | null } | null;
+        parentTask?: { name?: string | null } | null;
+    } | null;
     [key: string]: unknown;
 }
 
@@ -33,7 +41,7 @@ interface ReportItem {
     date?: string;
     status?: string;
     entries?: ReportEntry[];
-    user?: { surname?: string; image?: string };
+    user?: { surname?: string | null; image?: string | null; email?: string | null };
     [key: string]: unknown;
 }
 
@@ -73,7 +81,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                     {/* User Header Section */}
                     <div className="flex items-center gap-3">
                         <Avatar className="size-10 border-2 border-primary/10">
-                            <AvatarImage src={report.user?.image} />
+                            <AvatarImage src={report.user?.image || undefined} />
                             <AvatarFallback className="bg-primary/5 text-primary text-base font-bold">
                                 {report.user?.surname?.charAt(0) || "U"}
                             </AvatarFallback>
