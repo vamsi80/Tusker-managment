@@ -418,7 +418,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
         {
             accessorKey: "tasks",
             header: "Task & Time",
-            meta: { className: "w-[25%] border-l border-border/10 [&_td]:align-top text-left" } as any,
+            meta: { className: "w-[25%] border-l border-border/10 [&_td]:align-top text-left" } as { className: string },
             cell: ({ row }) => {
                 const data = row.original;
                 if (data.type !== "entry") return null;
@@ -462,7 +462,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
         {
             accessorKey: "logs",
             header: "Work Log Descriptions",
-            meta: { className: "w-[50%] border-l border-border/10 [&_td]:align-top text-left" } as any,
+            meta: { className: "w-[50%] border-l border-border/10 [&_td]:align-top text-left" } as { className: string },
             cell: ({ row }) => {
                 const data = row.original;
                 if (data.type !== "entry") return null;

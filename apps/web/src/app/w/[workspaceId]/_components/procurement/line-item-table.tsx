@@ -307,15 +307,15 @@ export function LineItemTable({
     }
   };
 
-  const handleLineItemUpdated = async (updatedItem: LineItem) => {
+  const handleLineItemUpdated = async (updatedItem: { id: string; status?: string; [key: string]: unknown }) => {
     const fetchRes = await fetch(
       `/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`
     );
     const fetchJson = await fetchRes.json();
     if (fetchRes.ok && fetchJson.data) {
       onUpdate(fetchJson.data);
-      const fresh = fetchJson.data.lineItems?.find(
-        (li: any) => li.id === rfqLineItem?.id
+      const fresh = (fetchJson.data.lineItems as LineItem[] | undefined)?.find(
+        (li) => li.id === rfqLineItem?.id
       );
       if (fresh) setRfqLineItem(fresh);
     }
@@ -365,7 +365,7 @@ export function LineItemTable({
 
             <TableBody>
               {indent.lineItems && indent.lineItems.length > 0 ? (
-                indent.lineItems.map((item: any) => (
+                indent.lineItems.map((item) => (
                   <TableRow
                     key={item.id}
                     className="hover:bg-muted/10 group cursor-pointer"

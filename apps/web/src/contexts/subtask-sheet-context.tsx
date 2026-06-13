@@ -4,12 +4,12 @@ import { createContext, useContext, useState, useCallback, useMemo, useEffect, u
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 
 interface SubTaskSheetContextType {
-    subTask: any | null;
+    subTask: Record<string, unknown> | null;
     isOpen: boolean;
-    openSubTaskSheet: (task: any) => void;
+    openSubTaskSheet: (task: Record<string, unknown>) => void;
     openSubTaskSheetLoading: () => void;
     closeSubTaskSheet: () => void;
-    patchSubTask: (updatedData: any) => void;
+    patchSubTask: (updatedData: Record<string, unknown>) => void;
 }
 
 const SubTaskSheetContext = createContext<SubTaskSheetContextType | null>(null);
@@ -17,7 +17,7 @@ const SubTaskSheetContext = createContext<SubTaskSheetContextType | null>(null);
 export function SubTaskSheetProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [subTask, setSubTask] = useState<any | null>(null);
+    const [subTask, setSubTask] = useState<Record<string, unknown> | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     
     // 🚀 Soft Navigation: Use local state for slug to avoid full page re-renders
@@ -35,9 +35,9 @@ export function SubTaskSheetProvider({ children }: { children: React.ReactNode }
         }
     }, [searchParams]);
 
-    const openSubTaskSheet = useCallback((task: any) => {
+    const openSubTaskSheet = useCallback((task: Record<string, unknown>) => {
         console.log("DEBUG [SubTaskSheet] Opening task:", task.taskSlug || task.id);
-        const slug = task.taskSlug || task.id;
+        const slug = String(task.taskSlug || task.id || "");
         
         const params = new URLSearchParams(searchParams.toString());
         params.set("subtask", slug);
@@ -122,8 +122,8 @@ export function SubTaskSheetProvider({ children }: { children: React.ReactNode }
         }
     }, [subtaskSlug, pathname, closeSubTaskSheet]);
 
-    const patchSubTask = useCallback((updatedData: any) => {
-        setSubTask((prev: any) => {
+    const patchSubTask = useCallback((updatedData: Record<string, unknown>) => {
+        setSubTask((prev) => {
             if (!prev) return prev;
             return { ...prev, ...updatedData };
         });

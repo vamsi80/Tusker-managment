@@ -72,7 +72,7 @@ export function LeavesTable({
     const mounted = useMounted();
 
     // Helper to flatten Prisma records into the shape the table expects
-    const flattenRecord = (r: any) => {
+    const flattenRecord = (r: LeaveRequest & { WorkspaceMember?: { user?: { surname?: string; email?: string }; casualLeaveBalance?: number; sickLeaveBalance?: number }; processedBy?: { user?: { surname?: string } }; processedByName?: string | null } | null) => {
         if (!r) return r;
         // If it's already flat (has surname), return it
         if (r.surname) return r;
@@ -88,8 +88,8 @@ export function LeavesTable({
     };
 
     useEffect(() => {
-        const handler = (e: any) => {
-            const { action, record, oldRecord } = e.detail || {};
+        const handler = (e: Event) => {
+            const { action, record, oldRecord } = (e as CustomEvent<{ action?: string; record?: LeaveRequest; oldRecord?: LeaveRequest }>).detail || {};
             const flatRecord = flattenRecord(record);
 
             console.log(`[LeavesTable][SURGICAL_V2] 🔄 Event received: ${action}`, {

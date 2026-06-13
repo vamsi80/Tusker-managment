@@ -56,12 +56,12 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
       lastMessage: { content?: string; [key: string]: unknown } | null;
       name: string;
     }> = [...conversations].map(conv => ({
-      type: "conversation",
-      id: conv.id,
-      otherUser: conv.otherUser,
-      lastMessageAt: conv.lastMessageAt,
-      lastMessage: conv.lastMessage,
-      name: (conv.otherUser?.surname || "").toLowerCase(),
+      type: "conversation" as const,
+      id: conv.id ?? "",
+      otherUser: conv.otherUser as ConvOtherUser | undefined,
+      lastMessageAt: (conv.lastMessageAt as string | null | undefined) ?? null,
+      lastMessage: (conv.lastMessage as { content?: string; [key: string]: unknown } | null | undefined) ?? null,
+      name: ((conv.otherUser as ConvOtherUser | undefined)?.surname || "").toLowerCase(),
     }));
 
     // 2. Add members who don't have a conversation yet
@@ -70,11 +70,11 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
       if (!hasConv && member.user.id !== session?.user?.id) {
         list.push({
           type: "member" as const,
-          id: member.user.id, // Using user ID as temp ID
-          otherUser: member.user,
+          id: member.user.id,
+          otherUser: member.user as ConvOtherUser,
           lastMessageAt: null,
           lastMessage: null,
-          name: (member.user.surname || "").toLowerCase(),
+          name: ((member.user.surname as string | null | undefined) || "").toLowerCase(),
         });
       }
     });
@@ -156,7 +156,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                   <div className="flex items-center gap-3 p-2.5 rounded-2xl transition-all active:scale-[0.98] group relative w-full text-left">
                     <div className="relative">
                       <Avatar className="size-10 rounded-full">
-                        <AvatarImage src={otherUser?.image} />
+                        <AvatarImage src={otherUser?.image ?? undefined} />
                         <AvatarFallback className={cn(
                           "rounded-full font-medium text-xs uppercase transition-colors",
                           isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary"

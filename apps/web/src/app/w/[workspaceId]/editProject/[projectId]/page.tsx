@@ -154,7 +154,7 @@ export default function EditProjectPage() {
     }, [workspaceId]);
 
     const form = useForm<EditProjectSchemaType>({
-        resolver: zodResolver(editProjectSchema) as Resolver<EditProjectSchemaType>,
+        resolver: zodResolver(editProjectSchema as any) as Resolver<EditProjectSchemaType>,
         defaultValues: {
             projectId: projectId,
             name: "",
@@ -218,10 +218,10 @@ export default function EditProjectPage() {
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success("Project updated successfully!");
                 revalidate(true);
-                router.push(`/w/${workspaceId}/p/${values.slug || projectData.slug}`);
+                router.push(`/w/${workspaceId}/p/${values.slug || projectData?.slug || ""}`);
             } else {
                 toast.error(result.message || "Failed to update project");
             }

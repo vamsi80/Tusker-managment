@@ -155,7 +155,7 @@ export function MessagesTab({
                     userId: currentUserId,
                     createdAt: new Date().toISOString(),
                 };
-                setComments(prev => [newMsg, ...prev]);   // prepend (newest-first in state)
+                setComments(prev => [newMsg as CommentItem, ...prev]);   // prepend (newest-first in state)
                 setMessage("");
                 requestAnimationFrame(() => scrollToBottom());
             } else {
@@ -246,7 +246,7 @@ export function MessagesTab({
                                         {/* Avatar */}
                                         {!isMe && isFirstGrp && (
                                             <Avatar className="size-7 mt-0.5 shrink-0 border border-border/30">
-                                                <AvatarImage src={author?.image} />
+                                                <AvatarImage src={author?.image ?? undefined} />
                                                 <AvatarFallback className="bg-muted text-[9px] font-bold">
                                                     {author?.name?.[0]}{author?.surname?.[0]}
                                                 </AvatarFallback>

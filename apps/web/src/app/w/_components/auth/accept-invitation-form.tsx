@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useForm } from "react-hook-form";
+import { Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { acceptInvitationSchema } from "@tusker/shared/schemas";
+import { acceptInvitationSchema, type AcceptInvitationSchemaType } from "@tusker/shared/schemas";
 import { apiClient } from "@/lib/api-client";
 import { tryCatch } from "@tusker/shared/try-catch";
 import { cn } from "@/lib/utils";
@@ -34,8 +34,8 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
     const [isPending, startTransition] = useTransition();
     const [showPassword, setShowPassword] = useState(false);
 
-    const form = useForm({
-        resolver: zodResolver(acceptInvitationSchema as any),
+    const form = useForm<AcceptInvitationSchemaType>({
+        resolver: zodResolver(acceptInvitationSchema as any) as Resolver<AcceptInvitationSchemaType>,
         defaultValues: {
             token,
             email,
@@ -46,7 +46,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
         },
     });
 
-    const onSubmit = (values: any) => {
+    const onSubmit = (values: AcceptInvitationSchemaType) => {
         startTransition(async () => {
             const { data: result, error } = await tryCatch(apiClient.auth.acceptInvitation(values));
 

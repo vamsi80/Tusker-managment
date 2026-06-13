@@ -86,7 +86,7 @@ export default async function WorkspaceKanbanView({ workspaceId }: WorkspaceKanb
             projectId=""
             level="workspace"
             projectManagers={assignmentMapsRes.data.projectLeaders as unknown as Record<string, never[]>}
-            permissions={permissions}
+            permissions={permissions as unknown as import("@/types/workspace").UserPermissionsType}
             userId={user.id}
         />
     );

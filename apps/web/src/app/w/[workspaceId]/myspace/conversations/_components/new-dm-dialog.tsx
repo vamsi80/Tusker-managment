@@ -14,10 +14,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Loader2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface DmMember {
+  id: string;
+  userId: string;
+  user: { id: string; name: string; surname: string; email: string; image?: string | null };
+}
+
 interface NewDMDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  members: any[];
+  members: DmMember[];
   isLoading: boolean;
   onSelectMember: (userId: string) => Promise<void>;
 }
@@ -89,7 +95,7 @@ export function NewDMDialog({
                   className="flex items-center gap-3 p-3 rounded-2xl transition-all hover:bg-muted/60 active:scale-95 text-left group"
                 >
                   <Avatar className="size-10 rounded-lg border border-border/10 group-hover:border-primary/20 transition-colors">
-                    <AvatarImage src={member.user.image} />
+                    <AvatarImage src={member.user.image ?? undefined} />
                     <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-bold uppercase">
                       {member.user.surname?.[0] || member.user.name?.[0]}
                     </AvatarFallback>

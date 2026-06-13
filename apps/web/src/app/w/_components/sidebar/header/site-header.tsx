@@ -39,7 +39,7 @@ export function SiteHeader() {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) || segment.length > 20;
 
     if (segment === workspaceId) {
-        const currentWorkspace = data.workspaces?.workspaces?.find((w: any) => w.id === workspaceId);
+        const currentWorkspace = data.workspaces?.workspaces?.find((w) => w.id === workspaceId);
         label = currentWorkspace?.name || "Dashboard";
     } else if (isUUID && pathSegments[index - 1] === "conversations") {
         label = "Chat";

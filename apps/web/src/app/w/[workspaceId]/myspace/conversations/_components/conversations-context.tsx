@@ -71,26 +71,27 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
     if (!workspaceId) return;
 
     // 1. Presence Updates
-    const unsubscribePresence = pubsub.subscribe(EVENTS.PRESENCE_UPDATE, (data: { userId: string, lastActiveAt: string, status: string }) => {
-      console.log(`✨ [Conversations] Presence update for ${data.userId}: ${data.status}`);
+    const unsubscribePresence = pubsub.subscribe(EVENTS.PRESENCE_UPDATE, (data) => {
+      const { userId, lastActiveAt, status } = data as { userId: string; lastActiveAt: string; status: string };
+      console.log(`✨ [Conversations] Presence update for ${userId}: ${status}`);
       
       setConversations(prev => prev.map(conv => ({
         ...conv,
-        otherUser: conv.otherUser?.id === data.userId 
-          ? { ...conv.otherUser, lastActiveAt: data.lastActiveAt } 
+        otherUser: conv.otherUser?.id === userId
+          ? { ...conv.otherUser, lastActiveAt }
           : conv.otherUser
       })));
 
-      setMembers(prev => prev.map(m => 
-        m.user.id === data.userId 
-          ? { ...m, user: { ...m.user, lastActiveAt: data.lastActiveAt } }
+      setMembers(prev => prev.map(m =>
+        m.user.id === userId
+          ? { ...m, user: { ...m.user, lastActiveAt } }
           : m
       ));
     });
 
     // 2. Conversation Updates (New messages, list reordering)
-    const unsubscribeConversation = pubsub.subscribe(EVENTS.CONVERSATION_UPDATE, (data: { conversationId?: string }) => {
-      console.log(`💬 [Conversations] List update triggered by:`, data.conversationId);
+    const unsubscribeConversation = pubsub.subscribe(EVENTS.CONVERSATION_UPDATE, (data) => {
+      console.log(`💬 [Conversations] List update triggered by:`, (data as { conversationId?: string }).conversationId);
       fetchConversations(); // Re-fetch list to get latest order and previews
     });
 

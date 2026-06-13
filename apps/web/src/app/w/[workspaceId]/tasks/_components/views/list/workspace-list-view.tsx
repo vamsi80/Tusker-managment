@@ -53,7 +53,7 @@ export async function WorkspaceListView({
         user: m.user ? { id: m.user.id, surname: m.user.surname, image: m.user.image } : undefined,
     }));
 
-    const tasksData = tasksRes.data;
+    const tasksData = tasksRes.data as TaskListApiData | undefined;
     const rawTasks = tasksData?.tasks ?? [];
     const initialTasks = rawTasks.map((t) => ({
         ...t,

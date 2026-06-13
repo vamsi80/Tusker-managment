@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.redirect(`${origin}/w/${response.data.workspaces[0].id}`);
-    } catch (err: any) {
-        console.error("[/w route] error:", err?.message ?? err);
+    } catch (err: unknown) {
+        console.error("[/w route] error:", err instanceof Error ? err.message : String(err));
         return NextResponse.redirect(`${origin}/sign-in`);
     }
 }

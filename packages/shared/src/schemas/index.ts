@@ -576,3 +576,4 @@ export type DailyReportEntryType = z.infer<typeof dailyReportEntrySchema>;
 export type DailyReportFormType = z.infer<typeof dailyReportSchema>;
 export type ActivityFormType = z.infer<typeof activitySchema>;
 export type LeaveRequestFormType = z.infer<typeof leaveRequestSchema>;
+export type AcceptInvitationSchemaType = z.infer<typeof acceptInvitationSchema>;

@@ -91,7 +91,7 @@ export const ManageProjectMembersDialog = ({
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success(result.message || "Members added successfully!");
                 // Optimistic update â€” add newly selected members immediately
                 const newEntries: ProjectMember[] = selectedMembersToAdd
@@ -127,7 +127,7 @@ export const ManageProjectMembersDialog = ({
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success(result.message || "Member removed successfully!");
                 // Optimistic update â€” remove immediately from local list
                 setMembers((prev) => prev.filter((m) => m.userId !== memberUserId));
@@ -150,7 +150,7 @@ export const ManageProjectMembersDialog = ({
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success(result.message || "Role updated successfully!");
                 // Optimistic update â€” update role immediately and demote existing target roles
                 setMembers((prev) =>

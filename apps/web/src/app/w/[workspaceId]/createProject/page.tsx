@@ -65,6 +65,7 @@ export default function CreateProjectPage() {
         gstNumber?: string;
         directorName?: string;
         address?: string;
+        clintMembers?: { name?: string | null; phoneNumber?: string | null }[];
     }
 
     const [members, setMembers] = useState<WorkspaceMembersResult["workspaceMembers"]>([]);
@@ -128,7 +129,7 @@ export default function CreateProjectPage() {
     }, [workspaceId]);
 
     const form = useForm<ProjectSchemaType>({
-        resolver: zodResolver(projectSchema) as Resolver<ProjectSchemaType>,
+        resolver: zodResolver(projectSchema as any) as Resolver<ProjectSchemaType>,
         defaultValues: {
             name: "",
             description: "",
@@ -182,7 +183,7 @@ export default function CreateProjectPage() {
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success("Project created successfully!");
                 triggerConfetti();
                 router.push(`/w/${workspaceId}/p/${result.data.slug}`);

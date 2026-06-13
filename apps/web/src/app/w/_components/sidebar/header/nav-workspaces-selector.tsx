@@ -27,7 +27,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   const navigatingTo = useRef<string | null>(null);
   const mounted = useMounted();
 
-  const [workspaces, setWorkspaces] = React.useState<any[]>(data?.workspaces ?? []);
+  const [workspaces, setWorkspaces] = React.useState<WorkspacesType['workspaces']>(data?.workspaces ?? []);
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = React.useState(false);
 
   useEffect(() => {

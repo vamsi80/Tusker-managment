@@ -147,10 +147,10 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
       const res = await apiClient.comments.getComments(task.id, cursor, limit);
 
       if (res.data) {
-        const newComments = res.data.items || [];
+        const newComments = (res.data.items || []) as CommentItem[];
         setComments(prev => {
-          const combined = isLoadMore ? [...prev, ...newComments] : newComments;
-          const seen = new Set();
+          const combined: CommentItem[] = isLoadMore ? [...prev, ...newComments] : newComments;
+          const seen = new Set<string>();
           return combined.filter(c => {
             if (seen.has(c.id)) return false;
             seen.add(c.id);
@@ -178,7 +178,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
       const res = await apiClient.comments.getActivities(task.id, cursor, limit);
 
       if (res.data) {
-        const newActivities = res.data.items || [];
+        const newActivities = (res.data.items || []) as ActivityItem[];
         setActivities(prev => isLoadMore ? [...prev, ...newActivities] : newActivities);
         setNextActivitiesCursor(res.data.nextCursor || null);
         setHasMoreActivities(!!res.data.nextCursor);
@@ -209,7 +209,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
   const handleSubTaskUpdated = useCallback(async (updatedData: Partial<WorkspaceTaskType>) => {
     if (!task?.id || !workspaceId || !projectId) return;
     try {
-      const res = await apiClient.tasks.updateTask(task.id, workspaceId, projectId, updatedData);
+      const res = await apiClient.tasks.updateTask(task.id, workspaceId, projectId, updatedData as Parameters<typeof apiClient.tasks.updateTask>[3]);
       if (res.status === "success") {
         toast.success("Task updated successfully");
         // Update local task state
@@ -232,8 +232,8 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
 
   if (!task) {
     if (matchedNotif) {
-      const commenterUser = matchedNotif.latestComment?.user || {};
-      const commenterName = commenterUser.surname || commenterUser.name || "System";
+      const commenterUser = matchedNotif.latestComment?.user;
+      const commenterName = commenterUser?.surname || commenterUser?.name || "System";
       const content = matchedNotif.latestComment?.content || "";
       const createdAt = matchedNotif.latestComment?.createdAt ? new Date(matchedNotif.latestComment.createdAt) : new Date();
 
@@ -260,7 +260,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
           <div className="border-t pt-6 flex-1 flex flex-col gap-4">
             <div className="flex gap-3 items-start p-4 rounded-xl bg-muted/30 border border-muted/50">
               <Avatar className="size-10 shrink-0">
-                <AvatarImage src={commenterUser.image} />
+                <AvatarImage src={commenterUser?.image ?? undefined} />
                 <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
                   {commenterName[0]}
                 </AvatarFallback>
@@ -329,7 +329,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
               <MessagesTab
                 taskId={task.id}
                 workspaceId={workspaceId}
-                projectId={projectId}
+                projectId={projectId ?? ""}
                 comments={comments}
                 setComments={setComments}
                 currentUserId={currentUserId}

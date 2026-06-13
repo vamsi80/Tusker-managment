@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from "react";
 import { GanttTask } from "@/components/task/gantt/types";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
-import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
+import { transformToGanttTasks, transformToGanttSubtasks, type RawTaskInput } from "@/components/task/gantt/transform-tasks";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import {
   ProjectOption,
@@ -90,7 +90,7 @@ export function WorkspaceGanttClient({
   const expandedTaskIdsRef = useRef<Set<string>>(new Set());
 
   const onFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[]) => {
-    const newGanttTasks = transformToGanttTasks(newRawTasks);
+    const newGanttTasks = transformToGanttTasks(newRawTasks as RawTaskInput[]);
     setTasks(newGanttTasks);
     setLocalTaskDataMap(prev => {
       const next = { ...prev };
@@ -102,7 +102,7 @@ export function WorkspaceGanttClient({
   }, []);
 
   const onAppendFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[]) => {
-    const newGanttTasks = transformToGanttTasks(newRawTasks);
+    const newGanttTasks = transformToGanttTasks(newRawTasks as RawTaskInput[]);
     setTasks(prev => {
       const existingIds = new Set(prev.map(t => t.id));
       const uniqueNew = newGanttTasks.filter(t => !existingIds.has(t.id));
@@ -231,7 +231,7 @@ export function WorkspaceGanttClient({
               newLocalData[st.id] = st;
             });
 
-            const transformed = transformToGanttSubtasks(subTasks);
+            const transformed = transformToGanttSubtasks(subTasks as RawTaskInput[]);
 
             updatedTasks = updatedTasks.map(t =>
               t.id === tid ? {
@@ -328,13 +328,13 @@ export function WorkspaceGanttClient({
 
       if (json.success && json.data) {
         const result = json.data;
-        const rawSubtasks = result.tasks || [];
+        const rawSubtasks: WorkspaceTaskType[] = result.tasks || [];
         setTasks(prev => {
           const next = [...prev];
           const idx = next.findIndex(t => t.id === taskId);
           if (idx !== -1) {
             const currentSubtasks = next[idx].subtasks || [];
-            const newSubtasks = transformToGanttSubtasks(rawSubtasks);
+            const newSubtasks = transformToGanttSubtasks(rawSubtasks as RawTaskInput[]);
 
             // Deduplicate subtasks by ID to prevent UI glitches
             const existingIds = new Set(currentSubtasks.map(s => s.id));
@@ -353,7 +353,7 @@ export function WorkspaceGanttClient({
         // 🚀 Hydrate local map with more subtasks
         setLocalTaskDataMap(prev => {
           const next = { ...prev };
-          rawSubtasks.forEach((st: any) => {
+          rawSubtasks.forEach((st) => {
             next[st.id] = st;
           });
           return next;
@@ -539,13 +539,13 @@ export function WorkspaceGanttClient({
             setTasks(prev =>
               prev.map(t =>
                 t.id === subTaskId
-                  ? { ...t, ...data }
+                  ? { ...t, ...data } as GanttTask
                   : {
                     ...t,
                     subtasks: t.subtasks?.map(s =>
                       s.id === subTaskId ? { ...s, ...data } : s
                     )
-                  }
+                  } as GanttTask
               )
             );
           }}

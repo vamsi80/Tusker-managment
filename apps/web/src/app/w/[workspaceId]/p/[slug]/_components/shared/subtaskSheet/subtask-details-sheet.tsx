@@ -62,8 +62,10 @@ export function SubTaskDetailsSheet({
     const isProjectManager = permissions.isProjectManager;
 
     const [activeTab, setActiveTab] = useState<"messages" | "review">("messages");
-    const [comments, setComments] = useState<Record<string, unknown>[]>([]);
-    const [activities, setActivities] = useState<Record<string, unknown>[]>([]);
+    type SheetComment = { id: string; content: string; createdAt: string; userId?: string; authorId?: string; user?: { name?: string | null; surname?: string | null; image?: string | null }; author?: { workspaceMember?: { user?: { name?: string | null; surname?: string | null; image?: string | null } }; name?: string | null; surname?: string | null; image?: string | null } };
+    type SheetActivity = { id: string; text: string; attachment: { fileName?: string; url?: string; previousStatus?: string; targetStatus?: string } | null; author: { id: string; surname: string }; createdAt: Date };
+    const [comments, setComments] = useState<SheetComment[]>([]);
+    const [activities, setActivities] = useState<SheetActivity[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingActivity, setIsLoadingActivity] = useState(false);
     
@@ -88,7 +90,7 @@ export function SubTaskDetailsSheet({
                 try {
                     setIsLocalLoading(true);
                     const membersList = await apiClient.projects.getMembers(projectId);
-                    setLocalMembers(membersList || []);
+                    setLocalMembers((membersList || []) as WorkspaceMemberRow[]);
                 } catch (e) {
                     console.error("Failed to fetch local project members:", e);
                 } finally {
@@ -110,7 +112,7 @@ export function SubTaskDetailsSheet({
             const res = await apiClient.comments.getComments(subTask.id, cursor, limit);
 
             if (res.data) {
-                const newComments = res.data.items || [];
+                const newComments = (res.data.items || []) as SheetComment[];
                 console.log(`DEBUG [SubTaskDetailsSheet] Fetched ${newComments.length} comments. isLoadMore: ${isLoadMore}`);
                 
                 setComments(prev => {
@@ -154,7 +156,7 @@ export function SubTaskDetailsSheet({
             const res = await apiClient.comments.getActivities(subTask.id, cursor, limit);
 
             if (res.data) {
-                const newActivities = res.data.items || [];
+                const newActivities = (res.data.items || []) as SheetActivity[];
                 setActivities(prev => isLoadMore ? [...prev, ...newActivities] : newActivities);
                 setNextActivitiesCursor(res.data.nextCursor || null);
                 setHasMoreActivities(!!res.data.nextCursor);
@@ -181,13 +183,15 @@ export function SubTaskDetailsSheet({
         if (isOpen && subTask?.id) {
             const cached = cachedData[subTask.id];
             if (cached) {
-                setComments(cached.comments?.items || []);
-                setNextCommentsCursor(cached.comments?.nextCursor || null);
-                setHasMoreComments(!!cached.comments?.nextCursor);
-                
-                setActivities(cached.activities?.items || []);
-                setNextActivitiesCursor(cached.activities?.nextCursor || null);
-                setHasMoreActivities(!!cached.activities?.nextCursor);
+                const cachedComments = cached.comments as { items?: SheetComment[]; nextCursor?: string | null } | undefined;
+                const cachedActivities = cached.activities as { items?: SheetActivity[]; nextCursor?: string | null } | undefined;
+                setComments(cachedComments?.items || []);
+                setNextCommentsCursor(cachedComments?.nextCursor || null);
+                setHasMoreComments(!!cachedComments?.nextCursor);
+
+                setActivities(cachedActivities?.items || []);
+                setNextActivitiesCursor(cachedActivities?.nextCursor || null);
+                setHasMoreActivities(!!cachedActivities?.nextCursor);
             } else {
                 loadComments();
                 loadActivities();
@@ -239,7 +243,7 @@ export function SubTaskDetailsSheet({
                     <SubtaskSheetHeader
                         subTask={task}
                         currentUserId={currentUserId || ""}
-                        members={members}
+                        members={members as import("@/types/project").ProjectMembersType}
                         tags={tags}
                         isAdmin={isAdmin}
                         isProjectManager={isProjectManager}
@@ -279,7 +283,7 @@ export function SubTaskDetailsSheet({
 
                                 <div className={activeTab === "review" ? "flex-1 flex flex-col min-h-0" : "hidden"}>
                                     <ActivityTab
-                                        activities={activities}
+                                        activities={activities as unknown as Parameters<typeof import("./activity-tab").ActivityTab>[0]["activities"]}
                                         isLoadingActivity={isLoadingActivity}
                                         hasMore={hasMoreActivities}
                                         onLoadMore={() => loadActivities(true)}

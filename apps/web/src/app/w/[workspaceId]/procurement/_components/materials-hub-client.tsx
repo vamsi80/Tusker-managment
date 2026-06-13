@@ -107,7 +107,7 @@ export function MaterialsHubClient({
 
   // Loading states
   const [isLoadingItems, setIsLoadingItems] = useState(true);
-  const [vendorCoverages, setVendorCoverages] = useState<any[]>([]);
+  const [vendorCoverages, setVendorCoverages] = useState<Array<{ materialName?: string; vendorCount?: number; indent?: { status?: string }; [key: string]: unknown }>>([]);
 
   const fetchVendorCoverages = async () => {
     try {
@@ -416,7 +416,7 @@ export function MaterialsHubClient({
           showColumnToggle={true}
           getRowClassName={(row) => {
             const isGroupApproved = row.original?.items?.some(
-              (item: any) => item.indent?.status === "APPROVED"
+              (item) => item.indent?.status === "APPROVED"
             );
             return !isGroupApproved ? "opacity-60 bg-muted/20" : "";
           }}

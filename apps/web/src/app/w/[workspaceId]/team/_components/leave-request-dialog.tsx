@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { type Resolver, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatIST, cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, Send, UserCheck } from "lucide-react";
@@ -48,7 +48,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
     const reportingManager = data.permissions.reportingManagerName || "Not Assigned";
 
     const form = useForm<LeaveRequestFormType>({
-        resolver: zodResolver(leaveRequestSchema),
+        resolver: zodResolver(leaveRequestSchema as any) as Resolver<LeaveRequestFormType>,
         defaultValues: {
             type: "CASUAL",
             reason: "",

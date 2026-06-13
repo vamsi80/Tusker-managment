@@ -8,8 +8,17 @@ import { pubsub, EVENTS } from "@/lib/pubsub";
 import { toast } from "sonner";
 
 interface NotificationItem {
+  id?: string;
   taskId: string;
+  taskName?: string;
+  projectName?: string;
+  type?: string;
   isNew?: boolean;
+  latestComment?: {
+    user?: { surname?: string | null; name?: string | null; image?: string | null };
+    content?: string;
+    createdAt?: string;
+  } | null;
   [key: string]: unknown;
 }
 
@@ -54,25 +63,27 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const { data, error } = await apiClient.comments.getNotifications(workspaceId as string, LIMIT, currentCursor);
 
     if (!error && data) {
+      type NotifPayload = { unreadNotifications?: NotificationItem[]; readNotifications?: NotificationItem[]; peopleCount?: number; nextCursor?: string | null; hasMore?: boolean };
+      const notifData = data as NotifPayload;
       if (isInitial) {
-        setUnreadNotifications(data.unreadNotifications || []);
-        setReadNotifications(data.readNotifications || []);
-        setUnreadCount(data.peopleCount || 0);
+        setUnreadNotifications(notifData.unreadNotifications || []);
+        setReadNotifications(notifData.readNotifications || []);
+        setUnreadCount(notifData.peopleCount || 0);
         window.dispatchEvent(new CustomEvent("notification-count-update"));
       } else {
         setUnreadNotifications(prev => {
           const existingIds = new Set(prev.map(n => n.taskId));
-          const newUnread = (data.unreadNotifications || []).filter((n: NotificationItem) => !existingIds.has(n.taskId));
+          const newUnread = (notifData.unreadNotifications || []).filter((n) => !existingIds.has(n.taskId));
           return [...prev, ...newUnread];
         });
         setReadNotifications(prev => {
           const existingIds = new Set(prev.map(n => n.taskId));
-          const newRead = (data.readNotifications || []).filter((n: NotificationItem) => !existingIds.has(n.taskId));
+          const newRead = (notifData.readNotifications || []).filter((n) => !existingIds.has(n.taskId));
           return [...prev, ...newRead];
         });
       }
-      setNextCursor(data.nextCursor || null);
-      setHasMore(data.hasMore || false);
+      setNextCursor(notifData.nextCursor || null);
+      setHasMore(notifData.hasMore || false);
     }
 
     setIsLoading(false);
@@ -120,9 +131,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!workspaceId) return;
 
-    const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: { action: string; userId?: string }) => {
-      if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
-        if (data.userId !== session?.user?.id) {
+    const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data) => {
+      const action = data.action as string | undefined;
+      const userId = data.userId as string | undefined;
+      if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(action ?? "")) {
+        if (userId !== session?.user?.id) {
           // Trigger a re-fetch of notifications to keep list fully accurate
           loadNotifications(true);
         }

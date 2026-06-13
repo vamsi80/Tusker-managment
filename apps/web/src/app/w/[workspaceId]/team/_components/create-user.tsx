@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React, { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { type Resolver, useForm } from "react-hook-form";
 import { Loader2, Plus } from "lucide-react";
 import {
     Dialog,
@@ -75,7 +75,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
     }, [workspaceId, open]);
 
     const form = useForm<InviteUserSchemaType>({
-        resolver: zodResolver(inviteUserSchema),
+        resolver: zodResolver(inviteUserSchema as any) as Resolver<InviteUserSchemaType>,
         defaultValues: {
             name: "",
             email: "",

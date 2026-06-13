@@ -8,7 +8,7 @@ import type { WorkspaceTaskType } from "@/types/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { TaskFilters } from "@/components/task/shared/types";
-import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
+import { transformToGanttTasks, transformToGanttSubtasks, type RawTaskInput } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useProjectTags } from "@/hooks/use-project-tags";
@@ -56,13 +56,13 @@ export function ProjectGanttClient({
     const lastFiltersActiveRef = useRef(false);
 
     const onFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[], _meta?: unknown) => {
-        const newGanttTasks = transformToGanttTasks(newRawTasks);
+        const newGanttTasks = transformToGanttTasks(newRawTasks as RawTaskInput[]);
 
         setLocalTaskDataMap(prev => {
             const next = { ...prev };
-            newRawTasks.forEach((t: WorkspaceTaskType) => {
+            (newRawTasks as RawTaskInput[]).forEach((t) => {
                 next[t.id] = t;
-                if (t.subTasks) t.subTasks.forEach((s: WorkspaceTaskType) => { next[s.id] = s; });
+                if (t.subTasks) t.subTasks.forEach((s) => { next[s.id] = s; });
             });
             return next;
         });
@@ -71,13 +71,13 @@ export function ProjectGanttClient({
     }, []);
 
     const onAppendFilteredResults = useCallback((newRawTasks: WorkspaceTaskType[], _meta?: unknown) => {
-        const newGanttTasks = transformToGanttTasks(newRawTasks);
+        const newGanttTasks = transformToGanttTasks(newRawTasks as RawTaskInput[]);
 
         setLocalTaskDataMap(prev => {
             const next = { ...prev };
-            newRawTasks.forEach((t: WorkspaceTaskType) => {
+            (newRawTasks as RawTaskInput[]).forEach((t) => {
                 next[t.id] = t;
-                if (t.subTasks) t.subTasks.forEach((s: WorkspaceTaskType) => { next[s.id] = s; });
+                if (t.subTasks) t.subTasks.forEach((s) => { next[s.id] = s; });
             });
             return next;
         });
@@ -411,7 +411,7 @@ export function ProjectGanttClient({
             return prevTasks.map(task => {
                 // If the updated task is a parent task
                 if (task.id === subTaskId) {
-                    return { ...task, ...updatedData };
+                    return { ...task, ...updatedData } as GanttTask;
                 }
 
                 // If it's a subtask within a parent task

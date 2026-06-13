@@ -1,4 +1,4 @@
-type MessageHandler = (event: string, data: any) => void;
+type MessageHandler = (event: string, data: Record<string, unknown>) => void;
 
 export class WorkspaceWsClient {
     private ws: WebSocket | null = null;

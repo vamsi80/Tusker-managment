@@ -15,7 +15,7 @@ interface WorkspaceMemberState {
     setMembers: (workspaceId: string, members: WorkspaceMemberRow[]) => void;
 }
 
-export const EMPTY_ARRAY: any[] = [];
+export const EMPTY_ARRAY: never[] = [];
 
 /**
  * Global store for workspace members to prevent redundant API calls across different pages/components.

@@ -20,9 +20,9 @@ export default async function ReportsPage({
             const query = new URLSearchParams({ skip: "0", take: "30" });
             if (search.date) query.set("date", search.date);
             if (search.userId) query.set("userId", search.userId);
-            return serverApiFetch<{ success: boolean; data: any[] }>(
+            return serverApiFetch<{ success: boolean; data: Record<string, unknown>[] }>(
                 `/reports/${workspaceId}?${query.toString()}`
-            ).catch(() => ({ data: [] as any[] }));
+            ).catch(() => ({ data: [] as Record<string, unknown>[] }));
         })(),
     ]);
 

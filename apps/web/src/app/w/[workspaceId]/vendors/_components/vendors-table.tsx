@@ -16,8 +16,21 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+interface Vendor {
+    id: string;
+    name: string;
+    companyName?: string | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+    city?: string | null;
+    state?: string | null;
+    contactPerson?: string | null;
+    gstNumber?: string | null;
+    status: string;
+}
+
 interface VendorsTableProps {
-    initialVendors: any[];
+    initialVendors: Vendor[];
     workspaceId: string;
 }
 
@@ -66,7 +79,7 @@ export function VendorsTable({ initialVendors, workspaceId }: VendorsTableProps)
         )
     ).map((loc) => ({ label: loc, value: loc }));
 
-    const columns: ColumnDef<any>[] = [
+    const columns: ColumnDef<Vendor>[] = [
         {
             accessorKey: "name",
             header: "Vendor Name",

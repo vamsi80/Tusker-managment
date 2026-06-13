@@ -87,7 +87,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
     try {
       const result = await projectsClient.getWorkspaceMembers(workspaceId);
       if (result) {
-        setMembers(result as any);
+        setMembers(result);
       } else {
         toast.error("Failed to load workspace members");
       }
@@ -138,7 +138,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
     try {
       const result = await projectsClient.delete(projectToDelete.id);
 
-      if (result.success) {
+      if (result.status === "success") {
         toast.success(result.message || "Project deleted successfully!");
         setDeleteDialogOpen(false);
         setProjectToDelete(null);
@@ -183,7 +183,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
           </div>
         </SidebarGroupLabel>
         <SidebarMenu className="max-h-[40vh] overflow-y-auto custom-scrollbar">
-          {projects?.map((proj: any) => {
+          {projects?.map((proj) => {
             const href = `/w/${workspaceId}/p/${proj.slug}`;
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
 

@@ -5,6 +5,7 @@ import {
   MinimalProjectData,
   FullProjectData
 } from "@/types/project";
+import type { WorkspaceMembersResult } from "@/types/workspace";
 
 /**
  * Projects API Client
@@ -22,8 +23,8 @@ export const projectsClient = {
   /**
    * Get all workspace members (for project lead/manager selection)
    */
-  getWorkspaceMembers: async (workspaceId: string): Promise<unknown[]> => {
-    const res = await apiFetch<{ success: boolean; data: unknown[] }>(`/projects/workspace-members?workspaceId=${workspaceId}`);
+  getWorkspaceMembers: async (workspaceId: string): Promise<WorkspaceMembersResult["workspaceMembers"]> => {
+    const res = await apiFetch<{ success: boolean; data: WorkspaceMembersResult["workspaceMembers"] }>(`/projects/workspace-members?workspaceId=${workspaceId}`);
     return res.data;
   },
 

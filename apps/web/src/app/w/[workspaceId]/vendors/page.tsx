@@ -8,9 +8,9 @@ export default async function VendorsPage({
 }) {
     const { workspaceId } = await params;
 
-    const { data: vendors = [] } = await serverApiFetch<{ success: boolean; data: any[] }>(
+    const { data: vendors = [] } = await serverApiFetch<{ success: boolean; data: Array<{ id: string; name: string; companyName?: string | null; email?: string | null; phoneNumber?: string | null; city?: string | null; state?: string | null; contactPerson?: string | null; gstNumber?: string | null; status: string }> }>(
         `/procurement/vendors?w=${workspaceId}`
-    ).catch(() => ({ data: [] as any[] }));
+    ).catch(() => ({ data: [] }));
 
     return <VendorsTable workspaceId={workspaceId} initialVendors={vendors} />;
 }

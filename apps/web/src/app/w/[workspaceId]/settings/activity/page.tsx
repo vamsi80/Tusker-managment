@@ -9,7 +9,7 @@ interface ActivityPageProps {
 
 async function ActivityContent({ workspaceId }: { workspaceId: string }) {
     try {
-        const { data: logs } = await serverApiFetch<{ success: boolean; data: any[] }>(
+        const { data: logs } = await serverApiFetch<{ success: boolean; data: Record<string, unknown>[] }>(
             `/workspaces/${workspaceId}/activity`
         );
         return <ActivityList logs={logs} workspaceId={workspaceId} />;

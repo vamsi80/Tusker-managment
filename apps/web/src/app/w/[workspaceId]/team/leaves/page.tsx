@@ -14,7 +14,7 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
         serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean; workspaceRole: string | null; workspaceMemberId: string | null } }>(
             `/workspaces/${workspaceId}/permissions`
         ).catch(() => ({ data: { isWorkspaceAdmin: false, workspaceRole: null, workspaceMemberId: null } })),
-        serverApiFetch<{ success: boolean; data: any }>(
+        serverApiFetch<{ success: boolean; data: { casualLeaveBalance: number; sickLeaveBalance: number; accruedDaysCount: number; accrualThreshold: number } | null }>(
             `/attendance/leave-balance`,
             { headers: { "x-workspace-id": workspaceId } }
         ).catch(() => ({ data: null })),
@@ -27,7 +27,7 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
                     <LeavesTable
                         workspaceId={workspaceId}
                         isWorkspaceAdmin={permissions.isWorkspaceAdmin}
-                        workspaceRole={permissions.workspaceRole as any}
+                        workspaceRole={permissions.workspaceRole as "OWNER" | "ADMIN" | "MANAGER" | "MEMBER"}
                         currentMemberId={permissions.workspaceMemberId ?? ""}
                     />
                 </div>

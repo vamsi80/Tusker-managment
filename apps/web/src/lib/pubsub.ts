@@ -1,7 +1,7 @@
 import { WorkspaceWsClient } from "./ws-client";
 import { apiFetch } from "./api-client/fetch-wrapper";
 
-type EventCallback = (data: any) => void;
+type EventCallback = (data: Record<string, unknown>) => void;
 
 class RealtimeService {
     private events: { [key: string]: EventCallback[] } = {};
@@ -36,7 +36,7 @@ class RealtimeService {
             // Always publish to team_update for broad listeners
             this.publish(EVENTS.TEAM_UPDATE, data);
 
-            const action = (data.action || data.type || "").toUpperCase();
+            const action = String(data.action || data.type || "").toUpperCase();
             const hasTaskProps = data.projectId || data.parentTaskId || data.taskSlug || data.entityType === "TASK";
             const hasProjectProps = data.entityType === "PROJECT" || (action.includes("PROJECT") && !hasTaskProps);
 
@@ -80,7 +80,7 @@ class RealtimeService {
         };
     }
 
-    private publish(event: string, data: any) {
+    private publish(event: string, data: Record<string, unknown>) {
         if (!this.events[event]) return;
         this.events[event].forEach(callback => callback(data));
     }

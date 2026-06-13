@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { AppLoader } from "@/components/shared/app-loader";
-import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { transformToGanttTasks, type RawTaskInput } from "@/components/task/gantt/transform-tasks";
 import { useProjectLayout } from "../project-layout-context";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { ProjectGanttClient } from "./project-gantt-client";
@@ -73,7 +73,7 @@ export function GanttServerWrapper({ workspaceId, projectId, userId }: GanttServ
     }
 
     const { allTasks, projectCounts } = taskData;
-    const ganttTasks = transformToGanttTasks(allTasks);
+    const ganttTasks = transformToGanttTasks(allTasks as RawTaskInput[]);
     const subtaskDataMap: Record<string, any> = {};
     allTasks.forEach(task => {
         if (task.parentTaskId) {

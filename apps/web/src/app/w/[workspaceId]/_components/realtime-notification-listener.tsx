@@ -45,7 +45,8 @@ export function RealtimeNotificationListener() {
       broadcastEvent?: string;
     };
 
-    const handleSurgicalSync = (data: RealtimeEventData) => {
+    const handleSurgicalSync = (rawData: Record<string, unknown>) => {
+      const data = rawData as RealtimeEventData;
       const isActor = data.userId === session?.user?.id;
 
       // 🚀 DEDUPLICATION: Prevent double-processing of the same event (activity_log + team_update)
@@ -66,7 +67,7 @@ export function RealtimeNotificationListener() {
 
       // 🚀 SURGICAL PAYLOAD: Prioritize newData for updates
       const payload = data.newData || data.payload || data.metadata?.payload || data.metadata || data;
-      const entityId = data.entityId || payload?.id;
+      const entityId = data.entityId || (payload as { id?: string } | undefined)?.id;
 
       // 2. Identify Category
       const isTask = action.includes("TASK");
@@ -118,7 +119,8 @@ export function RealtimeNotificationListener() {
     };
 
     // 2. Subscribe to events
-    const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: RealtimeEventData) => {
+    const unsubscribeActivity = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (rawData) => {
+      const data = rawData as RealtimeEventData;
       const isActor = data.userId === session?.user?.id;
 
       // 1. Show Toast (Only for other users to avoid duplicates for the actor)
@@ -148,8 +150,7 @@ export function RealtimeNotificationListener() {
       }
     });
 
-    const unsubscribeTeam = pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: RealtimeEventData) => {
-      // Team update carries the main surgical payload
+    const unsubscribeTeam = pubsub.subscribe(EVENTS.TEAM_UPDATE, (data) => {
       handleSurgicalSync(data);
     });
 

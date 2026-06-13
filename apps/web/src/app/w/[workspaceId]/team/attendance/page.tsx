@@ -18,7 +18,7 @@ async function AttendanceContent({ workspaceId }: { workspaceId: string }) {
             <AttendanceTable
                 workspaceId={workspaceId}
                 isWorkspaceAdmin={permissions.isWorkspaceAdmin}
-                workspaceRole={permissions.workspaceRole as any}
+                workspaceRole={permissions.workspaceRole as "OWNER" | "ADMIN" | "MANAGER" | "MEMBER"}
             />
         </div>
     );

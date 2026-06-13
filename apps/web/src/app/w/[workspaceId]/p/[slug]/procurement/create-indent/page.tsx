@@ -53,7 +53,7 @@ async function CreateIndentServer({
   const project = projectRes?.data ?? null;
   if (!project) return null;
 
-  const tasksRes = await serverApiFetch<{ success: boolean; data: any[] }>(
+  const tasksRes = await serverApiFetch<{ success: boolean; data: Array<{ id: string; name: string; taskSlug?: string }> }>(
     `/procurement/indents/eligible-tasks?projectId=${project.id}&workspaceId=${workspaceId}`
   ).catch(() => ({ data: [] }));
 

@@ -15,7 +15,7 @@ export default function ChatPage({ params }: PageProps) {
   const { data: session } = authClient.useSession();
   const { conversations, setConversations } = useConversations();
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Array<{ id?: string; senderId: string; content: string; createdAt: string }>>([]);
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
 
   const lastMessageTimestampRef = useRef<string | null>(null);
@@ -85,7 +85,7 @@ export default function ChatPage({ params }: PageProps) {
     }
   };
 
-  const activeConv = conversations.find((c: any) => c.id === conversationId);
+  const activeConv = conversations.find((c) => c.id === conversationId);
   const otherUser = activeConv?.otherUser;
 
   return (

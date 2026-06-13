@@ -51,7 +51,7 @@ export default function EditProjectSelectionPage() {
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {projects.map((proj: any) => {
+                    {projects.map((proj) => {
                         const canEdit = proj.canManageMembers;
                         return (
                             <Card 

@@ -21,10 +21,26 @@ import {
     Loader2
 } from "lucide-react";
 
+interface ReportEntry {
+    id?: string;
+    taskName?: string;
+    hoursSpent?: number;
+    [key: string]: unknown;
+}
+
+interface ReportItem {
+    id?: string;
+    date?: string;
+    status?: string;
+    entries?: ReportEntry[];
+    user?: { surname?: string; image?: string };
+    [key: string]: unknown;
+}
+
 interface ReportDetailModalProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
-    report: any;
+    report: ReportItem | null;
 }
 
 export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetailModalProps) {

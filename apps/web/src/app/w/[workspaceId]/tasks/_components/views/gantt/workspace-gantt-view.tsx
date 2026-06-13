@@ -1,5 +1,5 @@
 import { serverApiFetch } from "@/lib/api-client/server-fetch";
-import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
+import { transformToGanttTasks, type RawTaskInput } from "@/components/task/gantt/transform-tasks";
 import { requireUser } from "@/lib/auth/require-user";
 import { WorkspaceGanttClient } from "./workspace-gantt-client";
 import type { WorkspaceTaskType } from "@/types/task";
@@ -38,7 +38,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
     const tasksData = tasksRes.data;
     const allTasks: WorkspaceTaskType[] = [...(tasksData?.tasks ?? [])];
 
-    const ganttTasks = transformToGanttTasks(allTasks);
+    const ganttTasks = transformToGanttTasks(allTasks as RawTaskInput[]);
 
     return (
         <WorkspaceGanttClient
@@ -47,7 +47,7 @@ export async function WorkspaceGanttView({ workspaceId }: WorkspaceGanttViewProp
             allTasks={allTasks}
             subtaskDataMap={{}}
             members={membersRes.data as unknown as ProjectMembersType}
-            projectCounts={tasksData?.facets?.projects || {}}
+            projectCounts={(tasksData as GanttApiData | undefined)?.facets?.projects || {}}
             currentUser={{ id: user.id }}
         />
     );

@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Resolver, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
     const router = useRouter();
 
     const form = useForm<UpdateWorkspaceInfoType>({
-        resolver: zodResolver(updateWorkspaceInfoSchema as any),
+        resolver: zodResolver(updateWorkspaceInfoSchema as any) as Resolver<UpdateWorkspaceInfoType>,
         defaultValues: {
             workspaceId: workspace.id,
             name: workspace.name,

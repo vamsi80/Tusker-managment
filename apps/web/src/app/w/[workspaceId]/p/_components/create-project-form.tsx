@@ -54,7 +54,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const { data: layoutData, revalidate } = useWorkspaceLayout();
 
     const form = useForm<ProjectSchemaType>({
-        resolver: zodResolver(projectSchema) as Resolver<ProjectSchemaType>,
+        resolver: zodResolver(projectSchema as any) as Resolver<ProjectSchemaType>,
         defaultValues: {
             name: "",
             description: "",
@@ -111,7 +111,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success(result.message || "Project created successfully!");
                 triggerConfetti();
                 revalidate(true);

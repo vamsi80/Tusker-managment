@@ -450,7 +450,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {indent.lineItems?.map((item: any) => {
+                  {indent.lineItems?.map((item) => {
                     const isEditing = editingItemId === item.id;
                     return (
                       <TableRow key={item.id}>

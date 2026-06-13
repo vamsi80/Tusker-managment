@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useTransition, useRef } from 'react';
 import { toast } from 'sonner';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from 'react-hook-form';
+import { Resolver, useForm, useWatch } from 'react-hook-form';
 import { useConfetti } from '@/hooks/use-confetti';
 import { tryCatch } from '@tusker/shared/try-catch';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,8 +26,8 @@ export function CreateWorkspaceForm() {
     const hasToasted = useRef(false);
 
     const form = useForm<WorkSpaceSchemaType>({
-        resolver: zodResolver(workSpaceSchema),
-        defaultValues: { name: " ", description: '', slug: '' },
+        resolver: zodResolver(workSpaceSchema as any) as Resolver<WorkSpaceSchemaType>,
+        defaultValues: { name: '', description: '', slug: '' },
     });
 
     const watchedName = useWatch({ control: form.control, name: "name" });

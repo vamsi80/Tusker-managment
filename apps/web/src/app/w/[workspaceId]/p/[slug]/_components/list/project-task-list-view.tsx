@@ -62,14 +62,14 @@ export async function ProjectTaskListView({
     return (
         <TaskTable
             initialTasks={initialTasks}
-            initialHasMore={tasksData?.hasMore}
-            initialNextCursor={tasksData?.nextCursor}
+            initialHasMore={tasksData?.hasMore ?? false}
+            initialNextCursor={tasksData?.nextCursor ?? null}
             initialTotalCount={tasksData?.totalCount ?? undefined}
             members={members}
             workspaceId={workspaceId}
             projectId={projectId}
-            canCreateSubTask={permissions.canCreateSubTask}
-            permissions={permissions}
+            canCreateSubTask={permissions.canCreateSubTask ?? false}
+            permissions={permissions as unknown as import("@/types/workspace").UserPermissionsType}
             userId={userId}
             level="project"
         />

@@ -34,10 +34,10 @@ export function GlobalSubTaskSheet() {
                 <SheetDescription className="sr-only">View and edit subtask details, activities, and messages.</SheetDescription>
                 {shouldRender && (
                     <SubTaskDetailsSheet
-                        subTask={subTask}
+                        subTask={subTask as import("@/types/task").SubTaskType | null}
                         isOpen={isOpen}
                         onClose={closeSubTaskSheet}
-                        onSubTaskAssigned={patchSubTask}
+                        onSubTaskAssigned={(_, updatedData) => patchSubTask(updatedData)}
                     />
                 )}
             </SheetContent>

@@ -54,7 +54,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="min-h-(--header-height) h-auto justify-center py-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <NavWorkspacesSelector data={workspaces as any} workspaceId={workspaceId} />
+            <NavWorkspacesSelector data={workspaces} workspaceId={workspaceId} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

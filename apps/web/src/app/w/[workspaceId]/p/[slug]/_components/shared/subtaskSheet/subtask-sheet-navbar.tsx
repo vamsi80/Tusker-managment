@@ -19,7 +19,7 @@ export function SubtaskSheetNavBar({
     const tabs: {
         name: string;
         value: "messages" | "review";
-        icon: any;
+        icon: React.ElementType;
         count: number;
     }[] = [
         {

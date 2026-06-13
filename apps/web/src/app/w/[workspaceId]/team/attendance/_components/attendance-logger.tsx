@@ -188,10 +188,11 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                 }
             }));
 
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : `Failed to ${action}`;
             console.error(`Attendance ${action} error:`, error);
-            setLocationError(error.message);
-            toast.error(error.message || `Failed to ${action}`);
+            setLocationError(msg);
+            toast.error(msg);
         } finally {
             setIsLoading(false);
         }

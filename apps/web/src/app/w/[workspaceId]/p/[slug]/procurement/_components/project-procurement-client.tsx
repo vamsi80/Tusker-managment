@@ -75,7 +75,7 @@ const lineItemColumns: ColumnDef<LineItemData>[] = [
 interface ProjectProcurementClientProps {
   workspaceId: string;
   projectId: string;
-  indents: any[];
+  indents: Array<{ id: string; indentId: string; status: string; [key: string]: unknown }>;
   userRole: string;
 }
 

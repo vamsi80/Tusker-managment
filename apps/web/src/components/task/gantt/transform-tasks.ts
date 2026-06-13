@@ -1,10 +1,14 @@
 import { GanttSubtask, GanttTask } from "@/components/task/gantt/types";
 import type { WorkspaceTaskType } from "@/types/task";
 
-type RawTaskInput = WorkspaceTaskType & {
+export type RawTaskInput = WorkspaceTaskType & {
   subTasks?: RawTaskInput[];
   Task_TaskDependency_A?: { id: string }[];
   assignee?: WorkspaceTaskType["assignee"] & { projectRole?: string };
+  tagId?: string | null;
+  tag?: { id: string; name: string } | null;
+  projectName?: string | null;
+  projectColor?: string | null;
 };
 
 /**
@@ -154,7 +158,7 @@ export function transformToGanttTasks(inputTasks: RawTaskInput[]): GanttTask[] {
             end: endStr,
             status: subtask.status || "TO_DO",
             projectId: subtask.projectId,
-            parentTaskId: subtask.parentTaskId,
+            parentTaskId: subtask.parentTaskId ?? null,
             description: subtask.description,
             tagId: subtask.tagId,
             tags: subtask.tags || (subtask.tag ? [subtask.tag] : []),
@@ -177,7 +181,7 @@ export function transformToGanttTasks(inputTasks: RawTaskInput[]): GanttTask[] {
             updatedAt: formatLocalDate(
               subtask.updatedAt ? new Date(subtask.updatedAt) : null,
             ),
-          };
+          } satisfies GanttSubtask;
         });
 
       // Calculate Parent Progress (weighted average by duration)
@@ -204,7 +208,7 @@ export function transformToGanttTasks(inputTasks: RawTaskInput[]): GanttTask[] {
         id: parentTask.id,
         name: parentTask.name,
         taskSlug: parentTask.taskSlug,
-        projectId: parentTask.projectId || parentTask.project?.id,
+        projectId: parentTask.projectId || parentTask.project?.id || "",
         projectName: parentTask.projectName || parentTask.project?.name,
         projectColor: parentTask.projectColor || parentTask.project?.color,
         start: parentTask.startDate
@@ -213,7 +217,7 @@ export function transformToGanttTasks(inputTasks: RawTaskInput[]): GanttTask[] {
         end: parentTask.dueDate
           ? formatLocalDate(new Date(parentTask.dueDate))
           : undefined,
-        subtasks: (parentTask.subTasks === undefined && (parentTask.subtaskCount > 0 || parentTask._count?.subTasks > 0))
+        subtasks: (parentTask.subTasks === undefined && (parentTask.subtaskCount > 0 || (parentTask._count?.subTasks ?? 0) > 0))
           ? undefined
           : rawSubtasks,
         assigneeId: parentTask.assigneeId,
@@ -314,7 +318,7 @@ export function transformToGanttSubtasks(tasks: RawTaskInput[]): GanttSubtask[] 
         end: endStr,
         status: subtask.status || "TO_DO",
         projectId: subtask.projectId,
-        parentTaskId: subtask.parentTaskId,
+        parentTaskId: subtask.parentTaskId ?? null,
         description: subtask.description,
         tagId: subtask.tagId,
         tags: subtask.tags || (subtask.tag ? [subtask.tag] : []),
@@ -335,6 +339,6 @@ export function transformToGanttSubtasks(tasks: RawTaskInput[]): GanttSubtask[] 
         updatedAt: formatLocalDate(
           subtask.updatedAt ? new Date(subtask.updatedAt) : null,
         ),
-      };
+      } satisfies GanttSubtask;
     });
 }

@@ -5,8 +5,19 @@ import { User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn, toTitleCase } from "@/lib/utils";
 
+interface NotifItem {
+  id?: string;
+  taskId?: string;
+  taskName?: string;
+  projectName?: string;
+  parentTaskName?: string;
+  count?: number;
+  latestComment?: { user?: { surname?: string | null; image?: string | null }; content?: string; createdAt?: string } | null;
+  [key: string]: unknown;
+}
+
 interface NotificationListItemProps {
-  notif: any;
+  notif: NotifItem;
   isRead?: boolean;
   isActive?: boolean;
   onClick: () => void;
@@ -35,7 +46,7 @@ export function NotificationListItem({ notif, isRead, isActive, onClick }: Notif
       )}
 
       <Avatar className="size-9 shrink-0">
-        <AvatarImage src={commenterUser.image} />
+        <AvatarImage src={commenterUser.image ?? undefined} />
         <AvatarFallback className={cn(
           "font-medium text-xs transition-colors",
           isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary"
@@ -69,12 +80,12 @@ export function NotificationListItem({ notif, isRead, isActive, onClick }: Notif
         {/* Commenter info */}
         <p className="text-[13px] leading-none font-semibold">
           {commenterName}
-          {notif.count > 1 && (
+          {(notif.count ?? 0) > 1 && (
             <span className={cn(
               "ml-2 text-[9px] px-1.5 py-0.5 rounded-full font-bold align-middle",
               isActive ? "bg-primary-foreground/25 text-white" : "bg-primary/10 text-primary"
             )}>
-              +{notif.count - 1} more
+              +{(notif.count ?? 0) - 1} more
             </span>
           )}
         </p>

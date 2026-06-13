@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { WorkspaceLayoutData } from '@/types/workspace';
+import { ProjectListItem } from '@tusker/types';
 import { workspacesClient } from '@/lib/api-client/workspaces';
 import { pubsub, EVENTS } from '@/lib/pubsub';
 
@@ -15,7 +16,7 @@ interface WorkspaceLayoutState {
 
     // Optimistic Actions
     optimisticRemoveProject: (workspaceId: string, projectId: string) => void;
-    optimisticAddProject: (workspaceId: string, project: any) => void;
+    optimisticAddProject: (workspaceId: string, project: ProjectListItem) => void;
 }
 
 /**
@@ -92,7 +93,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
         });
     },
 
-    optimisticAddProject: (workspaceId: string, project: any) => {
+    optimisticAddProject: (workspaceId: string, project: ProjectListItem) => {
         set((state) => {
             const currentData = state.layoutData[workspaceId];
             if (!currentData) return state;
@@ -127,16 +128,16 @@ export function useRealtimeLayoutSync(workspaceId: string) {
         // do not affect sidebar structure (projects list, permissions, workspace list)
         // and must not trigger a layout revalidation.
 
-        const unsubscribeProject = pubsub.subscribe(EVENTS.PROJECT_UPDATE, (eventData: any) => {
+        const unsubscribeProject = pubsub.subscribe(EVENTS.PROJECT_UPDATE, (eventData) => {
             const store = useWorkspaceLayoutStore.getState();
-            const type = (eventData.type || "").toUpperCase();
-            const action = (eventData.action || "").toUpperCase();
-            const projectId = eventData.projectId || eventData.payload?.id;
+            const type = String(eventData.type || "").toUpperCase();
+            const action = String(eventData.action || "").toUpperCase();
+            const projectId = (eventData.projectId || (eventData.payload as { id?: string } | undefined)?.id) as string | undefined;
 
             if ((type === "DELETE" || action.includes("DELETED")) && projectId) {
                 store.optimisticRemoveProject(workspaceId, projectId);
             } else if (type === "CREATE" && eventData.payload) {
-                store.optimisticAddProject(workspaceId, eventData.payload);
+                store.optimisticAddProject(workspaceId, eventData.payload as import('@tusker/types').ProjectListItem);
             }
 
             // Only revalidate on structural changes; routine field edits are handled

@@ -7,7 +7,7 @@ interface ProjectDashboardServerProps {
 }
 
 export async function ProjectDashboardServer({ workspaceId, slug }: ProjectDashboardServerProps) {
-  const res = await serverApiFetch<{ success: boolean; data: any }>(
+  const res = await serverApiFetch<{ success: boolean; data: Record<string, unknown> }>(
     `/projects/slug/${slug}/dashboard?workspaceId=${workspaceId}`
   ).catch(() => null);
 

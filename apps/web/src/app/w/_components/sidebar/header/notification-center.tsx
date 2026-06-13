@@ -15,7 +15,7 @@ import { workspacesClient } from "@/lib/api-client/workspaces";
 import { authClient } from "@/lib/auth-client";
 import { useWorkspaceLayoutStore } from "@/lib/store/workspace-layout-store";
 
-export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {
+export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { workspaceId: string, initialPeopleCount?: number }) {
     const [peopleCount, setPeopleCount] = useState(initialPeopleCount);
     const [isPulsing, setIsPulsing] = useState(false);
 
@@ -48,10 +48,10 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
 
         console.log(`[NOTIF_CENTER] Listening to PubSub for workspace: ${workspaceId}`);
 
-        const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
+        const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data) => {
             console.log("[NOTIF_CENTER] PubSub message received:", data.action, data);
 
-            if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
+            if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action as string)) {
                 // Pulse and update if NOT the current user
                 if (data.userId !== session?.user?.id) {
                     setPeopleCount(prev => prev + 1);

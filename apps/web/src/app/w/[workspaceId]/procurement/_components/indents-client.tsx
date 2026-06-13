@@ -11,13 +11,23 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
+interface IndentRow {
+  id: string;
+  indentId: string;
+  status: string;
+  projectId?: string;
+  project?: { name?: string };
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
 interface IndentsClientProps {
   workspaceId: string;
 }
 
 export function IndentsClient({ workspaceId }: IndentsClientProps) {
   const router = useRouter();
-  const [indents, setIndents] = useState<any[]>([]);
+  const [indents, setIndents] = useState<IndentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
@@ -101,7 +111,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     }
   };
 
-  const indentColumns: ColumnDef<any>[] = [
+  const indentColumns: ColumnDef<IndentRow>[] = [
     {
       accessorKey: "indentId",
       header: "ID",

@@ -10,8 +10,8 @@ interface FilteredFetchProps {
   projectId?: string;
   level: "workspace" | "project";
   viewMode: "list" | "kanban" | "gantt";
-  onResults: (tasks: TaskWithSubTasks[], meta: any) => void;
-  onAppendResults?: (tasks: TaskWithSubTasks[], meta: any) => void;
+  onResults: (tasks: TaskWithSubTasks[], meta: Record<string, unknown>) => void;
+  onAppendResults?: (tasks: TaskWithSubTasks[], meta: Record<string, unknown>) => void;
   limit?: number;
   /**
    * When true, the hook will ALWAYS fire on mount and on filter changes,
@@ -51,14 +51,14 @@ export function useFilteredFetch({
   const [isLoading, setIsLoading] = useState(false);
   const [pagination, setPagination] = useState<{
     hasMore: boolean;
-    nextCursor: any;
+    nextCursor: string | null;
   }>({ hasMore: false, nextCursor: null });
 
   const isAbortedRef = useRef(false);
   // Track whether we have already fired the initial (no-filter) fetch
   const initialFetchDoneRef = useRef(false);
 
-  const fetchFiltered = useCallback(async (cursor?: any) => {
+  const fetchFiltered = useCallback(async (cursor?: string | null) => {
     if (!cursor) {
       setIsLoading(true);
       if (filtersActive) setIsCurrentlyFiltered(true);

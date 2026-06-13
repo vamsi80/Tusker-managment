@@ -18,6 +18,7 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
   const router = useSafeNavigation();
 
   const { data: session, isPending } = authClient.useSession();
+  const userSurname = (session?.user as { surname?: string | null } | undefined)?.surname;
 
   const openMySpace = () => {
     if (!workspaceId) return;
@@ -44,14 +45,14 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
                 <Avatar className="size-8 rounded-lg">
                   <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
                   <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                    {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() ||
+                    {userSurname?.charAt(0).toLocaleUpperCase() ||
                       session?.user.name?.charAt(0).toLocaleUpperCase() ||
                       session?.user.email.charAt(0).toLocaleUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">
-                    {(session?.user as any)?.surname || session?.user.name || session?.user.email.split("@")[0]}
+                    {userSurname || session?.user.name || session?.user.email.split("@")[0]}
                   </span>
                   <span className="text-muted-foreground truncate text-xs">
                     {session?.user?.email}
@@ -71,14 +72,14 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
                   <Avatar className="size-8 rounded-lg">
                     <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                      {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() ||
+                      {userSurname?.charAt(0).toLocaleUpperCase() ||
                         session?.user.name?.charAt(0).toLocaleUpperCase() ||
                         session?.user.email.charAt(0).toLocaleUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">
-                      {(session?.user as any)?.surname || session?.user.name || session?.user.email.split("@")[0]}
+                      {userSurname || session?.user.name || session?.user.email.split("@")[0]}
                     </span>
                     <span className="text-muted-foreground truncate text-xs">
                       {session?.user.email}

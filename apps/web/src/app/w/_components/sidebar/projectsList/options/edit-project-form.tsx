@@ -64,7 +64,7 @@ export const EditProjectForm = ({
     const router = useRouter();
 
     const form = useForm<EditProjectSchemaType>({
-        resolver: zodResolver(editProjectSchema as any),
+        resolver: zodResolver(editProjectSchema as any) as Resolver<EditProjectSchemaType>,
         defaultValues: {
             projectId: project.id,
             name: project.name || "",
@@ -114,7 +114,7 @@ export const EditProjectForm = ({
                 return;
             }
 
-            if (result.success) {
+            if (result.status === "success") {
                 toast.success(result.message || "Project updated successfully!");
                 revalidate(true);
                 onOpenChange(false);
@@ -391,7 +391,7 @@ export const EditProjectForm = ({
                                                         <div className="flex flex-wrap gap-1">
                                                             {field.value && field.value.length > 0 ? (
                                                                 field.value.map(id => {
-                                                                    const t = layoutData?.tags?.find((tag: any) => tag.id === id);
+                                                                    const t = layoutData?.tags?.find((tag) => tag.id === id);
                                                                     return (
                                                                         <Badge key={id} variant="secondary" className="px-1 font-normal">
                                                                             {toTitleCase(t?.name) || "Tag"}
@@ -410,7 +410,7 @@ export const EditProjectForm = ({
                                                         <CommandInput placeholder="Search tags..." />
                                                         <CommandEmpty>No tags found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-y-auto">
-                                                                {(layoutData?.tags || []).map((t: any) => {
+                                                                {(layoutData?.tags || []).map((t) => {
                                                                     const isSelected = field.value?.includes(t.id);
 
                                                                     return (

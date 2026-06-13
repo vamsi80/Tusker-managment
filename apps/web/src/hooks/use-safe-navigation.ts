@@ -15,7 +15,7 @@ export function useSafeNavigation() {
   const router = useRouter();
   const { isNavigating, startNavigation } = useWorkspaceLayout();
 
-  const safePush = useCallback((href: string, options?: any) => {
+  const safePush = useCallback((href: string, options?: Parameters<typeof router.push>[1]) => {
     if (isNavigating) return;
     
     startNavigation(() => {
@@ -23,7 +23,7 @@ export function useSafeNavigation() {
     });
   }, [router, isNavigating, startNavigation]);
 
-  const safeReplace = useCallback((href: string, options?: any) => {
+  const safeReplace = useCallback((href: string, options?: Parameters<typeof router.replace>[1]) => {
     if (isNavigating) return;
 
     startNavigation(() => {

@@ -209,7 +209,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     };
 
     const form = useForm<SubTaskSchemaType>({
-        resolver: zodResolver(subTaskSchema) as Resolver<SubTaskSchemaType>,
+        resolver: zodResolver(subTaskSchema as any) as Resolver<SubTaskSchemaType>,
         defaultValues: {
             name: subTask.name || "",
             description: subTask.description || "",
@@ -256,11 +256,11 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             try {
                 // Fetch Reviewers (filtered by server to Admins/Owners/PMs/Leads)
                 const fetchedReviewers = await projectsClient.getReviewers(targetId);
-                setReviewers(fetchedReviewers);
+                setReviewers(fetchedReviewers as ProjectReviewer[]);
 
                 // Fetch Project Members (for assignee selection)
                 const fetchedMembers = await projectsClient.getMembers(targetId);
-                setProjectMembers(fetchedMembers);
+                setProjectMembers(fetchedMembers as ProjectMembersType);
             } catch (err) {
                 console.error("Failed to fetch project data", err);
             }

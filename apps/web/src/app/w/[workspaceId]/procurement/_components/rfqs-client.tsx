@@ -15,7 +15,7 @@ interface RfqsClientProps {
 }
 
 export function RfqsClient({ workspaceId }: RfqsClientProps) {
-  const [lineItems, setLineItems] = useState<any[]>([]);
+  const [lineItems, setLineItems] = useState<Array<{ id: string; status: string; materialName?: string; [key: string]: unknown }>>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchRfqItems = async () => {
@@ -26,7 +26,7 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
       if (data.success) {
         // filter for active RFQs
         const activeRfqs = data.data.filter(
-          (item: any) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED"
+          (item) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED"
         );
         setLineItems(activeRfqs);
       }

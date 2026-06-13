@@ -14,7 +14,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
         serverApiFetch<{ success: boolean; data: { isWorkspaceAdmin: boolean } }>(
             `/workspaces/${workspaceId}/permissions`
         ).catch(() => ({ data: { isWorkspaceAdmin: false } })),
-        serverApiFetch<{ success: boolean; data: any }>(
+        serverApiFetch<{ success: boolean; data: Record<string, unknown> | null }>(
             `/attendance/settings`,
             { headers: { "x-workspace-id": workspaceId } }
         ).catch(() => ({ data: null })),
