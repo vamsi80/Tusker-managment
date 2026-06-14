@@ -1,5 +1,4 @@
 import type { DbClient } from "./db";
-import { broadcast, broadcastActivityLog, ACTIVITY_LOG } from "./realtime";
 import { Prisma } from "@/generated/prisma";
 
 export type AuditAction =
@@ -50,12 +49,10 @@ interface RecordActivityOptions {
 /**
  * THE single chokepoint for domain side effects. For every audit-worthy action it
  * ATOMICALLY (one DB transaction) writes:
- *   1. the immutable AuditLog record (always),
- *   2. one notification row per recipient (idempotent on (userId, eventId)),
- *   3. one Outbox row carrying the realtime "activity_log" event.
- * After commit it publishes the Outbox event to the WS service and marks it published;
- * if that fails, the row stays unpublished and the cron sweeper re-publishes it
- * (at-least-once delivery). The DB is the source of truth; the WebSocket is a live nudge.
+ *   1. the immutable AuditLog record (always) — this IS the polling change-feed,
+ *   2. one notification row per recipient (idempotent on (userId, eventId)).
+ * Realtime delivery is handled by clients polling `/workspaces/:id/changes` (which reads
+ * the AuditLog) + the notification table — no WebSocket/outbox. DB is the source of truth.
  */
 export async function recordActivity(db: DbClient, options: RecordActivityOptions) {
     const {
@@ -69,7 +66,6 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
         newData,
         ipAddress,
         userAgent,
-        broadcastEvent,
     } = options;
 
     try {
@@ -87,17 +83,9 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
 
         // Recipients never include the actor.
         const targetUserIds = (options.targetUserIds ?? []).filter((id) => id !== userId);
-
         const message = userName ? `${userName} ${describeAction(action, oldData, newData)}` : action.replace(/_/g, " ");
         const eventId = crypto.randomUUID();
-        const eventPayload = {
-            userId, userName, action, entityType, entityId, metadata, newData, oldData, message,
-            pusherEventId: eventId,
-        };
 
-        let outboxId: string | null = null;
-
-        // ── Atomic write: audit + notifications + outbox in one transaction ──
         await db.$transaction(async (tx) => {
             await tx.auditLog.create({
                 data: {
@@ -129,38 +117,8 @@ export async function recordActivity(db: DbClient, options: RecordActivityOption
                     })),
                     skipDuplicates: true,
                 });
-
-                const outbox = await tx.outbox.create({
-                    data: {
-                        workspaceId: workspaceId!,
-                        event: ACTIVITY_LOG,
-                        payload: eventPayload as Prisma.InputJsonValue,
-                        targetUserIds,
-                    },
-                    select: { id: true },
-                });
-                outboxId = outbox.id;
             }
         });
-
-        // ── Publish (best-effort; sweeper is the safety net) ──
-        if (shouldNotify && outboxId) {
-            try {
-                await broadcastActivityLog({ workspaceId: workspaceId!, targetUserIds, payload: eventPayload });
-                await db.outbox.update({ where: { id: outboxId }, data: { publishedAt: new Date() } });
-            } catch (err) {
-                console.error("[AUDIT] activity_log publish failed (sweeper will retry):", err);
-                await db.outbox.update({ where: { id: outboxId }, data: { attempts: { increment: 1 } } }).catch(() => {});
-            }
-        }
-
-        // Typed live-sync event (best-effort; clients reconcile on reconnect).
-        if (broadcastEvent && workspaceId) {
-            const payload = (newData || metadata || {}) as Record<string, unknown>;
-            if (entityId && !payload.id) payload.id = entityId;
-            await broadcast(workspaceId, broadcastEvent, { workspaceId, userId, message, payload }, targetUserIds)
-                .catch((err: unknown) => console.error(`[REALTIME] ${broadcastEvent} error:`, err));
-        }
     } catch (error) {
         console.error("[AUDIT_LOG_ERROR]", error);
     }

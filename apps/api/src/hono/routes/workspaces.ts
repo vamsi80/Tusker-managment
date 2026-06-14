@@ -334,6 +334,20 @@ workspaces.get("/:workspaceId/layout", async (c) => {
 });
 
 /**
+ * GET /api/v1/workspaces/:workspaceId/changes?since=<ISO>
+ * Polling change-feed that replaces the WebSocket: recent activity, unread count,
+ * active users, and a cursor. Also serves as the presence heartbeat.
+ */
+workspaces.get("/:workspaceId/changes", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const since = c.req.query("since") || undefined;
+
+  const data = await WorkspaceService.getChanges(workspaceId, user.id, since);
+  return c.json({ success: true, data });
+});
+
+/**
  * GET /api/v1/workspaces/:workspaceId/notifications/unread-count
  */
 workspaces.get("/:workspaceId/notifications/unread-count", async (c) => {

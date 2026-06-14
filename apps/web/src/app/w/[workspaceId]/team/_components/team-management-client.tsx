@@ -119,6 +119,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
 
     // Fetch data when page, limit, or debouncedSearch changes
     useEffect(() => {
+        console.log(`[TeamManagementClient] Fetching data for page ${page}, limit ${limit}, search "${debouncedSearch}"`);
         fetchData(page, limit, debouncedSearch);
     }, [fetchData, page, limit, debouncedSearch]);
 

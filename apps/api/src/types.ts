@@ -32,10 +32,12 @@ export type Env = {
     RESEND_API_KEY: string;
     RESEND_FROM_EMAIL: string;
 
-    // Real-time WebSocket service (Service Binding to tusker-ws)
-    WS_SERVICE: Fetcher;
-    BROADCAST_SECRET: string;
-    TICKET_SECRET: string;
+    // Real-time WebSocket service (Service Binding to tusker-ws).
+    // Optional: realtime moved to polling (/changes); when the binding is absent
+    // broadcast() no-ops. Kept optional for backward compat / gradual decommission.
+    WS_SERVICE?: Fetcher;
+    BROADCAST_SECRET?: string;
+    TICKET_SECRET?: string;
 
     // AWS S3
     AWS_ACCESS_KEY_ID: string;

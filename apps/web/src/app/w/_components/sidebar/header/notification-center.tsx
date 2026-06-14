@@ -49,16 +49,19 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
         console.log(`[NOTIF_CENTER] Listening to PubSub for workspace: ${workspaceId}`);
 
         const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data) => {
-            console.log("[NOTIF_CENTER] PubSub message received:", data.action, data);
-
+            // Pulse for new activity; the authoritative count comes from UNREAD_COUNT below.
             if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action as string)) {
-                // Pulse and update if NOT the current user
                 if (data.userId !== session?.user?.id) {
-                    setPeopleCount(prev => prev + 1);
                     setIsPulsing(true);
                     setTimeout(() => setIsPulsing(false), 2000);
                 }
             }
+        });
+
+        // Authoritative unread count from the /changes poll (no extra request).
+        const unsubCount = pubsub.subscribe(EVENTS.UNREAD_COUNT, (data) => {
+            const count = data.count as number;
+            if (typeof count === "number") setPeopleCount(count);
         });
 
         // Listen for internal mark-as-read updates from notifications context
@@ -74,6 +77,7 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
 
         return () => {
             unsubscribe();
+            unsubCount();
             unsubReconnect();
             window.removeEventListener("notification-count-update", handleCountUpdate);
         };

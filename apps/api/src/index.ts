@@ -22,14 +22,12 @@ import comments from "./hono/routes/comments";
 import reports from "./hono/routes/reports";
 import memberTodos from "./hono/routes/member-todos";
 import conversations from "./hono/routes/conversations";
-import presence from "./hono/routes/presence";
 import procurementVendors from "./hono/routes/procurement-vendors";
 import procurementIndents from "./hono/routes/procurement-indents";
 import procurementRfq from "./hono/routes/procurement-rfq";
 import projectMaterials from "./hono/routes/project-materials";
 import materials from "./hono/routes/materials";
 import board from "./hono/routes/board";
-import wsTicket from "./hono/routes/ws-ticket";
 
 const app = new Hono<{ Bindings: Env; Variables: HonoVariables }>().basePath("/api/v1");
 
@@ -125,20 +123,15 @@ app.route("/comments", comments);
 app.route("/reports", reports);
 app.route("/member-todos", memberTodos);
 app.route("/conversations", conversations);
-app.route("/presence", presence);
 app.route("/procurement/vendors", procurementVendors);
 app.route("/procurement/indents", procurementIndents);
 app.route("/procurement/rfq", procurementRfq);
 app.route("/projects", projectMaterials);
 app.route("/materials", materials);
 app.route("/board", board);
-app.route("/ws-ticket", wsTicket);
 
-// Cloudflare Workers scheduled handler
-// Map each cron schedule to the jobs it runs, so the frequent outbox sweep doesn't
-// trigger the heavy daily attendance reconcile.
+// Cloudflare Workers scheduled handler — maps each cron schedule to its jobs.
 const SCHEDULE_JOBS: Record<string, string[]> = {
-    "*/5 * * * *": ["publishPendingOutbox"],
     "0 0 * * *": ["reconcileAttendance"],
 };
 

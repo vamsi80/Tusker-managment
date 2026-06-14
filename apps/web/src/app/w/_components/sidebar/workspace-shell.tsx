@@ -8,6 +8,7 @@ import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/work
 import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-reporter";
 import { WorkspaceLayoutProvider } from "../../[workspaceId]/_components/workspace-layout-context";
 import { TopLoader } from "@/components/shared/top-loader";
+import { RequestMonitor } from "@/lib/request-monitor";
 import { WorkspaceLayoutData } from "@/types/workspace";
 import { usePathname } from "next/navigation";
 import { useFilterStore } from "@/lib/store/filter-store";
@@ -55,6 +56,7 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
     <WorkspaceClientProviders>
       <DataLoadReporter />
       <TopLoader />
+      <RequestMonitor />
       <SidebarProvider
         style={
           {

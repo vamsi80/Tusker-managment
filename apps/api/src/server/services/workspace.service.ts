@@ -13,6 +13,29 @@ import type { ProjectListItem } from "@/types/project";
 
 type BetterAuthInternalApi = Record<string, ((opts: unknown) => Promise<unknown>) | undefined>;
 
+/** Human-readable phrase for an audit action, used for realtime toast text. */
+function humanizeAuditAction(action: string): string {
+    const map: Record<string, string> = {
+        TASK_CREATED: "created a task",
+        SUBTASK_CREATED: "created a subtask",
+        TASK_UPDATED: "updated a task",
+        SUBTASK_UPDATED: "updated a subtask",
+        TASK_DELETED: "deleted a task",
+        SUBTASK_DELETED: "deleted a subtask",
+        COMMENT_CREATED: "added a comment",
+        MEMBER_INVITED: "invited a member",
+        MEMBER_REMOVED: "removed a member",
+        MEMBER_UPDATED: "updated a member",
+        WORKSPACE_UPDATED: "updated the workspace",
+        CHECKED_IN: "checked in",
+        CHECKED_OUT: "checked out",
+        LEAVE_REQUESTED: "requested leave",
+        LEAVE_APPROVED: "approved a leave request",
+        LEAVE_REJECTED: "rejected a leave request",
+    };
+    return map[action] ?? action.replace(/_/g, " ").toLowerCase();
+}
+
 export class WorkspaceService {
   /**
    * Create a new workspace
@@ -1065,6 +1088,65 @@ export class WorkspaceService {
       workspaceId
     );
     return unreadResult[0]?.count ?? 0;
+  }
+
+  /**
+   * Polling change-feed — the single endpoint that replaces the WebSocket. Returns
+   * what changed in the workspace since the caller's cursor, the unread count, and who
+   * is currently active. Also doubles as the presence heartbeat (throttled lastActiveAt).
+   */
+  static async getChanges(workspaceId: string, userId: string, since?: string) {
+    const now = new Date();
+    const perms = await getWorkspacePermissions(workspaceId, userId, true);
+    if (!perms.workspaceMemberId) {
+      return { events: [], unreadCount: 0, activeUserIds: [], serverTime: now.toISOString() };
+    }
+
+    const db = getDb();
+    const sinceDate = since ? new Date(since) : new Date(now.getTime() - 60_000);
+    const staleBefore = new Date(now.getTime() - 60_000);
+    const activeSince = new Date(now.getTime() - 2 * 60_000);
+
+    // Presence: bump the caller's lastActiveAt only when stale (avoids a write every poll).
+    await db.user.updateMany({
+      where: { id: userId, OR: [{ lastActiveAt: null }, { lastActiveAt: { lt: staleBefore } }] },
+      data: { lastActiveAt: now },
+    }).catch(() => {});
+
+    const [rows, unreadCount, activeMembers] = await Promise.all([
+      db.auditLog.findMany({
+        where: { workspaceId, createdAt: { gt: sinceDate }, userId: { not: userId } },
+        orderBy: { createdAt: "asc" },
+        take: 100,
+        include: { user: { select: { name: true, surname: true } } },
+      }),
+      this.getUnreadNotificationsCount(workspaceId, userId, perms),
+      db.workspaceMember.findMany({
+        where: { workspaceId, user: { lastActiveAt: { gt: activeSince } } },
+        select: { userId: true },
+      }),
+    ]);
+
+    const events = rows.map((r) => {
+      const name = r.user?.surname || r.user?.name || "Someone";
+      return {
+        action: r.action,
+        entityType: r.entityType,
+        entityId: r.entityId,
+        userId: r.userId,
+        userName: name,
+        message: `${name} ${humanizeAuditAction(r.action)}`,
+        metadata: r.metadata,
+        createdAt: r.createdAt,
+      };
+    });
+
+    return {
+      events,
+      unreadCount,
+      activeUserIds: activeMembers.map((m) => m.userId),
+      serverTime: now.toISOString(),
+    };
   }
 
   /**

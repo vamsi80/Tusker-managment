@@ -15,10 +15,8 @@ ENVIRONMENT = "production"
 binding = "HYPERDRIVE"
 id = "44209b43b2124f149feb225a8226b4ba"
 
-# Service Binding to tusker-ws (the self-hosted WebSocket server)
-[[services]]
-binding = "WS_SERVICE"
-service = "tusker-ws"
+# Realtime moved to polling (GET /workspaces/:id/changes). The tusker-ws WebSocket
+# service binding has been removed; broadcast() calls no-op without it.
 
 # Secrets (set via `wrangler secret put <NAME>`):
 # BETTER_AUTH_SECRET
@@ -63,5 +61,4 @@ local_protocol = "http"
 mode = "smart"
 
 [triggers]
-# Daily attendance reconcile + a 5-min outbox sweeper for at-least-once realtime delivery.
-crons = ["0 0 * * *", "*/5 * * * *"]
+crons = ["0 0 * * *"]

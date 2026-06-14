@@ -514,6 +514,7 @@ model AuditLog {
   @@index([workspaceId])
   @@index([userId])
   @@index([createdAt])
+  @@index([workspaceId, createdAt])
   @@map("audit_log")
 }
 
