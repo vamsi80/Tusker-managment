@@ -9,6 +9,7 @@ class RealtimeService {
     private currentUserId: string | null = null;
     private wsClient: WorkspaceWsClient | null = null;
     private unsubWs: (() => void) | null = null;
+    private unsubOpen: (() => void) | null = null;
 
     init(workspaceId: string, userId?: string) {
         if (this.currentWorkspaceId === workspaceId && this.currentUserId === userId) return;
@@ -56,12 +57,20 @@ class RealtimeService {
             if (event === "user-inactive") this.publish(EVENTS.PRESENCE_UPDATE, { ...data, status: "inactive" });
         });
 
+        // On reconnect, tell subscribers to reconcile anything missed while offline.
+        this.unsubOpen = this.wsClient.onOpen(() => {
+            console.log("[REALTIME_SERVICE] 🔄 Reconnected — emitting RECONNECTED");
+            this.publish(EVENTS.RECONNECTED, {});
+        });
+
         this.wsClient.connect();
     }
 
     cleanup() {
         this.unsubWs?.();
         this.unsubWs = null;
+        this.unsubOpen?.();
+        this.unsubOpen = null;
         this.wsClient?.disconnect();
         this.wsClient = null;
         this.currentWorkspaceId = null;
@@ -97,4 +106,5 @@ export const EVENTS = {
     ATTENDANCE_UPDATE: "attendance_update",
     PRESENCE_UPDATE: "presence_update",
     CONVERSATION_UPDATE: "conversation_update",
+    RECONNECTED: "reconnected",
 } as const;

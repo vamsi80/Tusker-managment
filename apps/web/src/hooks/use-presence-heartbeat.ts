@@ -2,6 +2,12 @@
 
 import { useEffect } from "react";
 
+// Presence heartbeat interval. 3 min is plenty for "online in the last few minutes" indicators
+// and cuts heartbeat traffic ~3x vs the old 60s (1,440/day/tab → ~480/day/tab).
+// TODO: eliminate the HTTP heartbeat entirely by deriving presence from the WebSocket
+// connect/disconnect lifecycle on the tusker-ws server (separate repo).
+const HEARTBEAT_MS = 180_000;
+
 export function usePresenceHeartbeat(workspaceId: string | undefined) {
   useEffect(() => {
     if (!workspaceId) return;
@@ -41,7 +47,7 @@ export function usePresenceHeartbeat(workspaceId: string | undefined) {
     window.addEventListener('beforeunload', onBeforeUnload);
     
     // Heartbeat interval
-    const interval = setInterval(() => sendHeartbeat('active'), 60000);
+    const interval = setInterval(() => sendHeartbeat('active'), HEARTBEAT_MS);
 
     return () => {
       window.removeEventListener('visibilitychange', onVisibilityChange);

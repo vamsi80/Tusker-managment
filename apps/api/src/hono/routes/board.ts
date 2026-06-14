@@ -4,21 +4,10 @@ import { AppError } from "@tusker/shared/errors";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
 import { broadcastTeamUpdate } from "@/lib/realtime";
-import { z } from "zod";
 import { BoardStatus } from "@/generated/prisma";
+import { createBoardItemSchema, toggleBoardItemStatusSchema } from "@/hono/schemas";
 
 const board = new Hono<{ Variables: HonoVariables }>();
-
-const createBoardItemSchema = z.object({
-    workspaceId: z.string(),
-    memberId: z.string(),
-    note: z.string().min(1),
-});
-
-const toggleBoardItemStatusSchema = z.object({
-    workspaceId: z.string(),
-    currentStatus: z.nativeEnum(BoardStatus),
-});
 
 // POST /api/v1/board
 board.post("/", async (c) => {

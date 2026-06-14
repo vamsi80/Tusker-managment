@@ -26,15 +26,15 @@ export type WorkspaceTaskType = {
 
     assignee?: {
         id: string;
-        surname: string | null;
+        surname: string;
     } | null;
     reviewer?: {
         id: string;
-        surname: string | null;
+        surname: string;
     } | null;
     createdBy?: {
         id: string;
-        surname: string | null;
+        surname: string;
     } | null;
     parentTask?: {
         id: string;
@@ -44,7 +44,7 @@ export type WorkspaceTaskType = {
         reviewerId?: string | null;
         reviewer?: {
             id: string;
-            surname: string | null;
+            surname: string;
         } | null;
     } | null;
     project?: {
@@ -56,7 +56,7 @@ export type WorkspaceTaskType = {
         projectMembers?: {
             workspaceMember: {
                 user: {
-                    surname: string | null;
+                    surname: string;
                 };
             };
         }[];

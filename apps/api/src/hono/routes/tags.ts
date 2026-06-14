@@ -5,23 +5,9 @@ import { AppError } from "@tusker/shared/errors";
 import { ProjectService } from "@/server/services/project/project.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
-import { z } from "zod";
+import { createTagSchema, updateTagSchema } from "@/hono/schemas";
 
 const tags = new Hono<{ Variables: HonoVariables }>();
-
-const createTagSchema = z.object({
-    name: z.string().min(1).max(50),
-    requirePurchase: z.boolean().default(false),
-    workspaceId: z.string(),
-    projectId: z.string().optional(),
-});
-
-const updateTagSchema = z.object({
-    tagId: z.string(),
-    workspaceId: z.string(),
-    name: z.string().min(1).max(50).optional(),
-    requirePurchase: z.boolean().optional(),
-});
 
 tags.get("/", async (c) => {
     const workspaceId = c.req.query("workspaceId");

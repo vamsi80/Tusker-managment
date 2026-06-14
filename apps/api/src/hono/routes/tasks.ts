@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { getDb } from "@/lib/registry";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/shared/errors";
 import { TasksService } from "@/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@tusker/shared";
+import { patchTaskFieldsSchema } from "@/hono/schemas";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
 import type { WorkspaceFilterOpts } from "@/lib/tasks/query-builder";
 import type { TaskFilters } from "@/types/task-filters";
@@ -472,15 +472,6 @@ tasks.patch("/:taskId/fields", async (c) => {
   const user = c.get("user");
   const taskId = c.req.param("taskId");
   const body = await c.req.json();
-
-  const patchTaskFieldsSchema = z.object({
-    workspaceId: z.string(),
-    projectId: z.string(),
-    startDate: z.string().optional().nullable(),
-    dueDate: z.string().optional().nullable(),
-    assigneeUserId: z.string().optional().nullable(),
-    tagIds: z.array(z.string()).optional(),
-  });
 
   const validation = patchTaskFieldsSchema.safeParse(body);
   if (!validation.success) {

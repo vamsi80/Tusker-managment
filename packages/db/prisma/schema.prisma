@@ -559,14 +559,34 @@ model notification {
   isRead      Boolean   @default(false)
   entityId    String?
   entityType  String?
+  eventId     String?
   metadata    Json?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   Workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, eventId])
   @@index([createdAt])
   @@index([userId, workspaceId])
+  @@index([userId, workspaceId, isRead])
+}
+
+// Transactional outbox: realtime events to publish to tusker-ws. Written in the same
+// transaction as the audit + notification rows, then published via ctx.waitUntil and
+// re-published by the cron sweeper if the first attempt fails — at-least-once delivery.
+model Outbox {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  event         String
+  payload       Json
+  targetUserIds String[]
+  publishedAt   DateTime?
+  attempts      Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox")
 }
 
 model leave_request {

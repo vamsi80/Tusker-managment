@@ -1,34 +1,13 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/shared/errors";
 import { RFQService } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
+import { SendRfqSchema, SubmitQuoteSchema, RejectQuoteSchema } from "@/hono/schemas";
 
 const procurementRfq = new Hono<{ Variables: HonoVariables }>();
-
-const SendRfqSchema = z.object({
-  lineItemId: z.string(),
-  vendorIds: z.array(z.string()).min(1, "At least one vendor required"),
-  deadline: z.string(), // ISO date string
-});
-
-const SubmitQuoteSchema = z.object({
-  lineItemId: z.string(),
-  vendorId: z.string(),
-  unitPrice: z.number().positive(),
-  quantity: z.number().int().positive(),
-  leadTimeDays: z.number().int().positive().optional(),
-  validUntil: z.string().optional(), // ISO date
-  notes: z.string().optional(),
-  attachmentUrl: z.string().url().optional(),
-});
-
-const RejectQuoteSchema = z.object({
-  reason: z.string().min(1),
-});
 
 /**
  * GET /api/v1/procurement/rfq/items/:lineItemId/quotes

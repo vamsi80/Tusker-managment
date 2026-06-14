@@ -142,8 +142,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // On WS reconnect, reconcile anything missed while offline (DB is source of truth).
+    const unsubReconnect = pubsub.subscribe(EVENTS.RECONNECTED, () => {
+      loadNotifications(true);
+    });
+
     return () => {
       unsubscribe();
+      unsubReconnect();
     };
   }, [workspaceId, session?.user?.id, loadNotifications]);
 

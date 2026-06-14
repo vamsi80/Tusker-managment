@@ -1,7 +1,11 @@
 import { getDb } from "@/lib/registry";
+import { broadcast } from "@/lib/realtime";
 import { AttendanceService } from "../services/attendance/attendance.service";
 
 export type CronJobHandler = () => Promise<{ success: boolean; message: string; data?: Record<string, unknown> }>;
+
+const OUTBOX_MAX_ATTEMPTS = 10;
+const OUTBOX_PRUNE_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // keep published rows 7 days
 
 /**
  * Registry of all background/scheduled jobs
@@ -41,7 +45,39 @@ export const CRON_JOBS: Record<string, CronJobHandler> = {
     },
 
     /**
-     * Example: Future Job
+     * Outbox sweeper — re-publishes realtime events whose inline publish failed
+     * (WS downtime, worker cancellation, etc.). Guarantees at-least-once delivery.
+     * The happy path publishes inline in recordActivity, so this usually finds nothing.
      */
-    // cleanupOldLogs: async () => { ... }
+    publishPendingOutbox: async () => {
+        const db = getDb();
+        const pending = await db.outbox.findMany({
+            where: { publishedAt: null, attempts: { lt: OUTBOX_MAX_ATTEMPTS } },
+            orderBy: { createdAt: "asc" },
+            take: 200,
+        });
+
+        let published = 0;
+        for (const row of pending) {
+            try {
+                await broadcast(row.workspaceId, row.event, row.payload, row.targetUserIds);
+                await db.outbox.update({ where: { id: row.id }, data: { publishedAt: new Date() } });
+                published++;
+            } catch (error: unknown) {
+                console.error(`[CRON_JOB] Outbox publish failed for ${row.id}:`, (error as { message?: string })?.message);
+                await db.outbox.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } }).catch(() => {});
+            }
+        }
+
+        // Prune old, already-published rows to keep the table small.
+        await db.outbox.deleteMany({
+            where: { publishedAt: { not: null, lt: new Date(Date.now() - OUTBOX_PRUNE_AFTER_MS) } },
+        }).catch(() => {});
+
+        return {
+            success: true,
+            message: `Outbox sweep: published ${published}/${pending.length} pending events`,
+            data: { pending: pending.length, published },
+        };
+    },
 };

@@ -198,70 +198,21 @@ export class CommentService {
       throw AppError.Forbidden("Access denied");
     }
 
-    const where: Prisma.CommentWhereInput & { userId: { not: string } } = {
-      task: { workspaceId: workspaceId },
-      userId: { not: userId },
-      isDeleted: false
-    };
-
-    if (!perms.isWorkspaceAdmin) {
-      const privilegedProjectIds = [
-        ...(perms.leadProjectIds || []),
-        ...(perms.managedProjectIds || [])
-      ];
-
-      where.task = {
-        ...where.task,
-        OR: [
-          { assignee: { workspaceMember: { userId: userId } } },
-          { createdBy: { workspaceMember: { userId: userId } } },
-          { reviewer: { workspaceMember: { userId: userId } } },
-          ...(privilegedProjectIds.length > 0
-            ? [{ projectId: { in: privilegedProjectIds } }]
-            : [])
-        ]
-      } as Prisma.TaskWhereInput;
-    }
-
-    const commentInclude = {
-      user: { select: { name: true, surname: true, image: true } },
-      readBy: { where: { userId: userId } },
-      task: {
-        select: {
-          id: true,
-          name: true,
-          taskSlug: true,
-          project: { select: { name: true, color: true } },
-          parentTask: { select: { name: true } }
-        }
-      }
-    };
-
-    // Concurrently fetch comments, activities, and direct notifications
-    const [
-      { unreadComments, recentComments },
-      activities,
-      directNotifications
-    ] = await Promise.all([
-      CommentRepository.findNotifications(where, commentInclude, limit, cursor),
-      CommentRepository.findRecentActivities({
+    // Single source of truth: the per-user `notification` table. The backend writes one row
+    // per recipient for every user-facing event (comments, subtask/task changes, attendance,
+    // DMs), so the page no longer merges the comment/activity tables — this keeps the list and
+    // the unread badge (WorkspaceService.getUnreadNotificationsCount) perfectly in sync.
+    const directNotifications = await getDb().notification.findMany({
+      where: {
+        userId,
         workspaceId,
-        authorId: { not: userId },
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
-        subTask: perms.isWorkspaceAdmin ? {} : where.task
-      }, limit, cursor),
-      getDb().notification.findMany({
-        where: {
-          userId,
-          workspaceId,
-          type: { notIn: ["USER_LOGIN", "REQUESTED_PASSWORD_RESET"] },
-          ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {})
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        include: { user: { select: { name: true, surname: true, image: true } } }
-      })
-    ]);
+        type: { notIn: ["USER_LOGIN", "REQUESTED_PASSWORD_RESET"] },
+        ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {})
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: { user: { select: { name: true, surname: true, image: true } } }
+    });
 
     // Fetch related task details
     const taskIdsToFetch = new Set<string>();
@@ -295,12 +246,7 @@ export class CommentService {
       tasks.forEach(t => taskMap.set(t.id, t));
     }
 
-    const commentMap = new Map<string, (typeof unreadComments)[number]>();
-    [...unreadComments, ...recentComments].forEach(c => commentMap.set(c.id, c));
-    const comments = Array.from(commentMap.values())
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return CommentMapper.toNotifications(comments as unknown as import("./comment.mapper").DBCommentInput[], activities, limit, directNotifications, taskMap);
+    return CommentMapper.toNotifications([], [], limit, directNotifications, taskMap);
   }
 
   /**

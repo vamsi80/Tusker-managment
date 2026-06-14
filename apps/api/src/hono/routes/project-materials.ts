@@ -1,29 +1,12 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/shared/errors";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
+import { CreateMaterialItemSchema, UpdateMaterialItemSchema } from "@/hono/schemas";
 
 const projectMaterials = new Hono<{ Variables: HonoVariables }>();
-
-// Validation schemas
-const CreateMaterialItemSchema = z.object({
-  subtaskId: z.string().nullable().optional(),
-  materialName: z.string().min(1, "Material name is required"),
-  unit: z.string().min(1, "Unit of measure is required"),
-  quantity: z.number().positive("Quantity must be greater than zero"),
-  notes: z.string().nullable().optional(),
-});
-
-const UpdateMaterialItemSchema = z.object({
-  subtaskId: z.string().nullable().optional(),
-  materialName: z.string().min(1).optional(),
-  unit: z.string().min(1).optional(),
-  quantity: z.number().positive().optional(),
-  notes: z.string().nullable().optional(),
-});
 
 /**
  * GET /api/v1/projects/:projectId/materials

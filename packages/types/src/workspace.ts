@@ -47,7 +47,7 @@ export type WorkspaceMemberRow = {
   employeeId?: string | null;
   dateOfBirth?: string | Date | null;
   name?: string;
-  surname?: string;
+  surname: string;
   email?: string;
   phoneNumber?: string | null;
   reportToName?: string | null;
@@ -82,7 +82,7 @@ export interface WorkspaceLayoutData {
   metadata?: Record<string, unknown> | null;
   projects: ProjectListItem[];
   tags: Array<{ id: string; name: string; workspaceId: string; requirePurchase: boolean }>;
-  projectManagers: Record<string, Array<{ id: string; surname: string | null }>>;
+  projectManagers: Record<string, Array<{ id: string; surname: string }>>;
   unreadNotificationsCount: number;
   permissions: {
     isWorkspaceAdmin: boolean;

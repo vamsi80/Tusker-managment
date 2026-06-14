@@ -50,7 +50,7 @@ export interface DBProjectListItemInput {
   projectManager?: {
     user?: {
       id: string;
-      surname: string | null;
+      surname: string;
     } | null;
   } | null;
 }
@@ -82,7 +82,7 @@ export interface DBFullProjectDataInput {
   projectManager?: {
     user?: {
       id: string;
-      surname: string | null;
+      surname: string;
     } | null;
   } | null;
   projectMembers: Array<{

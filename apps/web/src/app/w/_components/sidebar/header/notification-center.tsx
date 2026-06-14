@@ -67,8 +67,14 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
         };
         window.addEventListener("notification-count-update", handleCountUpdate);
 
+        // On WS reconnect, re-sync the badge count from the server (source of truth).
+        const unsubReconnect = pubsub.subscribe(EVENTS.RECONNECTED, () => {
+            fetchCount();
+        });
+
         return () => {
             unsubscribe();
+            unsubReconnect();
             window.removeEventListener("notification-count-update", handleCountUpdate);
         };
     }, [workspaceId, session?.user?.id]);

@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/shared/errors";
@@ -7,51 +6,15 @@ import { VendorRepository, IndentService, IndentRepository } from "@/server/serv
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getDb } from "@/lib/registry";
 import type { IndentStatus, LineItemStatus } from "@/generated/prisma";
+import {
+  CreateIndentSchema,
+  AddLineItemSchema,
+  UpdateLineItemSchema,
+  CancelIndentSchema,
+  AssignIndentSchema,
+} from "@/hono/schemas";
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
-
-// Zod validation schemas
-const CreateIndentSchema = z.object({
-  taskId: z.string().optional().nullable(),
-  projectId: z.string(),
-  workspaceId: z.string(),
-  name: z.string().min(1),
-  description: z.string().optional(),
-  expectedDelivery: z.string().optional(),
-  lineItems: z.array(
-    z.object({
-      materialName: z.string().min(1),
-      unit: z.string().min(1),
-      quantity: z.number().int().positive(),
-      estimatedUnitPrice: z.number().int().positive().optional(),
-      specifications: z.string().nullable().optional(),
-    })
-  ).optional(),
-});
-
-const AddLineItemSchema = z.object({
-  materialName: z.string().min(1),
-  unit: z.string().min(1),
-  quantity: z.number().int().positive(),
-  estimatedUnitPrice: z.number().int().positive().optional(),
-  specifications: z.string().nullable().optional(),
-});
-
-const UpdateLineItemSchema = z.object({
-  materialName: z.string().min(1).optional(),
-  unit: z.string().min(1).optional(),
-  quantity: z.number().int().positive().optional(),
-  estimatedUnitPrice: z.number().int().positive().optional(),
-  specifications: z.string().nullable().optional(),
-});
-
-const CancelIndentSchema = z.object({
-  reason: z.string().min(1),
-});
-
-const AssignIndentSchema = z.object({
-  assigneeId: z.string(),
-});
 
 /**
  * GET /api/v1/procurement/indents/units

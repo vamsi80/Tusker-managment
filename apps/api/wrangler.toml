@@ -63,4 +63,5 @@ local_protocol = "http"
 mode = "smart"
 
 [triggers]
-crons = ["0 0 * * *"]
+# Daily attendance reconcile + a 5-min outbox sweeper for at-least-once realtime delivery.
+crons = ["0 0 * * *", "*/5 * * * *"]

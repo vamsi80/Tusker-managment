@@ -135,16 +135,22 @@ app.route("/board", board);
 app.route("/ws-ticket", wsTicket);
 
 // Cloudflare Workers scheduled handler
+// Map each cron schedule to the jobs it runs, so the frequent outbox sweep doesn't
+// trigger the heavy daily attendance reconcile.
+const SCHEDULE_JOBS: Record<string, string[]> = {
+    "*/5 * * * *": ["publishPendingOutbox"],
+    "0 0 * * *": ["reconcileAttendance"],
+};
+
 async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     initServices(env);
     return runRequestContext(env, async () => {
         const { CRON_JOBS } = await import("./server/crons/registry");
-        const results = await Promise.allSettled(
-            Object.values(CRON_JOBS).map(job => job())
-        );
+        const jobNames = SCHEDULE_JOBS[event.cron] ?? Object.keys(CRON_JOBS);
+        const results = await Promise.allSettled(jobNames.map((name) => CRON_JOBS[name]?.()));
         results.forEach((r, i) => {
             if (r.status === "rejected") {
-                console.error(`[CRON] Job ${i} failed:`, r.reason);
+                console.error(`[CRON] Job ${jobNames[i]} failed:`, r.reason);
             }
         });
     });

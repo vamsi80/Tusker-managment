@@ -1049,20 +1049,20 @@ export class WorkspaceService {
     const perms = preFetchedPermissions || await getWorkspacePermissions(workspaceId, userId, true);
     if (!perms.workspaceMemberId) return 0;
 
-    // NOTE: Prisma groupBy uses prepared statements which are incompatible with
-    // PgBouncer in transaction mode (Supabase port 6543). Use a raw count instead.
+    // Single source of truth: the per-user `notification` table — the same rows the
+    // notifications page lists (CommentService.getNotifications). Counting unread comments
+    // here previously made the badge ignore every non-comment notification, so it stayed at
+    // 0 even when the user had unread notifications. Excludes non-user-facing event types.
+    // NOTE: raw SQL (not Prisma .count()) to avoid prepared statements under PgBouncer.
     const unreadResult: Array<{ count: number }> = await getDb().$queryRawUnsafe(
-      `SELECT COUNT(DISTINCT c."taskId")::int AS count
-       FROM "comment" c
-       JOIN "Task" t ON t.id = c."taskId"
-       WHERE t."workspaceId" = $1
-         AND c."userId" != $2
-         AND NOT EXISTS (
-           SELECT 1 FROM "comment_read" cr
-           WHERE cr."commentId" = c.id AND cr."userId" = $2
-         )`,
-      workspaceId,
-      userId
+      `SELECT COUNT(*)::int AS count
+       FROM "notification"
+       WHERE "userId" = $1
+         AND "workspaceId" = $2
+         AND "isRead" = false
+         AND "type" NOT IN ('USER_LOGIN', 'REQUESTED_PASSWORD_RESET')`,
+      userId,
+      workspaceId
     );
     return unreadResult[0]?.count ?? 0;
   }
