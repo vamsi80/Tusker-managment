@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
+import { dedupe } from "@/lib/api-client/dedupe";
 import { authClient } from "@/lib/auth-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { toast } from "sonner";
@@ -60,7 +61,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
 
     const currentCursor = isInitial ? undefined : (nextCursor || undefined);
-    const { data, error } = await apiClient.comments.getNotifications(workspaceId as string, LIMIT, currentCursor);
+    const { data, error } = await dedupe(
+      `notifications:${workspaceId}:${LIMIT}:${currentCursor ?? "initial"}`,
+      () => apiClient.comments.getNotifications(workspaceId as string, LIMIT, currentCursor),
+    );
 
     if (!error && data) {
       type NotifPayload = { unreadNotifications?: NotificationItem[]; readNotifications?: NotificationItem[]; peopleCount?: number; nextCursor?: string | null; hasMore?: boolean };
@@ -127,7 +131,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, [unreadNotifications, workspaceId]);
 
-  // Real-time subscription via Pusher
+  // Keep a ref to the latest loadNotifications so the subscription effect below does
+  // NOT depend on its identity (which changes with nextCursor) — otherwise it would
+  // tear down and re-subscribe to pubsub on every page of "load more".
+  const loadNotificationsRef = useRef(loadNotifications);
+  useEffect(() => {
+    loadNotificationsRef.current = loadNotifications;
+  }, [loadNotifications]);
+
+  // Real-time subscription via pubsub
   useEffect(() => {
     if (!workspaceId) return;
 
@@ -137,21 +149,21 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(action ?? "")) {
         if (userId !== session?.user?.id) {
           // Trigger a re-fetch of notifications to keep list fully accurate
-          loadNotifications(true);
+          loadNotificationsRef.current(true);
         }
       }
     });
 
-    // On WS reconnect, reconcile anything missed while offline (DB is source of truth).
+    // On reconnect, reconcile anything missed while offline (DB is source of truth).
     const unsubReconnect = pubsub.subscribe(EVENTS.RECONNECTED, () => {
-      loadNotifications(true);
+      loadNotificationsRef.current(true);
     });
 
     return () => {
       unsubscribe();
       unsubReconnect();
     };
-  }, [workspaceId, session?.user?.id, loadNotifications]);
+  }, [workspaceId, session?.user?.id]);
 
   useEffect(() => {
     if (workspaceId) {

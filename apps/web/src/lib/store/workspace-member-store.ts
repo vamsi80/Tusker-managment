@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { WorkspaceMemberRow, SlimMember } from '@/types/workspace';
 import { apiClient } from '@/lib/api-client';
+import { dedupe } from '@/lib/api-client/dedupe';
 import { useEffect } from 'react';
 import { pubsub, EVENTS } from '@/lib/pubsub';
 
@@ -34,7 +35,11 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) =
         if (slimMembersByWorkspace[workspaceId]) return;
 
         try {
-            const members = await apiClient.workspaces.getMembersSlim(workspaceId);
+            // Dedupe concurrent callers (incl. StrictMode double-invoke) — the
+            // cache-presence check above can't help before the first call resolves.
+            const members = await dedupe(`slim-members:${workspaceId}`, () =>
+                apiClient.workspaces.getMembersSlim(workspaceId),
+            );
             set((state) => ({
                 slimMembersByWorkspace: {
                     ...state.slimMembersByWorkspace,
@@ -66,7 +71,9 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) =
 
         try {
             // Fetch members with pagination (10 per page as requested)
-            const res = await apiClient.workspaces.getMembers(workspaceId, 1, 10);
+            const res = await dedupe(`members:${workspaceId}:1:10`, () =>
+                apiClient.workspaces.getMembers(workspaceId, 1, 10),
+            );
             if (res && res.workspaceMembers) {
                 set((state) => ({
                     membersByWorkspace: {

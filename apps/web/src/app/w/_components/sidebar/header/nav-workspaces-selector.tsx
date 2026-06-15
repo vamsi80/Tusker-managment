@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
 import type { WorkspacesType } from "@/types/workspace";
 import { apiClient } from "@/lib/api-client";
+import { useWorkspaceLayoutStore } from "@/lib/store/workspace-layout-store";
 
 interface Props {
   data: WorkspacesType;
@@ -30,6 +31,11 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   const [workspaces, setWorkspaces] = React.useState<WorkspacesType['workspaces']>(data?.workspaces ?? []);
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = React.useState(false);
 
+  // The workspace list already arrives inside the unified /layout payload. Only fall
+  // back to a standalone GET /workspaces once that layout has actually RESOLVED and is
+  // still genuinely empty — otherwise we'd race the layout fetch and duplicate it.
+  const layoutResolved = useWorkspaceLayoutStore((s) => Boolean(s.layoutData[workspaceId]));
+
   useEffect(() => {
     if (data?.workspaces?.length > 0) {
       setWorkspaces(data.workspaces);
@@ -37,7 +43,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
   }, [data?.workspaces]);
 
   useEffect(() => {
-    if (mounted && workspaces.length === 0 && !isLoadingWorkspaces) {
+    if (mounted && layoutResolved && workspaces.length === 0 && !isLoadingWorkspaces) {
       setIsLoadingWorkspaces(true);
       apiClient.workspaces.getAll()
         .then((res) => {
@@ -48,7 +54,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
         .catch((err) => console.error("Failed to load workspaces:", err))
         .finally(() => setIsLoadingWorkspaces(false));
     }
-  }, [mounted, workspaces.length, isLoadingWorkspaces]);
+  }, [mounted, layoutResolved, workspaces.length, isLoadingWorkspaces]);
 
   const selected = useMemo(() => {
     const found = workspaces.find((w) => w.id === workspaceId);

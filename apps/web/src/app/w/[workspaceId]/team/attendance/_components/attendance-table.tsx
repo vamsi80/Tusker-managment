@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AttendanceLogger } from "./attendance-logger";
+import { dedupe } from "@/lib/api-client/dedupe";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
@@ -177,12 +178,11 @@ export function AttendanceTable({
     // Subscribe to real-time updates for this workspace
     useRealtimeMemberSync(workspaceId);
 
-    // Fetch slim members for filter (robust & fast)
+    // Fetch slim members for the filter dropdown. The store call is cache-guarded and
+    // deduped, so this is one request per session and reused across screens.
     useEffect(() => {
         useWorkspaceMemberStore.getState().fetchSlimMembers(workspaceId);
     }, [workspaceId]);
-
-
 
     // Memoize options from slim members
     const memberOptions = useMemo(() => {
@@ -230,11 +230,13 @@ export function AttendanceTable({
             params.append("pageSize", pageSize.toString());
 
             const url = `/api/v1/attendance?${params.toString()}${force ? '&refresh=true' : ''}`;
-            const res = await fetch(url, {
-                headers: { "x-workspace-id": workspaceId },
-                cache: 'no-store' // Ensure we don't get cached browser results
-            });
-            const data = await res.json();
+            // Dedupe concurrent identical loads (incl. StrictMode double-invoke).
+            const data = await dedupe(`attendance:${url}`, () =>
+                fetch(url, {
+                    headers: { "x-workspace-id": workspaceId },
+                    cache: 'no-store' // Ensure we don't get cached browser results
+                }).then((r) => r.json()),
+            );
             if (data.success) {
                 console.log(`[AttendanceTable] Records successfully loaded: ${data.data?.length || 0} items`);
                 setRecords(data.data || []);

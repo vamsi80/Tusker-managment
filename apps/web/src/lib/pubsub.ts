@@ -65,7 +65,12 @@ class RealtimeService {
             window.addEventListener("keydown", this.activityHandler, { passive: true });
         }
 
-        this.scheduleNext(0);
+        // Defer the FIRST poll by one active interval so it doesn't pile onto the
+        // initial page-load burst. The unread count / shell data already arrive via
+        // the /layout payload, so nothing critical is delayed; realtime activity and
+        // presence simply start one tick (POLL_ACTIVE_MS) later. Visibility-resume
+        // below still polls immediately.
+        this.scheduleNext(POLL_ACTIVE_MS);
     }
 
     private scheduleNext(delay: number) {

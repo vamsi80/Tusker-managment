@@ -24,6 +24,19 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const members = await ConversationService.getWorkspaceMembers(workspaceId, user.id);
     return c.json({ success: true, data: members });
   })
+  // Joint initial-load request: conversation list + members in ONE Worker invocation.
+  // Subsequent list refreshes (new message) keep using GET /:workspaceId (list-only).
+  .get("/:workspaceId/bootstrap", async (c) => {
+    const workspaceId = c.req.param("workspaceId");
+    const user = c.get("user");
+    if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+    const [conversations, members] = await Promise.all([
+      ConversationService.getUserConversations(user.id, workspaceId),
+      ConversationService.getWorkspaceMembers(workspaceId, user.id),
+    ]);
+    return c.json({ success: true, data: { conversations, members } });
+  })
   .post("/:workspaceId", zValidator("json", z.object({
     recipientId: z.string()
   })), async (c) => {

@@ -2,13 +2,14 @@
 
 import { useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import { projectsClient } from "@/lib/api-client/projects";
+import { dedupe } from "@/lib/api-client/dedupe";
 import { ProjectMembersType } from "@/types/project";
 import type { UserPermissionsType } from "@/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 import { ProjectLayoutContext, type ProjectLayoutContextType } from "./project-layout-context-object";
 
-import { useProjectTags } from "@/hooks/use-project-tags";
+type TagOption = { id: string; name: string };
 
 export function ProjectLayoutProvider({
     children,
@@ -22,20 +23,24 @@ export function ProjectLayoutProvider({
     const { data: workspaceData } = useWorkspaceLayout();
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
     const [projectPermissions, setProjectPermissions] = useState<UserPermissionsType | null>(null);
+    const [projectTags, setProjectTags] = useState<TagOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
-
-    const projectTags = useProjectTags(workspaceId, projectId);
 
     const fetchProjectData = useCallback(async (isSilent = false) => {
         if (!projectId) return;
 
         try {
             if (!isSilent) setIsLoading(true);
-            const res = await projectsClient.getLayoutData(workspaceId, projectId);
+            // Tags now come bundled in the layout payload (one Worker invocation) — no
+            // separate /workspace-tags request.
+            const res = await dedupe(`project-layout:${workspaceId}:${projectId}`, () =>
+                projectsClient.getLayoutData(workspaceId, projectId),
+            );
 
             setProjectMembers((res.members as ProjectMembersType) || []);
             setProjectPermissions((res.permissions as UserPermissionsType) || null);
+            setProjectTags((res.tags as TagOption[]) || []);
         } catch (error) {
             console.error("Failed to fetch project layout data:", error);
         } finally {

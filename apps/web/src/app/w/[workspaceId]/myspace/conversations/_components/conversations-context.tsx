@@ -25,6 +25,7 @@ interface ConversationsContextType {
 }
 
 import { pubsub, EVENTS } from "@/lib/pubsub";
+import { dedupe } from "@/lib/api-client/dedupe";
 
 const ConversationsContext = createContext<ConversationsContextType | undefined>(undefined);
 
@@ -38,8 +39,9 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
   const fetchConversations = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const res = await fetch(`/api/v1/conversations/${workspaceId}`);
-      const data = await res.json();
+      const data = await dedupe(`conversations:${workspaceId}`, () =>
+        fetch(`/api/v1/conversations/${workspaceId}`).then((r) => r.json()),
+      );
       if (data.success) {
         setConversations(data.data);
       }
@@ -54,14 +56,35 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
     if (!workspaceId) return;
     setIsMembersLoading(true);
     try {
-      const res = await fetch(`/api/v1/conversations/${workspaceId}/members`);
-      const data = await res.json();
+      const data = await dedupe(`conversation-members:${workspaceId}`, () =>
+        fetch(`/api/v1/conversations/${workspaceId}/members`).then((r) => r.json()),
+      );
       if (data.success) {
         setMembers(data.data);
       }
     } catch (error) {
       console.error("Failed to fetch members", error);
     } finally {
+      setIsMembersLoading(false);
+    }
+  }, [workspaceId]);
+
+  // Initial-load joint request: conversation list + members in ONE Worker invocation.
+  const bootstrap = useCallback(async () => {
+    if (!workspaceId) return;
+    setIsMembersLoading(true);
+    try {
+      const data = await dedupe(`conversations-bootstrap:${workspaceId}`, () =>
+        fetch(`/api/v1/conversations/${workspaceId}/bootstrap`).then((r) => r.json()),
+      );
+      if (data.success) {
+        setConversations(data.data.conversations);
+        setMembers(data.data.members);
+      }
+    } catch (error) {
+      console.error("Failed to bootstrap conversations", error);
+    } finally {
+      setIsLoading(false);
       setIsMembersLoading(false);
     }
   }, [workspaceId]);
@@ -103,9 +126,9 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (workspaceId) {
-      fetchConversations();
+      bootstrap();
     }
-  }, [workspaceId, fetchConversations]);
+  }, [workspaceId, bootstrap]);
 
   return (
     <ConversationsContext.Provider value={{

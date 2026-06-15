@@ -633,12 +633,13 @@ export class ProjectService {
     const project = await ProjectRepository.getProjectWithWorkspace(projectId);
     if (!project) throw AppError.NotFound("Project not found");
 
-    const [members, permissions] = await Promise.all([
+    const [members, permissions, tags] = await Promise.all([
       this.getMembers(projectId, project),
       this.getPermissions(project.workspaceId, projectId, userId, project),
+      this.getProjectTags(projectId),
     ]);
 
-    return { members, permissions };
+    return { members, permissions, tags };
   }
 
   static async getProjectReviewers(projectId: string) {

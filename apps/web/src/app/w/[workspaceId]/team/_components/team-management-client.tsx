@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { workspacesClient } from "@/lib/api-client/workspaces";
+import { dedupe } from "@/lib/api-client/dedupe";
 import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
@@ -53,7 +54,10 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         try {
             setIsQuerying(true);
             if (!silent && !hasLoadedOnce.current) setIsLoadingMembers(true);
-            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch);
+            const membersRes: WorkspaceMembersResult = await dedupe(
+                `members:${workspaceId}:${targetPage}:${targetLimit}:${targetSearch}`,
+                () => workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch),
+            );
             hasLoadedOnce.current = true;
             setMembers(membersRes.workspaceMembers || []);
             setTotalCount(membersRes.totalCount || 0);

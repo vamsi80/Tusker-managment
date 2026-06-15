@@ -1,7 +1,7 @@
 "use client";
 
 import { authClient } from "@/lib/auth-client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useConversations } from "./conversations-context";
 import { Search, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -37,13 +37,11 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
   const { workspaceId, conversationId } = useParams();
   const router = useRouter();
   const { data: session } = authClient.useSession();
-  const { members, fetchMembers, setConversations } = useConversations();
+  const { members, setConversations } = useConversations();
   const [search, setSearch] = useState("");
 
-  // Fetch members on mount to ensure the "Team" list is ready
-  useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+  // Members arrive via the conversations bootstrap (one joint request in the provider),
+  // so no separate fetch is needed here on mount.
 
   // Create a unified list of everyone
   const unifiedList = useMemo(() => {

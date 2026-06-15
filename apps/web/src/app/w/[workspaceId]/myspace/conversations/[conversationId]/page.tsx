@@ -4,6 +4,7 @@ import { useState, useEffect, use, useRef } from "react";
 import { ChatPanel } from "../_components/chat-panel";
 import { useConversations } from "../_components/conversations-context";
 import { authClient } from "@/lib/auth-client";
+import { dedupe } from "@/lib/api-client/dedupe";
 import { toast } from "sonner";
 
 interface PageProps {
@@ -23,12 +24,16 @@ export default function ChatPage({ params }: PageProps) {
   const fetchMessages = async (isInitial = false) => {
     try {
       const url = new URL(`${window.location.origin}/api/v1/conversations/${workspaceId}/${conversationId}/messages`);
-      if (!isInitial && lastMessageTimestampRef.current) {
-        url.searchParams.append("since", lastMessageTimestampRef.current);
+      const since = !isInitial && lastMessageTimestampRef.current ? lastMessageTimestampRef.current : null;
+      if (since) {
+        url.searchParams.append("since", since);
       }
 
-      const res = await fetch(url.toString());
-      const data = await res.json();
+      // Dedupe concurrent identical reads (StrictMode mount + overlapping polls).
+      const data = await dedupe(
+        `messages:${workspaceId}:${conversationId}:${since ?? "initial"}`,
+        () => fetch(url.toString()).then((r) => r.json()),
+      );
       
       if (data.success) {
         const newMessages = data.data;
@@ -52,12 +57,25 @@ export default function ChatPage({ params }: PageProps) {
     lastMessageTimestampRef.current = null;
     setIsMessagesLoading(true);
     fetchMessages(true);
-    
+
+    // Poll for new messages, but back off to 10s and skip while the tab is hidden
+    // (mirrors the global pubsub poll) so this isn't a second always-on 5s request loop.
+    const POLL_MS = 10000;
     const msgInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       fetchMessages(false);
-    }, 5000);
-    
-    return () => clearInterval(msgInterval);
+    }, POLL_MS);
+
+    // Catch up immediately when the tab regains focus after being hidden.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchMessages(false);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(msgInterval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [conversationId]);
 
   const handleSendMessage = async (content: string) => {
