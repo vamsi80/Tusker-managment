@@ -3,6 +3,13 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Workers Observability — retains request logs (queryable in the Cloudflare dashboard
+# for ~3 days) and records invocation status/exceptions. Without this, logs are
+# live-tail only (`wrangler tail`) and nothing is retained to investigate after the fact.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [vars]
 ENVIRONMENT = "production"
 

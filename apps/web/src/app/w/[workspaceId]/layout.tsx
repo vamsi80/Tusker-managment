@@ -1,6 +1,4 @@
 import { WorkspaceShell } from "../_components/sidebar/workspace-shell";
-import { serverApiFetch } from "@/lib/api-client/server-fetch";
-import type { WorkspaceLayoutData } from "@/types/workspace";
 
 interface Props {
   children: React.ReactNode;
@@ -10,23 +8,23 @@ interface Props {
 /**
  * Workspace Layout shell.
  *
- * The unified /layout payload is fetched HERE on the server (the RSC already holds the
- * session cookie) and handed to the shell as `initialData`, so the client hydrates the
- * Zustand store directly — eliminating the previous render→useEffect→fetch round-trip
- * (and its loading flash) on every workspace route. Falls back to the client-side fetch
- * (initialData = undefined) if the server fetch fails, preserving resilience.
+ * NOTE: Server-side hydration of the /layout payload (serverApiFetch -> initialData)
+ * was reverted after it caused a production error-rate spike — it added an authenticated
+ * server-to-server round-trip (RSC -> Worker, direct to the API domain) on every
+ * workspace route, multiplying Worker invocations and per-request DB connections.
+ * The client WorkspaceLayoutProvider already fetches the layout itself when
+ * `initialData` is undefined, so the shell hydrates client-side (pre-deploy behavior).
+ *
+ * To re-enable SSR hydration safely, first make authenticated server-side fetches
+ * reliable on the split web/API-domain setup (proxy the API under the web domain, or
+ * share a parent cookie domain) and confirm the Worker can absorb the added load.
+ * See plan: Phase 3.
  */
 export default async function WorkSpaceLayout({ children, params }: Props) {
   const { workspaceId } = await params;
 
-  const initialData = await serverApiFetch<{ success: boolean; data: WorkspaceLayoutData }>(
-    `/workspaces/${workspaceId}/layout`,
-  )
-    .then((res) => res.data)
-    .catch(() => undefined);
-
   return (
-    <WorkspaceShell workspaceId={workspaceId} initialData={initialData}>
+    <WorkspaceShell workspaceId={workspaceId}>
       {children}
     </WorkspaceShell>
   );

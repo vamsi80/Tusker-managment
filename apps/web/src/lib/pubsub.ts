@@ -4,7 +4,10 @@ type EventCallback = (data: Record<string, unknown>) => void;
 
 // Polling cadence: fast while the user is interacting, slow when idle-but-visible,
 // fully paused when the tab is hidden. No WebSocket → cannot loop or drop.
-const POLL_ACTIVE_MS = 5000;
+// Active interval is 10s (not 5s) to halve /changes Worker invocations — relief for
+// the Cloudflare 1102 (resource limit) errors until the per-request Prisma WASM-engine
+// cost is removed (queryCompiler migration). Realtime latency tradeoff is acceptable.
+const POLL_ACTIVE_MS = 10000;
 const POLL_IDLE_MS = 30000;
 const IDLE_AFTER_MS = 60000;
 

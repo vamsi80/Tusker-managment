@@ -77,7 +77,12 @@ app.onError((err, c) => {
     if (err instanceof AppError) {
         return c.json({ success: false, error: err.message, code: err.code }, err.statusCode as ContentfulStatusCode);
     }
-    console.error(`[HONO_ERROR] ${err.message}`, err);
+    // Include method/path/name + stack — `err.message` alone is often empty for
+    // thrown DB/runtime errors, which made past production 500s undiagnosable.
+    console.error(
+        `[HONO_ERROR] ${c.req.method} ${c.req.path} — ${err?.name}: ${err?.message}`,
+        err?.stack,
+    );
     return c.json({ success: false, error: "Internal Server Error" }, 500);
 });
 

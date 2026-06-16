@@ -21,7 +21,22 @@ export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: HonoV
 
         await next();
     } catch (error) {
-        console.error("[AUTH_MIDDLEWARE_ERROR]", error);
+        const err = error as Error;
+        // A thrown getSession() is an infra error (e.g. DB connect timeout), NOT a
+        // missing session — so it correctly stays a 500. Log enough context to tell
+        // these apart in Workers logs (was previously an undiagnosable bare object).
+        console.error(
+            "[AUTH_MIDDLEWARE_ERROR]",
+            JSON.stringify({
+                method: c.req.method,
+                path: c.req.path,
+                hasCookie: Boolean(c.req.header("cookie")),
+                hasAuthHeader: Boolean(c.req.header("authorization")),
+                name: err?.name,
+                message: err?.message,
+            }),
+            err?.stack,
+        );
         return c.json({ success: false, error: "Authentication error" }, 500);
     }
 });
