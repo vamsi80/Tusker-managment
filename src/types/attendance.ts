@@ -25,8 +25,8 @@ export interface CheckOutParams {
 }
 
 export interface AttendanceFilters {
-    memberId?: string;
-    status?: AttendanceStatus;
+    memberId?: string | string[];
+    status?: AttendanceStatus | AttendanceStatus[];
     search?: string;
 }
 

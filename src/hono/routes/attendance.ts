@@ -5,6 +5,19 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { invalidateWorkspaceAttendance } from "@/lib/cache/invalidation";
 import { HonoVariables } from "../types";
 
+const parseMultiQuery = (value?: string): string[] | undefined => {
+    if (!value) return undefined;
+    try {
+        const parsed = JSON.parse(value);
+        const values = Array.isArray(parsed) ? parsed : [parsed];
+        const cleaned = values.map(String).filter(Boolean);
+        return cleaned.length > 0 ? cleaned : undefined;
+    } catch {
+        const cleaned = value.split(",").map((item) => item.trim()).filter(Boolean);
+        return cleaned.length > 0 ? cleaned : undefined;
+    }
+};
+
 export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .get("/", async (c) => {
@@ -16,8 +29,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
         const startDateStr = c.req.query("startDate");
         const endDateStr = c.req.query("endDate");
-        const memberId = c.req.query("memberId");
-        const status = c.req.query("status") as any;
+        const memberId = parseMultiQuery(c.req.query("memberId"));
+        const status = parseMultiQuery(c.req.query("status")) as any;
 
         const startDate = startDateStr ? new Date(startDateStr) : undefined;
         const endDate = endDateStr ? new Date(endDateStr) : undefined;

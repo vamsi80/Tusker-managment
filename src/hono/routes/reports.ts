@@ -6,6 +6,19 @@ import { AppError } from "@/lib/errors/app-error";
 
 const reports = new Hono<{ Variables: HonoVariables }>();
 
+const parseMultiQuery = (value?: string): string[] | undefined => {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    const values = Array.isArray(parsed) ? parsed : [parsed];
+    const cleaned = values.map(String).filter(Boolean);
+    return cleaned.length > 0 ? cleaned : undefined;
+  } catch {
+    const cleaned = value.split(",").map((item) => item.trim()).filter(Boolean);
+    return cleaned.length > 0 ? cleaned : undefined;
+  }
+};
+
 /**
  * GET /api/v1/reports/:workspaceId
  * Load daily reports for a workspace with optional filters
@@ -15,7 +28,7 @@ reports.get("/:workspaceId", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   
   const date = c.req.query("date");
-  const userId = c.req.query("userId");
+  const userId = parseMultiQuery(c.req.query("userId"));
   const skip = parseInt(c.req.query("skip") || "0");
   const take = parseInt(c.req.query("take") || "30");
 

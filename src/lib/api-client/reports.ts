@@ -12,13 +12,15 @@ export const reportsClient = {
   getReports: async (params: {
     workspaceId: string;
     date?: string;
-    userId?: string;
+    userId?: string | string[];
     skip?: number;
     take?: number;
   }): Promise<ApiResponse> => {
     const query = new URLSearchParams();
     if (params.date) query.append("date", params.date);
-    if (params.userId) query.append("userId", params.userId);
+    if (params.userId) {
+      query.append("userId", Array.isArray(params.userId) ? JSON.stringify(params.userId) : params.userId);
+    }
     if (params.skip) query.append("skip", params.skip.toString());
     if (params.take) query.append("take", params.take.toString());
 

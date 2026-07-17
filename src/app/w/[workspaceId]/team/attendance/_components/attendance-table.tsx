@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 
@@ -82,13 +82,13 @@ export function AttendanceTable({
     const [activeFilters, setActiveFilters] = useState<{
         from: Date | undefined;
         to: Date | undefined;
-        memberId: string | undefined;
-        status: string | undefined;
+        memberId: string[];
+        status: string[];
     }>({
         from: startOfMonth(new Date()),
         to: endOfMonth(new Date()),
-        memberId: undefined,
-        status: undefined,
+        memberId: [],
+        status: [],
     });
 
     // Helper to flatten Prisma records into the shape the table expects
@@ -218,8 +218,8 @@ export function AttendanceTable({
             const params = new URLSearchParams();
             if (activeFilters.from && isValidDate(activeFilters.from)) params.append("startDate", activeFilters.from.toISOString());
             if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
-            if (activeFilters.memberId) params.append("memberId", activeFilters.memberId);
-            if (activeFilters.status) params.append("status", activeFilters.status);
+            if (activeFilters.memberId.length > 0) params.append("memberId", JSON.stringify(activeFilters.memberId));
+            if (activeFilters.status.length > 0) params.append("status", JSON.stringify(activeFilters.status));
             if (debouncedSearch) params.append("search", debouncedSearch);
             params.append("page", (pageIndex + 1).toString());
             params.append("pageSize", pageSize.toString());
@@ -554,8 +554,8 @@ export function AttendanceTable({
     }, [records]);
 
     const selectedMember = useMemo(() => {
-        if (!activeFilters.memberId) return null;
-        return slimMembers.find((m: any) => m.id === activeFilters.memberId);
+        if (activeFilters.memberId.length !== 1) return null;
+        return slimMembers.find((m: any) => m.id === activeFilters.memberId[0]);
     }, [slimMembers, activeFilters.memberId]);
 
     const handleApplyFilters = () => {
@@ -567,8 +567,8 @@ export function AttendanceTable({
         const reset = {
             from: undefined,
             to: undefined,
-            memberId: undefined,
-            status: undefined,
+            memberId: [],
+            status: [],
         };
         setTempFilters(reset);
         setActiveFilters(reset);
@@ -577,8 +577,8 @@ export function AttendanceTable({
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
-        if (activeFilters.memberId) count++;
-        if (activeFilters.status) count++;
+        count += activeFilters.memberId.length;
+        count += activeFilters.status.length;
         if (activeFilters.from || activeFilters.to) count++;
         return count;
     }, [activeFilters]);
@@ -695,33 +695,25 @@ export function AttendanceTable({
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Member</h4>
-                                        {tempFilters.memberId && (
+                                        {tempFilters.memberId.length > 0 && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
+                                                onClick={() => setTempFilters(prev => ({ ...prev, memberId: [] }))}
                                                 className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                             >
                                                 CLEAR
                                             </Button>
                                         )}
                                     </div>
-                                    <Select
-                                        value={tempFilters.memberId || "all"}
-                                        onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
-                                    >
-                                        <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                            <SelectValue placeholder="All Members" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Members</SelectItem>
-                                            {memberOptions.map((m) => (
-                                                <SelectItem key={m.value} value={m.value} className="text-sm">
-                                                    {m.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <MultiSelectFilter
+                                        selected={tempFilters.memberId}
+                                        onChange={(values) => setTempFilters(prev => ({ ...prev, memberId: values }))}
+                                        options={memberOptions}
+                                        placeholder="All Members"
+                                        searchPlaceholder="Search members..."
+                                        triggerClassName="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                    />
                                 </div>
                             )}
 
@@ -729,33 +721,31 @@ export function AttendanceTable({
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Status</h4>
-                                    {tempFilters.status && (
+                                    {tempFilters.status.length > 0 && (
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => setTempFilters(prev => ({ ...prev, status: undefined }))}
+                                            onClick={() => setTempFilters(prev => ({ ...prev, status: [] }))}
                                             className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                         >
                                             CLEAR
                                         </Button>
                                     )}
                                 </div>
-                                <Select
-                                    value={tempFilters.status || "all"}
-                                    onValueChange={(val) => setTempFilters(prev => ({ ...prev, status: val === "all" ? undefined : val }))}
-                                >
-                                    <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                        <SelectValue placeholder="All Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Status</SelectItem>
-                                        <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
-                                        <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
-                                        <SelectItem value="LATE" className="text-sm">Late</SelectItem>
-                                        <SelectItem value="HALF_DAY" className="text-sm">Half Day</SelectItem>
-                                        <SelectItem value="ON_LEAVE" className="text-sm">On Leave</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <MultiSelectFilter
+                                    selected={tempFilters.status}
+                                    onChange={(values) => setTempFilters(prev => ({ ...prev, status: values }))}
+                                    options={[
+                                        { value: "PRESENT", label: "Present" },
+                                        { value: "ABSENT", label: "Absent" },
+                                        { value: "LATE", label: "Late" },
+                                        { value: "HALF_DAY", label: "Half Day" },
+                                        { value: "ON_LEAVE", label: "On Leave" },
+                                    ]}
+                                    placeholder="All Statuses"
+                                    searchPlaceholder="Search statuses..."
+                                    triggerClassName="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                />
                             </div>
 
                             {/* Date Range Filter */}

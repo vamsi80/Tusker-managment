@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -111,8 +112,8 @@ export function ProcurementHubClient({
   // Tab 3: Materials Data (the 3-panel layout)
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [projectFilter, setProjectFilter] = useState<string>("ALL");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [projectFilter, setProjectFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [materialSearch, setMaterialSearch] = useState("");
 
   // Loaded material details
@@ -202,7 +203,10 @@ export function ProcurementHubClient({
   // Fetch Line Items for Materials Tab
   const fetchLineItems = async () => {
     try {
-      const url = `/api/v1/procurement/indents/line-items?w=${workspaceId}&projectId=${projectFilter}&status=${statusFilter}`;
+      const params = new URLSearchParams({ w: workspaceId });
+      if (projectFilter.length > 0) params.set("projectId", JSON.stringify(projectFilter));
+      if (statusFilter.length > 0) params.set("status", JSON.stringify(statusFilter));
+      const url = `/api/v1/procurement/indents/line-items?${params.toString()}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
@@ -740,36 +744,32 @@ export function ProcurementHubClient({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
                     <Label className="text-[10px] text-muted-foreground uppercase font-bold">Project</Label>
-                    <Select value={projectFilter} onValueChange={setProjectFilter}>
-                      <SelectTrigger className="h-7 text-xs px-2">
-                        <SelectValue placeholder="All Projects" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All Projects</SelectItem>
-                        {projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                      selected={projectFilter}
+                      onChange={setProjectFilter}
+                      options={projects.map((project) => ({ value: project.id, label: project.name }))}
+                      placeholder="All Projects"
+                      searchPlaceholder="Search projects..."
+                      triggerClassName="h-7 text-xs px-2"
+                    />
                   </div>
 
                   <div className="flex flex-col gap-1">
                     <Label className="text-[10px] text-muted-foreground uppercase font-bold">Status</Label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-7 text-xs px-2">
-                        <SelectValue placeholder="All Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All Status</SelectItem>
-                        <SelectItem value="PENDING">Pending RFQ</SelectItem>
-                        <SelectItem value="RFQ_SENT">RFQ Sent</SelectItem>
-                        <SelectItem value="QUOTES_RECEIVED">Quotes Received</SelectItem>
-                        <SelectItem value="APPROVED">Approved</SelectItem>
-                        <SelectItem value="PO_CREATED">PO Created</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                      selected={statusFilter}
+                      onChange={setStatusFilter}
+                      options={[
+                        { value: "PENDING", label: "Pending RFQ" },
+                        { value: "RFQ_SENT", label: "RFQ Sent" },
+                        { value: "QUOTES_RECEIVED", label: "Quotes Received" },
+                        { value: "APPROVED", label: "Approved" },
+                        { value: "PO_CREATED", label: "PO Created" },
+                      ]}
+                      placeholder="All Statuses"
+                      searchPlaceholder="Search statuses..."
+                      triggerClassName="h-7 text-xs px-2"
+                    />
                   </div>
                 </div>
               </div>

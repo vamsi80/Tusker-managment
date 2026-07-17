@@ -10,10 +10,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { cn } from "@/lib/utils";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ReportDetailModal } from "./report-detail-sheet";
-import { Loader2, CalendarIcon, UserIcon, X, ChevronDown, Clock, Search, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
+import { Loader2, CalendarIcon, X, ChevronDown, Clock, Search, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useWorkspaceMemberStore, useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
@@ -21,12 +21,12 @@ interface Props {
     initialData: any[];
     workspaceId: string;
     initialDate?: string;
-    initialUserId?: string;
+    initialUserIds?: string[];
     isAdmin: boolean;
     currentUserId: string;
 }
 
-export function ReportsTable({ initialData, workspaceId, initialDate, initialUserId, isAdmin, currentUserId }: Props) {
+export function ReportsTable({ initialData, workspaceId, initialDate, initialUserIds = [], isAdmin, currentUserId }: Props) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -57,10 +57,6 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
         setSkip(30);
         setHasMore(initialData.length >= 30);
     }, [initialData]);
-
-    const selectedMember = useMemo(() => {
-        return members.find(m => m.userId === initialUserId);
-    }, [members, initialUserId]);
 
     const toggleDate = (dateStr: string) => {
         setExpandedDates(prev => ({ ...prev, [dateStr]: !prev[dateStr] }));
@@ -103,7 +99,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
             });
 
             const membersToConsider = isAdmin
-                ? (initialUserId ? members.filter(m => m.userId === initialUserId) : members)
+                ? (initialUserIds.length > 0 ? members.filter(m => initialUserIds.includes(m.userId)) : members)
                 : members.filter(m => m.userId === currentUserId);
 
             result[dateStr] = membersToConsider.map(member => {
@@ -125,7 +121,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
             });
         });
         return result;
-    }, [data, members, isAdmin, initialUserId, currentUserId, initialDate, workspaceId]);
+    }, [data, members, isAdmin, initialUserIds, currentUserId, initialDate, workspaceId]);
 
     const toggleAll = useCallback(() => {
         const anyExpanded = Object.values(expandedDates).some(v => v);
@@ -186,7 +182,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
             const response = await apiClient.reports.getReports({
                 workspaceId,
                 date: initialDate,
-                userId: initialUserId,
+                userId: initialUserIds.length > 0 ? initialUserIds : undefined,
                 skip: skip,
                 take: 30
             });
@@ -202,7 +198,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
         } finally {
             setIsLoadingMore(false);
         }
-    }, [workspaceId, initialDate, initialUserId, skip, isLoadingMore, hasMore]);
+    }, [workspaceId, initialDate, initialUserIds, skip, isLoadingMore, hasMore]);
 
     // Infinite scroll observer
     const observerRef = React.useRef<HTMLDivElement>(null);
@@ -490,49 +486,20 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
 
                 <div className="ml-auto flex items-center gap-2">
                     {isAdmin && (
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={isMembersLoading}
-                                    className={cn(
-                                        "h-9 justify-start text-left font-normal border-dashed",
-                                        !initialUserId && "text-muted-foreground"
-                                    )}
-                                >
-                                    {isMembersLoading ? (
-                                        <Loader2 className="mr-2 size-4 animate-spin" />
-                                    ) : (
-                                        <UserIcon className="mr-2 size-4" />
-                                    )}
-                                    {isMembersLoading ? "Loading Members..." : (selectedMember ? `${selectedMember.surname || ""}` : "All Assignees")}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[200px]" align="end">
-                                <Command>
-                                    <CommandInput placeholder="Search assignee..." />
-                                    <CommandList>
-                                        <CommandEmpty>No assignee found.</CommandEmpty>
-                                        <CommandGroup>
-                                            <CommandItem
-                                                onSelect={() => updateFilters({ userId: undefined })}
-                                            >
-                                                All members
-                                            </CommandItem>
-                                            {members.map((m) => (
-                                                <CommandItem
-                                                    key={m.userId}
-                                                    onSelect={() => updateFilters({ userId: m.userId })}
-                                                >
-                                                    {m.surname}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <MultiSelectFilter
+                            selected={initialUserIds}
+                            onChange={(values) => updateFilters({
+                                userId: values.length > 0 ? JSON.stringify(values) : undefined,
+                            })}
+                            options={members.map((member) => ({
+                                value: member.userId,
+                                label: member.surname || member.name || member.email || "Unnamed member",
+                            }))}
+                            placeholder={isMembersLoading ? "Loading Members..." : "All Assignees"}
+                            searchPlaceholder="Search assignees..."
+                            disabled={isMembersLoading}
+                            triggerClassName="h-9 w-[200px] justify-start border-dashed text-left"
+                        />
                     )}
 
                     <Popover>
@@ -559,7 +526,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                         </PopoverContent>
                     </Popover>
 
-                    {(initialDate || (isAdmin && initialUserId)) && (
+                    {(initialDate || (isAdmin && initialUserIds.length > 0)) && (
                         <Button
                             variant="ghost"
                             size="sm"

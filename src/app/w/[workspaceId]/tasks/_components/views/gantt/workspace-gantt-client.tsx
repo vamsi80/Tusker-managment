@@ -53,7 +53,9 @@ export function WorkspaceGanttClient({
       projects.filter(
         (p: any) =>
           !filters.assigneeId ||
-          (p.memberIds && p.memberIds.includes(filters.assigneeId)),
+          (p.memberIds && (Array.isArray(filters.assigneeId)
+            ? filters.assigneeId.some((memberId) => p.memberIds.includes(memberId))
+            : p.memberIds.includes(filters.assigneeId))),
       ),
     [projects, filters.assigneeId],
   );

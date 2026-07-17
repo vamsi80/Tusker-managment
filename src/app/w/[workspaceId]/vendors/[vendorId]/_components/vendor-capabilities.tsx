@@ -185,6 +185,8 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
       {
         accessorKey: "serviceType",
         header: "Service Type",
+        filterFn: (row, columnId, filterValue: string[]) =>
+          !filterValue?.length || filterValue.includes(row.getValue(columnId) as string),
         cell: ({ row }) => {
           const serviceType = row.original.serviceType;
           return (
@@ -206,6 +208,8 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
       {
         accessorKey: "source",
         header: "Source",
+        filterFn: (row, columnId, filterValue: string[]) =>
+          !filterValue?.length || filterValue.includes(row.getValue(columnId) as string),
         cell: ({ row }) => {
           const source = row.original.source;
           return (

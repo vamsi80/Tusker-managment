@@ -365,18 +365,26 @@ export class AttendanceService {
                     }
                 }
 
-                // If a specific member filter is requested from UI, ensure it's within allowed list
-                let finalMemberIdFilter = filters?.memberId;
-                if (allowedMemberIds && finalMemberIdFilter && !allowedMemberIds.includes(finalMemberIdFilter)) {
-                    // Unauthorized member filter requested - fallback to empty or restricted set
-                    finalMemberIdFilter = "UNAUTHORIZED_ACCESS";
+                // If member filters are requested, ensure every requested member is in scope.
+                const requestedMemberIds = filters?.memberId
+                    ? (Array.isArray(filters.memberId) ? filters.memberId : [filters.memberId])
+                    : [];
+                let finalMemberIds = requestedMemberIds;
+                if (allowedMemberIds && requestedMemberIds.some((id) => !allowedMemberIds.includes(id))) {
+                    finalMemberIds = ["UNAUTHORIZED_ACCESS"];
                 }
+                const memberWhere = finalMemberIds.length > 0
+                    ? { workspaceMemberId: { in: finalMemberIds } }
+                    : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {});
+                const statusFilters = filters?.status
+                    ? (Array.isArray(filters.status) ? filters.status : [filters.status])
+                    : [];
 
                 const where: any = {
                     workspaceId,
                     ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : {}),
-                    ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
-                    ...(filters?.status ? { status: filters.status } : {}),
+                    ...memberWhere,
+                    ...(statusFilters.length > 0 ? { status: { in: statusFilters } } : {}),
                 };
 
                 if (filters?.search) {
@@ -396,13 +404,13 @@ export class AttendanceService {
                     AttendanceRepository.countRecords(where)
                 ]);
 
-                if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
+                if (statusFilters.length === 0 || statusFilters.includes(AttendanceStatus.ON_LEAVE)) {
                     const approvedLeaves = await (prisma as any).leave_request.findMany({
                         where: {
                             workspaceId,
                             status: "APPROVED",
                             ...(startDate && endDate ? { startDate: { lte: endDate }, endDate: { gte: startDate } } : {}),
-                            ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
+                            ...memberWhere,
                             ...(filters?.search ? {
                                 WorkspaceMember: {
                                     user: {

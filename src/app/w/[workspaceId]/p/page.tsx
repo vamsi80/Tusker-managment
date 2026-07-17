@@ -69,7 +69,7 @@ const getRoleDetails = (proj: any, isWorkspaceAdmin: boolean) => {
 export default function WorkspaceProjectsPage() {
   const { data: layoutData, workspaceId, isLoading } = useWorkspaceLayout();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("ALL");
+  const [selectedRoleFilters, setSelectedRoleFilters] = useState<string[]>([]);
 
   const projects = layoutData.projects || [];
   const isWorkspaceAdmin = layoutData.permissions?.isWorkspaceAdmin || false;
@@ -88,12 +88,12 @@ export default function WorkspaceProjectsPage() {
       const matchesSearch = proj.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (proj.description && proj.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchesRole = selectedRoleFilter === "ALL" || 
-        proj.projectRole === selectedRoleFilter;
+      const matchesRole = selectedRoleFilters.length === 0 ||
+        selectedRoleFilters.includes(proj.projectRole);
 
       return matchesSearch && matchesRole;
     });
-  }, [projects, searchQuery, selectedRoleFilter]);
+  }, [projects, searchQuery, selectedRoleFilters]);
 
   if (isLoading) {
     return (
@@ -164,10 +164,10 @@ export default function WorkspaceProjectsPage() {
         {/* Custom Tab Filters */}
         <div className="flex flex-wrap gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/40 self-start md:self-auto overflow-x-auto scrollbar-none max-w-full">
           <button
-            onClick={() => setSelectedRoleFilter("ALL")}
+            onClick={() => setSelectedRoleFilters([])}
             className={cn(
               "px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap",
-              selectedRoleFilter === "ALL"
+              selectedRoleFilters.length === 0
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground/80 hover:text-foreground"
             )}
@@ -180,10 +180,14 @@ export default function WorkspaceProjectsPage() {
             return (
               <button
                 key={role}
-                onClick={() => setSelectedRoleFilter(role)}
+                onClick={() => setSelectedRoleFilters((current) =>
+                  current.includes(role)
+                    ? current.filter((item) => item !== role)
+                    : [...current, role]
+                )}
                 className={cn(
                   "px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap",
-                  selectedRoleFilter === role
+                  selectedRoleFilters.includes(role)
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground/80 hover:text-foreground"
                 )}
