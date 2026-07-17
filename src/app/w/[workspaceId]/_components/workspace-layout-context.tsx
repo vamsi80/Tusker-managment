@@ -80,6 +80,7 @@ export function WorkspaceLayoutProvider({
         reportingManagerName: null,
         leadProjectIds: [],
         managedProjectIds: [],
+        coordinatorProjectIds: [],
         memberProjectIds: [],
         viewerProjectIds: [],
       },

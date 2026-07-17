@@ -108,7 +108,7 @@ export class IndentRepository {
       unit: string;
       quantity: number;
       estimatedUnitPrice?: number;
-      specifications?: string;
+      specifications?: string | null;
     }[];
   }) {
     return prisma.$transaction(async (tx) => {

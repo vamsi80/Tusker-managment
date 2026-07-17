@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+﻿import { Skeleton } from "@/components/ui/skeleton";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ColumnVisibility } from "../shared/column-visibility";
 
@@ -44,7 +44,7 @@ export function TaskTableSkeleton() {
                     {/* Table rows */}
                     {[1, 2, 3, 4, 5].map((i) => (
                         <div key={i} className="flex items-center gap-4 py-3">
-                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="size-8" />
                             <Skeleton className="h-6 w-64" />
                             <Skeleton className="h-6 w-40" />
                             <Skeleton className="h-6 w-32" />
@@ -81,3 +81,4 @@ export function SubTaskSkeleton({ columnVisibility, count = 1 }: SubTaskSkeleton
         </>
     );
 }
+

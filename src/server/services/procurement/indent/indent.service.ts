@@ -17,7 +17,7 @@ export class IndentService {
         unit: string;
         quantity: number;
         estimatedUnitPrice?: number;
-        specifications?: string;
+        specifications?: string | null;
       }[];
     },
     userId: string
@@ -118,15 +118,27 @@ export class IndentService {
       unit: string;
       quantity: number;
       estimatedUnitPrice?: number;
-      specifications?: string;
+      specifications?: string | null;
     },
     userId: string,
     workspaceId: string
   ) {
     const indent = await IndentRepository.findById(indentId);
     if (!indent) throw AppError.NotFound("Indent not found");
+
+    const allowedStatuses = ["DRAFT", "SUBMITTED", "ASSIGNED"];
+    if (!allowedStatuses.includes(indent.status)) {
+      throw AppError.Conflict(`Cannot add items for an indent that is already ${indent.status}`);
+    }
+
+    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
+    if (!member) throw AppError.Forbidden("Not a workspace member");
+
     if (indent.status !== "DRAFT") {
-      throw AppError.Conflict("Can only add items to an indent in DRAFT status");
+      const allowedRoles = ["OWNER", "ADMIN", "MANAGER"];
+      if (!allowedRoles.includes(member.workspaceRole)) {
+        throw AppError.Forbidden("Only owners, admins, and managers can add items after submission");
+      }
     }
 
     return prisma.indentLineItem.create({
@@ -145,8 +157,20 @@ export class IndentService {
   static async removeLineItem(indentId: string, itemId: string, userId: string, workspaceId: string) {
     const indent = await IndentRepository.findById(indentId);
     if (!indent) throw AppError.NotFound("Indent not found");
+
+    const allowedStatuses = ["DRAFT", "SUBMITTED", "ASSIGNED"];
+    if (!allowedStatuses.includes(indent.status)) {
+      throw AppError.Conflict(`Cannot remove items from an indent that is already ${indent.status}`);
+    }
+
+    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
+    if (!member) throw AppError.Forbidden("Not a workspace member");
+
     if (indent.status !== "DRAFT") {
-      throw AppError.Conflict("Can only remove items from an indent in DRAFT status");
+      const allowedRoles = ["OWNER", "ADMIN", "MANAGER"];
+      if (!allowedRoles.includes(member.workspaceRole)) {
+        throw AppError.Forbidden("Only owners, admins, and managers can remove items after submission");
+      }
     }
 
     const item = await prisma.indentLineItem.findUnique({
@@ -158,6 +182,56 @@ export class IndentService {
 
     return prisma.indentLineItem.delete({
       where: { id: itemId },
+    });
+  }
+
+  static async updateLineItem(
+    indentId: string,
+    itemId: string,
+    data: {
+      materialName?: string;
+      unit?: string;
+      quantity?: number;
+      estimatedUnitPrice?: number;
+      specifications?: string | null;
+    },
+    userId: string,
+    workspaceId: string
+  ) {
+    const indent = await IndentRepository.findById(indentId);
+    if (!indent) throw AppError.NotFound("Indent not found");
+
+    const allowedStatuses = ["DRAFT", "SUBMITTED", "ASSIGNED"];
+    if (!allowedStatuses.includes(indent.status)) {
+      throw AppError.Conflict(`Cannot update items of an indent that is already ${indent.status}`);
+    }
+
+    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
+    if (!member) throw AppError.Forbidden("Not a workspace member");
+
+    if (indent.status !== "DRAFT") {
+      const allowedRoles = ["OWNER", "ADMIN", "MANAGER"];
+      if (!allowedRoles.includes(member.workspaceRole)) {
+        throw AppError.Forbidden("Only owners, admins, and managers can update items after submission");
+      }
+    }
+
+    const item = await prisma.indentLineItem.findUnique({
+      where: { id: itemId },
+    });
+    if (!item || item.indentId !== indentId) {
+      throw AppError.NotFound("Line item not found in this indent");
+    }
+
+    return prisma.indentLineItem.update({
+      where: { id: itemId },
+      data: {
+        materialName: data.materialName,
+        unit: data.unit,
+        quantity: data.quantity,
+        estimatedUnitPrice: data.estimatedUnitPrice,
+        specifications: data.specifications,
+      },
     });
   }
 }

@@ -1,4 +1,4 @@
-const GradientAvatar = ({ name }: { name: string }) => {
+﻿const GradientAvatar = ({ name }: { name: string }) => {
   const firstLetter = name?.charAt(0).toUpperCase() ?? "W";
 
   // pick 1 gradient based on the name (consistent)
@@ -15,10 +15,11 @@ const GradientAvatar = ({ name }: { name: string }) => {
 
   return (
     <div
-      className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br ${gradient} text-white font-semibold`}
+      className={`size-8 flex items-center justify-center rounded-full bg-gradient-to-br ${gradient} text-white font-semibold`}
     >
       {firstLetter}
     </div>
   );
 };
 export default GradientAvatar;
+

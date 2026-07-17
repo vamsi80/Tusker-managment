@@ -66,7 +66,8 @@ export class ProjectRepository {
           include: {
             clintMembers: true
           }
-        }
+        },
+        tags: true
       }
     });
   }
@@ -189,6 +190,50 @@ export class ProjectRepository {
     return prisma.tag.findMany({
       where: { workspaceId },
       orderBy: { name: "asc" }
+    });
+  }
+
+  static async getProjectTags(projectId: string) {
+    const projectTags = await prisma.tag.findMany({
+      where: {
+        projects: {
+          some: {
+            id: projectId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        workspaceId: true,
+        requirePurchase: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    if (projectTags.length > 0) {
+      return projectTags;
+    }
+
+    return prisma.tag.findMany({
+      where: {
+        tasks: {
+          some: {
+            projectId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        workspaceId: true,
+        requirePurchase: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
     });
   }
 

@@ -39,8 +39,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
     { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
     { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
-    // { id: "vendors", title: "Vendors", url: `/w/${workspaceId}/vendors`, icon: Truck },
-    // { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck },
   ];
 
   const footerNavItems: Array<{

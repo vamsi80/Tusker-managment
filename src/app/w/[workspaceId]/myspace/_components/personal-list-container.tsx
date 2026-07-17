@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Plus, 
-  Trash2, 
-  Loader2, 
-  CheckCircle2, 
-  Circle, 
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  Circle,
   Check,
   GripVertical
 } from "lucide-react";
@@ -30,7 +29,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -110,50 +110,69 @@ function TodoItem({
           {...attributes}
           {...listeners}
           className={cn(
-            "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity",
-            isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity select-none touch-none",
+            isDragging ? "opacity-100" : "opacity-70 lg:opacity-0 lg:group-hover:opacity-100"
           )}
+          style={{
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitTouchCallout: "none",
+          }}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="size-4" />
         </div>
       )}
-      
-      <button 
+
+      <button
         onClick={() => handleToggleTodo(todo.id)}
         className={cn(
           "mt-1 shrink-0 transition-all active:scale-90",
           todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary"
         )}
       >
-        {todo.completed ? <CheckCircle2 className="h-4.5 w-4.5" /> : <Circle className="h-4.5 w-4.5 stroke-[2px]" />}
+        {todo.completed ? <CheckCircle2 className="size-4.5" /> : <Circle className="size-4.5 stroke-[2px]" />}
       </button>
-      
+
       <div className="flex-1 min-w-0">
         {editingId === todo.id ? (
           <div className="flex items-center gap-2">
-            <Input
+            <textarea
               autoFocus
               value={editingText}
               onChange={(e) => setEditingText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleEditTodo(todo.id);
+                const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+                if (e.key === "Enter" && !e.shiftKey && !isMobile) {
+                  e.preventDefault();
+                  handleEditTodo(todo.id);
+                }
                 if (e.key === "Escape") setEditingId(null);
               }}
-              className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium shadow-none"
+              rows={1}
+              className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium shadow-none resize-none p-0 focus:outline-none focus-visible:ring-0"
+              style={{ height: "auto" }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = `${el.scrollHeight}px`;
+                }
+              }}
             />
             <button onClick={() => handleEditTodo(todo.id)} className="text-primary hover:text-primary/80 transition-colors">
-              <Check className="h-3.5 w-3.5" />
+              <Check className="size-3.5" />
             </button>
           </div>
         ) : (
-          <p 
+          <p
             onClick={() => {
-              setEditingId(todo.id);
-              setEditingText(todo.text);
+              if (!todo.completed) {
+                setEditingId(todo.id);
+                setEditingText(todo.text);
+              }
             }}
             className={cn(
-              "text-base font-medium leading-relaxed transition-all cursor-text",
-              todo.completed && "line-through text-muted-foreground/80 font-normal"
+              "text-base font-medium leading-relaxed transition-all whitespace-pre-wrap",
+              todo.completed ? "line-through text-muted-foreground/80 font-normal cursor-default" : "cursor-text"
             )}
           >
             {todo.text}
@@ -166,13 +185,13 @@ function TodoItem({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex items-center justify-center"
+            className="size-5 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex items-center justify-center"
             onClick={(e) => {
               e.stopPropagation();
               handleDeleteClick(todo.id);
             }}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="size-3" />
           </Button>
         </div>
       )}
@@ -180,10 +199,10 @@ function TodoItem({
   );
 }
 
-export function PersonalListContainer({ 
-  workspaceId, 
-  hideHeader = false 
-}: { 
+export function PersonalListContainer({
+  workspaceId,
+  hideHeader = false
+}: {
   workspaceId: string;
   hideHeader?: boolean;
 }) {
@@ -325,8 +344,11 @@ export function PersonalListContainer({
   };
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 5 }
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 }
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -345,7 +367,7 @@ export function PersonalListContainer({
       const reorderedActive = arrayMove(activeList, oldIndex, newIndex);
       const completedList = todos.filter(t => t.completed);
       const newTodos = [...reorderedActive, ...completedList];
-      
+
       setTodos(newTodos);
 
       try {
@@ -379,43 +401,72 @@ export function PersonalListContainer({
   );
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col size-full">
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground/20">
-          <Loader2 className="h-6 w-6 animate-spin" />
+          <Loader2 className="size-6 animate-spin" />
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 h-full">
           {/* Column 1: Active Tasks + Input */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-               <span className="text-xs font-bold uppercase tracking-widest text-primary">Ongoing</span>
-               <div className="h-px flex-1 bg-primary/30" />
+              <span className="text-xs font-bold uppercase tracking-widest text-primary">Ongoing</span>
+              <div className="h-px flex-1 bg-primary/30" />
             </div>
 
             {/* Input Row */}
-            <div className="group flex items-start gap-3 py-1.5 transition-all mb-2">
-               <div className="mt-1 shrink-0 text-muted-foreground/50">
-                 {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4.5 w-4.5 stroke-[2px]" />}
-               </div>
-               <form onSubmit={handleAddTodo} className="flex-1 flex items-center gap-2">
-                 <Input
-                   placeholder="Add a new task..."
-                   value={newTodoText}
-                   onChange={(e) => setNewTodoText(e.target.value)}
-                   disabled={isAdding}
-                   className="h-auto p-0 bg-transparent border-0 focus-visible:ring-0 text-base font-medium placeholder:text-muted-foreground/50 shadow-none flex-1"
-                 />
-                 {newTodoText.trim() && !isAdding && (
-                   <button 
-                     type="submit"
-                     className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all active:scale-90 animate-in fade-in slide-in-from-right-2 duration-200"
-                   >
-                     <Check className="h-4 w-4 stroke-[2.5px]" />
-                   </button>
-                 )}
-               </form>
-            </div>
+            <form 
+              onSubmit={handleAddTodo} 
+              className="group flex items-start gap-3 py-2 px-3 transition-all mb-3 rounded-2xl border border-border bg-card/50 hover:bg-card focus-within:bg-card focus-within:border-primary/40 focus-within:shadow-[0_0_0_1px_rgba(var(--primary),0.1)]"
+            >
+              <div className="mt-1 shrink-0 text-muted-foreground/35 group-focus-within:text-primary/50 transition-colors">
+                <Circle className="size-4.5 stroke-[2px]" />
+              </div>
+              <textarea
+                placeholder="Add a new task..."
+                value={newTodoText}
+                onChange={(e) => setNewTodoText(e.target.value)}
+                onKeyDown={(e) => {
+                  const isMobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+                  if (e.key === "Enter" && !e.shiftKey && !isMobile) {
+                    e.preventDefault();
+                    if (newTodoText.trim() && !isAdding) {
+                      handleAddTodo(e);
+                    }
+                  }
+                }}
+                disabled={isAdding}
+                rows={1}
+                className="w-full bg-transparent border-0 focus:ring-0 text-base font-medium placeholder:text-muted-foreground/40 resize-none min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none flex-1 focus-visible:ring-0 shadow-none p-0 focus:outline-none"
+                style={{ height: "auto" }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = "auto";
+                    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                disabled={isAdding || !newTodoText.trim()}
+                className={cn(
+                  "shrink-0 transition-all duration-300 outline-none rounded-xl p-1.5 flex items-center justify-center shadow-md",
+                  newTodoText.trim() && !isAdding
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-90 cursor-pointer shadow-primary/20"
+                    : "bg-primary/40 text-primary-foreground/40 cursor-not-allowed opacity-60 shadow-none"
+                )}
+                aria-label="Add task"
+              >
+                {isAdding ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : newTodoText.trim() ? (
+                  <Check className="size-4 stroke-[3px] animate-in zoom-in-50 duration-300" />
+                ) : (
+                  <Plus className="size-4 stroke-[2.5px] transition-transform duration-300 group-hover:rotate-90" />
+                )}
+              </button>
+            </form>
 
             <ScrollArea className="flex-1">
               <DndContext
@@ -443,10 +494,10 @@ export function PersonalListContainer({
           {/* Column 2: Completed Tasks */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-               <span className="text-xs font-bold uppercase tracking-widest text-emerald-500/80">Completed</span>
-               <div className="h-px flex-1 bg-emerald-500/20" />
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-500/80">Completed</span>
+              <div className="h-px flex-1 bg-emerald-500/20" />
             </div>
-            
+
             <ScrollArea className="flex-1">
               <div className="flex flex-col px-2">
                 {completedTodos.length === 0 ? (
@@ -468,14 +519,14 @@ export function PersonalListContainer({
               {pendingAction?.type === 'delete' ? "Delete Task?" : "Restore Task?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base font-medium text-muted-foreground">
-              {pendingAction?.type === 'delete' 
-                ? "This action cannot be undone. This task will be permanently removed from your personal space." 
+              {pendingAction?.type === 'delete'
+                ? "This action cannot be undone. This task will be permanently removed from your personal space."
                 : "This task will be moved back to your ongoing list."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="rounded-xl border-none bg-muted hover:bg-muted/80 font-bold">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleConfirmAction}
               className={cn(
                 "rounded-xl font-bold",

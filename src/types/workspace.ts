@@ -95,6 +95,7 @@ export interface WorkspaceLayoutData {
     reportingManagerName: string | null;
     leadProjectIds: string[];
     managedProjectIds: string[];
+    coordinatorProjectIds?: string[];
     memberProjectIds?: string[];
     viewerProjectIds?: string[];
   };

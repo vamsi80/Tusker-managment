@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="w-full py-8 text-center">Loading…</div>}>
+    <Suspense fallback={<div className="w-full py-8 text-center">Loading...</div>}>
       <VerifyRequestClient />
     </Suspense>
   )

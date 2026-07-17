@@ -205,7 +205,7 @@ export function ProjectProcurementClient({
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
         <div>
           <h1 className="text-base font-bold text-foreground flex items-center gap-1.5">
-            <AlignLeft className="h-4.5 w-4.5 text-primary" /> Procurement
+            <AlignLeft className="size-4.5 text-primary" /> Procurement
           </h1>
           <p className="text-[11px] text-muted-foreground">
             Manage material requests, track indents, and view required materials.
@@ -215,13 +215,13 @@ export function ProjectProcurementClient({
           onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
           className="h-8 text-xs px-3"
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> Create New Indent
+          <Plus className="mr-1.5 size-3.5" /> Create New Indent
         </Button>
       </div>
 
       {indents.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border/80 rounded-lg p-8 bg-muted/5">
-          <PackageSearch className="h-10 w-10 text-muted-foreground/40 mb-3" />
+          <PackageSearch className="size-10 text-muted-foreground/40 mb-3" />
           <h3 className="text-sm font-bold text-foreground">No Indents Created Yet</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-[280px] text-center">
             Create your first material request to track line items and vendor quotes.
@@ -230,7 +230,7 @@ export function ProjectProcurementClient({
             onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
             className="h-8 text-xs mt-4"
           >
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Create First Indent
+            <Plus className="mr-1.5 size-3.5" /> Create First Indent
           </Button>
         </div>
       ) : (
@@ -272,14 +272,14 @@ export function ProjectProcurementClient({
                     </div>
                     <div className="flex items-center justify-between border-t border-border/40 pt-2 mt-1 text-[10px] text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
+                        <User className="size-3" />
                         <span className="truncate max-w-[120px]">
                           {indent.requestedBy?.user?.name || "Member"}
                         </span>
                       </div>
                       {indent.expectedDelivery && (
                         <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
+                          <Calendar className="size-3" />
                           <span>
                             {format(new Date(indent.expectedDelivery), "MMM d, yyyy")}
                           </span>
@@ -321,7 +321,7 @@ export function ProjectProcurementClient({
                       {getStatusBadge(selectedIndent.status)}
                       {selectedIndent.expectedDelivery && (
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40">
-                          <Calendar className="h-3 w-3 text-primary" />
+                          <Calendar className="size-3 text-primary" />
                           <span>Delivery: {format(new Date(selectedIndent.expectedDelivery), "MMM d, yyyy")}</span>
                         </div>
                       )}
@@ -346,7 +346,7 @@ export function ProjectProcurementClient({
                         disabled={isSubmitting || selectedIndent.lineItems.length === 0}
                         className="h-7 text-xs px-2.5 bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1 shrink-0"
                       >
-                        <Send className="h-3 w-3" />
+                        <Send className="size-3" />
                         {isSubmitting ? "Submitting..." : "Submit for Approval"}
                       </Button>
                     )}
@@ -387,7 +387,7 @@ export function ProjectProcurementClient({
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
-                <PackageSearch className="h-10 w-10 opacity-20 mb-2" />
+                <PackageSearch className="size-10 opacity-20 mb-2" />
                 <p className="text-xs">Select a request from the left panel to inspect required materials.</p>
               </div>
             )}

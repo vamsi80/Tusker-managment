@@ -89,7 +89,7 @@ export class ProjectMapper {
       color: project.color,
       workspaceId: project.workspaceId,
       userId,
-      canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER"),
+      canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER" || projectMember?.projectRole === "PROJECT_COORDINATOR"),
       userRole
     };
   }
@@ -118,7 +118,7 @@ export class ProjectMapper {
         id: project.projectManager.user.id,
         surname: project.projectManager.user.surname,
       } : undefined,
-      memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMember.userId),
+      memberAccess: project.projectMembers.map((pm: any) => pm.workspaceMemberId),
       projectMembers,
       companyName: project.clint?.name || null,
       registeredCompanyName: project.clint?.registeredCompanyName || null,
@@ -127,6 +127,7 @@ export class ProjectMapper {
       gstNumber: project.clint?.gstNumber || null,
       contactPerson: project.clint?.clintMembers[0]?.name || null,
       phoneNumber: project.clint?.clintMembers[0]?.phoneNumber || null,
+      tagIds: project.tags?.map((t: any) => t.id) || [],
     };
   }
 
@@ -136,16 +137,18 @@ export class ProjectMapper {
   static toPermissions(workspaceMember: any, projectMember: any) {
     const isWAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
     const isPManager = isWAdmin || projectMember?.projectRole === "PROJECT_MANAGER";
+    const isCoordinator = !isWAdmin && projectMember?.projectRole === "PROJECT_COORDINATOR";
     const isPLead = isWAdmin || projectMember?.projectRole === "LEAD";
-    const isMem = !isWAdmin && !isPManager && !isPLead && !!projectMember;
+    const isMem = !isWAdmin && !isPManager && !isCoordinator && !isPLead && !!projectMember;
 
     return {
       isWorkspaceAdmin: isWAdmin,
       isProjectManager: isPManager,
+      isProjectCoordinator: isCoordinator,
       isProjectLead: isPLead,
       isMember: isMem,
-      canCreateSubTask: isWAdmin || isPManager || isPLead,
-      canPerformBulkOperations: isWAdmin || isPManager || isPLead,
+      canCreateSubTask: isWAdmin || isPManager || isCoordinator || isPLead,
+      canPerformBulkOperations: isWAdmin || isPManager || isCoordinator || isPLead,
       workspaceMemberId: workspaceMember.id,
       workspaceRole: workspaceMember.workspaceRole,
       userId: workspaceMember.userId,

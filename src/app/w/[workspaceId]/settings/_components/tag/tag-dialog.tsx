@@ -10,6 +10,7 @@ import { createTag } from "@/actions/tag/create-tag";
 import { updateTag } from "@/actions/tag/update-tag";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { toTitleCase } from "@/lib/utils";
 
 interface Tag {
     id: string;
@@ -26,8 +27,6 @@ interface TagDialogProps {
     isWorkspaceAdmin?: boolean;
 }
 
-
-
 export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isWorkspaceAdmin = false }: TagDialogProps) {
     const [name, setName] = useState(tag?.name || "");
     const [requirePurchase, setRequirePurchase] = useState(tag?.requirePurchase ?? false);
@@ -36,7 +35,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isW
     // Update form when tag changes
     useEffect(() => {
         if (tag) {
-            setName(tag.name);
+            setName(toTitleCase(tag.name));
             // Explicitly handle boolean value - if undefined, default to false
             setRequirePurchase(tag.requirePurchase ?? false);
         } else {
@@ -57,13 +56,14 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isW
         if (!isWorkspaceAdmin) return;
         setIsSubmitting(true);
 
+        const formattedName = toTitleCase(name);
         try {
             const result = tag
-                ? await updateTag({ tagId: tag.id, name, requirePurchase, workspaceId })
-                : await createTag({ name, requirePurchase, workspaceId });
+                ? await updateTag({ tagId: tag.id, name: formattedName, requirePurchase, workspaceId })
+                : await createTag({ name: formattedName, requirePurchase, workspaceId });
 
             if (result.success) {
-                toast.success(`Tag "${name}" has been ${tag ? "updated" : "created"} successfully.`);
+                toast.success(`Tag "${formattedName}" has been ${tag ? "updated" : "created"} successfully.`);
                 onOpenChange(false);
                 setName("");
                 setRequirePurchase(false);
@@ -128,7 +128,7 @@ export function TagDialog({ open, onOpenChange, workspaceId, tag, onSuccess, isW
                             Cancel
                         </Button>
                         <Button type="submit" disabled={isButtonDisabled}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting && <Loader2 className="mr-2 size-4 animate-spin" />}
                             {tag ? "Update" : "Create"}
                         </Button>
                     </DialogFooter>

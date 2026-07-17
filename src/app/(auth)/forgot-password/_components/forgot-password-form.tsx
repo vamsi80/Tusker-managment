@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +92,7 @@ export const ForgotPasswordForm = () => {
           <Button type="submit" disabled={isPending || !email} className="w-full">
             {isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
                 Sending Link...
               </>
             ) : (
@@ -104,7 +104,7 @@ export const ForgotPasswordForm = () => {
               href="/sign-in"
               className="inline-flex items-center text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 size-4" />
               Back to Login
             </Link>
           </div>
@@ -113,3 +113,4 @@ export const ForgotPasswordForm = () => {
     </Card>
   );
 };
+

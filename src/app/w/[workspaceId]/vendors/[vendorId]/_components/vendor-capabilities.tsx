@@ -37,7 +37,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
 
   const fetchExistingTagsAndMaterials = async () => {
     try {
-      const matRes = await fetch(`/api/v1/procurement/vendors/materials/all?w=${workspaceId}`);
+      const matRes = await fetch(`/api/v1/materials?w=${workspaceId}`);
       const matData = await matRes.json();
 
       const tagRes = await fetch(`/api/v1/tags?workspaceId=${workspaceId}`);
@@ -231,9 +231,9 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
               variant="ghost"
               size="icon"
               onClick={() => handleRemoveCapability(row.original.id)}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 size-8"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="size-4" />
             </Button>
           </div>
         ),
@@ -268,6 +268,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                     variant="outline"
                     role="combobox"
                     aria-expanded={popoverOpen}
+                    aria-controls="capabilities-list"
                     className="w-full justify-between h-9 bg-background font-normal text-left border border-input shadow-sm hover:bg-accent hover:text-accent-foreground"
                   >
                     <span className="truncate">
@@ -277,7 +278,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                           ? (existingItems.find((item) => item.id === selectedMaterialId)?.name || "Select Material / Service...")
                           : "Select Material / Service..."}
                     </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
@@ -287,7 +288,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                       value={searchQuery}
                       onValueChange={setSearchQuery}
                     />
-                    <CommandList className="max-h-[200px] overflow-y-auto">
+                    <CommandList id="capabilities-list" className="max-h-[200px] overflow-y-auto">
                       <CommandEmpty className="py-2 text-center text-xs text-muted-foreground">
                         No materials found. Type to create custom.
                       </CommandEmpty>
@@ -301,7 +302,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                             }}
                             className="text-primary font-medium cursor-pointer"
                           >
-                            <Plus className="mr-2 h-4 w-4 text-primary" /> Create new &quot;{searchQuery.trim()}&quot;
+                            <Plus className="mr-2 size-4 text-primary" /> Create new &quot;{searchQuery.trim()}&quot;
                           </CommandItem>
                         )}
                         {existingItems.map((item) => (
@@ -316,7 +317,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                           >
                             <Check
                               className={cn(
-                                "mr-2 h-4 w-4",
+                                "mr-2 size-4",
                                 selectedMaterialId === item.id ? "opacity-100" : "opacity-0"
                               )}
                             />
@@ -333,7 +334,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
               </Popover>
               {selectedMaterialId === "CUSTOM" && (
                 <div className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 mt-1.5 flex items-center gap-1 w-fit uppercase tracking-wider">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   New Material
                 </div>
               )}
@@ -368,7 +369,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
                 className="h-9 w-full p-0 flex items-center justify-center shrink-0"
                 title="Add Capability"
               >
-                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-5 w-5" />}
+                {adding ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-5" />}
               </Button>
             </div>
           </div>

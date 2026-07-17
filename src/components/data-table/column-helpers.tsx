@@ -4,17 +4,8 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronsUpDown, ArrowUp, ArrowDown, MoreVertical } from "lucide-react";
+import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn, formatIST, APP_DATE_FORMAT } from "@/lib/utils";
-import { useMounted } from "@/hooks/use-mounted";
 
 /**
  * Creates a sortable header component
@@ -31,11 +22,11 @@ export function createSortableHeader<T>(
         >
             {title}
             {column.getIsSorted() === "asc" ? (
-                <ArrowUp className="ml-2 h-4 w-4" />
+                <ArrowUp className="ml-2 size-4" />
             ) : column.getIsSorted() === "desc" ? (
-                <ArrowDown className="ml-2 h-4 w-4" />
+                <ArrowDown className="ml-2 size-4" />
             ) : (
-                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                <ChevronsUpDown className="ml-2 size-4 opacity-50" />
             )}
         </Button>
     );
@@ -70,76 +61,8 @@ export function createSelectColumn<T>(): ColumnDef<T> {
     };
 }
 
-/**
- * Row actions component to handle hydration
- */
-export interface DataTableCellAction<T> {
-    label: string;
-    onClick: (row: T) => void;
-    icon?: React.ReactNode;
-    variant?: "default" | "destructive";
-    hidden?: (row: T) => boolean;
-}
-
-/**
- * Row actions component to handle hydration
- */
-function RowActions<T>({
-    row,
-    actions
-}: {
-    row: any;
-    actions: DataTableCellAction<T>[];
-}) {
-    const mounted = useMounted();
-
-    if (!mounted) {
-        return (
-            <div className="flex w-full justify-center">
-                <Button variant="ghost" className="h-8 w-8 p-0" disabled>
-                    <MoreVertical className="h-4 w-4 opacity-50" />
-                </Button>
-            </div>
-        );
-    }
-
-    // Filter out hidden actions
-    const visibleActions = actions.filter(action => !action.hidden?.(row.original));
-
-    if (visibleActions.length === 0) return null;
-
-    return (
-        <div className="flex w-full justify-center">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreVertical className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {visibleActions.map((action, index) => (
-                        <DropdownMenuItem
-                            key={index}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                action.onClick(row.original);
-                            }}
-                            className={cn(
-                                action.variant === "destructive" && "text-destructive focus:text-destructive"
-                            )}
-                        >
-                            {action.icon && <span className="mr-0">{action.icon}</span>}
-                            {action.label}
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
-    );
-}
+import { RowActions } from "./row-actions";
+export { type DataTableCellAction } from "./row-actions";
 
 /**
  * Creates an actions column with dropdown menu
@@ -198,7 +121,7 @@ export function createDateColumn<T>(
         header: ({ column }) => createSortableHeader(column, header),
         cell: ({ row }) => {
             const date = row.getValue(accessorKey) as Date | string;
-            if (!date) return <span className="text-muted-foreground">—</span>;
+            if (!date) return <span className="text-muted-foreground">â€”</span>;
 
             const dateObj = typeof date === "string" ? new Date(date) : date;
 
@@ -232,7 +155,7 @@ export function createTextColumn<T>(
         header: ({ column }) => createSortableHeader(column, header),
         cell: ({ row }) => {
             const value = row.getValue(accessorKey) as string;
-            if (!value) return <span className="text-muted-foreground">—</span>;
+            if (!value) return <span className="text-muted-foreground">â€”</span>;
 
             const displayValue = options?.truncate && value.length > options.truncate
                 ? `${value.substring(0, options.truncate)}...`
@@ -265,7 +188,7 @@ export function createNumberColumn<T>(
         cell: ({ row }) => {
             const value = row.getValue(accessorKey) as number;
             if (value === null || value === undefined) {
-                return <span className="text-muted-foreground">—</span>;
+                return <span className="text-muted-foreground">â€”</span>;
             }
 
             const formatted = options?.decimals !== undefined

@@ -66,6 +66,10 @@ export const CreateSubTaskForm = ({
     const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId);
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
+    const [localTags, setLocalTags] = useState(tags);
+    useEffect(() => {
+        setLocalTags(tags);
+    }, [tags]);
     const filteredParentTasks = useMemo(() => {
         if (level === "workspace" && selectedProjectId) {
             return parentTasks.filter(task => task.projectId === selectedProjectId);
@@ -96,7 +100,7 @@ export const CreateSubTaskForm = ({
             dueDate: format(dueNow),
             assignee: "",
             status: "TO_DO",
-            tagIds: tags.length > 0 ? [tags[0].id] : [],
+            tagIds: [],
             projectId: projectId || (parentTasks.length > 0 ? parentTasks[0].projectId : "") || "",
             parentTaskId: parentTaskId || (parentTasks.length > 0 ? parentTasks[0].id : "") || "",
         };
@@ -369,10 +373,13 @@ export const CreateSubTaskForm = ({
                                     <FormLabel>Tags</FormLabel>
                                     <FormControl>
                                         <MultiSelectTags
-                                            options={tags}
+                                            options={localTags}
                                             selected={field.value || []}
                                             onChange={field.onChange}
                                             placeholder="Select tags..."
+                                            workspaceId={workspaceId}
+                                            projectId={projectId || selectedProjectId}
+                                            onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -487,7 +494,7 @@ export const CreateSubTaskForm = ({
 
                                             <PopoverContent className="p-0 w-64">
                                                 <Command>
-                                                    <CommandInput placeholder="Search members…" />
+                                                    <CommandInput placeholder="Search members..." />
                                                     <CommandList>
                                                         <CommandEmpty>No members found.</CommandEmpty>
                                                         <CommandGroup>
@@ -511,7 +518,7 @@ export const CreateSubTaskForm = ({
                                                                     >
                                                                         <Check
                                                                             className={cn(
-                                                                                "mr-2 h-4 w-4",
+                                                                                "mr-2 size-4",
                                                                                 isSelected ? "opacity-100" : "opacity-0"
                                                                             )}
                                                                         />
@@ -555,7 +562,7 @@ export const CreateSubTaskForm = ({
 
                                             <PopoverContent className="p-0 w-64">
                                                 <Command>
-                                                    <CommandInput placeholder="Search reviewers…" />
+                                                    <CommandInput placeholder="Search reviewers..." />
                                                     <CommandList>
                                                         <CommandEmpty>No reviewers found.</CommandEmpty>
                                                         <CommandGroup>
@@ -574,7 +581,7 @@ export const CreateSubTaskForm = ({
                                                                     >
                                                                         <Check
                                                                             className={cn(
-                                                                                "mr-2 h-4 w-4",
+                                                                                "mr-2 size-4",
                                                                                 isSelected ? "opacity-100" : "opacity-0"
                                                                             )}
                                                                         />
@@ -598,7 +605,7 @@ export const CreateSubTaskForm = ({
                                 {pending ? (
                                     <>
                                         Creating...
-                                        <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                        <Loader2 className="ml-1 size-4 animate-spin" />
                                     </>
                                 ) : (
                                     <>

@@ -11,7 +11,7 @@ import { TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
 import { ProjectMembersType } from "@/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
-import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
 import { toast } from "sonner";
@@ -41,7 +41,7 @@ export function ProjectGanttClient({
     const { data: layoutData } = useWorkspaceLayout();
     const permissions = layoutData.permissions;
     const projects = layoutData.projects || [];
-    const tags = useWorkspaceTags(workspaceId);
+    const tags = useProjectTags(workspaceId, projectId);
 
     const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
     const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, WorkspaceTaskType>>(subtaskDataMap);
@@ -466,7 +466,7 @@ export function ProjectGanttClient({
                 {isPending && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm transition-all duration-300">
                         <div className="flex flex-col items-center gap-2">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <Loader2 className="size-8 animate-spin text-primary" />
                             <span className="text-sm font-medium text-muted-foreground">Filtering...</span>
                         </div>
                     </div>

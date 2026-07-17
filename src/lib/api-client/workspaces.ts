@@ -26,7 +26,7 @@ export interface WorkspacesClient {
     getUnreadCount(workspaceId: string): Promise<number>;
     getAssignmentMaps(workspaceId: string): Promise<any>;
     getTaskCreationData(workspaceId: string): Promise<any>;
-    getTags(workspaceId: string): Promise<any[]>;
+    getTags(workspaceId: string, projectId?: string): Promise<any[]>;
     markNotificationRead(workspaceId: string, id: string): Promise<ApiResponse>;
     update(workspaceId: string, values: Partial<UpdateWorkspaceInfoType>): Promise<ApiResponse>;
 }
@@ -243,8 +243,12 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get workspace tags
      */
-    getTags: async (workspaceId: string): Promise<any[]> => {
-        const response = await apiFetch<{ success: boolean; tags: any[] }>(`/workspace-tags?workspaceId=${workspaceId}`);
+    getTags: async (workspaceId: string, projectId?: string): Promise<any[]> => {
+        let url = `/workspace-tags?workspaceId=${workspaceId}`;
+        if (projectId) {
+            url += `&projectId=${projectId}`;
+        }
+        const response = await apiFetch<{ success: boolean; tags: any[] }>(url);
         return response.tags || [];
     },
 

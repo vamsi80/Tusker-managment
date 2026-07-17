@@ -1,25 +1,14 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
+import { useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import { projectsClient } from "@/lib/api-client/projects";
 import { ProjectMembersType } from "@/types/project";
 import type { UserPermissionsType } from "@/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
-interface ProjectLayoutContextType {
-    projectMembers: ProjectMembersType;
-    projectPermissions: UserPermissionsType;
-    projectManagers: Record<string, any[]>;
-    workspaceTags: any[];
-    workspaceId: string;
-    projectId: string;
-    isLoading: boolean;
-    expandedTasks: Record<string, boolean>;
-    setExpandedTasks: (val: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>)) => void;
-    revalidate: () => Promise<void>;
-}
+import { ProjectLayoutContext, type ProjectLayoutContextType } from "./project-layout-context-object";
 
-export const ProjectLayoutContext = createContext<ProjectLayoutContextType | null>(null);
+import { useProjectTags } from "@/hooks/use-project-tags";
 
 export function ProjectLayoutProvider({
     children,
@@ -35,6 +24,8 @@ export function ProjectLayoutProvider({
     const [projectPermissions, setProjectPermissions] = useState<UserPermissionsType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
+
+    const projectTags = useProjectTags(workspaceId, projectId);
 
     const fetchProjectData = useCallback(async (isSilent = false) => {
         if (!projectId) return;
@@ -76,7 +67,7 @@ export function ProjectLayoutProvider({
             userSurname: null,
             projectMember: null,
         },
-        workspaceTags: workspaceData.tags || [],
+        workspaceTags: projectTags || [],
         workspaceId,
         projectId,
         isLoading,

@@ -42,8 +42,8 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
 
                         <div className="grid grid-cols-2 xl:grid-cols-1 gap-3">
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                                <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                                    <Coffee className="h-4 w-4 text-blue-600" />
+                                <div className="size-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                    <Coffee className="size-4 text-blue-600" />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-[10px] font-normal text-muted-foreground uppercase tracking-widest truncate">Casual</p>
@@ -52,8 +52,8 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
                             </div>
 
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/5 border border-rose-500/10">
-                                <div className="h-9 w-9 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
-                                    <Thermometer className="h-4 w-4 text-rose-600" />
+                                <div className="size-9 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
+                                    <Thermometer className="size-4 text-rose-600" />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-[10px] font-normal text-muted-foreground uppercase tracking-widest truncate">Sick</p>
@@ -65,8 +65,8 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
                         <div className="pt-2 border-t border-muted-foreground/5">
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+                                    <div className="size-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                                        <TrendingUp className="size-4 text-emerald-600" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-[10px] font-normal text-muted-foreground uppercase tracking-widest">Accrual Progress</p>

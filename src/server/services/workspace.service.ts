@@ -1081,7 +1081,8 @@ export class WorkspaceService {
       // Use provided project IDs if available (faster), otherwise fall back to perms
       const privilegedProjectIds = preFetchedProjectIds || [
         ...((perms as any).leadProjectIds || []),
-        ...((perms as any).managedProjectIds || [])
+        ...((perms as any).managedProjectIds || []),
+        ...((perms as any).coordinatorProjectIds || [])
       ];
 
       where.task.OR = [

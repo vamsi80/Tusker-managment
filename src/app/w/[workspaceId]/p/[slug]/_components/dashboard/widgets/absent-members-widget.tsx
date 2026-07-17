@@ -51,7 +51,7 @@ export function AbsentMembersWidget({ allMembers, absentRecords }: AbsentMembers
           <span className="text-xs text-muted-foreground">Not in the office today</span>
         </div>
         <div className="p-1.5 rounded-xl bg-rose-500/10 text-rose-500">
-          <UserMinus className="h-4.5 w-4.5" />
+          <UserMinus className="size-4.5" />
         </div>
       </div>
 
@@ -70,7 +70,7 @@ export function AbsentMembersWidget({ allMembers, absentRecords }: AbsentMembers
               return (
                 <div key={member.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="size-9">
                       <AvatarImage src={user.image || ""} alt={displayName} />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {displayName.substring(0, 2).toUpperCase()}

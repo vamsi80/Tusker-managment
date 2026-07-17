@@ -140,7 +140,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                                     : "border-muted-foreground/20 bg-muted/10 opacity-70"
                             )}>
                                 <Plus className={cn(
-                                    "h-2.5 w-2.5 transition-colors",
+                                    "size-2.5 transition-colors",
                                     isOver ? "text-primary" : "text-muted-foreground/60"
                                 )} />
                                 <span className={cn(
@@ -259,7 +259,7 @@ function DropIndicator() {
             {/* Outer glow bar */}
             <div className="relative flex items-center gap-1.5">
                 {/* Circle handle */}
-                <div className="h-2.5 w-2.5 rounded-full bg-primary border-2 border-background shadow-md shadow-primary/40 shrink-0 animate-pulse" />
+                <div className="size-2.5 rounded-full bg-primary border-2 border-background shadow-md shadow-primary/40 shrink-0 animate-pulse" />
                 {/* Line */}
                 <div
                     className="flex-1 h-0.5 rounded-full bg-primary shadow-[0_0_6px_2px_hsl(var(--primary)/0.4)]"

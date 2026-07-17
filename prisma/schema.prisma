@@ -133,11 +133,12 @@ model Workspace {
   dailyReports           DailyReport[]
   indents                Indent[]
   leaveRequests          leave_request[]
-  vendorCapabilities     VendorMaterialCapability[]
+  materialCatalog        MaterialCatalog[]
   notifications          notification[]
   publicHolidays         public_holiday[]
+  units                  UnitOfMeasure[]
   vendors                Vendor[]
-  materialCatalog        MaterialCatalog[]
+  vendorCapabilities     VendorMaterialCapability[]
 }
 
 model WorkspaceMember {
@@ -171,6 +172,7 @@ model WorkspaceMember {
   leaveRequests          leave_request[]
   memberTodos            MemberTodo[]
   quotesReviewed         VendorQuote[]     @relation("QuoteReviewer")
+  addedMaterialItems     ProjectMaterialItem[]
 
   @@unique([userId, workspaceId])
   @@index([workspaceId, workspaceRole])
@@ -199,6 +201,8 @@ model Project {
   projectMembers   ProjectMember[]
   tasks            Task[]
   indents          Indent[]
+  materialItems    ProjectMaterialItem[]
+  tags             Tag[]            @relation("ProjectTags")
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -266,6 +270,7 @@ model Tag {
   requirePurchase Boolean?  @default(false)
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks           Task[]    @relation("TaskTags")
+  projects        Project[] @relation("ProjectTags")
 
   @@unique([workspaceId, name])
 }
@@ -305,6 +310,7 @@ model Task {
   Task_TaskDependency_A Task[]             @relation("TaskDependency")
   Task_TaskDependency_B Task[]             @relation("TaskDependency")
   tags                  Tag[]              @relation("TaskTags")
+  materialItems         ProjectMaterialItem[]
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
   @@index([workspaceId, status, isParent])
@@ -609,10 +615,10 @@ model MemberTodo {
   memberId    String
   text        String
   completed   Boolean         @default(false)
-  position    Int             @default(0)
   createdAt   DateTime        @default(now())
   completedAt DateTime?
   updatedAt   DateTime        @updatedAt
+  position    Int             @default(0)
   member      WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
@@ -626,8 +632,8 @@ model VendorMaterialCapability {
   unit         String?
   workspaceId  String
   source       String                @default("MANUAL")
-  serviceType  CapabilityServiceType @default(SUPPLY)
   createdAt    DateTime              @default(now())
+  serviceType  CapabilityServiceType @default(SUPPLY)
   vendor       Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   workspace    Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -637,18 +643,36 @@ model VendorMaterialCapability {
 }
 
 model MaterialCatalog {
-  id          String    @id @default(cuid())
-  workspaceId String
-  name        String
-  unit        String?
-  source      String    @default("INDENT") // INDENT | MANUAL
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  workspaceId   String
+  name          String
+  unit          String?
+  source        String         @default("INDENT")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  defaultUnitId String?
+  defaultUnit   UnitOfMeasure? @relation(fields: [defaultUnitId], references: [id])
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("material_catalog")
+}
+
+model UnitOfMeasure {
+  id           String            @id @default(cuid())
+  workspaceId  String
+  name         String
+  abbreviation String
+  category     String?
+  isDefault    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  materials    MaterialCatalog[]
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, abbreviation])
+  @@index([workspaceId])
+  @@map("unit_of_measure")
 }
 
 model Indent {
@@ -719,12 +743,6 @@ model Vendor {
   contactPerson String?
   email         String?
   address       String?
-  addressLine1  String?
-  addressLine2  String?
-  city          String?
-  state         String?
-  pincode       String?
-  country       String?                    @default("India")
   gstNumber     String?
   workspaceId   String
   isActive      Boolean                    @default(true)
@@ -732,6 +750,12 @@ model Vendor {
   updatedAt     DateTime                   @updatedAt
   phoneNumber   String?
   status        VendorStatus               @default(ACTIVE)
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  country       String?                    @default("India")
+  pincode       String?
+  state         String?
   workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   capabilities  VendorMaterialCapability[]
   quotes        VendorQuote[]
@@ -808,6 +832,7 @@ enum ProjectRole {
   MEMBER
   VIEWER
   PROJECT_MANAGER
+  PROJECT_COORDINATOR
 }
 
 enum TaskStatus {
@@ -889,4 +914,28 @@ enum CapabilityServiceType {
   SUPPLY
   LABOUR
   LABOUR_WITH_MATERIAL
+}
+
+model ProjectMaterialItem {
+  id                     String           @id @default(uuid())
+  projectId              String
+  subtaskId              String?          // Nullable to allow SetNull on task deletion
+  subtaskNameSnapshot    String?
+  parentTaskNameSnapshot String?
+  materialName           String
+  unit                   String
+  quantity               Float
+  notes                  String?
+  addedById              String
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtask   Task?           @relation(fields: [subtaskId], references: [id], onDelete: SetNull)
+  addedBy   WorkspaceMember @relation(fields: [addedById], references: [id])
+
+  @@index([projectId])
+  @@index([subtaskId])
+  @@index([materialName])
+  @@map("project_material_item")
 }

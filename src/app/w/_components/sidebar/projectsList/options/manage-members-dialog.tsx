@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -54,7 +54,7 @@ export const ManageProjectMembersDialog = ({
     const [pending, startTransition] = useTransition();
     const [selectedMembersToAdd, setSelectedMembersToAdd] = useState<string[]>([]);
     const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
-    // Local members state — seeded from props, updated immediately on action success
+    // Local members state â€” seeded from props, updated immediately on action success
     const [members, setMembers] = useState<ProjectMember[]>(initialMembers);
     const router = useRouter();
 
@@ -71,6 +71,8 @@ export const ManageProjectMembersDialog = ({
     const availableMembers = workspaceMembers.filter(
         (wm) => !currentMemberUserIds.has(wm.userId) && wm.workspaceRole !== "OWNER" && wm.workspaceRole !== "ADMIN"
     );
+
+    const hasCoordinatorAlready = members.some((m) => m.projectRole === "PROJECT_COORDINATOR");
 
     const handleAddMembers = () => {
         if (selectedMembersToAdd.length === 0) {
@@ -91,7 +93,7 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Members added successfully!");
-                // Optimistic update — add newly selected members immediately
+                // Optimistic update â€” add newly selected members immediately
                 const newEntries: ProjectMember[] = selectedMembersToAdd
                     .map((userId) => {
                         const wm = workspaceMembers.find((m) => m.userId === userId);
@@ -127,7 +129,7 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Member removed successfully!");
-                // Optimistic update — remove immediately from local list
+                // Optimistic update â€” remove immediately from local list
                 setMembers((prev) => prev.filter((m) => m.userId !== memberUserId));
                 router.refresh();
             } else {
@@ -150,11 +152,20 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Role updated successfully!");
-                // Optimistic update — update role immediately in local list
+                // Optimistic update â€” update role immediately and demote existing target roles
                 setMembers((prev) =>
-                    prev.map((m) =>
-                        m.userId === memberUserId ? { ...m, projectRole: newRole } : m
-                    )
+                    prev.map((m) => {
+                        if (m.userId === memberUserId) {
+                            return { ...m, projectRole: newRole };
+                        }
+                        if (newRole === "PROJECT_COORDINATOR" && m.projectRole === "PROJECT_COORDINATOR") {
+                            return { ...m, projectRole: "MEMBER" as ProjectRole };
+                        }
+                        if (newRole === "PROJECT_MANAGER" && m.projectRole === "PROJECT_MANAGER") {
+                            return { ...m, projectRole: "MEMBER" as ProjectRole };
+                        }
+                        return m;
+                    })
                 );
                 router.refresh();
             } else {
@@ -169,7 +180,7 @@ export const ManageProjectMembersDialog = ({
                 <DialogContent className="max-h-[90vh] w-[min(700px,95vw)] overflow-hidden">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" />
+                            <Users className="size-5" />
                             Manage Project Members
                         </DialogTitle>
                         <DialogDescription>
@@ -203,7 +214,7 @@ export const ManageProjectMembersDialog = ({
 
                                     <PopoverContent className="p-0 w-64">
                                         <Command>
-                                            <CommandInput placeholder="Search members…" />
+                                            <CommandInput placeholder="Search membersâ€¦" />
                                             <CommandEmpty>No members found.</CommandEmpty>
                                             <CommandGroup className="max-h-64 overflow-auto">
                                                 {availableMembers.map((member) => {
@@ -233,7 +244,7 @@ export const ManageProjectMembersDialog = ({
                                                         >
                                                             <Check
                                                                 className={cn(
-                                                                    "mr-2 h-4 w-4",
+                                                                    "mr-2 size-4",
                                                                     isSelected
                                                                         ? "opacity-100"
                                                                         : "opacity-0"
@@ -260,10 +271,10 @@ export const ManageProjectMembersDialog = ({
                                     size="default"
                                 >
                                     {pending ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <Loader2 className="size-4 animate-spin" />
                                     ) : (
                                         <>
-                                            <Plus className="h-4 w-4 mr-1" />
+                                            <Plus className="size-4 mr-1" />
                                             Add
                                         </>
                                     )}
@@ -310,16 +321,25 @@ export const ManageProjectMembersDialog = ({
                                                                 variant={
                                                                     member.projectRole === "PROJECT_MANAGER"
                                                                         ? "default"
-                                                                        : member.projectRole === "LEAD"
+                                                                        : member.projectRole === "PROJECT_COORDINATOR"
                                                                             ? "secondary"
-                                                                            : "outline"
+                                                                            : member.projectRole === "LEAD"
+                                                                                ? "secondary"
+                                                                                : "outline"
                                                                 }
                                                                 className={cn(
                                                                     "text-xs",
-                                                                    member.projectRole === "PROJECT_MANAGER" && "bg-amber-500 hover:bg-amber-600"
+                                                                    member.projectRole === "PROJECT_MANAGER" && "bg-amber-500 hover:bg-amber-600",
+                                                                    member.projectRole === "PROJECT_COORDINATOR" && "bg-blue-600 text-white hover:bg-blue-700"
                                                                 )}
                                                             >
-                                                                {member.projectRole === "PROJECT_MANAGER" ? "Manager" : member.projectRole}
+                                                                {member.projectRole === "PROJECT_MANAGER"
+                                                                    ? "Manager"
+                                                                    : member.projectRole === "PROJECT_COORDINATOR"
+                                                                        ? "Coordinator"
+                                                                        : member.projectRole === "LEAD"
+                                                                            ? "Lead"
+                                                                            : member.projectRole}
                                                             </Badge>
                                                         </div>
                                                     </div>
@@ -339,6 +359,9 @@ export const ManageProjectMembersDialog = ({
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
+                                                                {(member.projectRole === "PROJECT_COORDINATOR" || !hasCoordinatorAlready) && (
+																	<SelectItem value="PROJECT_COORDINATOR">Coordinator</SelectItem>
+																)}
                                                                 <SelectItem value="LEAD">Lead</SelectItem>
                                                                 <SelectItem value="MEMBER">Member</SelectItem>
                                                                 <SelectItem value="VIEWER">Viewer</SelectItem>
@@ -359,7 +382,7 @@ export const ManageProjectMembersDialog = ({
                                                         className="h-8"
                                                         title={member.projectRole === "PROJECT_MANAGER" ? "Cannot remove project manager" : "Remove member"}
                                                     >
-                                                        <Trash2 className="h-3 w-3" />
+                                                        <Trash2 className="size-3" />
                                                     </Button>
                                                 </div>
                                             </div>
@@ -381,7 +404,7 @@ export const ManageProjectMembersDialog = ({
                 </DialogContent>
             </Dialog>
 
-            {/* Remove Member Confirmation — only mounted when needed to avoid Radix ID hydration shift */}
+            {/* Remove Member Confirmation â€” only mounted when needed to avoid Radix ID hydration shift */}
             {memberToRemove && (
                 <AlertDialog open={true} onOpenChange={(open) => { if (!open) setMemberToRemove(null); }}>
                     <AlertDialogContent>
@@ -404,7 +427,7 @@ export const ManageProjectMembersDialog = ({
                                     setMemberToRemove(null);
                                 }}
                             >
-                                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Remove Member"}
+                                {pending ? <Loader2 className="size-4 animate-spin" /> : "Remove Member"}
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
@@ -413,3 +436,4 @@ export const ManageProjectMembersDialog = ({
         </>
     );
 };
+

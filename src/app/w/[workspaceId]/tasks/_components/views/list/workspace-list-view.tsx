@@ -25,7 +25,7 @@ export async function WorkspaceListView({
     // 1. Fetch projects first to determine visual order for task preloading
     const projects = await ProjectService.getWorkspaceProjects(workspaceId, user.id);
     const topProjectIds = projects
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         .slice(0, 3)
         .map(p => p.id);
 

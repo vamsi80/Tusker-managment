@@ -52,7 +52,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
             <CardHeader className="p-2 pb-0">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border border-border/50 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
+                        <Avatar className="size-10 border border-border/50 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
                             <AvatarImage src={member.user?.image ?? ""} />
                             <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold uppercase">
                                 {member.user?.surname?.[0]}
@@ -74,7 +74,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                             className="h-8 px-3 text-xs font-medium gap-1.5 border-border/50 hover:bg-primary/10 hover:text-primary transition-all"
                             onClick={() => onAddNote(member.id)}
                         >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="size-4" />
                             Note
                         </Button>
                     )}
@@ -84,7 +84,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                 <div className="h-px bg-gradient-to-r from-border/50 via-border/20 to-transparent mb-1" />
                 {member.boardItems.length === 0 ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-2 opacity-40">
-                        <div className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/50" />
+                        <div className="size-8 rounded-full border border-dashed border-muted-foreground/50" />
                         <span className="text-[11px] font-medium italic">No notes assigned yet</span>
                     </div>
                 ) : (
@@ -135,7 +135,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                                                     }}
                                                     className="opacity-0 group-hover/item:opacity-100 hover:text-destructive transition-all p-1 -m-1"
                                                 >
-                                                    <Trash2 className="h-3 w-3" />
+                                                    <Trash2 className="size-3" />
                                                 </button>
                                             )}
                                         </div>

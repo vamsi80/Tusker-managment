@@ -2,7 +2,7 @@
  * Types for project-related data
  */
 
-export type ProjectRole = "LEAD" | "MEMBER" | "VIEWER" | "PROJECT_MANAGER";
+export type ProjectRole = "LEAD" | "MEMBER" | "VIEWER" | "PROJECT_MANAGER" | "PROJECT_COORDINATOR";
 
 export type ProjectMemberUI = {
   id: string; // userId
@@ -60,6 +60,7 @@ export interface FullProjectData extends MinimalProjectData {
   gstNumber?: string | null;
   contactPerson?: string | null;
   phoneNumber?: string | null;
+  tagIds?: string[];
 }
 
 export type ProjectReviewer = {

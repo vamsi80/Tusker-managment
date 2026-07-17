@@ -39,8 +39,9 @@ interface GanttChartProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
 }
 
@@ -53,6 +54,7 @@ export function GanttChart({
     onSubtaskClick,
     onSubTaskUpdate,
     projects,
+    selectedProjectId,
     groupByProject = false,
     projectCounts,
     members,
@@ -70,7 +72,7 @@ export function GanttChart({
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-    const [isExpandAllMode, setIsExpandAllMode] = useState(false); // 🚀 Persistent expansion for lazy-loading
+    const [isExpandAllMode, setIsExpandAllMode] = useState(false); // ðŸš€ Persistent expansion for lazy-loading
     const [showDetails, setShowDetails] = useState(true);
     const [highlightedSubtaskId, setHighlightedSubtaskId] = useState<string | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ export function GanttChart({
         setHighlightedSubtaskId(prev => (prev === id ? null : id));
     }, []);
 
-    // 🚀 Performance: Memoized projectMap for O(1) metadata lookups
+    // ðŸš€ Performance: Memoized projectMap for O(1) metadata lookups
     const projectMap = useMemo(() => {
         const map = new Map<string, ProjectOption>();
         projects?.forEach(p => map.set(p.id, p));
@@ -107,9 +109,9 @@ export function GanttChart({
                 clearTimeout(timeoutId);
             }
         };
-    }, [groupByProject]);
+    }, [groupByProject, tasks]);
 
-    // 🚀 Performance: Virtualization & Windowing
+    // ðŸš€ Performance: Virtualization & Windowing
     const [scrollX, setScrollX] = useState(0);
     const [viewportWidth, setViewportWidth] = useState(1200);
 
@@ -137,23 +139,46 @@ export function GanttChart({
         const groups = new Map<string, { name: string; tasks: GanttTask[]; color?: string }>();
         const noProjectTasks: GanttTask[] = [];
 
+        // Initialize groups with all projects from the projects list, optionally filtered by selectedProjectId
+        const targetProjects = selectedProjectId
+            ? projects?.filter(p => p.id === selectedProjectId)
+            : projects;
+
+        targetProjects?.forEach(project => {
+            groups.set(project.id, {
+                name: project.name,
+                color: project.color,
+                tasks: []
+            });
+        });
+
         tasks.forEach(task => {
             if (task.projectId) {
-                if (!groups.has(task.projectId)) {
+                if (groups.has(task.projectId)) {
+                    groups.get(task.projectId)!.tasks.push(task);
+                } else if (!selectedProjectId) {
                     const projectFromMap = projectMap.get(task.projectId);
                     groups.set(task.projectId, {
                         name: projectFromMap?.name || "Unknown Project",
                         color: projectFromMap?.color,
-                        tasks: []
+                        tasks: [task]
                     });
                 }
-                groups.get(task.projectId)!.tasks.push(task);
-            } else {
+            } else if (!selectedProjectId) {
                 noProjectTasks.push(task);
             }
         });
 
         const allGroups = Array.from(groups.entries());
+
+        // Sort allGroups by project's createdAt (ASC) to match the list view order
+        allGroups.sort(([aId], [bId]) => {
+            const projectA = projectMap.get(aId);
+            const projectB = projectMap.get(bId);
+            const timeA = projectA?.createdAt ? new Date(projectA.createdAt).getTime() : 0;
+            const timeB = projectB?.createdAt ? new Date(projectB.createdAt).getTime() : 0;
+            return timeA - timeB;
+        });
 
         const paginatedGroups = allGroups.map(([pid, group]) => {
             const limit = visibleTasksPerProject.get(pid) || ITEMS_PER_PAGE;
@@ -174,7 +199,7 @@ export function GanttChart({
             hasMoreProjects: hasMore,
             noProjectTasks: noProjectTasks
         };
-    }, [tasks, groupByProject, projects, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
+    }, [tasks, groupByProject, projects, selectedProjectId, hasMore, visibleTasksPerProject, highlightedSubtaskId, onToggleSubtaskHighlight]);
 
     const visibleFlatTasks = useMemo(() => {
         if (groupByProject) return [];
@@ -215,7 +240,7 @@ export function GanttChart({
 
         scrollContainerRef.current.scrollLeft = scrollPosition;
         setScrollX(scrollPosition);
-    }, [granularity]);
+    }, [granularity, timelineRange.start]);
 
     const toggleTask = (taskId: string) => {
         const isExpanding = !expandedTasks.has(taskId);
@@ -275,7 +300,7 @@ export function GanttChart({
         }
     }, [onSubtaskClick, tasks, projectMap]);
 
-    // 🚀 SYNC: Persistent expansion management
+    // ðŸš€ SYNC: Persistent expansion management
     useEffect(() => {
         if (!isExpandAllMode) {
             return;
@@ -303,7 +328,7 @@ export function GanttChart({
             if (prev.size === allTaskIds.size && [...allTaskIds].every(id => prev.has(id))) return prev;
             return new Set([...prev, ...allTaskIds]);
         });
-    }, [isExpandAllMode, tasks, groupedTasks, loadingSubtasks, loadingProjects]);
+    }, [isExpandAllMode, tasks, groupedTasks, loadingSubtasks, loadingProjects, onRequestProjectTasks]);
 
     const expandAll = () => {
         setIsExpandAllMode(true);
@@ -328,7 +353,7 @@ export function GanttChart({
     if (tasks.length === 0) {
         return (
             <div className={cn("flex flex-col items-center justify-center h-96 border-2 border-dashed rounded-lg", className)}>
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <Calendar className="size-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-foreground">No Tasks</h3>
                 <p className="text-sm text-muted-foreground">
                     Create tasks to see them on the timeline
@@ -528,7 +553,7 @@ export function GanttChart({
 
             <div className="flex items-center gap-6 mt-4 px-1 text-xs text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-neutral-400/50" />
+                    <div className="size-4 rounded-full bg-neutral-400/50" />
                     <span>Project</span>
                 </div>
                 <div className="flex items-center gap-2">

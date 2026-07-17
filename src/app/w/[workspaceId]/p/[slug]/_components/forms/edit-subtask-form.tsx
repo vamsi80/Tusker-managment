@@ -28,6 +28,7 @@ import { parseIST } from "@/lib/utils";
 import { ProjectReviewer } from "@/types/project";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MultiSelectTags } from "@/components/ui/multi-select-tags";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 type SubTaskBase = {
     id: string;
@@ -91,11 +92,84 @@ export function EditSubTaskForm<T extends SubTaskBase>({
     const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || "");
     const router = useRouter();
     const params = useParams();
+    const reloadView = useReloadView();
     const workspaceId = (params.workspaceId as string) || (subTask as any).workspaceId || "";
     // Note: 'projectId' from URL is a slug, we need the UUID. 
     // Usually 'subTask.projectId' or 'projectId' prop works.
     const [reviewers, setReviewers] = useState<ProjectReviewer[]>([]);
     const [projectMembers, setProjectMembers] = useState<ProjectMembersType>([]);
+    const [localTags, setLocalTags] = useState(tags);
+    useEffect(() => {
+        setLocalTags(tags);
+    }, [tags]);
+
+    // Resolve permissions from WorkspaceLayoutContext
+    let permissions: any = null;
+    try {
+        const layoutContext = useWorkspaceLayout();
+        permissions = layoutContext?.data?.permissions;
+    } catch (e) {
+        console.warn("EditSubTaskForm rendered outside WorkspaceLayoutProvider", e);
+    }
+
+    const currentUserId = permissions?.userId;
+    const isWorkspaceAdmin = !!permissions?.isWorkspaceAdmin;
+    const targetProjectId = selectedProjectId || projectId || (subTask as any).projectId || "";
+    
+    const isPM = isWorkspaceAdmin || permissions?.managedProjectIds?.includes(targetProjectId);
+    const isCoordinator = permissions?.coordinatorProjectIds?.includes(targetProjectId);
+    const isLead = permissions?.leadProjectIds?.includes(targetProjectId);
+
+    const subTaskAssigneeUserId = 
+        subTask.assignee?.id || 
+        (subTask.assignee as any)?.workspaceMember?.user?.id || 
+        (subTask as any).assigneeUserId;
+    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+
+    // Check if the current user is the assignee/worker
+    const isAssignee = !!(
+        (currentUserId && subTaskAssigneeUserId && currentUserId === subTaskAssigneeUserId) ||
+        (permissions?.workspaceMemberId && subTaskAssigneeMemberId && permissions.workspaceMemberId === subTaskAssigneeMemberId)
+    );
+
+    const isActingAsManager = !isAssignee && (isPM || isCoordinator);
+
+    const isStatusOptionDisabled = (statusOption: string) => {
+        if (statusOption === subTask.status) return false;
+
+        // 1. Workflow check: COMPLETED can only come from REVIEW
+        if (statusOption === "COMPLETED" && subTask.status !== "REVIEW") {
+            return true;
+        }
+
+        // 2. Role check: COMPLETED, HOLD, CANCELLED require acting as manager/creator lead
+        const leadCanComplete = !isAssignee && isLead && ((subTask as any).createdById === permissions?.workspaceMemberId);
+        const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
+
+        if (["COMPLETED", "HOLD", "CANCELLED"].includes(statusOption) && !canCompleteOrHoldOrCancel) {
+            return true;
+        }
+
+        // 3. Review check: If currently in REVIEW, moving out requires acting as manager/creator lead
+        if (subTask.status === "REVIEW" && !canCompleteOrHoldOrCancel) {
+            return true;
+        }
+
+        // 4. Comment check: Since general task editing does not collect comments,
+        // block any move that requires a comment.
+        const isMandatoryTransition =
+          ["HOLD", "CANCELLED", "REVIEW"].includes(statusOption) ||
+          (subTask.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(subTask.status)) ||
+          (subTask.status === "REVIEW" &&
+            (statusOption === "TO_DO" || statusOption === "IN_PROGRESS")) ||
+          (subTask.status === "IN_PROGRESS" && statusOption === "TO_DO");
+
+        if (isMandatoryTransition) {
+            return true;
+        }
+
+        return false;
+    };
 
     // Memoize filtered parent tasks to prevent infinite loops
     const filteredParentTasks = useMemo(() => {
@@ -276,6 +350,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
             if (responseStatus === "success") {
                 toast.success(responseMessage);
+                reloadView();
 
                 if (onSubTaskUpdated) {
                     // Enrich the updated data with UI-specific objects (assignee, tags, etc.)
@@ -315,7 +390,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                 <DialogTrigger asChild>
                     {trigger || (
                         <Button variant="ghost" size="sm" className="w-full justify-start">
-                            <Pencil className="mr-2 h-4 w-4" />
+                            <Pencil className="mr-2 size-4" />
                             Edit SubTask
                         </Button>
                     )}
@@ -458,12 +533,15 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     <FormItem>
                                         <FormLabel>Tags</FormLabel>
                                         <FormControl>
-                                            <MultiSelectTags
-                                                options={tags}
-                                                selected={field.value || []}
-                                                onChange={field.onChange}
-                                                placeholder="Select tags..."
-                                            />
+                                             <MultiSelectTags
+                                                 options={localTags}
+                                                 selected={field.value || []}
+                                                 onChange={field.onChange}
+                                                 placeholder="Select tags..."
+                                                 workspaceId={workspaceId}
+                                                 projectId={projectId || selectedProjectId}
+                                                 onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
+                                             />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -553,14 +631,17 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="TO_DO">To Do</SelectItem>
-                                                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                                                <SelectItem value="REVIEW">Review</SelectItem>
-                                                <SelectItem value="HOLD">Hold</SelectItem>
-                                                <SelectItem value="COMPLETED">Completed</SelectItem>
-                                                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                                                <SelectItem value="TO_DO" disabled={isStatusOptionDisabled("TO_DO")}>To Do</SelectItem>
+                                                <SelectItem value="IN_PROGRESS" disabled={isStatusOptionDisabled("IN_PROGRESS")}>In Progress</SelectItem>
+                                                <SelectItem value="REVIEW" disabled={isStatusOptionDisabled("REVIEW")}>Review</SelectItem>
+                                                <SelectItem value="HOLD" disabled={isStatusOptionDisabled("HOLD")}>Hold</SelectItem>
+                                                <SelectItem value="COMPLETED" disabled={isStatusOptionDisabled("COMPLETED")}>Completed</SelectItem>
+                                                <SelectItem value="CANCELLED" disabled={isStatusOptionDisabled("CANCELLED")}>Cancelled</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        <FormDescription className="text-xs text-muted-foreground">
+                                            Some transitions are disabled because you are the assignee (worker) on this task, or they require an explanation comment (which must be updated directly from the board or list view).
+                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -591,7 +672,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
                                                 <PopoverContent className="p-0 w-64">
                                                     <Command>
-                                                        <CommandInput placeholder="Search members…" />
+                                                        <CommandInput placeholder="Search members..." />
                                                         <CommandList>
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup>
@@ -616,7 +697,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             <div className="flex items-center">
                                                                                 <Check
                                                                                     className={cn(
-                                                                                        "mr-2 h-4 w-4",
+                                                                                        "mr-2 size-4",
                                                                                         isSelected ? "opacity-100" : "opacity-0"
                                                                                     )}
                                                                                 />
@@ -669,7 +750,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
                                                 <PopoverContent className="p-0 w-64">
                                                     <Command>
-                                                        <CommandInput placeholder="Search reviewers…" />
+                                                        <CommandInput placeholder="Search reviewers..." />
                                                         <CommandList>
                                                             <CommandEmpty>No reviewers found.</CommandEmpty>
                                                             <CommandGroup>
@@ -690,7 +771,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                                                             <div className="flex items-center">
                                                                                 <Check
                                                                                     className={cn(
-                                                                                        "mr-2 h-4 w-4",
+                                                                                        "mr-2 size-4",
                                                                                         isSelected ? "opacity-100" : "opacity-0"
                                                                                     )}
                                                                                 />
@@ -721,7 +802,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                                     {pending ? (
                                         <>
                                             Updating...
-                                            <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                            <Loader2 className="ml-1 size-4 animate-spin" />
                                         </>
                                     ) : (
                                         <>

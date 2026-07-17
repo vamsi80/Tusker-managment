@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
+import { getSession } from "@/lib/auth/require-user";
 
 /**
  * Synchronizes additional user profile fields using Raw SQL.
@@ -17,6 +18,11 @@ export async function syncUserProfile({
   phoneNumber?: string | null;
 }) {
   try {
+    const session = await getSession();
+    if (!session || session.user.id !== userId) {
+      throw new Error("Unauthorized");
+    }
+    
     console.log(`[Sync] Updating profile for user ${userId}...`);
     
     // We use executeRaw to bypass any stale Prisma Client types
@@ -53,6 +59,7 @@ export async function syncUserProfile({
  * Checks if a user with the given phone number exists in the database.
  */
 export async function checkUserExistsByPhone(phoneNumber: string) {
+  await getSession();
   if (!phoneNumber) return { exists: false };
   
   try {

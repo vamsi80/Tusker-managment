@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
@@ -81,7 +81,7 @@ export function TaskSearch({
 
     return (
         <div className={cn("relative flex items-center", className)}>
-            <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-3 size-4 text-muted-foreground pointer-events-none" />
 
             <Input
                 id="task-search-input"
@@ -101,19 +101,20 @@ export function TaskSearch({
                     variant="ghost"
                     size="sm"
                     onClick={handleClear}
-                    className="absolute right-1 h-7 w-7 p-0"
+                    className="absolute right-1 size-7 p-0"
                     aria-label="Clear search"
                 >
-                    <X className="h-4 w-4" />
+                    <X className="size-4" />
                 </Button>
             )}
 
             {/* Keyboard shortcut hint (hidden on mobile) */}
             {/* {!localValue && (
                 <kbd className="absolute right-3 hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 pointer-events-none">
-                    <span className="text-xs">⌘</span>K
+                    <span className="text-xs">âŒ˜</span>K
                 </kbd>
             )} */}
         </div>
     );
 }
+

@@ -338,11 +338,11 @@ export class TaskRepository {
 
   // ─── List & Relationships ──────────────────────────────────────────────────
 
-  static async findMany(where: any, select?: any, sorts?: any, limit?: number, cursor?: any) {
+  static async findMany(where: any, select?: any, sorts?: any, limit?: number, cursor?: any, viewMode?: string, projectId?: string) {
     return prisma.task.findMany({
       where,
       select: select || undefined,
-      orderBy: buildOrderBy(sorts, "list"),
+      orderBy: buildOrderBy(sorts, viewMode || "list", projectId),
       take: limit ? limit + 1 : undefined,
       cursor: cursor ? { id: cursor.id } : undefined,
       skip: cursor ? 1 : undefined,
@@ -564,6 +564,7 @@ export class TaskRepository {
         projectId,
         OR: [
           { projectRole: ProjectRole.PROJECT_MANAGER },
+          { projectRole: ProjectRole.PROJECT_COORDINATOR },
           { workspaceMember: { workspaceRole: WorkspaceRole.ADMIN } },
           assigneeId ? { id: assigneeId } : {},
           reviewerId ? { id: reviewerId } : {},

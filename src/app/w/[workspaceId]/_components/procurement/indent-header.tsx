@@ -108,7 +108,7 @@ export function IndentHeader({
               disabled={isActionLoading}
               className="h-8 text-xs font-semibold gap-1.5"
             >
-              <Send className="h-3 w-3" /> Submit
+              <Send className="size-3" /> Submit
             </Button>
           )}
 
@@ -121,7 +121,7 @@ export function IndentHeader({
               disabled={isActionLoading}
               className="h-8 text-xs font-semibold border-green-600/30 text-green-700 bg-green-50/30 hover:bg-green-50 hover:text-green-800 hover:border-green-600/50 gap-1.5"
             >
-              <Check className="h-3 w-3" /> Approve
+              <Check className="size-3" /> Approve
             </Button>
           )}
 
@@ -137,7 +137,7 @@ export function IndentHeader({
               disabled={isActionLoading}
               className="h-8 text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/5 gap-1.5"
             >
-              <XCircle className="h-3 w-3" /> Cancel
+              <XCircle className="size-3" /> Cancel
             </Button>
           )}
         </div>

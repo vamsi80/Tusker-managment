@@ -159,6 +159,7 @@ export interface ProjectOption {
     slug?: string;
     color?: string;
     memberIds?: string[];
+    createdAt?: string | Date;
 }
 
 /**

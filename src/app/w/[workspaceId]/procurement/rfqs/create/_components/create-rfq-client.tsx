@@ -242,9 +242,9 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
             variant="outline"
             size="icon"
             onClick={() => router.push(`/w/${workspaceId}/procurement/rfqs`)}
-            className="h-8 w-8"
+            className="size-8"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Button>
           <div>
             <h1 className="text-base font-bold text-foreground">RFQ Comparison Sheet</h1>
@@ -340,12 +340,12 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                           variant="ghost"
                           size="icon"
                           onClick={() => handleClearVendor(idx)}
-                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full hover:bg-red-50 hover:text-red-600 text-muted-foreground"
+                          className="absolute -top-1 -right-1 size-5 rounded-full hover:bg-red-50 hover:text-red-600 text-muted-foreground"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                         <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
-                          <Building className="h-3 w-3 text-primary" /> Column {idx + 1}
+                          <Building className="size-3 text-primary" /> Column {idx + 1}
                         </span>
                         <div className="flex flex-col pr-4">
                           <span className="text-xs font-bold text-foreground truncate">{vendor.name}</span>
@@ -363,13 +363,13 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                               size="sm"
                               className="h-8 text-xs font-semibold flex items-center gap-1 w-full border-dashed"
                             >
-                              <Plus className="h-3.5 w-3.5" /> Add Vendor {idx + 1}
+                              <Plus className="size-3.5" /> Add Vendor {idx + 1}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-80 p-0" align="start">
                             <div className="p-3 border-b bg-muted/10 shrink-0">
                               <div className="relative">
-                                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                                 <Input
                                   placeholder="Search vendors..."
                                   value={vendorSearchQuery}
@@ -463,7 +463,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
             {/* Row 5: Lead Time */}
             <tr className="border-b">
               <th className="p-2 text-[10px] uppercase font-bold text-muted-foreground border-r bg-muted/5 flex items-center gap-1">
-                Lead Time → <Clock className="h-3 w-3" />
+                Lead Time → <Clock className="size-3" />
               </th>
               <th className="p-2 border-r bg-muted/5" colSpan={2}></th>
               {selectedVendorIds.map((vId, idx) => {
@@ -561,9 +561,9 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                     variant="ghost"
                     size="icon"
                     onClick={() => handleRemoveMaterial(item.id)}
-                    className="h-6 w-6 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 text-muted-foreground shrink-0"
+                    className="size-6 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 text-muted-foreground shrink-0"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="size-3.5" />
                   </Button>
                 </td>
                 <td className="p-2.5 border-r text-center font-mono text-xs text-foreground">
@@ -620,13 +620,13 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                       size="sm"
                       className="h-7 text-xs font-semibold flex items-center gap-1 border-dashed w-full"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add Material Row
+                      <Plus className="size-3.5" /> Add Material Row
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-96 p-0" align="start">
                     <div className="p-3 border-b bg-muted/10 shrink-0">
                       <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                         <Input
                           placeholder="Search pending materials..."
                           value={materialSearchQuery}

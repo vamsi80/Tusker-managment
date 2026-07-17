@@ -250,6 +250,9 @@ export class ProjectService {
           },
         },
       } : {}),
+      tags: values.tagIds && values.tagIds.length > 0 ? {
+        connect: values.tagIds.map(id => ({ id }))
+      } : undefined,
     });
 
     await ProjectEvents.onProjectCreated(workspaceId, newProject);
@@ -287,6 +290,9 @@ export class ProjectService {
           name: values.name,
           description: values.description,
           slug: values.slug || project.slug,
+          tags: values.tagIds ? {
+            set: values.tagIds.map(id => ({ id }))
+          } : undefined,
         },
       });
 
@@ -339,6 +345,41 @@ export class ProjectService {
           update: { projectRole: "PROJECT_MANAGER", hasAccess: true },
           create: { projectId: values.projectId, workspaceMemberId: newPmId, projectRole: "PROJECT_MANAGER", hasAccess: true }
         });
+      }
+
+      // Sync project members if memberAccess is provided
+      if (values.memberAccess) {
+        const existingMembers = await tx.projectMember.findMany({
+          where: { projectId: values.projectId, projectRole: { not: "PROJECT_MANAGER" } },
+          select: { workspaceMemberId: true }
+        });
+        const existingMemberIds = existingMembers.map(m => m.workspaceMemberId);
+
+        const currentPMId = values.projectManagerId || project.projectManagerId;
+        const targetMemberIds = values.memberAccess.filter(id => id !== currentPMId);
+
+        const toDelete = existingMemberIds.filter(id => !targetMemberIds.includes(id));
+        const toAdd = targetMemberIds.filter(id => !existingMemberIds.includes(id));
+
+        if (toDelete.length > 0) {
+          await tx.projectMember.deleteMany({
+            where: {
+              projectId: values.projectId,
+              workspaceMemberId: { in: toDelete }
+            }
+          });
+        }
+
+        if (toAdd.length > 0) {
+          await tx.projectMember.createMany({
+            data: toAdd.map(id => ({
+              projectId: values.projectId,
+              workspaceMemberId: id,
+              hasAccess: true,
+              projectRole: "MEMBER"
+            }))
+          });
+        }
       }
     });
 
@@ -462,6 +503,13 @@ export class ProjectService {
       });
     }
 
+    if (newRole === "PROJECT_COORDINATOR" && targetMember.projectRole !== "PROJECT_COORDINATOR") {
+      await prisma.projectMember.updateMany({
+        where: { projectId, projectRole: "PROJECT_COORDINATOR" },
+        data: { projectRole: "MEMBER" }
+      });
+    }
+
     await ProjectRepository.updateProjectMember(targetMember.id, { projectRole: newRole });
     await ProjectEvents.onMemberRoleUpdated(project.workspaceId, projectId, targetUserId);
   }
@@ -546,7 +594,7 @@ export class ProjectService {
     ]);
 
     if (!workspaceMember) return {
-      isWorkspaceAdmin: false, isProjectLead: false, isProjectManager: false, isMember: false,
+      isWorkspaceAdmin: false, isProjectLead: false, isProjectCoordinator: false, isProjectManager: false, isMember: false,
       canCreateSubTask: false, canPerformBulkOperations: false, workspaceMemberId: null,
       workspaceRole: null, userId: null, userSurname: null, projectMember: null
     };
@@ -575,7 +623,7 @@ export class ProjectService {
       include: { user: true }
     });
 
-    const leads = project.projectMembers.filter(pm => ["PROJECT_MANAGER", "LEAD"].includes(pm.projectRole));
+    const leads = project.projectMembers.filter(pm => ["PROJECT_MANAGER", "PROJECT_COORDINATOR", "LEAD"].includes(pm.projectRole));
 
     const reviewerMap = new Map<string, any>();
     admins.forEach(m => reviewerMap.set(m.userId, { id: m.userId, surname: m.user.surname || "", role: m.workspaceRole }));
@@ -633,6 +681,10 @@ export class ProjectService {
 
   static async getWorkspaceTags(workspaceId: string) {
     return ProjectRepository.getWorkspaceTags(workspaceId);
+  }
+
+  static async getProjectTags(projectId: string) {
+    return ProjectRepository.getProjectTags(projectId);
   }
 
   static async getProjectBySlug(workspaceId: string, slug: string) {

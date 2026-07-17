@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import { generateTimelineColumns, getDaysBetween, getIndianDate } from "./utils";
@@ -56,7 +56,7 @@ export function TimelineHeader({
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
     const headerHeight = granularity === 'days' ? 72 : 40;
 
-    // 🚀 Horizontal Virtualization: Determine visible indices
+    // ðŸš€ Horizontal Virtualization: Determine visible indices
     const sidebarWidth = showDetails ? 660 : 230; // Dynamic sidebar width
     const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
     const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
@@ -122,11 +122,11 @@ export function TimelineHeader({
                                         variant="ghost"
                                         size="icon"
                                         onClick={allExpanded ? onCollapseAll : onExpandAll}
-                                        className="h-6 w-6"
+                                        className="size-6"
                                     >
                                         {allExpanded
-                                            ? <ChevronsDownUp className="h-3.5 w-3.5" />
-                                            : <ChevronsUpDown className="h-3.5 w-3.5" />
+                                            ? <ChevronsDownUp className="size-3.5" />
+                                            : <ChevronsUpDown className="size-3.5" />
                                         }
                                     </Button>
                                 </TooltipTrigger>
@@ -138,7 +138,7 @@ export function TimelineHeader({
 
                         {isBatchLoading && (
                             <div className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 animate-in fade-in zoom-in duration-300">
-                                <Loader2 className="h-2.5 w-2.5 animate-spin text-blue-600 dark:text-blue-400" />
+                                <Loader2 className="size-2.5 animate-spin text-blue-600 dark:text-blue-400" />
                                 <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tighter">Syncing</span>
                             </div>
                         )}
@@ -156,9 +156,9 @@ export function TimelineHeader({
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-6 w-6"
+                                                className="size-6"
                                             >
-                                                <Download className="h-3.5 w-3.5" />
+                                                <Download className="size-3.5" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                     </TooltipTrigger>
@@ -183,8 +183,8 @@ export function TimelineHeader({
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                                            <Calendar className="h-3.5 w-3.5" />
+                                        <Button variant="ghost" size="icon" className="size-6">
+                                            <Calendar className="size-3.5" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>
@@ -235,7 +235,7 @@ export function TimelineHeader({
                 <div
                     className="sticky left-0 z-50 w-[var(--gantt-sidebar-width)] min-w-[var(--gantt-sidebar-width)] bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 h-full flex flex-col justify-between shadow-sm transition-[width] duration-300 ease-in-out overflow-hidden"
                 >
-                    <div className="flex items-center justify-between w-full h-full">
+                    <div className="flex items-center justify-between size-full">
                         <div className="flex items-center h-full">
                             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-name)] px-3 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-between group">
                                 <span>Task Name</span>
@@ -246,9 +246,9 @@ export function TimelineHeader({
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={onToggleDetails}
-                                                className="h-5 w-5 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                                                className="size-5 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
                                             >
-                                                {showDetails ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
+                                                {showDetails ? <PanelLeftClose className="size-3" /> : <PanelLeftOpen className="size-3" />}
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent side="right">
@@ -324,7 +324,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
     const columnWidth = granularity === 'days' ? 40 : granularity === 'weeks' ? 80 : 120;
     const totalWidth = columns.length * columnWidth;
 
-    // 🚀 Horizontal Virtualization
+    // ðŸš€ Horizontal Virtualization
     const sidebarWidth = showDetails ? 660 : 230;
     const visibleStartIndex = Math.max(0, Math.floor((scrollX - sidebarWidth) / columnWidth));
     const visibleEndIndex = Math.min(columns.length, Math.ceil((scrollX + viewportWidth) / columnWidth));
@@ -408,7 +408,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
                 <div style={{ width: (columns.length - visibleEndIndex) * columnWidth }} className="shrink-0" />
             </div>
 
-            {/* Today Indicator — clipped to timeline area only and lowered z-index to z-20 */}
+            {/* Today Indicator â€” clipped to timeline area only and lowered z-index to z-20 */}
             <div
                 className="absolute top-0 bottom-0 pointer-events-none overflow-hidden z-20"
                 style={{
@@ -423,7 +423,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
                             left: `${todayPosition}px`,
                         }}
                     >
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-red-500 shadow-sm" />
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 size-2 rounded-full bg-red-500 shadow-sm" />
                     </div>
                 )}
             </div>
@@ -435,3 +435,4 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
         </div>
     );
 }
+

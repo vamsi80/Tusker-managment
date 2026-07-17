@@ -2,8 +2,11 @@
 
 import prisma from "@/lib/db";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { getSession } from "@/lib/auth/require-user";
 
 export async function getReportEntries(workspaceId: string, reportId: string) {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
     const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId);
 
     if (!isWorkspaceAdmin) {

@@ -77,8 +77,15 @@ export function InlineSubTaskForm({
     const [dueDate, setDueDate] = useState(() => 
         (subTask as any)?.dueDate ? new Date((subTask as any).dueDate).toISOString() : new Date(Date.now() + 30 * 60000).toISOString()
     );
-    const [tagIds, setTagIds] = useState<string[]>(subTask?.tags?.map(t => t.id) || []);
+    const [tagIds, setTagIds] = useState<string[]>(
+        subTask?.tags?.map(t => t.id) || []
+    );
     const [days, setDays] = useState<number>(subTask?.days || 1);
+    const [localTags, setLocalTags] = useState(tags);
+
+    useEffect(() => {
+        setLocalTags(tags);
+    }, [tags]);
 
     const handleStartDateChange = (val: string) => {
         const selectedDate = new Date(val);
@@ -186,10 +193,12 @@ export function InlineSubTaskForm({
     const getRoleShortcut = (role: string): string => {
         const shortcuts: Record<string, string> = {
             'PROJECT_MANAGER': 'PM',
-            'LEAD': 'LEAD',
+            'PROJECT_COORDINATOR': 'CO',
+            'LEAD': 'LD',
             'OWNER': 'OWN',
             'ADMIN': 'ADM',
             'MEMBER': 'MBR',
+            'VIEWER': 'VWR',
         };
         return shortcuts[role] || role;
     };
@@ -239,7 +248,7 @@ export function InlineSubTaskForm({
             const apiCall = apiClient.tasks.createSubTask(validData);
 
             toast.promise(apiCall, {
-                loading: `Creating "${validData.name}"…`,
+                loading: `Creating "${validData.name}"â€¦`,
                 success: (result: any) => {
                     const res = result as ApiResponse;
                     if (res.status !== "success") {
@@ -409,7 +418,7 @@ export function InlineSubTaskForm({
                                 .map((member) => (
                                     <SelectItem key={member.userId} value={member.userId}>
                                         <span className="truncate block">
-                                            {member.user.surname || member.user.name} ({getRoleShortcut(member.workspaceRole || member.projectRole)})
+                                            {member.user.surname || member.user.name} ({getRoleShortcut(member.projectRole || member.workspaceRole || '')})
                                         </span>
                                     </SelectItem>
                                 ))}
@@ -456,12 +465,12 @@ export function InlineSubTaskForm({
                                         <div className="flex items-center gap-2">
                                             {hex ? (
                                                 <div
-                                                    className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                    className="size-2 rounded-full border border-black/5 dark:border-white/10"
                                                     style={{ backgroundColor: hex }}
                                                 />
                                             ) : (
                                                 <div className={cn(
-                                                    "h-2 w-2 rounded-full",
+                                                    "size-2 rounded-full",
                                                     statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
                                                 )} />
                                             )}
@@ -519,48 +528,52 @@ export function InlineSubTaskForm({
             )}
 
             {columnVisibility.tag && (
-                <TableCell className="w-[180px] max-w-[180px] px-2">
+                <TableCell className="w-[160px] min-w-[160px] max-w-[160px] px-2">
                     <MultiSelectTags
-                        options={tags}
+                        options={localTags}
                         selected={tagIds}
                         onChange={setTagIds}
                         placeholder="Tags..."
                         className="w-full"
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                        onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
                     />
                 </TableCell>
             )}
 
-            <TableCell className="w-[80px] px-2">
+            <TableCell className="w-[80px] min-w-[80px] max-w-[80px] px-2">
                 <div className="flex items-center justify-center gap-0.5">
                     {subTaskName.trim().length >= 3 && (
                         <Button
                             size="icon"
                             variant="ghost"
-                            className="h-6 w-6 hover:bg-green-100 hover:text-green-600"
+                            className="size-6 hover:bg-green-100 hover:text-green-600"
                             onClick={handleSubmit}
                             disabled={pending}
                             title="Save (Enter)"
                         >
                             {pending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <Loader2 className="size-3 animate-spin" />
                             ) : (
-                                <Check className="h-3.5 w-3.5" />
+                                <Check className="size-3.5" />
                             )}
                         </Button>
                     )}
                     <Button
                         size="icon"
                         variant="ghost"
-                        className="h-6 w-6 hover:bg-red-100 hover:text-red-600"
+                        className="size-6 hover:bg-red-100 hover:text-red-600"
                         onClick={onCancel}
                         disabled={pending}
                         title="Cancel (Esc)"
                     >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="size-3.5" />
                     </Button>
                 </div>
             </TableCell>
         </TableRow>
     );
 }
+
 

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
@@ -31,21 +31,21 @@ export function ProjectRow({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 hover:bg-transparent"
+                            className="size-6 p-0 hover:bg-transparent"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onToggle();
                             }}
                         >
                             {isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                <ChevronDown className="size-4 text-muted-foreground" />
                             ) : (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                <ChevronRight className="size-4 text-muted-foreground" />
                             )}
                         </Button>
 
                         <Folder
-                            className="h-4 w-4"
+                            className="size-4"
                             style={{ color: project.color || "#666", fill: project.color ? `${project.color}33` : "#66633" }}
                         />
 
@@ -59,3 +59,4 @@ export function ProjectRow({
         </>
     );
 }
+

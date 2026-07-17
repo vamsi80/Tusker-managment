@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { formatDate } from "@/components/task/gantt/utils";
 import { ColumnVisibility } from "../../shared/column-visibility";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -96,7 +96,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 <TableCell className="w-[80px] sm:w-[100px]">
                     {!isParent && assigneeUser ? (
                         <div className="flex items-center gap-2 min-w-0">
-                            <Avatar className="h-5 w-5 flex-shrink-0">
+                            <Avatar className="size-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
                                     {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                                 </AvatarFallback>
@@ -116,7 +116,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                 <TableCell className="w-[80px] sm:w-[100px]">
                     {!isParent && reviewerUser ? (
                         <div className="flex items-center gap-2 min-w-0">
-                            <Avatar className="h-5 w-5 flex-shrink-0">
+                            <Avatar className="size-5 flex-shrink-0">
                                 <AvatarFallback className="text-[10px]">
                                     {(reviewerUser.surname || (reviewerUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
                                 </AvatarFallback>
@@ -177,7 +177,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 min-w-0 cursor-help">
-                                    <div className={cn("h-3 w-3 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                    <div className={cn("size-3 rounded-full flex-shrink-0", delayStyles.dotColor)} />
                                     <div className={cn("text-sm truncate", delayStyles.color)}>
                                         {delayText}
                                     </div>
@@ -207,11 +207,11 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
                     <div className="flex items-center gap-1">
                         {task.tags && task.tags.length > 0 ? (
                             <>
-                                <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={task.tags[0].name}>
-                                    {task.tags[0].name}
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={toTitleCase(task.tags[0].name)}>
+                                    {toTitleCase(task.tags[0].name)}
                                 </Badge>
                                 {task.tags.length > 1 && (
-                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags.slice(1).map((t: any) => t.name).join(", ")}>
+                                    <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={task.tags.slice(1).map((t: any) => toTitleCase(t.name)).join(", ")}>
                                         +{task.tags.length - 1}
                                     </Badge>
                                 )}
@@ -228,3 +228,4 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
         </TableRow>
     );
 });
+

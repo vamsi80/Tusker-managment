@@ -11,7 +11,7 @@ import { CornerDownRight, GripVertical, Calendar, MoreHorizontal } from "lucide-
 import type { SubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatDateUTC, formatIST } from "@/lib/utils";
+import { cn, formatDateUTC, formatIST, toTitleCase } from "@/lib/utils";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 import { EditSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-subtask-form";
 import { DeleteSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-subtask-form";
@@ -40,6 +40,7 @@ interface SubTaskRowProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
     projectMap?: Record<string, any>;
 }
@@ -59,6 +60,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     projectMap,
 }: SubTaskRowProps) {
@@ -102,22 +104,32 @@ export const SubTaskRow = memo(function SubTaskRow({
             (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
         );
 
+        const isUserWorkspaceAdmin = permissions?.isWorkspaceAdmin || isWorkspaceAdmin;
+
+        // Assignees cannot edit task details (metadata) even if they are PM, Lead or Coordinator,
+        // unless they are Workspace Admin.
+        if (isAssignee && !isUserWorkspaceAdmin) {
+            return false;
+        }
+
         if (permissions) {
-            return permissions.isWorkspaceAdmin ||
-                isCreator ||
+            return isUserWorkspaceAdmin ||
+                permissions.isProjectCoordinator ||
+                (permissions.isProjectLead && isCreator) ||
                 permissions.isProjectManager;
         }
 
-        if (isWorkspaceAdmin) return true;
+        if (isUserWorkspaceAdmin) return true;
 
         const projectIdToCheck = (subTask as any).projectId || projectId;
+
+        if (coordinatorProjectIds?.includes(projectIdToCheck)) return true;
 
         const taskProject = projectMap ? projectMap[projectIdToCheck] : projects?.find(p => p.id === projectIdToCheck);
         if (taskProject?.canManageMembers) return true;
 
-        // Check if user is LEAD in this project and created/assigned the task
-        const isUserCreatorOrAssignee = isCreator || isAssignee || subTaskCreatorUserId === userId || subTaskAssigneeUserId === userId;
-        if (leadProjectIds?.includes(projectIdToCheck) && isUserCreatorOrAssignee) {
+        // Check if user is LEAD in this project and created the task
+        if (leadProjectIds?.includes(projectIdToCheck) && isCreator) {
             return true;
         }
 
@@ -139,7 +151,7 @@ export const SubTaskRow = memo(function SubTaskRow({
     const delayStyles = getDelayColors(remainingDays, subTask.status);
     const delayText = getDelayText(remainingDays, subTask.status);
 
-    // 👤 Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
+    // ðŸ‘¤ Robust Surname Resolver: Prioritizes pre-fetched data, falls back to member list lookup
     const getUserDisplayName = (userObj: any) => {
         if (!userObj) return "";
 
@@ -162,7 +174,7 @@ export const SubTaskRow = memo(function SubTaskRow({
         return (
             <TableRow className="bg-muted/10">
                 <TableCell className="pl-4">
-                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="size-4" />
                 </TableCell>
                 <TableCell className="pl-4">
                     <Skeleton className="h-4 w-full max-w-xs" />
@@ -179,7 +191,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                 )}
                 {columnVisibility.assignee && (
                     <TableCell>
-                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="size-8 rounded-full" />
                     </TableCell>
                 )}
                 {columnVisibility.status && (
@@ -208,7 +220,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     </TableCell>
                 )}
                 <TableCell>
-                    <Skeleton className="h-7 w-7" />
+                    <Skeleton className="size-7" />
                 </TableCell>
             </TableRow>
         );
@@ -256,11 +268,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                                 {...listeners}
                                 className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/30 hover:text-muted-foreground transition-colors shrink-0"
                             >
-                                <GripVertical className="h-3.5 w-3.5" />
+                                <GripVertical className="size-3.5" />
                             </div>
                         )}
-                        <div className="h-6 w-6 flex items-center justify-center shrink-0">
-                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        <div className="size-6 flex items-center justify-center shrink-0">
+                            <CornerDownRight className="size-3.5 text-muted-foreground/50" />
                         </div>
                     </div>
                 </TableCell>
@@ -301,7 +313,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[80px] sm:w-[100px]">
                         {assigneeUser ? (
                             <div className="flex items-center gap-2 min-w-0">
-                                <Avatar className="h-5 w-5 flex-shrink-0">
+                                <Avatar className="size-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
                                         {assigneeDisplayName?.[0]?.toUpperCase() || "U"}
                                     </AvatarFallback>
@@ -335,7 +347,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[80px] sm:w-[100px]">
                         {reviewerUser ? (
                             <div className="flex items-center gap-2 min-w-0">
-                                <Avatar className="h-5 w-5 flex-shrink-0">
+                                <Avatar className="size-5 flex-shrink-0">
                                     <AvatarFallback className="text-[10px]">
                                         {reviewerDisplayName?.[0]?.toUpperCase() || "U"}
                                     </AvatarFallback>
@@ -360,6 +372,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
+                            coordinatorProjectIds={coordinatorProjectIds}
                         />
                     </TableCell>
                 )}
@@ -368,7 +381,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[120px] sm:w-[150px]">
                         {subTask.startDate ? (
                             <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
+                                <Calendar className="size-3 flex-shrink-0 hidden xs:block" />
                                 <span className="truncate">{formatDateUTC(subTask.startDate)}</span>
                             </div>
                         ) : (
@@ -381,7 +394,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                     <TableCell className="w-[120px] sm:w-[150px]">
                         {dueDate ? (
                             <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium">
-                                <Calendar className="h-3 w-3 flex-shrink-0 hidden xs:block" />
+                                <Calendar className="size-3 flex-shrink-0 hidden xs:block" />
                                 <span className="truncate">{formatDateUTC(dueDate)}</span>
                             </div>
                         ) : (
@@ -395,16 +408,16 @@ export const SubTaskRow = memo(function SubTaskRow({
                         {remainingDays !== null || subTask.status === "COMPLETED" || subTask.status === "CANCELLED" ? (
                             <div className="flex items-center gap-2 min-w-0">
                                 {delayStyles.dotVariant === "ring" && (
-                                    <div className={cn("h-3 w-3 rounded-full border-2 border-current bg-transparent flex-shrink-0", delayStyles.color)} />
+                                    <div className={cn("size-3 rounded-full border-2 border-current bg-transparent flex-shrink-0", delayStyles.color)} />
                                 )}
                                 {delayStyles.dotVariant === "blink" && (
-                                    <span className="relative flex h-3 w-3 flex-shrink-0">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
+                                    <span className="relative flex size-3 flex-shrink-0">
+                                        <span className="animate-ping absolute inline-flex size-full rounded-full bg-rose-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full size-3 bg-rose-500" />
                                     </span>
                                 )}
                                 {delayStyles.dotVariant === "solid" && (
-                                    <div className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
+                                    <div className={cn("size-2.5 rounded-full flex-shrink-0", delayStyles.dotColor)} />
                                 )}
                                 <span className={cn("text-[10px] sm:text-xs truncate font-medium", delayStyles.color)}>
                                     {delayText}
@@ -421,11 +434,11 @@ export const SubTaskRow = memo(function SubTaskRow({
                         <div className="flex items-center gap-1">
                             {subTask.tags && (subTask.tags as any[]).length > 0 ? (
                                 <>
-                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={(subTask.tags as any[])[0].name}>
-                                        {(subTask.tags as any[])[0].name}
+                                    <Badge variant="secondary" className="text-[10px] py-0 px-1 whitespace-nowrap truncate max-w-[80px]" title={toTitleCase((subTask.tags as any[])[0].name)}>
+                                        {toTitleCase((subTask.tags as any[])[0].name)}
                                     </Badge>
                                     {(subTask.tags as any[]).length > 1 && (
-                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={(subTask.tags as any[]).slice(1).map(t => t.name).join(", ")}>
+                                        <Badge variant="outline" className="text-[10px] py-0 px-1 whitespace-nowrap flex-shrink-0 text-muted-foreground bg-muted/30" title={(subTask.tags as any[]).slice(1).map(t => toTitleCase(t.name)).join(", ")}>
                                             +{(subTask.tags as any[]).length - 1}
                                         </Badge>
                                     )}
@@ -441,8 +454,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                     {canEditSubTask() && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                    <MoreHorizontal className="h-2 w-2" />
+                                <Button variant="ghost" size="icon" className="size-6">
+                                    <MoreHorizontal className="size-2" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -482,3 +495,4 @@ export const SubTaskRow = memo(function SubTaskRow({
         </>
     );
 });
+

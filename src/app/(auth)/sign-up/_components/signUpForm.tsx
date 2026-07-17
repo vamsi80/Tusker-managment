@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -234,7 +234,7 @@ export const SignUpForm = () => {
           <Button
             disabled={githubPending}
             title="Sign up with GitHub"
-            className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
+            className="size-8 flex items-center justify-center rounded-full cursor-pointer"
             onClick={signUpWithGithub}
           >
             {githubPending ? (
@@ -248,7 +248,7 @@ export const SignUpForm = () => {
           <Button
             disabled={googlePending}
             title="Sign up with Google"
-            className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
+            className="size-8 flex items-center justify-center rounded-full cursor-pointer"
             onClick={signUpWithGoogle}
           >
             {googlePending ? (
@@ -262,3 +262,4 @@ export const SignUpForm = () => {
     </Card>
   )
 }
+

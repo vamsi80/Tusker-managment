@@ -65,17 +65,17 @@ export function ChatPanel({
             href={`/w/${workspaceId}/myspace/conversations`}
             className="lg:hidden p-1 -ml-2 rounded-full hover:bg-muted"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="size-5" />
           </Link>
 
           <div className="relative">
-            <Avatar className="h-10 w-10 rounded-full">
+            <Avatar className="size-10 rounded-full">
               <AvatarFallback className="rounded-full bg-primary/10 text-primary font-semibold uppercase">
                 {otherUser?.surname?.[0]}
               </AvatarFallback>
             </Avatar>
             {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
-              <div className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 rounded-full border-2 border-background" />
+              <div className="absolute bottom-0 right-0 size-2.5 bg-emerald-500 rounded-full border-2 border-background" />
             )}
           </div>
 
@@ -104,11 +104,11 @@ export function ChatPanel({
           <div className="flex flex-col gap-2 max-w-4xl mx-auto">
             {isLoading && messages.length === 0 ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-primary/20" />
+                <Loader2 className="size-6 animate-spin text-primary/20" />
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
-                <MessageSquare className="h-12 w-12 mb-4" />
+                <MessageSquare className="size-12 mb-4" />
                 <p className="text-sm font-semibold">Wave to {otherUser?.name}!</p>
                 <p className="text-xs mt-1">Start your conversation now.</p>
               </div>
@@ -149,22 +149,38 @@ export function ChatPanel({
       {/* Input */}
       <div className="p-4 bg-background/80 backdrop-blur-md border-t">
         <form onSubmit={handleSend} className="max-w-4xl mx-auto flex gap-3 items-end">
-          <div className="flex-1 min-h-[44px] bg-muted/40 rounded-3xl flex items-center px-4 relative">
-            <Input
+          <div className="flex-1 min-h-[44px] bg-muted/40 rounded-3xl flex items-center px-4 relative py-1">
+            <textarea
               placeholder="Write something..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (content.trim() && !isSending) {
+                    handleSend(e);
+                  }
+                }
+              }}
               disabled={isSending}
-              className="bg-transparent border-none focus-visible:ring-0 text-sm h-11 p-0 shadow-none placeholder:text-muted-foreground/30"
+              rows={1}
+              className="w-full bg-transparent border-none focus:outline-none focus:ring-0 text-sm py-2.5 px-0 resize-none placeholder:text-muted-foreground/30 min-h-[24px] max-h-[120px] overflow-y-auto scrollbar-none"
+              style={{ height: "auto" }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                }
+              }}
             />
           </div>
           <Button
             type="submit"
             size="icon"
             disabled={!content.trim() || isSending}
-            className="h-11 w-11 rounded-full shrink-0 shadow-lg active:scale-90 transition-all"
+            className="size-11 rounded-full shrink-0 shadow-lg active:scale-90 transition-all"
           >
-            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {isSending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
           </Button>
         </form>
       </div>

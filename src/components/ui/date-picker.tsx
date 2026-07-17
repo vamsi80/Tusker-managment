@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { format } from "date-fns";
@@ -105,7 +105,7 @@ export function DateTimePicker({
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+          <CalendarIcon className="mr-2 size-3.5" />
           <span className="truncate text-xs">
             {date ? format(date, `${APP_DATE_FORMAT} HH:mm`) : placeholder}
           </span>
@@ -120,7 +120,7 @@ export function DateTimePicker({
             initialFocus
           />
           <div className="border-t p-3 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="size-4 text-muted-foreground" />
             <span className="text-xs font-medium">Time:</span>
             <Input
               type="time"
@@ -134,3 +134,4 @@ export function DateTimePicker({
     </Popover>
   );
 }
+

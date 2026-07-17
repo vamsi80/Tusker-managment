@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
@@ -28,21 +28,22 @@ export function SortableHeader({ field, label, sorts, onSortChange, className }:
                     {currentSort ? (
                         <>
                             {currentSort.direction === "asc" ? (
-                                <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                                <ArrowUp className="size-3.5 text-primary" />
                             ) : (
-                                <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                                <ArrowDown className="size-3.5 text-primary" />
                             )}
                             {sorts.length > 1 && (
-                                <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full w-4 h-4 flex items-center justify-center">
+                                <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full size-4 flex items-center justify-center">
                                     {sortIndex + 1}
                                 </span>
                             )}
                         </>
                     ) : (
-                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ArrowUpDown className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
                 </div>
             </button>
         </th>
     );
 }
+

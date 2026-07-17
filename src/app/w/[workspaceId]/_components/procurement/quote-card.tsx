@@ -136,14 +136,14 @@ export function QuoteCard({
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Unit Price</span>
           <span className="text-sm font-black text-foreground flex items-center gap-0.5">
-            <IndianRupee className="h-3 w-3" />
+            <IndianRupee className="size-3" />
             {unitPrice.toLocaleString("en-IN")}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Quantity</span>
           <span className="text-sm font-black text-foreground flex items-center gap-0.5">
-            <Package className="h-3 w-3" />
+            <Package className="size-3" />
             {quote.quantity.toLocaleString("en-IN")}
           </span>
         </div>
@@ -157,13 +157,13 @@ export function QuoteCard({
       <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
         {quote.leadTimeDays != null && (
           <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+            <Clock className="size-3" />
             {quote.leadTimeDays} day{quote.leadTimeDays !== 1 ? "s" : ""} lead time
           </span>
         )}
         {quote.validUntil && (
           <span className="flex items-center gap-1">
-            <CalendarClock className="h-3 w-3" />
+            <CalendarClock className="size-3" />
             Valid until {new Date(quote.validUntil).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
           </span>
         )}
@@ -194,7 +194,7 @@ export function QuoteCard({
                 disabled={isLoading}
                 className="h-8 text-xs font-semibold flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
               >
-                <Check className="h-3.5 w-3.5" /> Approve Quote
+                <Check className="size-3.5" /> Approve Quote
               </Button>
               <Button
                 size="sm"
@@ -203,7 +203,7 @@ export function QuoteCard({
                 disabled={isLoading}
                 className="h-8 text-xs font-semibold border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 gap-1.5"
               >
-                <XCircle className="h-3.5 w-3.5" /> Reject
+                <XCircle className="size-3.5" /> Reject
               </Button>
             </div>
           ) : (

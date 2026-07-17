@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { useTaskTableContext } from "../context/task-table-context";
@@ -34,17 +34,17 @@ export function TaskTableHeader({
         <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] sticky left-0 z-0 bg-background">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
-                <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+              <Button variant="ghost" size="icon" className="size-8 hover:bg-muted">
+                <ChevronsUpDown className="size-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={onExpandAll}>
-                <Maximize2 className="mr-2 h-4 w-4" />
+                <Maximize2 className="mr-2 size-4" />
                 Expand All
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollapseAll}>
-                <Minimize2 className="mr-2 h-4 w-4" />
+                <Minimize2 className="mr-2 size-4" />
                 Collapse All
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -110,3 +110,4 @@ export function TaskTableHeader({
     </thead>
   );
 }
+

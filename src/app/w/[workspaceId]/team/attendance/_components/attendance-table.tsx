@@ -280,7 +280,7 @@ export function AttendanceTable({
                 const initials = (user.surname?.[0]).toUpperCase();
                 return (
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
+                        <Avatar className="size-9">
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
@@ -328,7 +328,7 @@ export function AttendanceTable({
                     return (
                         <div className="flex flex-col items-start">
                             <div className="flex items-center gap-1.5 text-sm text-emerald-600">
-                                <Clock className="h-3.5 w-3.5" />
+                                <Clock className="size-3.5" />
                                 {format(d, "hh:mm a")}
                             </div>
                         </div>
@@ -361,7 +361,7 @@ export function AttendanceTable({
                             )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className={cn("h-3 w-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
+                            <MapPin className={cn("size-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
                             <span className="truncate uppercase tracking-tighter max-w-[120px]">
                                 {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
                             </span>
@@ -392,7 +392,7 @@ export function AttendanceTable({
                     return (
                         <div className="flex flex-col items-start gap-1">
                             <div className="flex items-center gap-1.5 text-sm text-rose-600">
-                                <Clock className="h-3.5 w-3.5" />
+                                <Clock className="size-3.5" />
                                 {format(dOut, "hh:mm a")}
                                 {isNextDay && (
                                     <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-medium border-amber-200 bg-amber-50 text-amber-600">
@@ -430,7 +430,7 @@ export function AttendanceTable({
                             )}
                             title={address || `Raw coordinates: ${lat}, ${lng}`}
                         >
-                            <MapPin className={cn("h-3 w-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
+                            <MapPin className={cn("size-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
                             <span className="truncate uppercase tracking-tighter max-w-[120px]">
                                 {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
                             </span>
@@ -464,7 +464,7 @@ export function AttendanceTable({
 
                     return (
                         <div className="flex items-center gap-1.5 font-medium text-sm text-primary/80">
-                            <Clock className="h-3.5 w-3.5" />
+                            <Clock className="size-3.5" />
                             {diffHrs}h {diffMins}m
                         </div>
                     );
@@ -618,7 +618,7 @@ export function AttendanceTable({
                         size="sm"
                         className="h-9 px-3 gap-2 bg-primary hover:bg-primary/90 shadow-sm transition-all active:scale-95"
                     >
-                        <LogIn className="h-4 w-4" />
+                        <LogIn className="size-4" />
                         <span className="font-medium text-sm hidden sm:inline">Mark Attendance</span>
                     </Button>
                 </DialogTrigger>
@@ -637,9 +637,9 @@ export function AttendanceTable({
                     className="h-9 px-3 gap-2 border-dashed border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                 >
                     {isReconciling ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="size-4 animate-spin" />
                     ) : (
-                        <UserMinus className="h-4 w-4" />
+                        <UserMinus className="size-4" />
                     )}
                     <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
                 </Button>
@@ -651,12 +651,12 @@ export function AttendanceTable({
                         variant="outline"
                         className="gap-2 relative h-9 px-3 border shadow-sm hover:bg-accent/50 transition-colors"
                     >
-                        <Filter className="h-4 w-4" />
+                        <Filter className="size-4" />
                         <span className="font-medium text-sm">Filters</span>
                         {activeFilterCount > 0 && (
                             <Badge
                                 variant="destructive"
-                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-medium shadow-md animate-in zoom-in"
+                                className="absolute -top-2 -right-2 size-5 rounded-full p-0 flex items-center justify-center text-[10px] font-medium shadow-md animate-in zoom-in"
                             >
                                 {activeFilterCount}
                             </Badge>
@@ -672,16 +672,16 @@ export function AttendanceTable({
                     {/* Header */}
                     <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
                         <div className="flex items-center gap-2">
-                            <Filter className="h-4 w-4 text-primary" />
+                            <Filter className="size-4 text-primary" />
                             <h3 className="text-base font-medium text-foreground">Filters</h3>
                         </div>
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setIsFilterOpen(false)}
-                            className="h-8 w-8 p-0 rounded-full hover:bg-background/80"
+                            className="size-8 p-0 rounded-full hover:bg-background/80"
                         >
-                            <X className="h-4 w-4" />
+                            <X className="size-4" />
                         </Button>
                     </div>
 
@@ -786,7 +786,7 @@ export function AttendanceTable({
                                                 !tempFilters.from && !tempFilters.to && "text-muted-foreground"
                                             )}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                                            <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
                                             <span className="truncate text-sm">
                                                 {tempFilters.from && tempFilters.to ? (
                                                     <>{format(tempFilters.from, "MMM d")} - {format(tempFilters.to, "MMM d")}</>
@@ -881,10 +881,10 @@ export function AttendanceTable({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                            className="size-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
                             onClick={() => handleMonthChange('prev')}
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="size-4" />
                         </Button>
                         <div className="flex flex-col items-center">
                             <span className="text-sm font-medium text-foreground tracking-tight">
@@ -894,17 +894,17 @@ export function AttendanceTable({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
+                            className="size-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
                             onClick={() => handleMonthChange('next')}
                         >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="size-4" />
                         </Button>
                     </div>
 
                     {/* Main Stats Card */}
                     <div className="p-4 rounded-xl border bg-card/30 backdrop-blur-md border-muted-foreground/20 relative overflow-hidden group shadow-sm">
                         <h3 className="text-sm font-medium uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
-                            <CalendarDays className="h-4 w-4 text-primary" />
+                            <CalendarDays className="size-4 text-primary" />
                             Summary
                         </h3>
 

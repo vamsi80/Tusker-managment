@@ -36,8 +36,9 @@ interface SortableSubtaskRowProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     showDetails: boolean;
     allowedUserIds?: string[];
@@ -189,9 +190,20 @@ function SortableSubtaskRow({
     };
 
 
-    const canManage = permissions?.isWorkspaceAdmin ||
-        permissions?.managedProjectIds.includes(projectId) ||
-        subtask.createdById === currentUser?.id;
+    const isAssignee = subtask.assignee?.id === currentUser?.id;
+    const isWorkspaceAdmin = !!permissions?.isWorkspaceAdmin;
+    const isProjectManager = !!(permissions?.managedProjectIds || []).includes(projectId);
+    const isProjectCoordinator = !!(permissions?.coordinatorProjectIds || []).includes(projectId);
+    const isProjectLead = !!(permissions?.leadProjectIds || []).includes(projectId);
+    const isCreator = subtask.createdById === currentUser?.id;
+
+    // ❌ ABSOLUTE GATE: Assignees can NEVER edit dates/metadata, regardless of any role.
+    const canManage = !isAssignee && (
+        isWorkspaceAdmin ||
+        isProjectManager ||
+        isProjectCoordinator ||
+        (isProjectLead && isCreator)
+    );
 
     const handleRowClick = (e: React.MouseEvent) => {
         console.log("[SortableSubtaskRow] handleRowClick TRIGGERED for:", subtask.id);
@@ -244,10 +256,10 @@ function SortableSubtaskRow({
                             !canManage && "pointer-events-none opacity-0"
                         )}
                     >
-                        <GripVertical className="h-3.5 w-3.5" />
+                        <GripVertical className="size-3.5" />
                     </div>
 
-                    <CornerDownRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
+                    <CornerDownRight className="size-3 text-muted-foreground/30 shrink-0" />
 
                     <span
                         className="text-[12px] text-muted-foreground truncate flex-1 cursor-pointer hover:text-foreground hover:underline transition-colors pl-1"
@@ -280,7 +292,7 @@ function SortableSubtaskRow({
                             )}
                             title="Manage Dependencies"
                         >
-                            <Link2 className="h-3 w-3" />
+                            <Link2 className="size-3" />
                         </button>
                     )}
                 </div>
@@ -443,8 +455,9 @@ interface SortableSubtaskListProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     showDetails: boolean;
     allowedUserIds?: string[];
@@ -545,3 +558,4 @@ export function SortableSubtaskList({
         </DndContext>
     );
 }
+

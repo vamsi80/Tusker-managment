@@ -12,11 +12,17 @@ import {
 import type { SubTaskType } from "@/types/task";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { apiClient } from "@/lib/api-client";
-import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context";
+import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context-object";
 import { useContext } from "react";
-import { useWorkspaceTags } from "@/hooks/use-workspace-tags";
+import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
+
+// Local helper for robust deduplication by ID
+const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
+  if (!taskList) return [];
+  return taskList.filter((t, i, a) => a.findIndex(c => c.id === t.id) === i);
+};
 
 export function useTaskTableLogic({
   initialTasks,
@@ -26,14 +32,7 @@ export function useTaskTableLogic({
   projectCounts,
   projects,
 }: any) {
-  // Local helper for robust deduplication by ID
-  const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
-    if (!taskList) return [];
-    return taskList.filter((t, i, a) => a.findIndex(c => c.id === t.id) === i);
-  };
 
-  // Initialize state directly from initialTasks (no global cache)
-  const tags = useWorkspaceTags(workspaceId);
   const {
     filters, setFilters,
     searchQuery, setSearchQuery,
@@ -41,6 +40,9 @@ export function useTaskTableLogic({
     isCurrentlyFiltered,
     setIsCurrentlyFiltered
   } = useFilterStore();
+
+  // Initialize state directly from initialTasks (no global cache)
+  const tags = useProjectTags(workspaceId, projectId || filters.projectId);
 
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const fetchingIdsRef = useRef<Set<string>>(new Set());
@@ -778,7 +780,6 @@ export function useTaskTableLogic({
             idsToFetch.push(t.id);
           }
         } else if (isSubtaskFirstMode && t.parentTaskId) {
-          // In subtask-first mode, expand the parent of the matched subtask
           newExpanded[t.parentTaskId] = true;
         }
       });
@@ -787,6 +788,16 @@ export function useTaskTableLogic({
       if (idsToFetch.length > 0) {
         handleRequestSubtasksBatch(idsToFetch);
       }
+
+      // Load tasks for projects that are visible (have a count) but have no tasks loaded yet
+      const loadedProjectIds = new Set(tasks.map((t) => t.projectId).filter(Boolean));
+      projects.forEach((p: any) => {
+        const hasCount = (projectCounts?.[p.id] ?? 0) > 0;
+        const hasLoadedTasks = loadedProjectIds.has(p.id);
+        if (hasCount && !hasLoadedTasks) {
+          loadProjectTasks(p.id);
+        }
+      });
     },
     handleCollapseAll: () => {
       manuallyCollapsedRef.current.clear();

@@ -16,6 +16,8 @@ import presence from "./routes/presence";
 import procurementVendors from "./routes/procurement-vendors";
 import procurementIndents from "./routes/procurement-indents";
 import procurementRfq from "./routes/procurement-rfq";
+import projectMaterials from "./routes/project-materials";
+import materials from "./routes/materials";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { AppError } from "../lib/errors/app-error";
@@ -146,6 +148,12 @@ app.route("/presence", presence);
 app.route("/procurement/vendors", procurementVendors);
 app.route("/procurement/indents", procurementIndents);
 app.route("/procurement/rfq", procurementRfq);
+
+// Project Materials API (Planning BOM)
+app.route("/projects", projectMaterials);
+
+// Workspace Materials Catalog API
+app.route("/materials", materials);
 
 export default app;
 export type AppType = typeof app;

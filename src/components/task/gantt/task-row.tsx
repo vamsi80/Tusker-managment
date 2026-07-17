@@ -40,8 +40,9 @@ interface TaskRowProps {
     currentUser?: { id: string };
     permissions?: {
         isWorkspaceAdmin: boolean;
-        leadProjectIds: string[];
-        managedProjectIds: string[];
+        leadProjectIds?: string[];
+        managedProjectIds?: string[];
+        coordinatorProjectIds?: string[];
     };
     showDetails: boolean;
     projectMap: Map<string, ProjectOption>;
@@ -144,7 +145,7 @@ export function TaskRow({
         setVisibleSubtaskCount(prev => Math.min(prev + SUBTASKS_PER_PAGE, task.subtasks?.length || 0));
     };
 
-    // 🚀 SYNC: Automatically show all subtasks if they were just loaded from server (e.g. Expand All or Load More)
+    // ðŸš€ SYNC: Automatically show all subtasks if they were just loaded from server (e.g. Expand All or Load More)
     useEffect(() => {
         if (task.subtasks && task.subtasks.length > visibleSubtaskCount) {
             setVisibleSubtaskCount(task.subtasks.length);
@@ -155,7 +156,7 @@ export function TaskRow({
     // Get visible subtasks
     const visibleSubtasks = (task.subtasks || []).slice(0, visibleSubtaskCount);
 
-    // 🧠 Evaluation logic for mixed client/server pagination
+    // ðŸ§  Evaluation logic for mixed client/server pagination
     const hasMoreInMemory = visibleSubtaskCount < (task.subtasks?.length || 0);
     const hasMoreOnServer = !!task.hasMoreSubtasks;
     const canLoadMore = hasMoreInMemory || hasMoreOnServer;
@@ -197,7 +198,7 @@ export function TaskRow({
         task.id
     ]);
     
-    // 🚀 SYNC: Proactive load for 'Expand All' mode
+    // ðŸš€ SYNC: Proactive load for 'Expand All' mode
     useEffect(() => {
         if (isExpanded && isExpandAllMode && needsInitialLoad && !isLoading) {
             // Staggered delay (0-400ms) to prevent network saturation when multiple rows expand at once
@@ -243,11 +244,11 @@ export function TaskRow({
                             aria-label={isExpanded ? "Collapse" : "Expand"}
                         >
                             {isLoading ? (
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             ) : isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                <ChevronDown className="size-4 text-muted-foreground" />
                             ) : (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                <ChevronRight className="size-4 text-muted-foreground" />
                             )}
                         </button>
                         <span className="font-semibold text-sm text-foreground truncate">
@@ -428,3 +429,4 @@ export function TaskRow({
         </div>
     );
 }
+

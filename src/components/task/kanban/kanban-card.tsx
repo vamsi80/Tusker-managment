@@ -17,12 +17,10 @@ import {
   Edit,
   Trash2,
   MessageSquare,
-  Calendar,
-  AlertCircle,
   Tag,
 } from "lucide-react";
 import type { KanbanSubTaskType } from "@/types/task";
-import { cn, formatIST } from "@/lib/utils";
+import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import {
@@ -44,7 +42,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { COLUMNS, TaskStatus } from "./kanban-board";
+import { COLUMNS, TaskStatus } from "./kanban-constants";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
 
@@ -146,7 +144,7 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const firstManager = assignedManagers?.[0] || null;
 
-  // 🚀 Speculative Pre-fetching for "Instant" feel
+  // ðŸš€ Speculative Pre-fetching for "Instant" feel
   const handlePrefetch = () => {
     if (!subTask?.id) return;
   };
@@ -156,10 +154,51 @@ export const KanbanCard = React.memo(function KanbanCard({
       subTask.createdBy?.id ||
       (subTask as any).createdById;
 
+    const subTaskAssigneeUserId =
+      subTask.assignee?.id ||
+      (subTask.assignee as any)?.workspaceMember?.user?.id ||
+      (subTask as any).assigneeUserId;
+
+    const subTaskAssigneeMemberId = (subTask as any).assigneeId;
+
+    const currentUserId = permissions?.userId || userId;
+    const currentProjectMemberId = permissions?.projectMember?.id;
+
+    const isAssignee = !!(
+      (currentUserId && subTaskAssigneeUserId && currentUserId === subTaskAssigneeUserId) ||
+      (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
+    );
+
+    const isUserWorkspaceAdmin = permissions?.isWorkspaceAdmin;
+
+    // Assignees cannot edit task details (metadata) even if they are PM, Lead or Coordinator,
+    // unless they are Workspace Admin.
+    if (isAssignee && !isUserWorkspaceAdmin) {
+      return false;
+    }
+
     if (permissions) {
+      if (isUserWorkspaceAdmin) return true;
+
+      const workspacePerms = permissions as any;
+      if (
+        workspacePerms.managedProjectIds ||
+        workspacePerms.coordinatorProjectIds ||
+        workspacePerms.leadProjectIds
+      ) {
+        const projectIdToCheck = subTask.projectId || project?.id;
+        if (!projectIdToCheck) return false;
+
+        if (workspacePerms.managedProjectIds?.includes(projectIdToCheck)) return true;
+        if (workspacePerms.coordinatorProjectIds?.includes(projectIdToCheck)) return true;
+        if (workspacePerms.leadProjectIds?.includes(projectIdToCheck) && creatorId === userId) return true;
+
+        return false;
+      }
+
       return (
-        permissions.isWorkspaceAdmin ||
         permissions.isProjectManager ||
+        permissions.isProjectCoordinator ||
         (permissions.isProjectLead && creatorId === userId)
       );
     }
@@ -250,7 +289,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 title={`Project: ${project?.name}`}
               >
                 <div
-                  className="h-2 w-2 rounded-full border shadow-sm shrink-0"
+                  className="size-2 rounded-full border shadow-sm shrink-0"
                   style={{
                     backgroundColor:
                       project?.color || getColorFromString(project?.name || ""),
@@ -277,7 +316,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Avatar className="h-5 w-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
+                      <Avatar className="size-5 border border-amber-200 dark:border-amber-800 shadow-sm transition-transform hover:scale-110 cursor-help">
                         {(firstManager?.image || firstManager?.user?.image) ? (
                           <AvatarImage src={firstManager?.image || firstManager?.user?.image} alt={firstManager?.surname || firstManager?.name || "Manager"} />
                         ) : null}
@@ -342,9 +381,9 @@ export const KanbanCard = React.memo(function KanbanCard({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="size-6 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                        <MoreHorizontal className="size-3.5 text-muted-foreground" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
@@ -362,7 +401,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           }
                           trigger={
                             <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-accent rounded-sm transition-colors text-xs">
-                              <Edit className="h-3.5 w-3.5" />
+                              <Edit className="size-3.5" />
                               <span>Edit</span>
                             </div>
                           }
@@ -381,7 +420,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           }}
                           trigger={
                             <div className="flex items-center gap-2 w-full px-2 py-1.5 cursor-pointer hover:bg-destructive/10 text-destructive rounded-sm transition-colors text-xs">
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="size-3.5" />
                               <span>Delete</span>
                             </div>
                           }
@@ -400,7 +439,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 className="flex items-center gap-1.5 text-muted-foreground"
                 title="Reviews"
               >
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageSquare className="size-3.5" />
                 <span className="text-xs font-medium">{activityCount}</span>
               </div>
 
@@ -410,12 +449,12 @@ export const KanbanCard = React.memo(function KanbanCard({
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "flex items-center gap-1.5 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-full transition-colors border bg-muted/30",
+                          "flex items-center gap-1.5 text-[10px] font-medium cursor-help px-1.5 py-0.5 rounded-full transition-colors border bg-muted/30 max-w-[90px] min-w-0",
                           delayStyles.borderColor
                         )}
                       >
-                        <div className={cn("h-2 w-2 rounded-full", delayStyles.dotColor)} />
-                        <span className={delayStyles.color}>
+                        <div className={cn("size-2 rounded-full shrink-0", delayStyles.dotColor)} />
+                        <span className={cn(delayStyles.color, "truncate")}>
                           {delayText}
                         </span>
                       </div>
@@ -451,8 +490,8 @@ export const KanbanCard = React.memo(function KanbanCard({
               {subTask.tags && subTask.tags.length > 0 && (
                 <div className="flex items-center gap-1">
                   <div className="flex items-center gap-0.5 bg-muted/50 px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground border border-border/50 max-w-[80px]">
-                    <Tag className="h-2.5 w-2.5 shrink-0" />
-                    <span className="truncate">{subTask.tags[0].name}</span>
+                    <Tag className="size-2.5 shrink-0" />
+                    <span className="truncate">{toTitleCase(subTask.tags[0].name)}</span>
                   </div>
                   {subTask.tags.length > 1 && (
                     <div className="bg-primary/10 text-primary px-1 py-0.5 rounded text-[8px] font-bold border border-primary/20 shrink-0">
@@ -468,7 +507,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Avatar
-                      className="h-6 w-6 cursor-pointer border-2 border-background"
+                      className="size-6 cursor-pointer border-2 border-background"
                     >
                       <AvatarFallback className="text-[10px]">
                         {(assigneeUser.surname || (assigneeUser as any).workspaceMember?.user?.surname)?.[0]?.toUpperCase() || "?"}
@@ -543,7 +582,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                       setIsStatusDrawerOpen(false);
                     }}
                   >
-                    <div className={cn("h-2 w-2 rounded-full", col.id === "TO_DO" ? "bg-slate-400" : col.id === "IN_PROGRESS" ? "bg-blue-500" : col.id === "REVIEW" ? "bg-purple-500" : col.id === "HOLD" ? "bg-amber-500" : col.id === "COMPLETED" ? "bg-green-500" : "bg-red-500")} />
+                    <div className={cn("size-2 rounded-full", col.id === "TO_DO" ? "bg-slate-400" : col.id === "IN_PROGRESS" ? "bg-blue-500" : col.id === "REVIEW" ? "bg-purple-500" : col.id === "HOLD" ? "bg-amber-500" : col.id === "COMPLETED" ? "bg-green-500" : "bg-red-500")} />
                     {col.title}
                   </Button>
                 );
@@ -561,3 +600,4 @@ export const KanbanCard = React.memo(function KanbanCard({
     </>
   );
 });
+

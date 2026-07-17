@@ -51,35 +51,6 @@ procurementVendors.post("/", zValidator("json", CreateVendorSchema), async (c) =
 });
 
 /**
- * GET /api/v1/procurement/vendors/materials/all
- * List all active materials in a workspace
- */
-procurementVendors.get("/materials/all", async (c) => {
-  const user = c.get("user");
-  const workspaceId = c.req.query("w");
-
-  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
-
-  const catalog = await prisma.materialCatalog.findMany({
-    where: { workspaceId },
-    orderBy: { name: "asc" },
-  });
-
-  const formatted = catalog.map((m) => ({
-    id: m.id,
-    name: m.name,
-    defaultUnit: m.unit ? { abbreviation: m.unit } : null,
-  }));
-
-  return c.json({ success: true, data: formatted });
-});
-
-/**
  * GET /api/v1/procurement/vendors/materials/coverage
  * Get list of all materials and their vendor coverage
  */

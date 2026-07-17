@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+﻿import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -7,24 +7,24 @@ export function KanbanCardSkeleton() {
         <Card className="border-l-4">
             <CardContent className="p-4 space-y-3">
                 <div className="flex items-center gap-1.5">
-                    <Skeleton className="h-3 w-3" />
+                    <Skeleton className="size-3" />
                     <Skeleton className="h-5 w-24 rounded-full" />
                 </div>
                 <div className="flex items-start justify-between gap-2">
                     <Skeleton className="h-5 w-full flex-1" />
-                    <Skeleton className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <Skeleton className="size-4 flex-shrink-0 mt-0.5" />
                 </div>
-                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="size-3/4" />
                 <div className="flex items-center gap-1.5">
-                    <Skeleton className="h-3 w-3" />
+                    <Skeleton className="size-3" />
                     <Skeleton className="h-5 w-20 rounded-full" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <Skeleton className="h-3 w-3" />
+                    <Skeleton className="size-3" />
                     <Skeleton className="h-3 w-24" />
                 </div>
                 <div className="flex items-center gap-2 pt-2 border-t">
-                    <Skeleton className="h-6 w-6 rounded-full" />
+                    <Skeleton className="size-6 rounded-full" />
                     <Skeleton className="h-3 w-20" />
                 </div>
             </CardContent>
@@ -108,3 +108,4 @@ export function KanbanBoardSkeleton() {
         </div>
     );
 }
+

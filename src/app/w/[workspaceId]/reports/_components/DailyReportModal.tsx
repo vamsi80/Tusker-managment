@@ -114,6 +114,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                     variant="outline"
                                                     role="combobox"
                                                     aria-expanded={openPopoverIndex === index}
+                                                    aria-controls={`task-list-${index}`}
                                                     className="w-full justify-between"
                                                 >
                                                     {entry.taskId
@@ -126,7 +127,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                                 return (
                                                                     <div className="flex items-center gap-2 truncate">
                                                                         <div
-                                                                            className="w-2 h-2 rounded-full shrink-0"
+                                                                            className="size-2 rounded-full shrink-0"
                                                                             style={{ backgroundColor: t.project?.color || "#ccc" }}
                                                                         />
                                                                         <span className="truncate">{taskLabel}</span>
@@ -134,7 +135,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                                 );
                                                             })()
                                                         : "Select a task or 'Other Work'..."}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
@@ -143,7 +144,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                     return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
                                                 }}>
                                                     <CommandInput placeholder="Search tasks and subtasks..." />
-                                                    <CommandList>
+                                                    <CommandList id={`task-list-${index}`}>
                                                         <CommandEmpty className="p-2 text-center text-sm text-muted-foreground">
                                                             No matching tasks. Try "Other Work".
                                                         </CommandEmpty>
@@ -159,14 +160,14 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                                 >
                                                                     <Check
                                                                         className={cn(
-                                                                            "mr-3 h-4 w-4 flex-shrink-0",
+                                                                            "mr-3 size-4 flex-shrink-0",
                                                                             entry.taskId === t.id ? "opacity-100" : "opacity-0"
                                                                         )}
                                                                     />
                                                                     <div className="flex flex-col truncate">
                                                                         <div className="flex items-center gap-2">
                                                                             <div
-                                                                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                                                                className="size-1.5 rounded-full shrink-0"
                                                                                 style={{ backgroundColor: t.project?.color || "#ccc" }}
                                                                             />
                                                                             <span className="font-medium text-[10px] text-muted-foreground uppercase tracking-tight">
@@ -193,7 +194,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                             >
                                                                 <Check
                                                                     className={cn(
-                                                                        "mr-3 h-4 w-4 flex-shrink-0",
+                                                                        "mr-3 size-4 flex-shrink-0",
                                                                         entry.taskId === "other" ? "opacity-100" : "opacity-0"
                                                                     )}
                                                                 />

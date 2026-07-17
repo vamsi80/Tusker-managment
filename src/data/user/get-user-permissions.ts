@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth/require-user";
+import { requireUser, getSession } from "@/lib/auth/require-user";
 
 /**
  * Get workspace-level permissions for the current user
@@ -60,6 +60,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
 
         let leadProjectIds: string[] = [];
         let managedProjectIds: string[] = [];
+        let coordinatorProjectIds: string[] = [];
         let memberProjectIds: string[] = [];
         let viewerProjectIds: string[] = [];
 
@@ -72,6 +73,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     canCreateProject,
                     isProjectLead: true,
                     isProjectManager: true,
+                    isProjectCoordinator: true,
                     hasAccess: true,
                     workspaceMemberId: workspaceMember.id,
                     workspaceRole: workspaceMember.workspaceRole,
@@ -88,6 +90,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             const allIds = allProjects.map(p => p.id);
             leadProjectIds = allIds;
             managedProjectIds = allIds;
+            coordinatorProjectIds = allIds;
             memberProjectIds = allIds;
         } else {
             // Standard User: Fetch explicit roles
@@ -106,19 +109,22 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
 
             managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
             leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
+            coordinatorProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_COORDINATOR").map(p => p.projectId);
             memberProjectIds = projectRoles.filter(p => p.projectRole === "MEMBER").map(p => p.projectId);
             viewerProjectIds = projectRoles.filter(p => p.projectRole === "VIEWER").map(p => p.projectId);
         }
 
         const isProjectManager = isWorkspaceAdmin || managedProjectIds.length > 0;
         const isProjectLead = isWorkspaceAdmin || leadProjectIds.length > 0;
-        const hasAccess = isWorkspaceAdmin || isProjectManager || isProjectLead || memberProjectIds.length > 0 || viewerProjectIds.length > 0;
+        const isProjectCoordinator = isWorkspaceAdmin || coordinatorProjectIds.length > 0;
+        const hasAccess = isWorkspaceAdmin || isProjectManager || isProjectLead || isProjectCoordinator || memberProjectIds.length > 0 || viewerProjectIds.length > 0;
 
         return {
             isWorkspaceAdmin,
             canCreateProject,
             isProjectLead,
             isProjectManager,
+            isProjectCoordinator,
             hasAccess,
             workspaceMemberId: workspaceMember.id,
             workspaceRole: workspaceMember.workspaceRole,
@@ -128,6 +134,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             ...(lean ? {} : {
                 leadProjectIds,
                 managedProjectIds,
+                coordinatorProjectIds,
                 memberProjectIds,
                 viewerProjectIds,
             })
@@ -156,7 +163,12 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
  */
 export const getWorkspacePermissions = async (workspaceId: string, providedUserId?: string, lean: boolean = false) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
-    const userId = providedUserId || (await requireUser()).id;
+    let userId = providedUserId;
+    if (!userId) {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        userId = session.user.id;
+    }
     return await _fetchWorkspacePermissionsInternal(workspaceId, userId, lean);
 };
 
@@ -212,16 +224,18 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
         // Workspace ADMIN/OWNER status does NOT automatically grant PM or Lead rights here.
         // isWorkspaceAdmin is still available as a separate flag for system-level operations.
         const isProjectManager = projectMember?.projectRole === "PROJECT_MANAGER";
+        const isProjectCoordinator = projectMember?.projectRole === "PROJECT_COORDINATOR";
         const isProjectLead = projectMember?.projectRole === "LEAD";
         const isMember = projectMember?.projectRole === "MEMBER";
 
-        // Only PM and Lead can create subtasks or perform bulk operations.
-        const canCreateSubTask = isProjectManager || isProjectLead;
-        const canPerformBulkOperations = isProjectManager || isProjectLead;
+        // Only PM, Coordinator and Lead can create subtasks or perform bulk operations.
+        const canCreateSubTask = isProjectManager || isProjectLead || isProjectCoordinator;
+        const canPerformBulkOperations = isProjectManager || isProjectLead || isProjectCoordinator;
 
         return {
             isWorkspaceAdmin,
             isProjectManager,
+            isProjectCoordinator,
             isProjectLead,
             isMember,
             canCreateSubTask,
@@ -240,6 +254,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
         return {
             isWorkspaceAdmin: false,
             isProjectManager: false,
+            isProjectCoordinator: false,
             isProjectLead: false,
             isMember: false,
             canCreateSubTask: false,
@@ -258,7 +273,12 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
  */
 export const getUserPermissions = async (workspaceId: string, projectId: string, providedUserId?: string) => {
     // If userId is provided (e.g. from a Server Action), bypass requireUser to save ~1s
-    const userId = providedUserId || (await requireUser()).id;
+    let userId = providedUserId;
+    if (!userId) {
+        const session = await getSession();
+        if (!session) throw new Error("Unauthorized");
+        userId = session.user.id;
+    }
     return await _getUserPermissionsInternal(workspaceId, projectId, userId);
 };
 

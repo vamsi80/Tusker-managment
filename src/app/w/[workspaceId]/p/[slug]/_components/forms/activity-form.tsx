@@ -108,7 +108,7 @@ export function ActivityDialog({ isOpen, onClose, onSubmit, subTaskName }: Activ
                                     className="absolute right-1 px-2 text-muted-foreground hover:text-foreground"
                                     onClick={handleClearAttachment}
                                 >
-                                    <X className="h-4 w-4" />
+                                    <X className="size-4" />
                                 </Button>
                             )}
                         </div>

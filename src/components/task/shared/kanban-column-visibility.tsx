@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +44,7 @@ export function KanbanColumnVisibility({
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
-                    <ListFilter className="h-4 w-4" />
+                    <ListFilter className="size-4" />
                     Columns ({visibleColumnsCount}/6)
                 </Button>
             </DropdownMenuTrigger>
@@ -64,3 +64,4 @@ export function KanbanColumnVisibility({
         </DropdownMenu>
     );
 }
+

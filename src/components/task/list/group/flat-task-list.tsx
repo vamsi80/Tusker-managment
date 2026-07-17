@@ -23,6 +23,7 @@ interface FlatTaskListProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: any[];
     onRequestSubtasks: (taskId: string) => void;
     getCachedSubTasks: (taskId: string) => any;
@@ -56,6 +57,7 @@ export function FlatTaskList({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     onRequestSubtasks,
     getCachedSubTasks,
@@ -138,6 +140,7 @@ export function FlatTaskList({
                     userId={userId}
                     isWorkspaceAdmin={isWorkspaceAdmin}
                     leadProjectIds={leadProjectIds}
+                    coordinatorProjectIds={coordinatorProjectIds}
                     projects={projects}
                     onRequestSubtasks={onRequestSubtasks}
                     isCached={!!getCachedSubTasks(task.id)}
@@ -152,12 +155,13 @@ export function FlatTaskList({
                         projectId={task.projectId || projectId}
                         canCreateSubTask={
                             level === 'project'
-                                ? canCreateSubTask
-                                : (canCreateSubTask && task.projectId ? (
-                                    leadProjectIds?.includes(task.projectId) ||
-                                    !!isWorkspaceAdmin ||
-                                    !!projects?.find(p => p.id === task.projectId)?.canManageMembers
-                                ) : false)
+                                    ? canCreateSubTask
+                                    : (canCreateSubTask && task.projectId ? (
+                                            leadProjectIds?.includes(task.projectId) ||
+                                            coordinatorProjectIds?.includes(task.projectId) ||
+                                            !!isWorkspaceAdmin ||
+                                            !!projects?.find(p => p.id === task.projectId)?.canManageMembers
+                                    ) : false)
                         }
                         columnVisibility={columnVisibility}
                         isLoading={!!loadingSubTasks[task.id]}
@@ -172,6 +176,7 @@ export function FlatTaskList({
                         userId={userId}
                         isWorkspaceAdmin={isWorkspaceAdmin}
                         leadProjectIds={leadProjectIds}
+                        coordinatorProjectIds={coordinatorProjectIds}
                         projects={projects}
                         scrollContainerRef={scrollContainerRef}
                         level={level}
@@ -200,7 +205,7 @@ export function FlatTaskList({
                     >
                         <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 text-muted-foreground">
                             <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
-                                <Plus className="h-4 w-4" />
+                                <Plus className="size-4" />
                                 <span>Add Task</span>
                             </div>
                         </TableCell>
@@ -210,3 +215,4 @@ export function FlatTaskList({
         </>
     );
 }
+

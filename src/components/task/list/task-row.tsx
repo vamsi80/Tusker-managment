@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +33,7 @@ interface TaskRowProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean }>;
     isSubtask?: boolean;
     onRequestSubtasks?: (taskId: string) => void;
@@ -56,6 +57,7 @@ export const TaskRow = memo(function TaskRow({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     onRequestSubtasks,
     isCached = false,
@@ -153,11 +155,14 @@ export const TaskRow = memo(function TaskRow({
             return (
                 permissions.isWorkspaceAdmin ||
                 permissions.isProjectManager ||
+                permissions.isProjectCoordinator ||
                 (permissions.isProjectLead && taskCreatorId === userId)
             );
         }
 
         if (isWorkspaceAdmin) return true;
+
+        if (coordinatorProjectIds?.includes(task.projectId)) return true;
 
         const taskProject = projects?.find((p) => p.id === task.projectId);
         if (taskProject?.canManageMembers) return true;
@@ -173,16 +178,16 @@ export const TaskRow = memo(function TaskRow({
         return (
             <TableRow className="group">
                 <TableCell>
-                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="size-4" />
                 </TableCell>
                 <TableCell>
-                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="size-8" />
                 </TableCell>
                 <TableCell className="font-medium" colSpan={totalColSpan}>
                     <Skeleton className="h-5 w-[200px]" />
                 </TableCell>
                 <TableCell>
-                    <Skeleton className="h-8 w-8" />
+                    <Skeleton className="size-8" />
                 </TableCell>
             </TableRow>
         );
@@ -197,7 +202,7 @@ export const TaskRow = memo(function TaskRow({
                 <TableCell className="w-[40px] md:w-[50px]">
                     {isSubtaskRow ? (
                         <div className="flex items-center justify-center pl-4">
-                            <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                            <CornerDownRight className="size-3.5 text-muted-foreground/50" />
                         </div>
                     ) : (
                         !isSubtask && (
@@ -205,16 +210,16 @@ export const TaskRow = memo(function TaskRow({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 shrink-0 p-0"
+                                    className="size-6 shrink-0 p-0"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggleExpand();
                                     }}
                                 >
                                     {isExpanded ? (
-                                        <ChevronDown className="h-4 w-4" />
+                                        <ChevronDown className="size-4" />
                                     ) : (
-                                        <ChevronRight className="h-4 w-4" />
+                                        <ChevronRight className="size-4" />
                                     )}
                                 </Button>
                             </div>
@@ -240,8 +245,8 @@ export const TaskRow = memo(function TaskRow({
                             {canEditTask() && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                                            <MoreHorizontal className="h-3 w-3" />
+                                        <Button variant="ghost" size="icon" className="size-6">
+                                            <MoreHorizontal className="size-3" />
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
@@ -299,3 +304,4 @@ export const TaskRow = memo(function TaskRow({
         </>
     );
 });
+

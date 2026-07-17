@@ -26,35 +26,35 @@ export function VendorProfileInfo({ vendor }: VendorProfileInfoProps) {
       <Card className="shadow-sm border-border/50 !py-0 !gap-0">
         <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6 items-center flex flex-row justify-between">
           <CardTitle className="text-md font-semibold flex items-center gap-2 text-card-foreground">
-            <Building2 className="h-4 w-4 text-muted-foreground shrink-0" /> Contact & Registry
+            <Building2 className="size-4 text-muted-foreground shrink-0" /> Contact & Registry
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
           <div className="space-y-1">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact Person</div>
             <div className="text-sm font-medium text-foreground flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground shrink-0" /> {vendor.contactPerson || "Not Provided"}
+              <User className="size-4 text-muted-foreground shrink-0" /> {vendor.contactPerson || "Not Provided"}
             </div>
           </div>
 
           <div className="space-y-1 border-t pt-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone Number</div>
             <div className="text-sm font-medium text-foreground flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground shrink-0" /> {vendor.phoneNumber || "Not Provided"}
+              <Phone className="size-4 text-muted-foreground shrink-0" /> {vendor.phoneNumber || "Not Provided"}
             </div>
           </div>
 
           <div className="space-y-1 border-t pt-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</div>
             <div className="text-sm font-medium text-foreground flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground shrink-0" /> {vendor.email || "Not Provided"}
+              <Mail className="size-4 text-muted-foreground shrink-0" /> {vendor.email || "Not Provided"}
             </div>
           </div>
 
           <div className="space-y-1 border-t pt-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">GSTIN / Tax ID</div>
             <div className="text-sm font-mono text-foreground flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-muted-foreground shrink-0" /> {vendor.gstNumber || "Not Provided"}
+              <FileSpreadsheet className="size-4 text-muted-foreground shrink-0" /> {vendor.gstNumber || "Not Provided"}
             </div>
           </div>
         </CardContent>
@@ -64,7 +64,7 @@ export function VendorProfileInfo({ vendor }: VendorProfileInfoProps) {
       <Card className="shadow-sm border-border/50 !py-0 !gap-0">
         <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6 items-center flex flex-row justify-between">
           <CardTitle className="text-md font-semibold flex items-center gap-2 text-card-foreground">
-            <MapPin className="h-4 w-4 text-muted-foreground shrink-0" /> Registered Address
+            <MapPin className="size-4 text-muted-foreground shrink-0" /> Registered Address
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 space-y-3">

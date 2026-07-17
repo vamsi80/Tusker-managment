@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -48,7 +48,7 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
                 <Card className="w-full max-w-md border-destructive">
                     <CardHeader>
                         <div className="flex items-center gap-2 text-destructive mb-2">
-                            <AlertCircle className="h-5 w-5" />
+                            <AlertCircle className="size-5" />
                             <CardTitle>Invalid Link</CardTitle>
                         </div>
                         <CardDescription>
@@ -58,7 +58,7 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
                     <CardContent>
                         <Button asChild variant="outline" className="w-full">
                             <Link href="/sign-in">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                <ArrowLeft className="mr-2 size-4" />
                                 Back to Sign In
                             </Link>
                         </Button>
@@ -77,7 +77,7 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
                 <Card className="w-full max-w-md border-destructive">
                     <CardHeader>
                         <div className="flex items-center gap-2 text-destructive mb-2">
-                            <AlertCircle className="h-5 w-5" />
+                            <AlertCircle className="size-5" />
                             <CardTitle>Invitation Expired</CardTitle>
                         </div>
                         <CardDescription>
@@ -87,7 +87,7 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
                     <CardContent>
                         <Button asChild variant="outline" className="w-full">
                             <Link href="/sign-in">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                <ArrowLeft className="mr-2 size-4" />
                                 Back to Sign In
                             </Link>
                         </Button>
@@ -116,3 +116,4 @@ export default async function AcceptInvitationPage({ searchParams }: PageProps) 
         </div>
     );
 }
+

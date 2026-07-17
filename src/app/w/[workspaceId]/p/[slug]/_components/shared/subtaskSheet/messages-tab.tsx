@@ -170,9 +170,9 @@ export function MessagesTab({
                 {isLoading && hasMore && (
                     <div className="flex justify-center py-3 sticky top-0 z-10">
                         <div className="bg-muted/60 backdrop-blur rounded-full px-3 py-1 flex items-center gap-2">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
                             <span className="text-[10px] text-muted-foreground font-medium">
-                                Loading older messages…
+                                Loading older messages...
                             </span>
                         </div>
                     </div>
@@ -181,14 +181,14 @@ export function MessagesTab({
                 {/* Initial loading state */}
                 {isLoading && comments.length === 0 && (
                     <div className="flex justify-center items-center h-32">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/30" />
+                        <Loader2 className="size-5 animate-spin text-muted-foreground/30" />
                     </div>
                 )}
 
                 {/* Empty state */}
                 {!isLoading && msgs.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-64 text-center opacity-40">
-                        <MessageSquare className="h-10 w-10 mb-3" />
+                        <MessageSquare className="size-10 mb-3" />
                         <p className="text-sm font-semibold">No messages yet</p>
                     </div>
                 )}
@@ -228,7 +228,7 @@ export function MessagesTab({
                                     )}>
                                         {/* Avatar */}
                                         {!isMe && isFirstGrp && (
-                                            <Avatar className="h-7 w-7 mt-0.5 shrink-0 border border-border/30">
+                                            <Avatar className="size-7 mt-0.5 shrink-0 border border-border/30">
                                                 <AvatarImage src={author?.image} />
                                                 <AvatarFallback className="bg-muted text-[9px] font-bold">
                                                     {author?.name?.[0]}{author?.surname?.[0]}
@@ -273,9 +273,9 @@ export function MessagesTab({
             {showScrollBtn && (
                 <button
                     onClick={() => scrollToBottom()}
-                    className="absolute bottom-24 right-5 z-20 w-9 h-9 rounded-full bg-background/90 backdrop-blur border border-border/50 flex items-center justify-center shadow-lg hover:bg-muted transition-all"
+                    className="absolute bottom-24 right-5 z-20 size-9 rounded-full bg-background/90 backdrop-blur border border-border/50 flex items-center justify-center shadow-lg hover:bg-muted transition-all"
                 >
-                    <ChevronDown className="h-5 w-5" />
+                    <ChevronDown className="size-5" />
                 </button>
             )}
 
@@ -285,7 +285,7 @@ export function MessagesTab({
                     <Input
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Type a message…"
+                        placeholder="Type a message..."
                         disabled={isSending}
                         className="flex-1 bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-emerald-500/20 rounded-[14px] h-12 px-4 text-[14.5px] placeholder:text-muted-foreground/40"
                     />
@@ -294,15 +294,15 @@ export function MessagesTab({
                         size="icon"
                         disabled={!message.trim() || isSending}
                         className={cn(
-                            "h-12 w-12 rounded-full shrink-0 shadow-md transition-all",
+                            "size-12 rounded-full shrink-0 shadow-md transition-all",
                             message.trim()
                                 ? `${ACCENT_GREEN} hover:opacity-90`
                                 : "bg-muted text-muted-foreground",
                         )}
                     >
                         {isSending
-                            ? <Loader2 className="h-5 w-5 animate-spin" />
-                            : <Send className="h-5 w-5" />
+                            ? <Loader2 className="size-5 animate-spin" />
+                            : <Send className="size-5" />
                         }
                     </Button>
                 </form>

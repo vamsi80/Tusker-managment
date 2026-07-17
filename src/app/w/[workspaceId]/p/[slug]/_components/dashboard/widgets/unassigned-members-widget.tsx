@@ -45,7 +45,7 @@ export function UnassignedMembersWidget({ allMembers }: UnassignedMembersWidgetP
           <span className="text-xs text-muted-foreground">Members with no tasks assigned</span>
         </div>
         <div className="p-1.5 rounded-xl bg-indigo-500/10 text-indigo-500">
-          <UserCheck className="h-4.5 w-4.5" />
+          <UserCheck className="size-4.5" />
         </div>
       </div>
 
@@ -63,7 +63,7 @@ export function UnassignedMembersWidget({ allMembers }: UnassignedMembersWidgetP
               return (
                 <div key={member.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="size-9">
                       <AvatarFallback className="text-muted-foreground font-semibold text-xs">
                         {displayName.substring(0, 1).toUpperCase()}
                       </AvatarFallback>

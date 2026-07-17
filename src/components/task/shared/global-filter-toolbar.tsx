@@ -1,20 +1,20 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { X, Filter, Calendar } from "lucide-react";
+import { getStatusColors } from "@/lib/colors/status-colors";
+import { getColorFromString } from "@/lib/colors/project-colors";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { formatIST } from "@/lib/utils";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { TaskSearch } from "./task-search";
 import { ColumnVisibility } from "./column-visibility";
 import { KanbanColumnVisibility, type KanbanColumnVisibility as KanbanColumnVisibilityType } from "./kanban-column-visibility";
-import { STATUS_OPTIONS } from "@/lib/zodSchemas";
-import { getColorFromString } from "@/lib/colors/project-colors";
-import { getStatusColors } from "@/lib/colors/status-colors";
 
 export interface ParentTaskOption {
     id: string;
@@ -40,7 +40,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 
 interface GlobalFilterToolbarProps {
@@ -84,6 +84,18 @@ export function GlobalFilterToolbar({
 }: GlobalFilterToolbarProps) {
     const [isOpen, setIsOpen] = useState(false);
 
+    useEffect(() => {
+        if (filters.tagId && tags && tags.length > 0) {
+            const tagExists = tags.some(t => t.id === filters.tagId);
+            if (!tagExists) {
+                onFilterChange({
+                    ...filters,
+                    tagId: undefined
+                });
+            }
+        }
+    }, [tags, filters.tagId, filters, onFilterChange]);
+
 
     const config = getFilterConfig(view, level);
 
@@ -123,7 +135,7 @@ export function GlobalFilterToolbar({
             if (tag) {
                 return {
                     ...filter,
-                    value: tag.name
+                    value: toTitleCase(tag.name)
                 };
             }
         }
@@ -258,12 +270,12 @@ export function GlobalFilterToolbar({
                                 variant="outline"
                                 className="flex-1 sm:flex-none gap-2 relative"
                             >
-                                <Filter className="h-4 w-4" />
+                                <Filter className="size-4" />
                                 Filters
                                 {activeFilters.length > 0 && (
                                     <Badge
                                         variant="destructive"
-                                        className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                                        className="absolute -top-2 -right-2 size-5 rounded-full p-0 flex items-center justify-center text-xs"
                                     >
                                         {activeFilters.length}
                                     </Badge>
@@ -282,9 +294,9 @@ export function GlobalFilterToolbar({
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setIsOpen(false)}
-                                    className="h-6 w-6 p-0"
+                                    className="size-6 p-0"
                                 >
-                                    <X className="h-4 w-4" />
+                                    <X className="size-4" />
                                 </Button>
                             </div>
 
@@ -326,7 +338,7 @@ export function GlobalFilterToolbar({
                                                             !filters.startDate && !filters.endDate && "text-muted-foreground"
                                                         )}
                                                     >
-                                                        <Calendar className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
+                                                        <Calendar className="mr-1.5 size-3.5 flex-shrink-0" />
                                                         <span className="truncate">
                                                             {filters.startDate && filters.endDate ? (
                                                                 <>
@@ -417,7 +429,7 @@ export function GlobalFilterToolbar({
                                                     {projects.map((project) => (
                                                         <SelectItem key={project.id} value={project.id}>
                                                             <div className="flex items-center gap-2">
-                                                                <div className="h-2 w-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
+                                                                <div className="size-2 rounded-full border shadow-sm" style={{ backgroundColor: project.color || getColorFromString(project.name) }} />
                                                                 {project.name}
                                                             </div>
                                                         </SelectItem>
@@ -497,12 +509,12 @@ export function GlobalFilterToolbar({
                                                                 <div className="flex items-center gap-2">
                                                                     {hex ? (
                                                                         <div
-                                                                            className="h-2 w-2 rounded-full border border-black/5 dark:border-white/10"
+                                                                            className="size-2 rounded-full border border-black/5 dark:border-white/10"
                                                                             style={{ backgroundColor: hex }}
                                                                         />
                                                                     ) : (
                                                                         <div className={cn(
-                                                                            "h-2 w-2 rounded-full",
+                                                                            "size-2 rounded-full",
                                                                             statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
                                                                         )} />
                                                                     )}
@@ -558,8 +570,8 @@ export function GlobalFilterToolbar({
                                                         .map((member) => (
                                                             <SelectItem key={member.id} value={member.id}>
                                                                 <div className="flex items-center gap-2">
-                                                                    <Avatar className="h-4 w-4 flex-shrink-0">
-                                                                    <AvatarFallback className="text-[8px]">{(member.surname || member.name || "?")[0]}</AvatarFallback>
+                                                                    <Avatar className="size-4 flex-shrink-0">
+                                                                        <AvatarFallback className="text-[8px]">{(member.surname || member.name || "?")[0]}</AvatarFallback>
                                                                     </Avatar>
                                                                     <span className="truncate">{member.surname || member.name}</span>
                                                                 </div>
@@ -654,3 +666,4 @@ export function GlobalFilterToolbar({
         </div>
     );
 }
+

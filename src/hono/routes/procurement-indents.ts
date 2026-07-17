@@ -23,7 +23,7 @@ const CreateIndentSchema = z.object({
       unit: z.string().min(1),
       quantity: z.number().int().positive(),
       estimatedUnitPrice: z.number().int().positive().optional(),
-      specifications: z.string().optional(),
+      specifications: z.string().nullable().optional(),
     })
   ).optional(),
 });
@@ -33,7 +33,15 @@ const AddLineItemSchema = z.object({
   unit: z.string().min(1),
   quantity: z.number().int().positive(),
   estimatedUnitPrice: z.number().int().positive().optional(),
-  specifications: z.string().optional(),
+  specifications: z.string().nullable().optional(),
+});
+
+const UpdateLineItemSchema = z.object({
+  materialName: z.string().min(1).optional(),
+  unit: z.string().min(1).optional(),
+  quantity: z.number().int().positive().optional(),
+  estimatedUnitPrice: z.number().int().positive().optional(),
+  specifications: z.string().nullable().optional(),
 });
 
 const CancelIndentSchema = z.object({
@@ -42,6 +50,32 @@ const CancelIndentSchema = z.object({
 
 const AssignIndentSchema = z.object({
   assigneeId: z.string(),
+});
+
+/**
+ * GET /api/v1/procurement/indents/units
+ * List all active units of measure in a workspace
+ */
+procurementIndents.get("/units", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const units = await prisma.unitOfMeasure.findMany({
+    where: { workspaceId },
+    orderBy: [
+      { isDefault: "desc" },
+      { abbreviation: "asc" }
+    ]
+  });
+
+  return c.json({ success: true, data: units });
 });
 
 /**
@@ -117,6 +151,16 @@ procurementIndents.get("/line-items", async (c) => {
       indent: {
         include: {
           project: { select: { id: true, name: true, slug: true } },
+          requestedBy: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  surname: true,
+                },
+              },
+            },
+          },
         },
       },
       vendorQuotes: { select: { id: true, status: true } },
@@ -134,9 +178,12 @@ procurementIndents.get("/line-items", async (c) => {
     rfqDeadline: item.rfqDeadline,
     indent: {
       id: item.indent.id,
+      indentId: item.indent.indentId,
       name: item.indent.name,
       status: item.indent.status,
       project: item.indent.project,
+      expectedDelivery: item.indent.expectedDelivery,
+      requestedBy: item.indent.requestedBy,
     },
     quotesCount: item.vendorQuotes.length,
     hasApprovedQuote: item.vendorQuotes.some((q) => q.status === "APPROVED"),
@@ -275,6 +322,23 @@ procurementIndents.delete("/:id/items/:itemId", async (c) => {
 });
 
 /**
+ * PATCH /api/v1/procurement/indents/:id/items/:itemId
+ * Update a line item in a DRAFT indent
+ */
+procurementIndents.patch("/:id/items/:itemId", zValidator("json", UpdateLineItemSchema), async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const itemId = c.req.param("itemId");
+  const workspaceId = c.req.query("w");
+  const body = c.req.valid("json");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const updated = await IndentService.updateLineItem(id, itemId, body, user.id, workspaceId);
+  return c.json({ success: true, data: updated });
+});
+
+/**
  * GET /api/v1/procurement/indents/:id/items/:itemId/suggested-vendors
  * Get intelligent vendor suggestions for a line item using trigram similarity
  */
@@ -311,6 +375,52 @@ procurementIndents.get("/:id/items/:itemId/suggested-vendors", async (c) => {
 
   // 4. Return
   return c.json({ success: true, data: enrichedSuggestions });
+});
+
+/**
+ * GET /api/v1/procurement/indents/projects/:projectId/tasks
+ * Fetch available procurement tasks for a project
+ */
+procurementIndents.get("/projects/:projectId/tasks", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  // Fetch tasks that don't have an indent yet
+  const [allTasks, existingIndents] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        projectId,
+        isParent: false,
+        tags: {
+          some: {
+            OR: [
+              { requirePurchase: true },
+              { name: { equals: "procurement", mode: "insensitive" } },
+            ],
+          },
+        },
+      },
+      select: { id: true, name: true, taskSlug: true, dueDate: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.indent.findMany({
+      where: { projectId, taskId: { not: null } },
+      select: { taskId: true },
+    }),
+  ]);
+
+  const claimedTaskIds = new Set(existingIndents.map((i) => i.taskId));
+  const tasks = allTasks.filter((t) => !claimedTaskIds.has(t.id));
+
+  return c.json({ success: true, data: tasks });
 });
 
 export default procurementIndents;

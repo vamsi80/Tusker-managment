@@ -54,6 +54,7 @@ interface SubTaskListProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
     projects?: Array<{ id: string; canManageMembers?: boolean; memberIds?: string[] }>; // For workspace view
     projectMap?: Record<string, any>;
     scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
@@ -82,6 +83,7 @@ export function SubTaskList({
     userId,
     isWorkspaceAdmin,
     leadProjectIds,
+    coordinatorProjectIds,
     projects,
     projectMap,
     scrollContainerRef,
@@ -219,7 +221,7 @@ export function SubTaskList({
                         <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
                             <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
                                 <div className="flex items-center gap-2">
-                                    <Plus className="h-4 w-4" />
+                                    <Plus className="size-4" />
                                     <span>Add SubTask</span>
                                 </div>
                             </TableCell>
@@ -264,6 +266,7 @@ export function SubTaskList({
                             userId={userId}
                             isWorkspaceAdmin={isWorkspaceAdmin}
                             leadProjectIds={leadProjectIds}
+                            coordinatorProjectIds={coordinatorProjectIds}
                             projects={projects}
                             projectMap={projectMap}
                         />
@@ -303,7 +306,7 @@ export function SubTaskList({
                     <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
                         <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
                             <div className="flex items-center gap-2">
-                                <Plus className="h-4 w-4" />
+                                <Plus className="size-4" />
                                 <span>Add SubTask</span>
                             </div>
                         </TableCell>
@@ -313,3 +316,4 @@ export function SubTaskList({
         </>
     );
 }
+

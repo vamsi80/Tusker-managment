@@ -17,7 +17,7 @@ const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string 
     if (!value) return null;
     return (
         <div className="flex items-start py-3 border-b last:border-0 border-border/50">
-            {Icon && <Icon className="w-5 h-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />}
+            {Icon && <Icon className="size-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />}
             <div className="flex-1">
                 <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
                 <p className="text-base font-semibold text-foreground">{value}</p>
@@ -51,7 +51,7 @@ export function WorkspaceInfoView({ workspaceId, canEdit }: WorkspaceInfoViewPro
     if (!workspace) {
         return (
             <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                <Building2 className="w-12 h-12 text-muted-foreground" />
+                <Building2 className="size-12 text-muted-foreground" />
                 <h2 className="text-xl font-semibold">Workspace Not Found</h2>
                 <p className="text-muted-foreground text-center max-w-xs">
                     We couldn't find the details for this workspace. It might have been deleted or you don't have access.
@@ -92,7 +92,7 @@ export function WorkspaceInfoView({ workspaceId, canEdit }: WorkspaceInfoViewPro
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Building2 className="w-5 h-5" />
+                            <Building2 className="size-5" />
                             Organization Details
                         </CardTitle>
                         <CardDescription>Legal and registration information</CardDescription>
@@ -112,7 +112,7 @@ export function WorkspaceInfoView({ workspaceId, canEdit }: WorkspaceInfoViewPro
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <MapPin className="w-5 h-5" />
+                            <MapPin className="size-5" />
                             Contact & Location
                         </CardTitle>
                         <CardDescription>Address and communication details</CardDescription>
@@ -124,7 +124,7 @@ export function WorkspaceInfoView({ workspaceId, canEdit }: WorkspaceInfoViewPro
 
                         {hasAddress && (
                             <div className="flex items-start py-3 border-b last:border-0 border-border/50">
-                                <MapPin className="w-5 h-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />
+                                <MapPin className="size-5 mr-3 text-muted-foreground mt-0.5 shrink-0" />
                                 <div className="flex-1">
                                     <p className="text-sm font-medium text-muted-foreground mb-1">Registered Address</p>
                                     <p className="text-base text-foreground whitespace-pre-line leading-relaxed">

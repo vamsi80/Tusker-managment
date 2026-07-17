@@ -187,9 +187,9 @@ export class CommentService {
     workspaceId: string;
     userId: string;
     limit?: number;
-    offset?: number;
+    cursor?: string;
   }) {
-    const { workspaceId, userId, limit = 25, offset = 0 } = opts;
+    const { workspaceId, userId, limit = 25, cursor } = opts;
     const perms = await getWorkspacePermissions(workspaceId, userId);
 
     if (!perms.workspaceMemberId) {
@@ -241,18 +241,19 @@ export class CommentService {
       activities,
       directNotifications
     ] = await Promise.all([
-      CommentRepository.findNotifications(where, commentInclude, limit, offset),
+      CommentRepository.findNotifications(where, commentInclude, limit, cursor),
       CommentRepository.findRecentActivities({
         workspaceId,
         authorId: { not: userId },
         createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
         subTask: perms.isWorkspaceAdmin ? {} : where.task
-      }),
+      }, limit, cursor),
       import("@/lib/db").then(m => m.default.notification.findMany({
         where: {
           userId,
           workspaceId,
-          type: "DM_MESSAGE"
+          type: { notIn: ["USER_LOGIN", "REQUESTED_PASSWORD_RESET"] },
+          ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {})
         },
         orderBy: { createdAt: "desc" },
         take: limit,
@@ -260,12 +261,36 @@ export class CommentService {
       }))
     ]);
 
+    // Fetch related task details
+    const taskIdsToFetch = new Set<string>();
+    directNotifications.forEach((dn: any) => {
+      if (dn.entityId && dn.type !== "DM_MESSAGE") {
+        taskIdsToFetch.add(dn.entityId);
+      }
+    });
+
+    const taskMap = new Map<string, any>();
+    if (taskIdsToFetch.size > 0) {
+      const db = await import("@/lib/db").then(m => m.default);
+      const tasks = await db.task.findMany({
+        where: { id: { in: Array.from(taskIdsToFetch) } },
+        select: {
+          id: true,
+          name: true,
+          taskSlug: true,
+          project: { select: { name: true } },
+          parentTask: { select: { name: true } }
+        }
+      });
+      tasks.forEach(t => taskMap.set(t.id, t));
+    }
+
     const commentMap = new Map();
     [...unreadComments, ...recentComments].forEach(c => commentMap.set(c.id, c));
     const comments = Array.from(commentMap.values())
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return CommentMapper.toNotifications(comments, activities, limit, directNotifications);
+    return CommentMapper.toNotifications(comments, activities, limit, directNotifications, taskMap);
   }
 
   /**
@@ -273,6 +298,13 @@ export class CommentService {
    */
   static async markAsRead(taskId: string, userId: string) {
     return CommentRepository.markCommentsAsRead(taskId, userId);
+  }
+
+  /**
+   * Mark all notifications in workspace as read
+   */
+  static async markAllAsRead(workspaceId: string, userId: string) {
+    return CommentRepository.markAllNotificationsAsRead(workspaceId, userId);
   }
 
   /**

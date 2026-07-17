@@ -55,7 +55,7 @@ export function WorkspaceMemberSelector({
             )}
           >
             {value.length ? `${value.length} selected` : placeholder}
-            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+            <ChevronsUpDown className="size-4 opacity-50" />
           </button>
         </PopoverTrigger>
 
@@ -76,7 +76,7 @@ export function WorkspaceMemberSelector({
                     onSelect={() => toggle(m.userId)}
                     className="flex items-center gap-3"
                   >
-                    <Avatar className="h-6 w-6">
+                    <Avatar className="size-6">
                       <AvatarImage src={m.user?.image || ""} />
                       <AvatarFallback>{username[0] ?? "U"}</AvatarFallback>
                     </Avatar>
@@ -88,7 +88,7 @@ export function WorkspaceMemberSelector({
 
                     <Check
                       className={cn(
-                        "h-4 w-4",
+                        "size-4",
                         value.includes(m.userId) ? "opacity-100" : "opacity-0"
                       )}
                     />

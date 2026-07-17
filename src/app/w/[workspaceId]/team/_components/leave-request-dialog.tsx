@@ -94,7 +94,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
             <DialogTrigger asChild>
                 {children || (
                     <Button variant="outline" className="gap-2">
-                        <CalendarIcon className="h-4 w-4" />
+                        <CalendarIcon className="size-4" />
                         Apply for Leave
                     </Button>
                 )}
@@ -102,7 +102,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
             <DialogContent className="sm:max-w-[425px] overflow-hidden rounded-2xl border-none shadow-2xl">
                 <DialogHeader className="bg-primary/5 p-2 pb-4">
                     <DialogTitle className="text-xl font-medium flex items-center gap-2">
-                        <Send className="h-5 w-5 text-primary" />
+                        <Send className="size-5 text-primary" />
                         New Leave Request
                     </DialogTitle>
                     <DialogDescription>
@@ -111,8 +111,8 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                 </DialogHeader>
                 <div className="pt-2">
                     <div className="mb-4 p-3 bg-muted/30 rounded-xl border border-muted-foreground/10 flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <UserCheck className="h-5 w-5 text-primary" />
+                        <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <UserCheck className="size-5 text-primary" />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Reporting Manager</span>
@@ -166,7 +166,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                         !field.value && "text-muted-foreground"
                                                     )}
                                                 >
-                                                    <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
+                                                    <CalendarIcon className="mr-2 size-4 opacity-70" />
                                                     <span className="truncate">
                                                         {field.value?.from ? (
                                                             field.value.to ? (
@@ -275,7 +275,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                 >
                                     {isLoading ? (
                                         <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            <Loader2 className="mr-2 size-4 animate-spin" />
                                             Submitting...
                                         </>
                                     ) : (

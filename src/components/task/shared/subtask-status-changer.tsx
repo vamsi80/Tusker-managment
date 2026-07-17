@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useContext } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useTaskTableContext } from "../list/task-table/context/task-table-context";
+import { TaskTableContext } from "../list/task-table/context/task-table-context-object";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ interface SubtaskStatusChangerProps {
     userId?: string;
     isWorkspaceAdmin?: boolean;
     leadProjectIds?: string[];
+    coordinatorProjectIds?: string[];
 }
 
 export function SubtaskStatusChanger({
@@ -41,14 +42,10 @@ export function SubtaskStatusChanger({
     userId: propUserId,
     isWorkspaceAdmin: propIsWorkspaceAdmin,
     leadProjectIds: propLeadProjectIds,
+    coordinatorProjectIds: propCoordinatorProjectIds,
 }: SubtaskStatusChangerProps) {
-    // Attempt to consume from context, fallback to props
-    let context: any = null;
-    try {
-        context = useTaskTableContext();
-    } catch (e) {
-        // Context not available
-    }
+    // Consume from context unconditionally, fallback to props
+    const context = useContext(TaskTableContext);
 
     const workspaceId = context?.workspaceId || propWorkspaceId;
     const projectId = context?.projectId || propProjectId;
@@ -56,6 +53,7 @@ export function SubtaskStatusChanger({
     const userId = context?.userId || propUserId;
     const isWorkspaceAdmin = context?.isWorkspaceAdmin || propIsWorkspaceAdmin;
     const leadProjectIds = context?.leadProjectIds || propLeadProjectIds;
+    const coordinatorProjectIds = context?.coordinatorProjectIds || propCoordinatorProjectIds;
 
     const [isPending, startTransition] = useTransition();
     const [isActivityOpen, setIsActivityOpen] = useState(false);
@@ -68,6 +66,7 @@ export function SubtaskStatusChanger({
     const currentUserId = permissions?.userId || userId;
     const currentProjectMemberId = permissions?.projectMember?.id;
     const isPM = permissions?.isProjectManager || isWorkspaceAdmin;
+    const isCoordinator = permissions?.isProjectCoordinator || coordinatorProjectIds?.includes(projectId || "");
     const isLead = permissions?.isProjectLead || leadProjectIds?.includes(projectId || "");
     const subTaskCreatorUserId = subTask.createdBy?.id;
     const subTaskCreatorMemberId = (subTask as any).createdById;
@@ -84,16 +83,19 @@ export function SubtaskStatusChanger({
         (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
     );
 
-    // A user can change status if they are Admin/PM, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
-    const canEditThisSubTask = isPM || isCreator || isAssignee;
+    // A user can change status if they are Admin/PM/Coordinator, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
+    const canEditThisSubTask = isPM || isCoordinator || isCreator || isAssignee;
+
+    const isActingAsManager = !isAssignee && (isPM || isCoordinator);
 
     const isTransitionAllowed = (targetStatus: TaskStatus): { allowed: boolean; reason?: string } => {
         if (!canEditThisSubTask) {
             return { allowed: false, reason: "You do not have permission to update this task." };
         }
 
-        // If the user is the assignee of this subtask, they are treated as a worker/member for this subtask
-        // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW).
+        // If the user is the assignee of this subtask, they are ALWAYS treated as a worker/member for this subtask
+        // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW),
+        // even if they are a Project Manager or Coordinator.
         if (isAssignee) {
             if (targetStatus === "COMPLETED") {
                 return { allowed: false, reason: "As the assignee, you cannot mark this task as Completed." };
@@ -109,26 +111,26 @@ export function SubtaskStatusChanger({
             }
         }
 
-        // 🔒 COMPLETED rule:
-        // - Project Manager: always allowed.
-        // - Project Lead: allowed ONLY on subtasks they personally created.
+        // ðŸ”’ COMPLETED rule:
+        // - Project Manager / Coordinator (not assigned as worker): always allowed.
+        // - Project Lead: allowed ONLY on subtasks they personally created (and not assigned as worker).
         // - Member / others: never allowed.
-        const leadCanComplete = isLead && isCreator;
-        if (targetStatus === "COMPLETED" && !isPM && !leadCanComplete) {
-            return { allowed: false, reason: "Only the Project Manager (or the Lead who created this task) can mark tasks as Completed." };
+        const leadCanComplete = !isAssignee && isLead && isCreator;
+        if (targetStatus === "COMPLETED" && !isActingAsManager && !leadCanComplete) {
+            return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the Lead who created this task can mark tasks as Completed." };
         }
 
         // Specific Restriction: Tasks in REVIEW status
-        // - Only PM/Lead-creator can move task out of REVIEW.
+        // - Only PM / Coordinator (not assigned as worker) or creating Lead (not assigned as worker) can move task out of REVIEW.
         if (subTask.status === "REVIEW") {
-            if (isAssignee && !isPM && !leadCanComplete) {
-                return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
+            if (!isActingAsManager && !leadCanComplete) {
+                return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the creating Lead can move this task out of Review status." };
             }
         }
 
-        // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go via REVIEW)
-        if (subTask.status === "IN_PROGRESS" && targetStatus === "COMPLETED") {
-            return { allowed: false, reason: "Tasks in In-Progress must be moved to Review before marking as Completed." };
+        // Constraint: COMPLETED status can only be reached from REVIEW
+        if (targetStatus === "COMPLETED" && subTask.status !== "REVIEW") {
+            return { allowed: false, reason: "Before marking a task as Completed, you must first move it to Review status." };
         }
 
         return { allowed: true };
@@ -138,7 +140,7 @@ export function SubtaskStatusChanger({
         const currentStatus = subTask.status;
         const isMandatory =
             ["HOLD", "CANCELLED", "REVIEW"].includes(targetStatus) ||
-            (currentStatus && ["HOLD", "CANCELLED"].includes(currentStatus)) ||
+            (currentStatus && ["HOLD", "CANCELLED", "COMPLETED"].includes(currentStatus)) ||
             (currentStatus === "REVIEW" && (targetStatus === "TO_DO" || targetStatus === "IN_PROGRESS")) ||
             (currentStatus === "IN_PROGRESS" && targetStatus === "TO_DO");
 
@@ -240,7 +242,7 @@ export function SubtaskStatusChanger({
                         )}
                     >
                         {isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <Loader2 className="size-3 animate-spin" />
                         ) : (
                             getStatusLabel(subTask.status)
                         )}

@@ -5,7 +5,7 @@ export class CommentMapper {
   /**
    * Group comments and activities into notifications
    */
-  static toNotifications(comments: any[], activities: any[], limit: number, directNotifications: any[] = []) {
+  static toNotifications(comments: any[], activities: any[], limit: number, directNotifications: any[] = [], taskMap: Map<string, any> = new Map()) {
     const groupedMap = new Map();
 
     // 1. Process Task Comments
@@ -79,39 +79,75 @@ export class CommentMapper {
       }
     });
 
-    // 3. Process Direct Notifications (DMs)
+    // 3. Process Direct Notifications (DMs & Task/Subtask Actions)
     directNotifications.forEach((dn: any) => {
       const id = dn.id;
-      groupedMap.set(id, {
-        id: dn.id,
-        taskId: dn.entityId, // Using entityId as taskId for compatibility
-        taskName: "Direct Message",
-        projectName: "Messages",
-        type: "DM_MESSAGE",
-        conversationId: dn.entityId,
-        latestComment: {
-          content: dn.body,
-          createdAt: dn.createdAt,
-          user: {
-            name: dn.user.name,
-            surname: dn.user.surname,
-            image: dn.user.image
-          }
-        },
-        count: 1,
-        isNew: !dn.isRead
-      });
+      if (dn.type !== "DM_MESSAGE") {
+        const taskObj = taskMap.get(dn.entityId || "");
+        const taskName = taskObj?.name || dn.title || "Task";
+        const projectName = taskObj?.project?.name || "Workspace";
+        const parentTaskName = taskObj?.parentTask?.name || null;
+        const taskSlug = taskObj?.taskSlug || null;
+
+        groupedMap.set(id, {
+          id: dn.id,
+          taskId: dn.entityId || dn.id,
+          taskName,
+          taskSlug,
+          projectName,
+          parentTaskName,
+          type: dn.type,
+          latestComment: {
+            content: dn.body, // John Doe created a task / updated status...
+            createdAt: dn.createdAt,
+            user: {
+              name: dn.user?.name || "System",
+              surname: dn.user?.surname || "",
+              image: dn.user?.image || null
+            }
+          },
+          count: 1,
+          isNew: !dn.isRead
+        });
+      } else {
+        // DM_MESSAGE
+        groupedMap.set(id, {
+          id: dn.id,
+          taskId: dn.entityId, // Using entityId as taskId for compatibility
+          taskName: "Direct Message",
+          projectName: "Messages",
+          type: "DM_MESSAGE",
+          conversationId: dn.entityId,
+          latestComment: {
+            content: dn.body,
+            createdAt: dn.createdAt,
+            user: {
+              name: dn.user?.name || "System",
+              surname: dn.user?.surname || "",
+              image: dn.user?.image || null
+            }
+          },
+          count: 1,
+          isNew: !dn.isRead
+        });
+      }
     });
 
     const allNotifications = Array.from(groupedMap.values())
       .sort((a: any, b: any) => new Date(b.latestComment.createdAt).getTime() - new Date(a.latestComment.createdAt).getTime());
+
+    const lastItem = allNotifications[allNotifications.length - 1];
+    const nextCursor = (allNotifications.length >= limit && lastItem)
+      ? new Date(lastItem.latestComment.createdAt).toISOString()
+      : null;
 
     return {
       unreadNotifications: allNotifications.filter(n => n.isNew),
       readNotifications: allNotifications.filter(n => !n.isNew),
       peopleCount: allNotifications.filter(n => n.isNew).length,
       totalCount: allNotifications.length,
-      hasMore: comments.length >= limit
+      nextCursor,
+      hasMore: !!nextCursor
     };
   }
 }

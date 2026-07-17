@@ -48,19 +48,19 @@ export function DailyReportFAB() {
                 >
                     {status === "SUBMITTED" ? (
                         <>
-                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            <CheckCircle2 className="size-5 text-green-500" />
                             Report Submitted
                         </>
                     ) : (status === "ABSENT" || status === "NOT_SUBMITTED") ? (
                         <>
-                            <ClipboardList className="w-5 h-5" />
+                            <ClipboardList className="size-5" />
                             Report Missing
                         </>
                     ) : status === "LOADING" ? (
-                        <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin border-muted-foreground mr-2" />
+                        <div className="size-5 rounded-full border-2 border-t-transparent animate-spin border-muted-foreground mr-2" />
                     ) : (
                         <>
-                            <ClipboardList className="w-5 h-5" />
+                            <ClipboardList className="size-5" />
                             Daily report
                         </>
                     )}

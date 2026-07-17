@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
-import { cn, formatIST } from "@/lib/utils";
+import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { memo, useState, useEffect } from "react";
 
@@ -48,13 +48,12 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
     if (!subTask) return null;
 
-    // Get project name from workspace layout context using slug OR projectId
-    const projectSlug = params.slug as string;
+    // Get project name — always prioritize the task's actual projectId.
+    // The URL slug (params.slug) is the currently viewed page and can mismatch when opened via notifications.
     const currentProject = workspaceData.projects?.find((p: any) => 
-        (projectSlug && p.slug === projectSlug) || 
-        (subTask.projectId && p.id === subTask.projectId)
+        subTask.projectId ? p.id === subTask.projectId : (params.slug && p.slug === params.slug)
     );
-    const projectName = currentProject?.name || subTask.project?.name;
+    const projectName = currentProject?.name || (subTask as any).project?.name;
 
     // Assignee calculation
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
@@ -120,12 +119,12 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Assignee */}
                             <div className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <User className="h-3.5 w-3.5" />
+                                    <User className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Assignee</span>
                                 </div>
                                 {assignee ? (
                                     <div className="flex items-center gap-1.5">
-                                        <Avatar className="h-5 w-5 border border-background shadow-sm">
+                                        <Avatar className="size-5 border border-background shadow-sm">
                                             <AvatarFallback className="text-[8px]">{assignee.surname?.[0]}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-xs font-semibold">{assignee.surname || ""}</span>
@@ -151,7 +150,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Status */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <FileCheck className="h-3.5 w-3.5" />
+                                    <FileCheck className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Status</span>
                                 </div>
                                 {subTask.status ? (
@@ -175,14 +174,14 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             <div className="flex flex-col gap-1.5 pt-1 border-t border-dashed border-border/50">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Tag className="h-3.5 w-3.5" />
+                                        <Tag className="size-3.5" />
                                         <span className="text-[10px] font-bold uppercase tracking-tight">Tags</span>
                                     </div>
                                     <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
                                         {subTask.tags && subTask.tags.length > 0 ? (
                                             subTask.tags.slice(0, 2).map(t => (
                                                 <Badge key={t.id} variant="secondary" className="rounded-md text-[8px] font-bold bg-primary/5 text-primary border-none px-1 h-3.5">
-                                                    {t.name}
+                                                    {toTitleCase(t.name)}
                                                 </Badge>
                                             ))
                                         ) : (
@@ -201,7 +200,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Start Date */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="h-3.5 w-3.5" />
+                                    <Calendar className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Start Date</span>
                                 </div>
                                 <span className="text-xs font-bold">
@@ -212,7 +211,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {/* Due Date */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Calendar className="h-3.5 w-3.5" />
+                                    <Calendar className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Due Date</span>
                                 </div>
                                 <span className="text-xs font-bold">
@@ -224,7 +223,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             {isOverdue && (
                                 <div className="flex items-center justify-between pt-1 border-t border-dashed border-destructive/20">
                                     <div className="flex items-center gap-2 text-destructive">
-                                        <Calendar className="h-3.5 w-3.5" />
+                                        <Calendar className="size-3.5" />
                                         <span className="text-[10px] font-bold uppercase tracking-tight">Delayed</span>
                                     </div>
                                     <span className="text-xs font-black text-destructive animate-pulse">

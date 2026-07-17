@@ -73,7 +73,7 @@ export function ProcurementTabs({ workspaceId, workspaceName }: ProcurementTabsP
                   : "border-transparent text-muted-foreground"
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="size-3.5" />
               <span className="text-xs sm:text-xs">{tab.name}</span>
             </Link>
           );

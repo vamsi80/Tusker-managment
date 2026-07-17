@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { memo, useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ function TaskTable(props: TaskTableProps) {
   const { data: layoutData } = useWorkspaceLayout();
   const projects = useMemo(() => layoutData.projects || [], [layoutData.projects]);
   const leadProjectIds = layoutData.permissions?.leadProjectIds || [];
+  const coordinatorProjectIds = layoutData.permissions?.coordinatorProjectIds || [];
 
   const [columnVisibility, setColumnVisibility] = useState({
     assignee: true,
@@ -87,6 +88,7 @@ function TaskTable(props: TaskTableProps) {
     projects,
     projectMap,
     leadProjectIds,
+    coordinatorProjectIds,
     scrollContainerRef,
   };
 
@@ -96,7 +98,7 @@ function TaskTable(props: TaskTableProps) {
     .length;
   const visibleColumnsCount = 2 + visiblePropsCount + 1; // Chevron + Name + Props + Actions
 
-  // Grouping logic for workspace view — skip if in subtask-first mode (filters active),
+  // Grouping logic for workspace view â€” skip if in subtask-first mode (filters active),
   // because subtasks need to be rendered flat with parent-label headers, not in ProjectTaskGroup
   const groupedTasks = useMemo(() => {
     if (props.level !== "workspace") return null;
@@ -112,8 +114,9 @@ function TaskTable(props: TaskTableProps) {
 
   const orderedWorkspaceProjects = useMemo(() => {
     if (props.level !== "workspace") return projects;
-    return [...projects].filter(p => !!groupedTasks?.[p.id] || (logic.currentProjectCounts?.[p.id] ?? 0) > 0)
-      .sort((a, b) => String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
+    return [...projects]
+      .filter(p => !!groupedTasks?.[p.id] || (logic.currentProjectCounts?.[p.id] ?? 0) > 0)
+      .sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
   }, [props.level, projects, groupedTasks, logic.currentProjectCounts]);
 
   const projectTaskCounts = useMemo(() => {
@@ -144,7 +147,7 @@ function TaskTable(props: TaskTableProps) {
         <div className="rounded-md border overflow-hidden relative">
           {logic.isLoadingFilters && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="size-8 animate-spin text-primary" />
             </div>
           )}
           <div ref={scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>
@@ -201,3 +204,4 @@ function TaskTable(props: TaskTableProps) {
 }
 
 export default memo(TaskTable);
+

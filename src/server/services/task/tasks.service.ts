@@ -73,6 +73,17 @@ export class TasksService {
       tags: tagIds?.length ? { connect: tagIds.map((id) => ({ id })) } : undefined,
     });
 
+    if (tagIds && tagIds.length > 0) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          tags: {
+            connect: tagIds.map((id) => ({ id })),
+          },
+        },
+      });
+    }
+
     const result = { tasks: [TaskMapper.toFlatMetadata(newTask)] };
     TaskMapper.stripParentMetadata(result);
     const flattenedTask = result.tasks[0];
@@ -503,8 +514,9 @@ export class TasksService {
       );
       const hasFullAccess =
         permissions.isWorkspaceAdmin ||
-        permissions.isProjectLead ||
-        permissions.isProjectManager;
+        permissions.isProjectManager ||
+        permissions.isProjectCoordinator ||
+        permissions.isProjectLead;
 
       return {
         permissions,
@@ -521,15 +533,17 @@ export class TasksService {
         : [
           ...(wsPerms.leadProjectIds || []),
           ...(wsPerms.managedProjectIds || []),
+          ...(wsPerms.coordinatorProjectIds || []),
           ...(wsPerms.memberProjectIds || []),
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      // Full access = ONLY projects where user is explicitly a LEAD or PROJECT_MANAGER.
+      // Full access = ONLY projects where user is explicitly a LEAD, PROJECT_COORDINATOR or PROJECT_MANAGER.
       // Being a PM in Project A does NOT grant full access to Project B (where they may be just a MEMBER).
       const fullAccessProjectIds = [
         ...(wsPerms.leadProjectIds ?? []),
         ...(wsPerms.managedProjectIds ?? []),
+        ...(wsPerms.coordinatorProjectIds ?? []),
       ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
@@ -605,7 +619,8 @@ export class TasksService {
         !opts.expandedProjectIds?.length &&
         hierarchyMode !== "parents" &&
         !isAdmin &&
-        opts.view_mode !== "list"
+        opts.view_mode !== "list" &&
+        opts.groupBy !== "status" // kanban always uses groupBy=status — let it reach KANBAN_OPTIMIZED_PARALLEL
       ) {
         strategy = "SAFETY_GUARD";
         return {
@@ -675,7 +690,7 @@ export class TasksService {
                 isRestrictedMember: !hasFullAccess,
               }),
               getTaskSelect(opts.view_mode, false, opts.extraFields),
-              buildOrderBy(opts.sorts, opts.view_mode),
+              buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
               200
             )) as any[];
 
@@ -774,7 +789,7 @@ export class TasksService {
             where,
             perStatusLimit,
             getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
-            buildOrderBy(opts.sorts, opts.view_mode)
+            buildOrderBy(opts.sorts, opts.view_mode, opts.projectId)
           )) as any[];
 
           const trueHasMore = tasks.length > perStatusLimit;
@@ -795,7 +810,7 @@ export class TasksService {
                   isAdmin,
                 }),
                 getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
-                buildOrderBy(opts.sorts, opts.view_mode),
+                buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
                 1000 // safe cap
               );
               tasks.forEach((parent: any) => {
@@ -821,7 +836,18 @@ export class TasksService {
                   [SORT_MAP[primarySort.field].dbField]:
                     lastTask[SORT_MAP[primarySort.field].dbField],
                 }
-                : { id: lastTask.id, createdAt: lastTask.createdAt }
+                : opts.view_mode === "kanban"
+                  ? {
+                      id: lastTask.id,
+                      position: (lastTask as any).position ?? null,
+                      parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
+                      parentTaskId: (lastTask as any).parentTask?.id ?? null,
+                      ...(!opts.projectId ? {
+                        projectId: (lastTask as any).project?.id ?? null,
+                        projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
+                      } : {}),
+                    }
+                  : { id: lastTask.id, createdAt: lastTask.createdAt }
               : null;
 
           const totalCount = await TaskRepository.countTasks(where);
@@ -923,7 +949,7 @@ export class TasksService {
               statusWhere,
               perStatusLimit,
               getTaskSelect(opts.view_mode, isMinimal, opts.extraFields, subtaskFilter),
-              buildOrderBy(opts.sorts, opts.view_mode)
+              buildOrderBy(opts.sorts, opts.view_mode, opts.projectId)
             );
           }),
         );
@@ -945,7 +971,7 @@ export class TasksService {
                 isAdmin,
               }),
               getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
-              buildOrderBy(opts.sorts, opts.view_mode),
+              buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
               1000
             )) as any[];
             tasks.forEach((parent: any) => {
@@ -985,7 +1011,18 @@ export class TasksService {
                     [SORT_MAP[primarySort.field].dbField]:
                       lastTask[SORT_MAP[primarySort.field].dbField],
                   }
-                  : { id: lastTask.id, createdAt: lastTask.createdAt }
+                  : opts.view_mode === "kanban"
+                    ? {
+                        id: lastTask.id,
+                        position: (lastTask as any).position ?? null,
+                        parentTaskPosition: (lastTask as any).parentTask?.position ?? null,
+                        parentTaskId: (lastTask as any).parentTask?.id ?? null,
+                        ...(!opts.projectId ? {
+                          projectId: (lastTask as any).project?.id ?? null,
+                          projectCreatedAt: (lastTask as any).project?.createdAt ?? null,
+                        } : {}),
+                      }
+                    : { id: lastTask.id, createdAt: lastTask.createdAt }
                 : null;
 
             tasksByStatus[status] = {
@@ -1081,15 +1118,19 @@ export class TasksService {
       ids: opts.ids,
     });
 
-    const primarySortField = opts.sorts?.[0]?.field || "createdAt";
-    const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
+    const primarySortField = opts.sorts?.[0]?.field;
+    const dbField = primarySortField ? SORT_MAP[primarySortField]?.dbField : null;
 
     const [rawTasks] = await Promise.all([
       TaskRepository.findMany(
         where,
-        getTaskSelect(opts.view_mode, true, opts.extraFields ? [...opts.extraFields, dbField] : [dbField], subtaskFilter), // TRUE for minimal parent select, include sort field
+        // position is already selected for list/gantt; only inject dbField for custom sorts
+        getTaskSelect(opts.view_mode, true, dbField ? (opts.extraFields ? [...opts.extraFields, dbField] : [dbField]) : opts.extraFields, subtaskFilter),
         opts.sorts,
-        limit
+        limit,
+        undefined,
+        opts.view_mode,
+        projectId,
       ),
     ]);
 
@@ -1097,22 +1138,22 @@ export class TasksService {
     if (hasMore) rawTasks.pop();
 
     if (rawTasks.length === 0) {
-        return {
-          tasks: [],
-          totalCount: 0,
-          hasMore: false,
-          nextCursor: null,
-          facets: { status: {}, assignee: {}, tags: {}, projects: {} },
-        };
+      return {
+        tasks: [],
+        totalCount: 0,
+        hasMore: false,
+        nextCursor: null,
+        facets: { status: {}, assignee: {}, tags: {}, projects: {} },
+      };
     }
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
 
+    // Use position-based cursor to match position-ordered query
     const nextCursor: any = hasMore
-      ? {
-        id: lastTask.id,
-        [dbField]: lastTask[dbField],
-      }
+      ? dbField
+        ? { id: lastTask.id, [dbField]: lastTask[dbField] }          // custom sort
+        : { id: lastTask.id, position: (lastTask as any).position ?? null }  // default: position seek
       : null;
 
     return {
@@ -1280,7 +1321,7 @@ export class TasksService {
     // parent come in a single page. For normal mode, use the configured sort order.
     const orderByForQuery = isSubtaskFirstMode
       ? [{ parentTaskId: "asc" as const }, { id: "asc" as const }]
-      : buildOrderBy(opts.sorts, opts.view_mode);
+      : buildOrderBy(opts.sorts, opts.view_mode, opts.projectId);
 
     const rawMatches = (await TaskRepository.findTasksByWhere(
       matchWhere,
@@ -1435,11 +1476,16 @@ export class TasksService {
     const dbField = SORT_MAP[primarySortField]?.dbField || "createdAt";
     const lastMatch = matches[matches.length - 1] as any;
 
+    const isWorkspaceListOrGantt = !opts.projectId && (opts.view_mode === "list" || opts.view_mode === "gantt");
     const nextCursor: any =
       hasMore && matches.length > 0
         ? {
           id: lastMatch.id,
           [dbField]: lastMatch[dbField],
+          ...(isWorkspaceListOrGantt ? {
+            position: (lastMatch as any).position ?? null,
+            projectCreatedAt: (lastMatch as any).project?.createdAt ?? null,
+          } : {}),
         }
         : null;
 
@@ -1546,7 +1592,10 @@ export class TasksService {
         where,
         getTaskSelect(opts.view_mode, opts.onlySubtasks ? false : true, opts.extraFields ? [...opts.extraFields, (dbField || "createdAt")] : (dbField ? [dbField] : []), subtaskFilter),
         opts.sorts,
-        limit
+        limit,
+        undefined,
+        opts.view_mode,
+        opts.projectId,
       ),
     ]);
     const queryDuration = performance.now() - queryStartTime;
@@ -1561,6 +1610,7 @@ export class TasksService {
     if (hasMore) rawTasks.pop();
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
+    const isWsListOrGantt = !opts.projectId && (opts.view_mode === "list" || opts.view_mode === "gantt");
     const nextCursor: any =
       hasMore && lastTask
         ? primarySort && SORT_MAP[primarySort.field]
@@ -1569,7 +1619,9 @@ export class TasksService {
             [SORT_MAP[primarySort.field].dbField]:
               lastTask[SORT_MAP[primarySort.field].dbField],
           }
-          : { id: lastTask.id, createdAt: lastTask.createdAt }
+          : isWsListOrGantt
+            ? { id: lastTask.id, position: lastTask.position ?? null, projectCreatedAt: lastTask.project?.createdAt ?? null }
+            : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 
     const projectFacets: Record<string, number> = {};
@@ -1696,6 +1748,17 @@ export class TasksService {
       }
     });
 
+    if (tagIds && tagIds.length > 0) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          tags: {
+            connect: tagIds.map((id) => ({ id })),
+          },
+        },
+      });
+    }
+
     const flattenedSubTask = TaskMapper.toFlatMetadata(newSubTask);
 
     try {
@@ -1759,6 +1822,7 @@ export class TasksService {
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
     const isProjectLead = permissions.isProjectLead;
 
     const isCreator = currentProjectMemberId
@@ -1768,7 +1832,7 @@ export class TasksService {
       ? subTask.assigneeId === currentProjectMemberId
       : false;
 
-    if (!isWorkspaceAdmin && !isProjectManager) {
+    if (!isWorkspaceAdmin && !isProjectManager && !isProjectCoordinator) {
       if (isProjectLead) {
         if (!isCreator && !isAssignee) {
           throw AppError.Forbidden(
@@ -1784,24 +1848,29 @@ export class TasksService {
       }
     }
 
-    // 🔒 COMPLETED rule:
-    // - Project Manager: always allowed.
-    // - Project Lead: allowed ONLY on subtasks they personally created.
+    // 🔒 COMPLETED / HOLD / CANCELLED rule:
+    // - Workspace Admin, Project Manager, Project Coordinator (not assigned as worker): always allowed.
+    // - Project Lead: allowed ONLY on tasks they personally created (and not assigned as worker).
     // - Member / others: never allowed.
-    const leadCanComplete = isProjectLead && isCreator;
-    if (newStatus === "COMPLETED" && !isProjectManager && !leadCanComplete) {
+    const isActingAsManager = !isAssignee && (isWorkspaceAdmin || isProjectManager || isProjectCoordinator);
+    const leadCanComplete = !isAssignee && isProjectLead && isCreator;
+    const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
+
+    if (
+      ["COMPLETED", "HOLD", "CANCELLED"].includes(newStatus) &&
+      !canCompleteOrHoldOrCancel
+    ) {
       throw AppError.Forbidden(
-        "Only the Project Manager (or the Lead who created this task) can mark tasks as Completed.",
+        "Only the Project Manager, Coordinator, or Admin (not personally assigned) or the Lead who created this task can mark tasks as Completed, On Hold, or Cancelled.",
       );
     }
 
     // Specific Restriction: Tasks in REVIEW status
-    // - Only PM can move any task out of REVIEW.
-    // - Lead who created the task can also move it out of REVIEW (they own the review decision).
+    // - Only PM, Coordinator, or creating Lead (not personally assigned) can move it out of REVIEW.
     if (subTask.status === "REVIEW") {
-      if (isAssignee && !isProjectManager && !leadCanComplete) {
+      if (!canCompleteOrHoldOrCancel) {
         throw AppError.Forbidden(
-          "As the assignee, you cannot move this task out of Review status. Only the Project Manager (or the creating Lead) can.",
+          "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or Admin (not personally assigned) or the creating Lead can.",
         );
       }
     }
@@ -1811,16 +1880,16 @@ export class TasksService {
       return subTask; // No change needed
     }
 
-    // Constraint: IN_PROGRESS -> COMPLETED is forbidden (must go via REVIEW)
-    if (subTask.status === "IN_PROGRESS" && newStatus === "COMPLETED") {
+    // Constraint: COMPLETED status can only be reached from REVIEW
+    if (newStatus === "COMPLETED" && subTask.status !== "REVIEW") {
       throw AppError.ValidationError(
-        "Tasks in In-Progress must be moved to Review before marking as Completed.",
+        "Before marking a task as Completed, you must first move it to Review status.",
       );
     }
 
     const isMandatoryTransition =
       ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
-      (subTask.status && ["HOLD", "CANCELLED"].includes(subTask.status)) ||
+      (subTask.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(subTask.status)) ||
       (subTask.status === "REVIEW" &&
         (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
       (subTask.status === "IN_PROGRESS" && newStatus === "TO_DO");
@@ -1831,12 +1900,23 @@ export class TasksService {
       );
     }
 
-    // Business rule: We record an activity for every status change.
-    const activityText = (comment || "").trim() || `Status updated from ${subTask.status} to ${newStatus}`;
+    // Business rule: We record an activity showing the status transition and any user comment.
+    const transitionHeader = `${subTask.status} -> ${newStatus}`;
+    const activityText = comment && comment.trim()
+      ? `${transitionHeader}\n${comment.trim()}`
+      : transitionHeader;
+
+    const attachmentJson = {
+      previousStatus: subTask.status,
+      targetStatus: newStatus,
+      ...(attachmentData ? {
+        url: typeof attachmentData === "string" ? attachmentData : (attachmentData.url || attachmentData.data || attachmentData),
+      } : {})
+    };
 
     const result = await TaskRepository.updateStatus(
       subTaskId, newStatus, subTaskId,
-      { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentData },
+      { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentJson },
       subTask.parentTaskId, subTask.status === "COMPLETED", newStatus === "COMPLETED"
     );
 
@@ -1915,18 +1995,37 @@ export class TasksService {
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
+    const isProjectLead = permissions.isProjectLead;
+
+    const isAssignee = currentProjectMemberId
+      ? task.assigneeId === currentProjectMemberId
+      : false;
+
+    // Unconditional block: Assignees can NEVER edit dates/days, irrespective of any role (even Admin/PM/Lead)
+    const isUpdatingDates = data.startDate !== undefined || data.dueDate !== undefined || data.days !== undefined;
+    if (isAssignee && isUpdatingDates) {
+      throw AppError.Forbidden(
+        "You don't have permission to update task dates because you are the assignee.",
+      );
+    }
 
     // 1. Base Authorization
+    // Assignees cannot edit task metadata (Name, Description, Dates, Assignee, Reviewer, Tags)
+    // even if they are Project Manager, Coordinator, or Lead, unless they are Workspace Admin.
     const isAuthorized =
       isWorkspaceAdmin ||
-      isProjectManager ||
-      (currentProjectMemberId &&
-        (task.createdById === currentProjectMemberId ||
-          task.assigneeId === currentProjectMemberId));
+      (!isAssignee && (
+        isProjectManager ||
+        isProjectCoordinator ||
+        (isProjectLead &&
+          currentProjectMemberId &&
+          task.createdById === currentProjectMemberId)
+      ));
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
-        "You don't have permission to update this task.",
+        "You don't have permission to update this task because you are the assignee.",
       );
     }
 
@@ -1942,10 +2041,11 @@ export class TasksService {
       if (
         assignee?.projectRole === "LEAD" &&
         !isWorkspaceAdmin &&
-        !isProjectManager
+        !isProjectManager &&
+        !isProjectCoordinator
       ) {
         throw AppError.Forbidden(
-          "Only a Workspace Admin or Project Manager can edit tasks assigned to a Project Lead.",
+          "Only a Workspace Admin, Project Manager, or Project Coordinator can edit tasks assigned to a Project Lead.",
         );
       }
     }
@@ -1955,7 +2055,7 @@ export class TasksService {
     if (data.name) updateData.name = data.name;
     if (data.description !== undefined)
       updateData.description = data.description;
-    
+
     // 🚀 Constraint: Parent tasks cannot have status, assignee, or dates.
     if (!task.parentTaskId) {
       updateData.status = null;
@@ -1966,7 +2066,63 @@ export class TasksService {
       updateData.days = null;
     } else {
       // It's a subtask, allow updates to execution fields
-      if (data.status) updateData.status = data.status;
+      if (data.status && data.status !== task.status) {
+        const isAssignee = currentProjectMemberId
+          ? task.assigneeId === currentProjectMemberId
+          : false;
+
+        const isActingAsManager =
+          !isAssignee &&
+          (isWorkspaceAdmin || isProjectManager || isProjectCoordinator);
+
+        const leadCanComplete =
+          !isAssignee &&
+          isProjectLead &&
+          task.createdById === currentProjectMemberId;
+
+        const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
+
+        // 1. Workflow check: COMPLETED can only come from REVIEW
+        if (data.status === "COMPLETED" && task.status !== "REVIEW") {
+          throw AppError.ValidationError(
+            "Before marking a task as Completed, you must first move it to Review status.",
+          );
+        }
+
+        // 2. Role check: COMPLETED/HOLD/CANCELLED
+        if (
+          ["COMPLETED", "HOLD", "CANCELLED"].includes(data.status) &&
+          !canCompleteOrHoldOrCancel
+        ) {
+          throw AppError.Forbidden(
+            "Only the Project Manager, Coordinator, or Admin (not personally assigned) can mark tasks as Completed, On Hold, or Cancelled.",
+          );
+        }
+
+        // 3. Review check: Moving out of REVIEW
+        if (task.status === "REVIEW" && !canCompleteOrHoldOrCancel) {
+          throw AppError.Forbidden(
+            "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or Admin (not personally assigned) can.",
+          );
+        }
+
+        // 4. Comment check: Since general task editing does not collect transition comments,
+        // block any move that requires a comment and tell them to do it from the list/board status changer.
+        const isMandatoryTransition =
+          ["HOLD", "CANCELLED", "REVIEW"].includes(data.status) ||
+          (task.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(task.status)) ||
+          (task.status === "REVIEW" &&
+            (data.status === "TO_DO" || data.status === "IN_PROGRESS")) ||
+          (task.status === "IN_PROGRESS" && data.status === "TO_DO");
+
+        if (isMandatoryTransition) {
+          throw AppError.ValidationError(
+            "This status transition requires an explanation comment. Please update the status directly from the board or list view.",
+          );
+        }
+
+        updateData.status = data.status;
+      }
       if (data.days !== undefined) updateData.days = data.days;
       if (data.startDate !== undefined)
         updateData.startDate = parseIST(data.startDate as any);
@@ -2002,6 +2158,17 @@ export class TasksService {
     const updated = await TaskRepository.updateTaskAndParentCount(
       taskId, updateData, task.parentTaskId, task.status === "COMPLETED", data.status === "COMPLETED"
     );
+
+    if (data.tagIds && data.tagIds.length > 0) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          tags: {
+            connect: data.tagIds.map((id) => ({ id })),
+          },
+        },
+      });
+    }
 
     const oldData: any = {};
     if (data.name) oldData.name = task.name;
@@ -2054,6 +2221,7 @@ export class TasksService {
     const isAuthorized =
       permissions.isWorkspaceAdmin ||
       permissions.isProjectManager ||
+      permissions.isProjectCoordinator ||
       (currentProjectMemberId && task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
@@ -2063,6 +2231,29 @@ export class TasksService {
     }
 
     const targetUserIds = await getTaskInvolvedUserIds(taskId);
+
+    // Snapshot project materials subtask and parent task names before deleting the subtask
+    try {
+      const taskToSnapshot = await prisma.task.findUnique({
+        where: { id: taskId },
+        include: {
+          parentTask: { select: { name: true } },
+          materialItems: { select: { id: true } },
+        },
+      });
+
+      if (taskToSnapshot && taskToSnapshot.materialItems.length > 0) {
+        await prisma.projectMaterialItem.updateMany({
+          where: { subtaskId: taskId },
+          data: {
+            subtaskNameSnapshot: taskToSnapshot.name,
+            parentTaskNameSnapshot: taskToSnapshot.parentTask?.name || null,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[SERVICE_ERROR] Failed to snapshot materials on task delete:", err);
+    }
 
     await TaskRepository.deleteTask({
       taskId,
@@ -2127,19 +2318,21 @@ export class TasksService {
 
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
     const currentProjectMemberId = permissions.projectMember?.id;
 
     // 1. Permission Check
     const isAuthorized =
       isWorkspaceAdmin ||
       isProjectManager ||
+      isProjectCoordinator ||
       (permissions.isProjectLead &&
         currentProjectMemberId &&
         task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
-        "Only Project Managers or the Task Creator can manage the timeline.",
+        "Only Project Managers, Coordinators, or the Task Creator can manage the timeline.",
       );
     }
 
@@ -2155,10 +2348,11 @@ export class TasksService {
       if (
         assignee?.projectRole === "LEAD" &&
         !isWorkspaceAdmin &&
-        !isProjectManager
+        !isProjectManager &&
+        !isProjectCoordinator
       ) {
         throw AppError.Forbidden(
-          "Only a Workspace Admin or Project Manager can update tasks assigned to a Project Lead.",
+          "Only a Workspace Admin, Project Manager, or Project Coordinator can update tasks assigned to a Project Lead.",
         );
       }
     }
@@ -2172,6 +2366,7 @@ export class TasksService {
 
     await TaskEvents.onDatesUpdated({
       taskId,
+      isSubTask: !!task.parentTaskId,
       projectId: project || "",
       workspaceId,
       userId,
@@ -2179,6 +2374,9 @@ export class TasksService {
       startDate: start,
       dueDate: end,
       days,
+      oldStartDate: task.startDate,
+      oldDueDate: task.dueDate,
+      oldDays: task.days,
     });
 
     return updated;
@@ -2573,14 +2771,29 @@ export class TasksService {
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
+    const isProjectCoordinator = permissions.isProjectCoordinator;
+    const isProjectLead = permissions.isProjectLead;
+
+    const isAssignee = currentProjectMemberId
+      ? task.assigneeId === currentProjectMemberId
+      : false;
+
+    // Unconditional block: Assignees can NEVER edit dates/days, irrespective of any role (even Admin/PM/Lead)
+    const isUpdatingDates = data.startDate !== undefined || data.dueDate !== undefined;
+    if (isAssignee && isUpdatingDates) {
+      throw AppError.Forbidden(
+        "You don't have permission to update task dates because you are the assignee.",
+      );
+    }
 
     // 1. Permission Check
     const isAuthorized =
       isWorkspaceAdmin ||
       isProjectManager ||
-      (currentProjectMemberId &&
-        (task.createdById === currentProjectMemberId ||
-          task.assigneeId === currentProjectMemberId));
+      isProjectCoordinator ||
+      (isProjectLead &&
+        currentProjectMemberId &&
+        task.createdById === currentProjectMemberId);
 
     if (!isAuthorized) {
       throw AppError.Forbidden(
@@ -2600,10 +2813,11 @@ export class TasksService {
       if (
         assignee?.projectRole === "LEAD" &&
         !isWorkspaceAdmin &&
-        !isProjectManager
+        !isProjectManager &&
+        !isProjectCoordinator
       ) {
         throw AppError.Forbidden(
-          "Only a Workspace Admin or Project Manager can edit tasks assigned to a Project Lead.",
+          "Only a Workspace Admin, Project Manager, or Project Coordinator can edit tasks assigned to a Project Lead.",
         );
       }
     }
@@ -2638,10 +2852,10 @@ export class TasksService {
     if (data.assigneeUserId !== undefined) {
       patchData.assigneeId = data.assigneeUserId
         ? await this.resolveOrJoinProjectMember(
-            data.assigneeUserId,
-            projectId,
-            workspaceId,
-          )
+          data.assigneeUserId,
+          projectId,
+          workspaceId,
+        )
         : null;
     }
 
@@ -2761,7 +2975,7 @@ export class TasksService {
       } else if (fullAccessProjectIds.length > 0) {
         accessConditions.push({ projectId: { in: fullAccessProjectIds } });
       } else if (restrictedProjectIds.length > 0) {
-        accessConditions.push({ 
+        accessConditions.push({
           projectId: { in: restrictedProjectIds },
           OR: [
             { assignee: { workspaceMember: { userId } } },
@@ -2838,7 +3052,7 @@ export class TasksService {
           accessConditions.push({ projectId: { in: restrictedProjectIds } });
           accessConditions.push({ assignee: { workspaceMember: { userId } } });
         }
-        
+
         if (accessConditions.length > 0) {
           singleParentWhere.AND = [...(singleParentWhere.AND || []), ...accessConditions];
         }
@@ -2864,10 +3078,10 @@ export class TasksService {
       const finalTasks = (hasMore ? rawTasks.slice(0, pageSize) : rawTasks).map((t: any) => TasksService.mapToFlatMetadata(t));
       const nextCursor = hasMore && finalTasks.length > 0
         ? {
-            id: finalTasks[finalTasks.length - 1].id,
-            createdAt: finalTasks[finalTasks.length - 1].createdAt,
-            position: finalTasks[finalTasks.length - 1].position
-          }
+          id: finalTasks[finalTasks.length - 1].id,
+          createdAt: finalTasks[finalTasks.length - 1].createdAt,
+          position: finalTasks[finalTasks.length - 1].position
+        }
         : undefined;
       return [{ parentTaskId: parentId, subTasks: finalTasks, totalCount: finalTasks.length, hasMore, nextCursor }];
     }
@@ -2905,10 +3119,10 @@ export class TasksService {
       const pagedSubTasks = hasMore ? subTasks.slice(0, pageSize) : subTasks;
       const nextCursor = hasMore && pagedSubTasks.length > 0
         ? {
-            id: pagedSubTasks[pagedSubTasks.length - 1].id,
-            createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt,
-            position: pagedSubTasks[pagedSubTasks.length - 1].position
-          }
+          id: pagedSubTasks[pagedSubTasks.length - 1].id,
+          createdAt: pagedSubTasks[pagedSubTasks.length - 1].createdAt,
+          position: pagedSubTasks[pagedSubTasks.length - 1].position
+        }
         : undefined;
       return { parentTaskId, subTasks: pagedSubTasks, totalCount, hasMore, nextCursor };
     });

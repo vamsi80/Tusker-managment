@@ -2,7 +2,7 @@
 
 import slugify from "slugify";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { useTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { tryCatch } from "@/hooks/try-catch";
@@ -51,7 +51,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     // Determine if user is MANAGER (auto-assigned as project manager)
     const isManager = userRole === "MANAGER";
 
-    const { revalidate } = useWorkspaceLayout();
+    const { data: layoutData, revalidate } = useWorkspaceLayout();
 
     const form = useForm<ProjectSchemaType>({
         resolver: zodResolver(projectSchema) as unknown as Resolver<ProjectSchemaType>,
@@ -71,6 +71,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
             // Auto-assign MANAGER as project lead
             projectManagerId: isManager ? (members?.find(m => m.userId === currentUserId)?.id || "") : "",
             memberAccess: [] as string[],
+            tagIds: [] as string[],
         },
     })
 
@@ -113,6 +114,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
             if (result.success) {
                 toast.success(result.message || "Project created successfully!");
                 triggerConfetti();
+                revalidate(true);
                 form.reset();
                 setOpen(false); // Close the dialog
 
@@ -145,7 +147,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                         <DialogTitle className="flex items-center gap-3">
                             Create New Project
                             <div
-                                className="h-5 w-5 rounded-full border shadow-sm transition-colors"
+                                className="size-5 rounded-full border shadow-sm transition-colors"
                                 style={{ backgroundColor: watchedColor || "#000000" }}
                             />
                         </DialogTitle>
@@ -363,7 +365,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                                         <PopoverContent className="p-0 w-64" align="start">
                                                             <Command>
-                                                                <CommandInput placeholder="Search managers…" />
+                                                                <CommandInput placeholder="Search managers..." />
                                                                 <CommandEmpty>No workspace managers found.</CommandEmpty>
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">
@@ -379,10 +381,10 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                                 }}
                                                                             >
                                                                                 <div className={cn(
-                                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                                    "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
                                                                                     isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                                                                                 )}>
-                                                                                    <Check className="h-4 w-4" />
+                                                                                    <Check className="size-4" />
                                                                                 </div>
                                                                                 {userName}
                                                                             </CommandItem>
@@ -399,12 +401,84 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                     )}
                                 />
 
+                                {/* Project Tags Selection */}
+                                <FormField
+                                    control={form.control}
+                                    name="tagIds"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Project Tags</FormLabel>
+                                            <FormDescription className="text-xs text-muted-foreground mb-2">
+                                                Select workspace tags that will be available for tasks in this project.
+                                            </FormDescription>
+                                            <div className="space-y-2">
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-between font-normal h-auto min-h-[40px] py-2">
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {field.value && field.value.length > 0 ? (
+                                                                    field.value.map(id => {
+                                                                        const t = layoutData?.tags?.find((tag: any) => tag.id === id);
+                                                                        return (
+                                                                            <Badge key={id} variant="secondary" className="px-1 font-normal">
+                                                                                {toTitleCase(t?.name) || "Tag"}
+                                                                            </Badge>
+                                                                        );
+                                                                    })
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">Select project tags</span>
+                                                                )}
+                                                            </div>
+                                                        </Button>
+                                                    </PopoverTrigger>
+
+                                                    <PopoverContent className="p-0 w-64" align="start">
+                                                        <Command>
+                                                            <CommandInput placeholder="Search tags..." />
+                                                            <CommandEmpty>No tags found.</CommandEmpty>
+
+                                                                <CommandGroup className="max-h-64 overflow-y-auto">
+                                                                    {(layoutData?.tags || []).map((t: any) => {
+                                                                        const isSelected = field.value?.includes(t.id);
+
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={t.id}
+                                                                                onSelect={() => {
+                                                                                    const current = field.value || [];
+                                                                                    if (isSelected) {
+                                                                                        field.onChange(current.filter(id => id !== t.id));
+                                                                                    } else {
+                                                                                        field.onChange([...current, t.id]);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <div className={cn(
+                                                                                    "mr-2 flex size-4 items-center justify-center rounded-sm border border-primary",
+                                                                                    isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                                )}>
+                                                                                    <Check className="size-4" />
+                                                                                </div>
+                                                                                {toTitleCase(t.name)}
+                                                                            </CommandItem>
+                                                                        );
+                                                                    })}
+                                                                </CommandGroup>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
                                 <div className="flex justify-end items-center gap-4 pt-2 mb-2">
                                     <Button type="submit" disabled={pending}>
                                         {pending ? (
                                             <>
                                                 Creating...
-                                                <Loader2 className="ml-1 h-4 w-4 animate-spin" />
+                                                <Loader2 className="ml-1 size-4 animate-spin" />
                                             </>
                                         ) : (
                                             <>

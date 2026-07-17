@@ -34,7 +34,7 @@ export function createTeamMemberColumns(
 
                 return (
                     <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
+                        <Avatar className="size-9">
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
@@ -65,7 +65,7 @@ export function createTeamMemberColumns(
                 const empId = row.original.employeeId;
                 return (
                     <div className="flex items-center gap-1.5 font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded w-fit border border-slate-200 dark:border-slate-700">
-                        <Hash className="h-3 w-3 opacity-50" />
+                        <Hash className="size-3 opacity-50" />
                         {empId || "—"}
                     </div>
                 );
@@ -80,7 +80,7 @@ export function createTeamMemberColumns(
                 try {
                     return (
                         <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
-                            <CalendarDays className="h-3 w-3 opacity-50" />
+                            <CalendarDays className="size-3 opacity-50" />
                             {format(new Date(dob), "dd MMM yyyy")}
                         </div>
                     );
@@ -170,7 +170,7 @@ export function createTeamMemberColumns(
         {
             label: "View Details",
             onClick: onView,
-            icon: <Eye className="h-4 w-4" />,
+            icon: <Eye className="size-4" />,
         },
     ];
 
@@ -179,12 +179,12 @@ export function createTeamMemberColumns(
             {
                 label: "Edit Member",
                 onClick: onEdit,
-                icon: <Edit className="h-4 w-4" />,
+                icon: <Edit className="size-4" />,
             },
             {
                 label: "Remove Member",
                 onClick: onDelete,
-                icon: <Trash className="h-4 w-4" />,
+                icon: <Trash className="size-4" />,
                 variant: "destructive",
             }
         );
@@ -202,7 +202,7 @@ export function createTeamMemberColumns(
         actions.push({
             label: "Reset Password",
             onClick: onResend,
-            icon: <Mail className="h-4 w-4" />,
+            icon: <Mail className="size-4" />,
         });
     }
 

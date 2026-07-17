@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,7 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
                         size="sm"
                         className="h-8"
                     >
-                        <ArrowUpDown className="h-4 w-4 mr-2" />
+                        <ArrowUpDown className="size-4 mr-2" />
                         Sort
                         {sorts.length > 0 && (
                             <Badge variant="secondary" className="ml-2 h-5 px-1.5">
@@ -88,9 +88,9 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
                                 <span>{label}</span>
                                 {currentSort && (
                                     currentSort.direction === "asc" ? (
-                                        <ArrowUp className="h-4 w-4" />
+                                        <ArrowUp className="size-4" />
                                     ) : (
-                                        <ArrowDown className="h-4 w-4" />
+                                        <ArrowDown className="size-4" />
                                     )
                                 )}
                             </DropdownMenuItem>
@@ -103,7 +103,7 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
                                 onClick={clearAllSorts}
                                 className="text-destructive"
                             >
-                                <X className="h-4 w-4 mr-2" />
+                                <X className="size-4 mr-2" />
                                 Clear All Sorts
                             </DropdownMenuItem>
                         </>
@@ -122,15 +122,15 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
                         >
                             <span className="text-xs">{SORT_FIELD_LABELS[sort.field]}</span>
                             {sort.direction === "asc" ? (
-                                <ArrowUp className="h-3 w-3" />
+                                <ArrowUp className="size-3" />
                             ) : (
-                                <ArrowDown className="h-3 w-3" />
+                                <ArrowDown className="size-3" />
                             )}
                             <button
                                 onClick={() => removeSort(sort.field)}
                                 className="ml-1 hover:bg-muted rounded-sm p-0.5"
                             >
-                                <X className="h-3 w-3" />
+                                <X className="size-3" />
                             </button>
                         </Badge>
                     ))}
@@ -139,3 +139,4 @@ export function SortingControl({ sorts, onSortsChange }: SortingControlProps) {
         </div>
     );
 }
+

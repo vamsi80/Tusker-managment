@@ -490,7 +490,7 @@ export function ProcurementHubClient({
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Truck className="h-5 w-5 text-primary animate-pulse" /> Workspace Procurement Hub
+            <Truck className="size-5 text-primary animate-pulse" /> Workspace Procurement Hub
           </h1>
           <p className="text-xs text-muted-foreground">
             PO Officer control desk for <strong>{workspaceName}</strong>. Manage indents, quotes, and approvals.
@@ -507,7 +507,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("dashboard")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
+            <LayoutDashboard className="size-3.5" /> Dashboard
           </Button>
 
           <Button
@@ -516,7 +516,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("indent")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <FileText className="h-3.5 w-3.5" /> Indents List
+            <FileText className="size-3.5" /> Indents List
           </Button>
 
           <Button
@@ -525,7 +525,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("material")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <Package className="h-3.5 w-3.5" /> Materials Hub
+            <Package className="size-3.5" /> Materials Hub
           </Button>
 
           <Button
@@ -534,7 +534,7 @@ export function ProcurementHubClient({
             onClick={() => setActiveTab("rfq")}
             className="h-8 text-xs font-semibold flex items-center gap-1.5"
           >
-            <Workflow className="h-3.5 w-3.5" /> RFQs Active
+            <Workflow className="size-3.5" /> RFQs Active
           </Button>
         </div>
       </div>
@@ -552,7 +552,7 @@ export function ProcurementHubClient({
                   <h3 className="text-2xl font-bold mt-1 text-foreground">{isLoadingStats ? "..." : dashboardStats.totalIndents}</h3>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-2 border-t pt-1 flex items-center gap-1">
-                  <FileText className="h-3 w-3 text-primary" /> Workspace volume
+                  <FileText className="size-3 text-primary" /> Workspace volume
                 </div>
               </div>
 
@@ -562,7 +562,7 @@ export function ProcurementHubClient({
                   <h3 className="text-2xl font-bold mt-1 text-amber-600">{isLoadingStats ? "..." : dashboardStats.pendingApprovals}</h3>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-2 border-t pt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3 text-amber-500 animate-bounce" /> Action required
+                  <AlertCircle className="size-3 text-amber-500 animate-bounce" /> Action required
                 </div>
               </div>
 
@@ -572,7 +572,7 @@ export function ProcurementHubClient({
                   <h3 className="text-2xl font-bold mt-1 text-blue-600">{isLoadingStats ? "..." : dashboardStats.activeRfqs}</h3>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-2 border-t pt-1 flex items-center gap-1">
-                  <Send className="h-3 w-3 text-blue-500" /> Out to vendors
+                  <Send className="size-3 text-blue-500" /> Out to vendors
                 </div>
               </div>
 
@@ -582,7 +582,7 @@ export function ProcurementHubClient({
                   <h3 className="text-2xl font-bold mt-1 text-emerald-600">{isLoadingStats ? "..." : dashboardStats.completedProcurements}</h3>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-2 border-t pt-1 flex items-center gap-1">
-                  <Check className="h-3 w-3 text-emerald-500" /> Purchase finalized
+                  <Check className="size-3 text-emerald-500" /> Purchase finalized
                 </div>
               </div>
             </div>
@@ -591,7 +591,7 @@ export function ProcurementHubClient({
             <div className="grid grid-cols-2 gap-6">
               <div className="p-4 border border-border bg-card rounded-lg shadow-sm">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3 flex items-center gap-1.5">
-                  <TrendingUp className="h-4 w-4 text-primary" /> Cost Overview
+                  <TrendingUp className="size-4 text-primary" /> Cost Overview
                 </h4>
                 <div className="flex items-center justify-between py-2 border-b">
                   <span className="text-xs text-muted-foreground">Estimated Materials Budget</span>
@@ -609,7 +609,7 @@ export function ProcurementHubClient({
               <div className="p-4 border border-border bg-card rounded-lg shadow-sm flex flex-col justify-between">
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3 flex items-center gap-1.5">
-                    <Workflow className="h-4 w-4 text-primary" /> Active Workflow Links
+                    <Workflow className="size-4 text-primary" /> Active Workflow Links
                   </h4>
                   <p className="text-xs text-muted-foreground mb-4">
                     Go directly to the active tabs to approve pending requests or comparison panels.
@@ -617,7 +617,7 @@ export function ProcurementHubClient({
                 </div>
                 <div className="flex gap-3">
                   <Button size="sm" onClick={() => setActiveTab("indent")} className="h-8 text-xs">
-                    Review Indents <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    Review Indents <ArrowRight className="ml-1.5 size-3.5" />
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setActiveTab("material")} className="h-8 text-xs">
                     Inspect Materials
@@ -633,7 +633,7 @@ export function ProcurementHubClient({
           <div className="flex-1 border border-border bg-card rounded-lg flex flex-col min-h-0 shadow-sm p-4">
             <div className="flex items-center justify-between border-b pb-3 mb-3 shrink-0">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <FileText className="h-4 w-4" /> Workspace Requests Register
+                <FileText className="size-4" /> Workspace Requests Register
               </span>
               <Input
                 placeholder="Search Indents..."
@@ -646,11 +646,11 @@ export function ProcurementHubClient({
             <div className="flex-1 overflow-y-auto">
               {isLoadingIndents ? (
                 <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                  <Clock className="h-5 w-5 animate-spin mr-1.5 text-primary" /> Loading indents list...
+                  <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading indents list...
                 </div>
               ) : filteredIndents.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
-                  <Package className="h-10 w-10 opacity-20 mb-2" />
+                  <Package className="size-10 opacity-20 mb-2" />
                   <p className="text-xs">No Indents submitted for this workspace yet.</p>
                 </div>
               ) : (
@@ -727,7 +727,7 @@ export function ProcurementHubClient({
             {/* Left Column (30%) */}
             <div className="w-[30%] flex flex-col gap-3 min-h-0 border border-border/80 rounded-lg p-3 bg-card shadow-sm">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <ListFilter className="h-3 w-3" /> Materials Catalog ({filteredMaterials.length})
+                <ListFilter className="size-3" /> Materials Catalog ({filteredMaterials.length})
               </span>
 
               <div className="flex flex-col gap-2 shrink-0">
@@ -777,7 +777,7 @@ export function ProcurementHubClient({
               <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2">
                 {filteredMaterials.length === 0 ? (
                   <div className="flex flex-col py-8 items-center justify-center text-muted-foreground text-xs text-center">
-                    <Package className="h-8 w-8 opacity-20 mb-2" />
+                    <Package className="size-8 opacity-20 mb-2" />
                     No materials require procurement based on current filters.
                   </div>
                 ) : (
@@ -843,7 +843,7 @@ export function ProcurementHubClient({
                           <Dialog open={isQuoteDialogOpen} onOpenChange={setIsQuoteDialogOpen}>
                             <DialogTrigger asChild>
                               <Button size="sm" variant="outline" className="h-8 text-xs font-semibold">
-                                <Plus className="mr-1.5 h-3.5 w-3.5" /> Enter Quote Manually
+                                <Plus className="mr-1.5 size-3.5" /> Enter Quote Manually
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-[425px]">
@@ -929,7 +929,7 @@ export function ProcurementHubClient({
                     <div className="flex-1 overflow-y-auto">
                       {isLoadingDetails ? (
                         <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                          <Clock className="h-5 w-5 animate-spin mr-1.5 text-primary" /> Loading vendor specifications...
+                          <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading vendor specifications...
                         </div>
                       ) : selectedItem.status === "PENDING" ? (
                         <div className="flex flex-col h-full justify-between">
@@ -958,7 +958,7 @@ export function ProcurementHubClient({
                                             [s.vendor.id]: e.target.checked,
                                           });
                                         }}
-                                        className="h-3.5 w-3.5 text-primary border-border rounded"
+                                        className="size-3.5 text-primary border-border rounded"
                                       />
                                       <div className="flex flex-col">
                                         <span className="text-xs font-semibold text-foreground">{s.vendor.name}</span>
@@ -1002,7 +1002,7 @@ export function ProcurementHubClient({
                               disabled={isSendingRfq}
                               className="h-8 text-xs bg-primary hover:bg-primary/95 text-white flex items-center gap-1.5"
                             >
-                              <Send className="h-3.5 w-3.5" />
+                              <Send className="size-3.5" />
                               {isSendingRfq ? "Sending..." : "Dispatch RFQ"}
                             </Button>
                           </div>
@@ -1010,7 +1010,7 @@ export function ProcurementHubClient({
                       ) : (
                         <div className="flex flex-col h-full justify-center items-center text-center p-6 bg-muted/10 border border-dashed border-border/80 rounded-lg">
                           <div className="p-3 bg-primary/5 rounded-full mb-3">
-                            <Send className="h-6 w-6 text-primary" />
+                            <Send className="size-6 text-primary" />
                           </div>
                           <h4 className="text-xs font-bold text-foreground">RFQ Session Already Initiated</h4>
                           <p className="text-xs text-muted-foreground mt-1 max-w-[340px]">
@@ -1018,7 +1018,7 @@ export function ProcurementHubClient({
                           </p>
                           {selectedItem.rfqDeadline && (
                             <div className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted px-2.5 py-1 rounded border border-border/40">
-                              <Calendar className="h-3 w-3 text-primary" />
+                              <Calendar className="size-3 text-primary" />
                               <span>Deadline Date: {format(new Date(selectedItem.rfqDeadline), "MMM d, yyyy")}</span>
                             </div>
                           )}
@@ -1031,14 +1031,14 @@ export function ProcurementHubClient({
                   <div className="flex-1 border border-border/80 rounded-lg bg-card p-4 flex flex-col min-h-0 shadow-sm">
                     <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-3 shrink-0">
                       <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <DollarSign className="h-4 w-4 text-emerald-600" /> Costing & Proposal Comparison ({quotes.length})
+                        <DollarSign className="size-4 text-emerald-600" /> Costing & Proposal Comparison ({quotes.length})
                       </span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto min-h-0">
                       {quotes.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-6">
-                          <AlertCircle className="h-8 w-8 opacity-20 mb-2" />
+                          <AlertCircle className="size-8 opacity-20 mb-2" />
                           <p className="text-xs">No quotes submitted yet for this material request.</p>
                         </div>
                       ) : (
@@ -1101,7 +1101,7 @@ export function ProcurementHubClient({
                                         onClick={() => handleApproveQuote(quote.id)}
                                         className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1"
                                       >
-                                        <Check className="h-3 w-3" /> Approve
+                                        <Check className="size-3" /> Approve
                                       </Button>
                                     )}
                                   </TableCell>
@@ -1117,7 +1117,7 @@ export function ProcurementHubClient({
                       <div className="mt-3 p-3 bg-emerald-500/[0.04] border border-emerald-500/20 rounded-lg flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-2">
                           <div className="p-1.5 bg-emerald-500/10 rounded-full text-emerald-600">
-                            <ThumbsUp className="h-4 w-4" />
+                            <ThumbsUp className="size-4" />
                           </div>
                           <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Best Financial Quote Highlight</span>
@@ -1132,7 +1132,7 @@ export function ProcurementHubClient({
                             onClick={() => handleApproveQuote(bestQuote.id)}
                             className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1"
                           >
-                            <Check className="h-3 w-3" /> Approve Best Offer
+                            <Check className="size-3" /> Approve Best Offer
                           </Button>
                         )}
                       </div>
@@ -1141,7 +1141,7 @@ export function ProcurementHubClient({
                 </>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border/80 rounded-lg p-8 bg-muted/5">
-                  <Package className="h-10 w-10 opacity-20 mb-2" />
+                  <Package className="size-10 opacity-20 mb-2" />
                   <p className="text-xs">Select a material from the left panel to manage suppliers and compare costs.</p>
                 </div>
               )}
@@ -1154,14 +1154,14 @@ export function ProcurementHubClient({
           <div className="flex-1 border border-border bg-card rounded-lg flex flex-col min-h-0 shadow-sm p-4">
             <div className="flex items-center justify-between border-b pb-3 mb-3 shrink-0">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Workflow className="h-4 w-4 text-blue-600" /> Active RFQ Tracking Panel
+                <Workflow className="size-4 text-blue-600" /> Active RFQ Tracking Panel
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               {rfqMaterials.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
-                  <Workflow className="h-10 w-10 opacity-20 mb-2" />
+                  <Workflow className="size-10 opacity-20 mb-2" />
                   <p className="text-xs">No active RFQs currently out to vendors.</p>
                   <Button size="sm" onClick={() => setActiveTab("material")} className="h-8 text-xs mt-3">
                     Go to Materials Hub
