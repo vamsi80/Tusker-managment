@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AttendanceLogger } from "./attendance-logger";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+import { TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -479,25 +480,31 @@ export function AttendanceTable({
             meta: { className: "min-w-[120px]" },
             cell: ({ row }) => {
                 const status = row.original.status;
+                const isSunday = new Date(row.original.date).getDay() === 0;
                 let content;
-                switch (status) {
-                    case "PRESENT":
-                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 font-medium">Present</Badge>;
-                        break;
-                    case "ABSENT":
-                        content = <Badge variant="destructive" className="font-medium">Absent</Badge>;
-                        break;
-                    case "LATE":
-                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">Late</Badge>;
-                        break;
-                    case "HALF_DAY":
-                        content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20 font-medium">Half Day</Badge>;
-                        break;
-                    case "ON_LEAVE":
-                        content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 font-medium">On Leave</Badge>;
-                        break;
-                    default:
-                        content = <Badge variant="outline" className="font-medium">{status}</Badge>;
+                
+                if (status === "ABSENT" && isSunday) {
+                    content = <Badge variant="outline" className="font-medium bg-muted text-muted-foreground border-dashed">Sunday</Badge>;
+                } else {
+                    switch (status) {
+                        case "PRESENT":
+                            content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 font-medium">Present</Badge>;
+                            break;
+                        case "ABSENT":
+                            content = <Badge variant="destructive" className="font-medium">Absent</Badge>;
+                            break;
+                        case "LATE":
+                            content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">Late</Badge>;
+                            break;
+                        case "HALF_DAY":
+                            content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20 font-medium">Half Day</Badge>;
+                            break;
+                        case "ON_LEAVE":
+                            content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 font-medium">On Leave</Badge>;
+                            break;
+                        default:
+                            content = <Badge variant="outline" className="font-medium">{status}</Badge>;
+                    }
                 }
                 return (
                     <div className="flex justify-start items-center gap-2">
@@ -544,10 +551,11 @@ export function AttendanceTable({
     const stats = useMemo(() => {
         const counts = { present: 0, late: 0, halfDay: 0, absent: 0, leave: 0, total: records.length };
         records.forEach(r => {
+            const isSunday = new Date(r.date).getDay() === 0;
             if (r.status === "PRESENT") counts.present++;
             if (r.status === "LATE") counts.late++;
             if (r.status === "HALF_DAY") counts.halfDay++;
-            if (r.status === "ABSENT") counts.absent++;
+            if (r.status === "ABSENT" && !isSunday) counts.absent++;
             if (r.status === "ON_LEAVE") counts.leave++;
         });
         return counts;
@@ -862,6 +870,27 @@ export function AttendanceTable({
                     manualPagination={true}
                     manualFiltering={true}
                     containerClassName="max-h-[calc(100vh-300px)]"
+                    isCustomRow={(row: any) => row.status === "ABSENT" && new Date(row.date).getDay() === 0}
+                    renderCustomRow={(row: any, columnsLength) => {
+                        const user = row.WorkspaceMember?.user;
+                        const initials = user?.surname?.[0]?.toUpperCase() || "?";
+                        
+                        return (
+                            <TableCell colSpan={columnsLength} className="p-0 border-y border-dashed bg-muted/10 relative h-[50px]">
+                                <div className="absolute inset-0 flex items-center justify-between px-4 w-full">
+                                    <div className="flex items-center gap-3 opacity-60">
+                                        <Avatar className="size-8">
+                                            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="font-medium text-sm text-foreground">{user?.surname || "Unknown Member"}</span>
+                                    </div>
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <span className="font-semibold tracking-[0.3em] uppercase text-xs text-muted-foreground/50">Sunday</span>
+                                    </div>
+                                </div>
+                            </TableCell>
+                        );
+                    }}
                     onPaginationChange={(p) => {
                         setPageIndex(p.pageIndex);
                         setPageSize(p.pageSize);
