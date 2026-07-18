@@ -610,6 +610,41 @@ export function AttendanceTable({
         }
     };
 
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isDownloadPopoverOpen, setIsDownloadPopoverOpen] = useState(false);
+    const [downloadDate, setDownloadDate] = useState(new Date());
+
+    const handleDownloadAttendance = async () => {
+        try {
+            setIsDownloading(true);
+            const year = downloadDate.getFullYear();
+            const month = downloadDate.getMonth() + 1;
+            const res = await fetch(`/api/v1/attendance/export?year=${year}&month=${month}`, {
+                headers: { "x-workspace-id": workspaceId }
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                toast.error(data.error || "Failed to download attendance");
+                return;
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Attendance_${year}_${month}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            toast.success("Attendance downloaded successfully");
+            setIsDownloadPopoverOpen(false);
+        } catch (error) {
+            toast.error("An error occurred while downloading attendance");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const extraToolbarContent = (
         <div className="flex items-center gap-2">
             <Dialog>
@@ -643,6 +678,45 @@ export function AttendanceTable({
                     )}
                     <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
                 </Button>
+            )}
+
+            {isWorkspaceAdmin && (
+                <Popover open={isDownloadPopoverOpen} onOpenChange={setIsDownloadPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 gap-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                            <CalendarDays className="size-4" />
+                            <span className="font-medium text-sm hidden sm:inline">Download</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-3" align="end">
+                        <div className="flex flex-col gap-3">
+                            <h4 className="text-sm font-medium">Download Attendance</h4>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setDownloadDate(subMonths(downloadDate, 1))}>
+                                    <ChevronLeft className="size-4" />
+                                </Button>
+                                <span className="font-medium text-sm min-w-[100px] text-center">
+                                    {format(downloadDate, "MMMM yyyy")}
+                                </span>
+                                <Button variant="outline" size="icon" onClick={() => setDownloadDate(addMonths(downloadDate, 1))}>
+                                    <ChevronRight className="size-4" />
+                                </Button>
+                            </div>
+                            <Button 
+                                onClick={handleDownloadAttendance} 
+                                disabled={isDownloading}
+                                className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <CalendarDays className="size-4" />}
+                                Download Excel
+                            </Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             )}
 
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>

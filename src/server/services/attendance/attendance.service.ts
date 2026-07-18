@@ -1,4 +1,5 @@
 import "server-only";
+import ExcelJS from "exceljs";
 
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
@@ -610,5 +611,114 @@ export class AttendanceService {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return R * c;
+    }
+
+    /**
+     * Export monthly attendance to Excel
+     */
+    static async exportMonthlyAttendance(workspaceId: string, year: number, month: number) {
+        const members = await prisma.workspaceMember.findMany({
+            where: { workspaceId },
+            include: { user: { select: { name: true, surname: true } } }
+        });
+
+        // Determine start and end of the month
+        const startDate = new Date(Date.UTC(year, month - 1, 1));
+        const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+        const daysInMonth = endDate.getUTCDate();
+
+        // Get all attendance for the workspace in that month
+        const attendanceRecords = await prisma.attendance.findMany({
+            where: {
+                workspaceId,
+                date: { gte: startDate, lte: endDate }
+            }
+        });
+
+        // Get all approved leaves overlapping with the month
+        const leaves = await (prisma as any).leave_request.findMany({
+            where: {
+                workspaceId,
+                status: "APPROVED",
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+            }
+        });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet(`Attendance ${year}-${month}`);
+
+        // Columns: Name, 1..daysInMonth, Present, Absent, Approved Leave
+        const columns: Partial<ExcelJS.Column>[] = [
+            { header: "Name", key: "name", width: 25 },
+        ];
+        for (let i = 1; i <= daysInMonth; i++) {
+            columns.push({ header: i.toString(), key: `day_${i}`, width: 5 });
+        }
+        columns.push({ header: "Present", key: "present", width: 12 });
+        columns.push({ header: "Absent", key: "absent", width: 12 });
+        columns.push({ header: "Approved Leave", key: "leave", width: 18 });
+
+        worksheet.columns = columns;
+
+        const today = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const istToday = new Date(today.getTime() + istOffset);
+        const currentYear = istToday.getUTCFullYear();
+        const currentMonth = istToday.getUTCMonth() + 1;
+        const currentDay = istToday.getUTCDate();
+
+        // Calculate for each member
+        for (const member of members) {
+            const memberName = `${member.user.name || ""} ${member.user.surname || ""}`.trim() || "Unknown";
+            const rowData: any = { name: memberName };
+            
+            let totalPresent = 0;
+            let totalAbsent = 0;
+            let totalLeave = 0;
+
+            const memberAttendance = attendanceRecords.filter(r => r.workspaceMemberId === member.id);
+            const memberLeaves = leaves.filter((l: any) => l.workspaceMemberId === member.id);
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(Date.UTC(year, month - 1, day));
+                
+                // Don't mark future days as absent
+                const isFuture = year > currentYear || (year === currentYear && month > currentMonth) || (year === currentYear && month === currentMonth && day > currentDay);
+                
+                const attendance = memberAttendance.find(a => a.date.getUTCDate() === day && a.date.getUTCMonth() === month - 1);
+                
+                // Check if on leave
+                const onLeave = memberLeaves.some((l: any) => {
+                    const lStart = new Date(l.startDate);
+                    const lEnd = new Date(l.endDate);
+                    return currentDate >= lStart && currentDate <= lEnd;
+                });
+
+                let status = "";
+                if (attendance && attendance.status !== "ABSENT" && attendance.status !== "ON_LEAVE") {
+                    status = attendance.status === "HALF_DAY" ? "HD" : (attendance.status === "LATE" ? "L" : "P");
+                    totalPresent++;
+                } else if (onLeave) {
+                    status = "LV";
+                    totalLeave++;
+                } else {
+                    if (!isFuture) {
+                        status = "A";
+                        totalAbsent++;
+                    }
+                }
+                rowData[`day_${day}`] = status;
+            }
+
+            rowData.present = totalPresent;
+            rowData.absent = totalAbsent;
+            rowData.leave = totalLeave;
+
+            worksheet.addRow(rowData);
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return buffer;
     }
 }
