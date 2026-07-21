@@ -648,18 +648,27 @@ export class AttendanceService {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet(`Attendance ${year}-${month}`);
 
-        // Columns: Name, 1..daysInMonth, Present, Absent, Approved Leave
+        // Columns: Name, 1..daysInMonth, Total Present, Total Absent, Total Late, Total Approved Leave
         const columns: Partial<ExcelJS.Column>[] = [
             { header: "Name", key: "name", width: 25 },
         ];
         for (let i = 1; i <= daysInMonth; i++) {
-            columns.push({ header: i.toString(), key: `day_${i}`, width: 5 });
+            const dd = i.toString().padStart(2, '0');
+            const mm = month.toString().padStart(2, '0');
+            const yyyy = year.toString();
+            columns.push({ header: `${dd}/${mm}/${yyyy}`, key: `day_${i}`, width: 12 });
         }
-        columns.push({ header: "Present", key: "present", width: 12 });
-        columns.push({ header: "Absent", key: "absent", width: 12 });
-        columns.push({ header: "Approved Leave", key: "leave", width: 18 });
+        columns.push({ header: "Total Present", key: "present", width: 15 });
+        columns.push({ header: "Total Absent", key: "absent", width: 15 });
+        columns.push({ header: "Total Late", key: "late", width: 15 });
+        columns.push({ header: "Total Approved Leave", key: "leave", width: 22 });
 
         worksheet.columns = columns;
+
+        // Freeze the first column (Name) and the first row (Headers)
+        worksheet.views = [
+            { state: 'frozen', xSplit: 1, ySplit: 1 }
+        ];
 
         const today = new Date();
         const istOffset = 5.5 * 60 * 60 * 1000;
@@ -675,6 +684,7 @@ export class AttendanceService {
             
             let totalPresent = 0;
             let totalAbsent = 0;
+            let totalLate = 0;
             let totalLeave = 0;
 
             const memberAttendance = attendanceRecords.filter(r => r.workspaceMemberId === member.id);
@@ -697,14 +707,17 @@ export class AttendanceService {
 
                 let status = "";
                 if (attendance && attendance.status !== "ABSENT" && attendance.status !== "ON_LEAVE") {
-                    status = attendance.status === "HALF_DAY" ? "HD" : (attendance.status === "LATE" ? "L" : "P");
+                    status = attendance.status === "HALF_DAY" ? "Half Day" : "Present";
+                    if (attendance.status === "LATE") {
+                        totalLate++;
+                    }
                     totalPresent++;
                 } else if (onLeave) {
-                    status = "LV";
+                    status = "Approved Leave";
                     totalLeave++;
                 } else {
                     if (!isFuture) {
-                        status = "A";
+                        status = "Absent";
                         totalAbsent++;
                     }
                 }
@@ -713,6 +726,7 @@ export class AttendanceService {
 
             rowData.present = totalPresent;
             rowData.absent = totalAbsent;
+            rowData.late = totalLate;
             rowData.leave = totalLeave;
 
             worksheet.addRow(rowData);
