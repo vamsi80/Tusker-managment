@@ -444,8 +444,8 @@ export function KanbanBoard({
       if (searchQuery) params.set("q", searchQuery);
 
       // Filters
-      if (filters.assigneeId) params.append("a", filters.assigneeId);
-      if (filters.tagId) params.append("t", filters.tagId);
+      if (filters.assigneeId) params.append("a", JSON.stringify(filters.assigneeId));
+      if (filters.tagId) params.append("t", JSON.stringify(filters.tagId));
       if (filters.dueDateFilter) params.append("dt", filters.dueDateFilter);
       params.set("ef", JSON.stringify(["description"]));
 
@@ -975,7 +975,9 @@ export function KanbanBoard({
   const filteredProjects = projects?.filter(
     (p) =>
       !filters.assigneeId ||
-      (p.memberIds && p.memberIds.includes(filters.assigneeId)),
+      (p.memberIds && (Array.isArray(filters.assigneeId)
+        ? filters.assigneeId.some((memberId) => p.memberIds?.includes(memberId))
+        : p.memberIds.includes(filters.assigneeId))),
   );
 
   const filteredMembers = memberOptions.filter((m) => {

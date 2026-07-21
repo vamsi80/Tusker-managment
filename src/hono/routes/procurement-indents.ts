@@ -9,6 +9,17 @@ import prisma from "@/lib/db";
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
 
+const parseMultiQuery = (value?: string): string[] => {
+  if (!value || value === "ALL") return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    return parsed ? [String(parsed)] : [];
+  } catch {
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+};
+
 // Zod validation schemas
 const CreateIndentSchema = z.object({
   taskId: z.string().optional().nullable(),
@@ -128,8 +139,8 @@ procurementIndents.get("/task/:taskId", async (c) => {
 procurementIndents.get("/line-items", async (c) => {
   const user = c.get("user");
   const workspaceId = c.req.query("w");
-  const statusFilter = c.req.query("status"); // optional LineItemStatus
-  const projectId = c.req.query("projectId"); // optional project id filter
+  const statusFilters = parseMultiQuery(c.req.query("status"));
+  const projectIds = parseMultiQuery(c.req.query("projectId"));
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
@@ -143,9 +154,9 @@ procurementIndents.get("/line-items", async (c) => {
     where: {
       indent: {
         workspaceId,
-        ...(projectId && projectId !== "ALL" ? { projectId } : {}),
+        ...(projectIds.length > 0 ? { projectId: { in: projectIds } } : {}),
       },
-      ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as any } : {}),
+      ...(statusFilters.length > 0 ? { status: { in: statusFilters as any[] } } : {}),
     },
     include: {
       indent: {

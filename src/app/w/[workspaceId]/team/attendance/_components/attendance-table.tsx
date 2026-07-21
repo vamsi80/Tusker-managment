@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 
@@ -83,13 +83,13 @@ export function AttendanceTable({
     const [activeFilters, setActiveFilters] = useState<{
         from: Date | undefined;
         to: Date | undefined;
-        memberId: string | undefined;
-        status: string | undefined;
+        memberId: string[];
+        status: string[];
     }>({
         from: startOfMonth(new Date()),
         to: endOfMonth(new Date()),
-        memberId: undefined,
-        status: undefined,
+        memberId: [],
+        status: [],
     });
 
     // Helper to flatten Prisma records into the shape the table expects
@@ -219,8 +219,8 @@ export function AttendanceTable({
             const params = new URLSearchParams();
             if (activeFilters.from && isValidDate(activeFilters.from)) params.append("startDate", activeFilters.from.toISOString());
             if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
-            if (activeFilters.memberId) params.append("memberId", activeFilters.memberId);
-            if (activeFilters.status) params.append("status", activeFilters.status);
+            if (activeFilters.memberId.length > 0) params.append("memberId", JSON.stringify(activeFilters.memberId));
+            if (activeFilters.status.length > 0) params.append("status", JSON.stringify(activeFilters.status));
             if (debouncedSearch) params.append("search", debouncedSearch);
             params.append("page", (pageIndex + 1).toString());
             params.append("pageSize", pageSize.toString());
@@ -562,8 +562,8 @@ export function AttendanceTable({
     }, [records]);
 
     const selectedMember = useMemo(() => {
-        if (!activeFilters.memberId) return null;
-        return slimMembers.find((m: any) => m.id === activeFilters.memberId);
+        if (activeFilters.memberId.length !== 1) return null;
+        return slimMembers.find((m: any) => m.id === activeFilters.memberId[0]);
     }, [slimMembers, activeFilters.memberId]);
 
     const handleApplyFilters = () => {
@@ -575,8 +575,8 @@ export function AttendanceTable({
         const reset = {
             from: undefined,
             to: undefined,
-            memberId: undefined,
-            status: undefined,
+            memberId: [],
+            status: [],
         };
         setTempFilters(reset);
         setActiveFilters(reset);
@@ -585,8 +585,8 @@ export function AttendanceTable({
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
-        if (activeFilters.memberId) count++;
-        if (activeFilters.status) count++;
+        count += activeFilters.memberId.length;
+        count += activeFilters.status.length;
         if (activeFilters.from || activeFilters.to) count++;
         return count;
     }, [activeFilters]);
@@ -615,6 +615,41 @@ export function AttendanceTable({
             toast.error("An error occurred during reconciliation");
         } finally {
             setIsReconciling(false);
+        }
+    };
+
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isDownloadPopoverOpen, setIsDownloadPopoverOpen] = useState(false);
+    const [downloadDate, setDownloadDate] = useState(new Date());
+
+    const handleDownloadAttendance = async () => {
+        try {
+            setIsDownloading(true);
+            const year = downloadDate.getFullYear();
+            const month = downloadDate.getMonth() + 1;
+            const res = await fetch(`/api/v1/attendance/export?year=${year}&month=${month}`, {
+                headers: { "x-workspace-id": workspaceId }
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                toast.error(data.error || "Failed to download attendance");
+                return;
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Attendance_${year}_${month}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            toast.success("Attendance downloaded successfully");
+            setIsDownloadPopoverOpen(false);
+        } catch (error) {
+            toast.error("An error occurred while downloading attendance");
+        } finally {
+            setIsDownloading(false);
         }
     };
 
@@ -651,6 +686,45 @@ export function AttendanceTable({
                     )}
                     <span className="font-medium text-sm hidden sm:inline">Mark Absents</span>
                 </Button>
+            )}
+
+            {isWorkspaceAdmin && (
+                <Popover open={isDownloadPopoverOpen} onOpenChange={setIsDownloadPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 gap-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                            <CalendarDays className="size-4" />
+                            <span className="font-medium text-sm hidden sm:inline">Download</span>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-3" align="end">
+                        <div className="flex flex-col gap-3">
+                            <h4 className="text-sm font-medium">Download Attendance</h4>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setDownloadDate(subMonths(downloadDate, 1))}>
+                                    <ChevronLeft className="size-4" />
+                                </Button>
+                                <span className="font-medium text-sm min-w-[100px] text-center">
+                                    {format(downloadDate, "MMMM yyyy")}
+                                </span>
+                                <Button variant="outline" size="icon" onClick={() => setDownloadDate(addMonths(downloadDate, 1))}>
+                                    <ChevronRight className="size-4" />
+                                </Button>
+                            </div>
+                            <Button 
+                                onClick={handleDownloadAttendance} 
+                                disabled={isDownloading}
+                                className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <CalendarDays className="size-4" />}
+                                Download Excel
+                            </Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             )}
 
             <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
@@ -703,33 +777,25 @@ export function AttendanceTable({
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Member</h4>
-                                        {tempFilters.memberId && (
+                                        {tempFilters.memberId.length > 0 && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => setTempFilters(prev => ({ ...prev, memberId: undefined }))}
+                                                onClick={() => setTempFilters(prev => ({ ...prev, memberId: [] }))}
                                                 className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                             >
                                                 CLEAR
                                             </Button>
                                         )}
                                     </div>
-                                    <Select
-                                        value={tempFilters.memberId || "all"}
-                                        onValueChange={(val) => setTempFilters(prev => ({ ...prev, memberId: val === "all" ? undefined : val }))}
-                                    >
-                                        <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                            <SelectValue placeholder="All Members" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Members</SelectItem>
-                                            {memberOptions.map((m) => (
-                                                <SelectItem key={m.value} value={m.value} className="text-sm">
-                                                    {m.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <MultiSelectFilter
+                                        selected={tempFilters.memberId}
+                                        onChange={(values) => setTempFilters(prev => ({ ...prev, memberId: values }))}
+                                        options={memberOptions}
+                                        placeholder="All Members"
+                                        searchPlaceholder="Search members..."
+                                        triggerClassName="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                    />
                                 </div>
                             )}
 
@@ -737,33 +803,31 @@ export function AttendanceTable({
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Status</h4>
-                                    {tempFilters.status && (
+                                    {tempFilters.status.length > 0 && (
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => setTempFilters(prev => ({ ...prev, status: undefined }))}
+                                            onClick={() => setTempFilters(prev => ({ ...prev, status: [] }))}
                                             className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
                                         >
                                             CLEAR
                                         </Button>
                                     )}
                                 </div>
-                                <Select
-                                    value={tempFilters.status || "all"}
-                                    onValueChange={(val) => setTempFilters(prev => ({ ...prev, status: val === "all" ? undefined : val }))}
-                                >
-                                    <SelectTrigger className="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20">
-                                        <SelectValue placeholder="All Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Status</SelectItem>
-                                        <SelectItem value="PRESENT" className="text-sm">Present</SelectItem>
-                                        <SelectItem value="ABSENT" className="text-sm">Absent</SelectItem>
-                                        <SelectItem value="LATE" className="text-sm">Late</SelectItem>
-                                        <SelectItem value="HALF_DAY" className="text-sm">Half Day</SelectItem>
-                                        <SelectItem value="ON_LEAVE" className="text-sm">On Leave</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <MultiSelectFilter
+                                    selected={tempFilters.status}
+                                    onChange={(values) => setTempFilters(prev => ({ ...prev, status: values }))}
+                                    options={[
+                                        { value: "PRESENT", label: "Present" },
+                                        { value: "ABSENT", label: "Absent" },
+                                        { value: "LATE", label: "Late" },
+                                        { value: "HALF_DAY", label: "Half Day" },
+                                        { value: "ON_LEAVE", label: "On Leave" },
+                                    ]}
+                                    placeholder="All Statuses"
+                                    searchPlaceholder="Search statuses..."
+                                    triggerClassName="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                />
                             </div>
 
                             {/* Date Range Filter */}

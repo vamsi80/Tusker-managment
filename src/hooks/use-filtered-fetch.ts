@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useFilterStore } from "@/lib/store/filter-store";
-import { getActiveFilters, hasActiveFilters, TaskWithSubTasks } from "@/components/task/shared/types";
+import { hasActiveFilters, TaskWithSubTasks } from "@/components/task/shared/types";
 
 interface FilteredFetchProps {
   workspaceId: string;
@@ -74,12 +74,14 @@ export function useFilteredFetch({
 
       if (level === "project" && projectId) params.set("p", projectId);
       
-      const activeFilters = getActiveFilters(filters);
-      activeFilters.forEach((f) => {
-        if (f.key === "startDate" || f.key === "endDate") {
-          params.set(f.key, new Date(f.value).toISOString());
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if ((key === "startDate" || key === "endDate") && value) {
+          params.set(key, new Date(value as string | Date).toISOString());
+        } else if (Array.isArray(value) || key === "sorts") {
+          params.set(key, JSON.stringify(value));
         } else {
-          params.set(f.key, String(f.value));
+          params.set(key, String(value));
         }
       });
       

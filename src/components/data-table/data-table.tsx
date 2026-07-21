@@ -215,11 +215,15 @@ export function DataTable<TData, TValue>({
                                                                 key={option.value}
                                                                 checked={isSelected}
                                                                 onCheckedChange={(checked) => {
-                                                                    const current = (column.getFilterValue() as string[]) || [];
+                                                                    const rawCurrent = column.getFilterValue();
+                                                                    const current = Array.isArray(rawCurrent)
+                                                                        ? rawCurrent
+                                                                        : rawCurrent ? [String(rawCurrent)] : [];
                                                                     if (checked) {
-                                                                        column.setFilterValue([...current, option.value]);
+                                                                        column.setFilterValue(Array.from(new Set([...current, option.value])));
                                                                     } else {
-                                                                        column.setFilterValue(current.filter((v) => v !== option.value));
+                                                                        const next = current.filter((v) => v !== option.value);
+                                                                        column.setFilterValue(next.length > 0 ? next : undefined);
                                                                     }
                                                                 }}
                                                             >

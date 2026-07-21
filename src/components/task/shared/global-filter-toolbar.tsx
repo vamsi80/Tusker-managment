@@ -2,12 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { STATUS_OPTIONS } from "@/lib/zodSchemas";
 import { X, Filter, Calendar } from "lucide-react";
-import { getStatusColors } from "@/lib/colors/status-colors";
 import { getColorFromString } from "@/lib/colors/project-colors";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, toTitleCase } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";
 import { formatIST } from "@/lib/utils";
@@ -84,17 +83,28 @@ export function GlobalFilterToolbar({
 }: GlobalFilterToolbarProps) {
     const [isOpen, setIsOpen] = useState(false);
 
+    const selectedStatuses = Array.isArray(filters.status)
+        ? filters.status
+        : filters.status ? [filters.status] : [];
+    const selectedAssignees = Array.isArray(filters.assigneeId)
+        ? filters.assigneeId
+        : filters.assigneeId ? [filters.assigneeId] : [];
+    const selectedTags = Array.isArray(filters.tagId)
+        ? filters.tagId
+        : filters.tagId ? [filters.tagId] : [];
+
     useEffect(() => {
-        if (filters.tagId && tags && tags.length > 0) {
-            const tagExists = tags.some(t => t.id === filters.tagId);
-            if (!tagExists) {
+        if (selectedTags.length > 0 && tags && tags.length > 0) {
+            const availableTagIds = new Set(tags.map((tag) => tag.id));
+            const validTagIds = selectedTags.filter((tagId) => availableTagIds.has(tagId));
+            if (validTagIds.length !== selectedTags.length) {
                 onFilterChange({
                     ...filters,
-                    tagId: undefined
+                    tagId: validTagIds.length > 0 ? validTagIds : undefined,
                 });
             }
         }
-    }, [tags, filters.tagId, filters, onFilterChange]);
+    }, [tags, filters, onFilterChange, selectedTags]);
 
 
     const config = getFilterConfig(view, level);
@@ -191,6 +201,16 @@ export function GlobalFilterToolbar({
             ...filters,
             [key]: filterValue,
         });
+    };
+
+    const handleMultiFilterChange = (
+        key: "status" | "assigneeId" | "tagId",
+        values: string[],
+    ) => {
+        onFilterChange({
+            ...filters,
+            [key]: values.length > 0 ? values : undefined,
+        } as TaskFilters);
     };
 
     const applyPreset = (preset: 'today' | '4days' | 'week' | 'month' | 'delayed') => {
@@ -490,41 +510,17 @@ export function GlobalFilterToolbar({
                                                     </Button>
                                                 )}
                                             </div>
-                                            <Select
-                                                value={filters.status || "__all__"}
-                                                onValueChange={(value) => handleFilterChange("status", value)}
-                                            >
-                                                <SelectTrigger className="w-full h-9">
-                                                    <SelectValue placeholder="Select status" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__all__">All Status</SelectItem>
-                                                    {STATUS_OPTIONS.map((option) => {
-                                                        const statusColors = getStatusColors(option.value);
-                                                        const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
-                                                        const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
-
-                                                        return (
-                                                            <SelectItem key={option.value} value={option.value}>
-                                                                <div className="flex items-center gap-2">
-                                                                    {hex ? (
-                                                                        <div
-                                                                            className="size-2 rounded-full border border-black/5 dark:border-white/10"
-                                                                            style={{ backgroundColor: hex }}
-                                                                        />
-                                                                    ) : (
-                                                                        <div className={cn(
-                                                                            "size-2 rounded-full",
-                                                                            statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
-                                                                        )} />
-                                                                    )}
-                                                                    {option.label}
-                                                                </div>
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
+                                            <MultiSelectFilter
+                                                selected={selectedStatuses}
+                                                onChange={(values) => handleMultiFilterChange("status", values)}
+                                                options={STATUS_OPTIONS.map((option) => ({
+                                                    value: option.value,
+                                                    label: option.label,
+                                                }))}
+                                                placeholder="All Statuses"
+                                                searchPlaceholder="Search statuses..."
+                                                triggerClassName="h-9"
+                                            />
                                         </div>
                                     )}
 
@@ -544,41 +540,25 @@ export function GlobalFilterToolbar({
                                                     </Button>
                                                 )}
                                             </div>
-                                            <Select
-                                                value={filters.assigneeId || "__all__"}
-                                                onValueChange={(value) => handleFilterChange("assigneeId", value)}
-                                            >
-                                                <SelectTrigger className="w-full h-9">
-                                                    <SelectValue placeholder="Select assignee" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__all__">All Assignees</SelectItem>
-                                                    {members
-                                                        .filter(member => {
-                                                            // If a project is selected, only show members of that project
-                                                            if (filters.projectId && projects) {
-                                                                const project = projects.find(p => p.id === filters.projectId);
-                                                                if (project && project.memberIds) {
-                                                                    return project.memberIds.includes(member.id);
-                                                                }
-                                                            }
-                                                            // If no project selected (Workspace level), show all members
-                                                            return true;
-
-                                                        })
-
-                                                        .map((member) => (
-                                                            <SelectItem key={member.id} value={member.id}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Avatar className="size-4 flex-shrink-0">
-                                                                        <AvatarFallback className="text-[8px]">{(member.surname || member.name || "?")[0]}</AvatarFallback>
-                                                                    </Avatar>
-                                                                    <span className="truncate">{member.surname || member.name}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <MultiSelectFilter
+                                                selected={selectedAssignees}
+                                                onChange={(values) => handleMultiFilterChange("assigneeId", values)}
+                                                options={members
+                                                    .filter((member) => {
+                                                        if (filters.projectId && projects) {
+                                                            const project = projects.find((item) => item.id === filters.projectId);
+                                                            if (project?.memberIds) return project.memberIds.includes(member.id);
+                                                        }
+                                                        return true;
+                                                    })
+                                                    .map((member) => ({
+                                                        value: member.id,
+                                                        label: member.surname || member.name || "Unnamed member",
+                                                    }))}
+                                                placeholder="All Assignees"
+                                                searchPlaceholder="Search assignees..."
+                                                triggerClassName="h-9"
+                                            />
                                         </div>
                                     )}
 
@@ -599,22 +579,17 @@ export function GlobalFilterToolbar({
                                                     </Button>
                                                 )}
                                             </div>
-                                            <Select
-                                                value={filters.tagId || "__all__"}
-                                                onValueChange={(value) => handleFilterChange("tagId", value)}
-                                            >
-                                                <SelectTrigger className="w-full h-9">
-                                                    <SelectValue placeholder="Select tag" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="__all__">All Tags</SelectItem>
-                                                    {tags.map((tag) => (
-                                                        <SelectItem key={tag.id} value={tag.id}>
-                                                            {tag.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <MultiSelectFilter
+                                                selected={selectedTags}
+                                                onChange={(values) => handleMultiFilterChange("tagId", values)}
+                                                options={tags.map((tag) => ({
+                                                    value: tag.id,
+                                                    label: toTitleCase(tag.name),
+                                                }))}
+                                                placeholder="All Tags"
+                                                searchPlaceholder="Search tags..."
+                                                triggerClassName="h-9"
+                                            />
                                         </div>
                                     )}
                                 </div>

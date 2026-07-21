@@ -3,6 +3,16 @@ import { notFound } from "next/navigation";
 import { ReportsTable } from "./_components/report-table";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
+const parseUserIds = (value?: string): string[] => {
+    if (!value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        return (Array.isArray(parsed) ? parsed : [parsed]).map(String).filter(Boolean);
+    } catch {
+        return value.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+};
+
 export default async function ReportsPage({
     params,
     searchParams
@@ -18,11 +28,12 @@ export default async function ReportsPage({
     }
 
     const search = await searchParams;
+    const selectedUserIds = parseUserIds(search.userId);
 
     const rows = await ReportService.getReports({
         workspaceId,
         date: search.date,
-        userId: search.userId,
+        userId: selectedUserIds.length > 0 ? selectedUserIds : undefined,
         isWorkspaceAdmin,
         currentWorkspaceMemberId: workspaceMemberId,
         take: 30,
@@ -35,7 +46,7 @@ export default async function ReportsPage({
                 initialData={rows}
                 workspaceId={workspaceId}
                 initialDate={search.date}
-                initialUserId={search.userId}
+                initialUserIds={selectedUserIds}
                 isAdmin={isWorkspaceAdmin}
                 currentUserId={userId}
             />

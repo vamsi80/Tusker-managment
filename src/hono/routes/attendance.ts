@@ -5,6 +5,19 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { invalidateWorkspaceAttendance } from "@/lib/cache/invalidation";
 import { HonoVariables } from "../types";
 
+const parseMultiQuery = (value?: string): string[] | undefined => {
+    if (!value) return undefined;
+    try {
+        const parsed = JSON.parse(value);
+        const values = Array.isArray(parsed) ? parsed : [parsed];
+        const cleaned = values.map(String).filter(Boolean);
+        return cleaned.length > 0 ? cleaned : undefined;
+    } catch {
+        const cleaned = value.split(",").map((item) => item.trim()).filter(Boolean);
+        return cleaned.length > 0 ? cleaned : undefined;
+    }
+};
+
 export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .get("/", async (c) => {
@@ -16,8 +29,8 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
         const startDateStr = c.req.query("startDate");
         const endDateStr = c.req.query("endDate");
-        const memberId = c.req.query("memberId");
-        const status = c.req.query("status") as any;
+        const memberId = parseMultiQuery(c.req.query("memberId"));
+        const status = parseMultiQuery(c.req.query("status")) as any;
 
         const startDate = startDateStr ? new Date(startDateStr) : undefined;
         const endDate = endDateStr ? new Date(endDateStr) : undefined;
@@ -64,6 +77,39 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         try {
             const record = await AttendanceService.getTodayAttendance(workspaceId, user.id);
             return c.json({ success: true, data: record });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
+
+    .get("/export", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id");
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+            if (!isWorkspaceAdmin) {
+                return c.json({ success: false, error: "Only workspace admins can export attendance" }, 403);
+            }
+
+            const yearStr = c.req.query("year");
+            const monthStr = c.req.query("month");
+            if (!yearStr || !monthStr) {
+                return c.json({ success: false, error: "Year and month are required" }, 400);
+            }
+
+            const year = parseInt(yearStr);
+            const month = parseInt(monthStr);
+
+            const buffer = await AttendanceService.exportMonthlyAttendance(workspaceId, year, month);
+
+            c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            c.header('Content-Disposition', `attachment; filename="Attendance_${year}_${month}.xlsx"`);
+
+            return c.body(buffer as any);
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);
         }

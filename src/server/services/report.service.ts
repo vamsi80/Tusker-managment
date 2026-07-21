@@ -7,7 +7,7 @@ export class ReportService {
   static async getReports(params: {
     workspaceId: string;
     date?: string;
-    userId?: string;
+    userId?: string | string[];
     skip?: number;
     take?: number;
     isWorkspaceAdmin: boolean;
@@ -17,7 +17,7 @@ export class ReportService {
 
     // If not admin, only show own reports
     // We need to find the user ID for the current member if not admin
-    let effectiveUserId = userId;
+    let effectiveUserId: string | string[] | undefined = userId;
     
     if (!isWorkspaceAdmin) {
         const member = await prisma.workspaceMember.findUnique({
@@ -34,7 +34,9 @@ export class ReportService {
       where: {
         workspaceId,
         ...(dateQuery ? { date: dateQuery } : {}),
-        ...(effectiveUserId ? { userId: effectiveUserId } : {})
+        ...(effectiveUserId
+          ? { userId: Array.isArray(effectiveUserId) ? { in: effectiveUserId } : effectiveUserId }
+          : {})
       },
       include: {
         user: {

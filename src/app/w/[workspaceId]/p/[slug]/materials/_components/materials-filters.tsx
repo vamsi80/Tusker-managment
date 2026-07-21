@@ -1,19 +1,19 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, RotateCcw, PackageOpen } from "lucide-react";
+import { Search, RotateCcw } from "lucide-react";
 
 interface MaterialsFiltersProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
-    selectedTask: string;
-    onTaskChange: (task: string) => void;
-    selectedStatus: string;
-    onStatusChange: (status: string) => void;
-    selectedUnit: string;
-    onUnitChange: (unit: string) => void;
+    selectedTasks: string[];
+    onTasksChange: (tasks: string[]) => void;
+    selectedStatuses: string[];
+    onStatusesChange: (statuses: string[]) => void;
+    selectedUnits: string[];
+    onUnitsChange: (units: string[]) => void;
     tasks: string[];
     statuses: string[];
     units: string[];
@@ -23,18 +23,18 @@ interface MaterialsFiltersProps {
 export function MaterialsFilters({
     searchQuery,
     onSearchChange,
-    selectedTask,
-    onTaskChange,
-    selectedStatus,
-    onStatusChange,
-    selectedUnit,
-    onUnitChange,
+    selectedTasks,
+    onTasksChange,
+    selectedStatuses,
+    onStatusesChange,
+    selectedUnits,
+    onUnitsChange,
     tasks,
     statuses,
     units,
     onReset
 }: MaterialsFiltersProps) {
-    const hasActiveFilters = searchQuery !== "" || selectedTask !== "all" || selectedStatus !== "all" || selectedUnit !== "all";
+    const hasActiveFilters = searchQuery !== "" || selectedTasks.length > 0 || selectedStatuses.length > 0 || selectedUnits.length > 0;
 
     return (
         <div className="bg-card/45 p-0 flex flex-col md:flex-row gap-3 items-center justify-between transition-all duration-300 hover:shadow-md">
@@ -52,62 +52,38 @@ export function MaterialsFilters({
 
                 {/* Parent Task Selector */}
                 <div className="w-full md:w-48">
-                    <Select value={selectedTask} onValueChange={onTaskChange}>
-                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80 rounded-lg">
-                            <span className="flex items-center gap-1.5 truncate">
-                                <Filter className="size-3 text-muted-foreground" />
-                                <SelectValue placeholder="Filter by Task" />
-                            </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all" className="text-xs">All Tasks</SelectItem>
-                            {tasks.map((task) => (
-                                <SelectItem key={task} value={task} className="text-xs truncate">
-                                    {task}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                        selected={selectedTasks}
+                        onChange={onTasksChange}
+                        options={tasks.map((task) => ({ value: task, label: task }))}
+                        placeholder="All Tasks"
+                        searchPlaceholder="Search tasks..."
+                        triggerClassName="h-9 text-xs bg-background/50 border-border/80 rounded-lg"
+                    />
                 </div>
 
                 {/* Material Status Selector */}
                 <div className="w-full md:w-40">
-                    <Select value={selectedStatus} onValueChange={onStatusChange}>
-                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80 rounded-lg">
-                            <span className="flex items-center gap-1.5 truncate">
-                                <PackageOpen className="size-3 text-muted-foreground" />
-                                <SelectValue placeholder="Filter by Status" />
-                            </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all" className="text-xs">All Statuses</SelectItem>
-                            {statuses.map((status) => (
-                                <SelectItem key={status} value={status} className="text-xs">
-                                    {status}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                        selected={selectedStatuses}
+                        onChange={onStatusesChange}
+                        options={statuses.map((status) => ({ value: status, label: status }))}
+                        placeholder="All Statuses"
+                        searchPlaceholder="Search statuses..."
+                        triggerClassName="h-9 text-xs bg-background/50 border-border/80 rounded-lg"
+                    />
                 </div>
 
                 {/* Material Unit Selector */}
                 <div className="w-full md:w-36">
-                    <Select value={selectedUnit} onValueChange={onUnitChange}>
-                        <SelectTrigger className="h-9 text-xs bg-background/50 border-border/80 rounded-lg">
-                            <span className="flex items-center gap-1.5 truncate">
-                                <span className="font-mono text-[10px] text-muted-foreground uppercase">UoM</span>
-                                <SelectValue placeholder="Filter by Unit" />
-                            </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all" className="text-xs">All Units</SelectItem>
-                            {units.map((unit) => (
-                                <SelectItem key={unit} value={unit} className="text-xs">
-                                    {unit}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <MultiSelectFilter
+                        selected={selectedUnits}
+                        onChange={onUnitsChange}
+                        options={units.map((unit) => ({ value: unit, label: unit }))}
+                        placeholder="All Units"
+                        searchPlaceholder="Search units..."
+                        triggerClassName="h-9 text-xs bg-background/50 border-border/80 rounded-lg"
+                    />
                 </div>
             </div>
 

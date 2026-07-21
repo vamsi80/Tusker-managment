@@ -42,9 +42,9 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
     const [loading, setLoading] = useState(true);
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedTask, setSelectedTask] = useState("all");
-    const [selectedStatus, setSelectedStatus] = useState("all");
-    const [selectedUnit, setSelectedUnit] = useState("all");
+    const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+    const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
 
     // Fetch materials, subtasks, and units
     const fetchData = async () => {
@@ -172,8 +172,8 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
                         material.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         (material.specifications &&
                             material.specifications.toLowerCase().includes(searchQuery.toLowerCase()));
-                    const matchesStatus = selectedStatus === "all" || material.status === selectedStatus;
-                    const matchesUnit = selectedUnit === "all" || material.unit === selectedUnit;
+                    const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(material.status);
+                    const matchesUnit = selectedUnits.length === 0 || selectedUnits.includes(material.unit);
 
                     return matchesSearch && matchesStatus && matchesUnit;
                 });
@@ -186,14 +186,14 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
                 // If subtask name matches and we haven't filtered materials out, keep all materials or filtered ones
                 const finalMaterials = subtaskNameMatches && searchQuery !== "" && matchedMaterials.length === 0
                     ? subtask.materials.filter((m) => {
-                        const matchesStatus = selectedStatus === "all" || m.status === selectedStatus;
-                        const matchesUnit = selectedUnit === "all" || m.unit === selectedUnit;
+                        const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(m.status);
+                        const matchesUnit = selectedUnits.length === 0 || selectedUnits.includes(m.unit);
                         return matchesStatus && matchesUnit;
                     })
                     : matchedMaterials;
 
                 // Parent filter checks
-                const matchesTask = selectedTask === "all" || subtask.taskName === selectedTask;
+                const matchesTask = selectedTasks.length === 0 || selectedTasks.includes(subtask.taskName);
 
                 return {
                     ...subtask,
@@ -205,12 +205,12 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
                 if (!subtask.matchesTask) return false;
 
                 // Show empty procurement subtasks only when not searching/filtering
-                if (searchQuery !== "" || selectedStatus !== "all" || selectedUnit !== "all") {
+                if (searchQuery !== "" || selectedStatuses.length > 0 || selectedUnits.length > 0) {
                     return subtask.materials.length > 0;
                 }
                 return true;
             });
-    }, [groupedData, searchQuery, selectedTask, selectedStatus, selectedUnit]);
+    }, [groupedData, searchQuery, selectedTasks, selectedStatuses, selectedUnits]);
 
     // const totalMaterialsCount = useMemo(() => {
     //     return filteredData.reduce((acc, curr) => acc + curr.materials.length, 0);
@@ -218,9 +218,9 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
 
     const handleReset = () => {
         setSearchQuery("");
-        setSelectedTask("all");
-        setSelectedStatus("all");
-        setSelectedUnit("all");
+        setSelectedTasks([]);
+        setSelectedStatuses([]);
+        setSelectedUnits([]);
     };
 
     // CRUD Callbacks
@@ -304,12 +304,12 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
             <MaterialsFilters
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
-                selectedTask={selectedTask}
-                onTaskChange={setSelectedTask}
-                selectedStatus={selectedStatus}
-                onStatusChange={setSelectedStatus}
-                selectedUnit={selectedUnit}
-                onUnitChange={setSelectedUnit}
+                selectedTasks={selectedTasks}
+                onTasksChange={setSelectedTasks}
+                selectedStatuses={selectedStatuses}
+                onStatusesChange={setSelectedStatuses}
+                selectedUnits={selectedUnits}
+                onUnitsChange={setSelectedUnits}
                 tasks={taskOptions}
                 statuses={statusOptions}
                 units={unitOptions}

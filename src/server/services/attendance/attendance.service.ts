@@ -1,4 +1,5 @@
 import "server-only";
+import ExcelJS from "exceljs";
 
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
@@ -365,18 +366,26 @@ export class AttendanceService {
                     }
                 }
 
-                // If a specific member filter is requested from UI, ensure it's within allowed list
-                let finalMemberIdFilter = filters?.memberId;
-                if (allowedMemberIds && finalMemberIdFilter && !allowedMemberIds.includes(finalMemberIdFilter)) {
-                    // Unauthorized member filter requested - fallback to empty or restricted set
-                    finalMemberIdFilter = "UNAUTHORIZED_ACCESS";
+                // If member filters are requested, ensure every requested member is in scope.
+                const requestedMemberIds = filters?.memberId
+                    ? (Array.isArray(filters.memberId) ? filters.memberId : [filters.memberId])
+                    : [];
+                let finalMemberIds = requestedMemberIds;
+                if (allowedMemberIds && requestedMemberIds.some((id) => !allowedMemberIds.includes(id))) {
+                    finalMemberIds = ["UNAUTHORIZED_ACCESS"];
                 }
+                const memberWhere = finalMemberIds.length > 0
+                    ? { workspaceMemberId: { in: finalMemberIds } }
+                    : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {});
+                const statusFilters = filters?.status
+                    ? (Array.isArray(filters.status) ? filters.status : [filters.status])
+                    : [];
 
                 const where: any = {
                     workspaceId,
                     ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : {}),
-                    ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
-                    ...(filters?.status ? { status: filters.status } : {}),
+                    ...memberWhere,
+                    ...(statusFilters.length > 0 ? { status: { in: statusFilters } } : {}),
                 };
 
                 if (filters?.search) {
@@ -396,13 +405,13 @@ export class AttendanceService {
                     AttendanceRepository.countRecords(where)
                 ]);
 
-                if (!filters?.status || filters.status === AttendanceStatus.ON_LEAVE) {
+                if (statusFilters.length === 0 || statusFilters.includes(AttendanceStatus.ON_LEAVE)) {
                     const approvedLeaves = await (prisma as any).leave_request.findMany({
                         where: {
                             workspaceId,
                             status: "APPROVED",
                             ...(startDate && endDate ? { startDate: { lte: endDate }, endDate: { gte: startDate } } : {}),
-                            ...(finalMemberIdFilter ? { workspaceMemberId: finalMemberIdFilter } : (allowedMemberIds ? { workspaceMemberId: { in: allowedMemberIds } } : {})),
+                            ...memberWhere,
                             ...(filters?.search ? {
                                 WorkspaceMember: {
                                     user: {
@@ -602,5 +611,114 @@ export class AttendanceService {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return R * c;
+    }
+
+    /**
+     * Export monthly attendance to Excel
+     */
+    static async exportMonthlyAttendance(workspaceId: string, year: number, month: number) {
+        const members = await prisma.workspaceMember.findMany({
+            where: { workspaceId },
+            include: { user: { select: { name: true, surname: true } } }
+        });
+
+        // Determine start and end of the month
+        const startDate = new Date(Date.UTC(year, month - 1, 1));
+        const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+        const daysInMonth = endDate.getUTCDate();
+
+        // Get all attendance for the workspace in that month
+        const attendanceRecords = await prisma.attendance.findMany({
+            where: {
+                workspaceId,
+                date: { gte: startDate, lte: endDate }
+            }
+        });
+
+        // Get all approved leaves overlapping with the month
+        const leaves = await (prisma as any).leave_request.findMany({
+            where: {
+                workspaceId,
+                status: "APPROVED",
+                startDate: { lte: endDate },
+                endDate: { gte: startDate }
+            }
+        });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet(`Attendance ${year}-${month}`);
+
+        // Columns: Name, 1..daysInMonth, Present, Absent, Approved Leave
+        const columns: Partial<ExcelJS.Column>[] = [
+            { header: "Name", key: "name", width: 25 },
+        ];
+        for (let i = 1; i <= daysInMonth; i++) {
+            columns.push({ header: i.toString(), key: `day_${i}`, width: 5 });
+        }
+        columns.push({ header: "Present", key: "present", width: 12 });
+        columns.push({ header: "Absent", key: "absent", width: 12 });
+        columns.push({ header: "Approved Leave", key: "leave", width: 18 });
+
+        worksheet.columns = columns;
+
+        const today = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const istToday = new Date(today.getTime() + istOffset);
+        const currentYear = istToday.getUTCFullYear();
+        const currentMonth = istToday.getUTCMonth() + 1;
+        const currentDay = istToday.getUTCDate();
+
+        // Calculate for each member
+        for (const member of members) {
+            const memberName = `${member.user.name || ""} ${member.user.surname || ""}`.trim() || "Unknown";
+            const rowData: any = { name: memberName };
+            
+            let totalPresent = 0;
+            let totalAbsent = 0;
+            let totalLeave = 0;
+
+            const memberAttendance = attendanceRecords.filter(r => r.workspaceMemberId === member.id);
+            const memberLeaves = leaves.filter((l: any) => l.workspaceMemberId === member.id);
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(Date.UTC(year, month - 1, day));
+                
+                // Don't mark future days as absent
+                const isFuture = year > currentYear || (year === currentYear && month > currentMonth) || (year === currentYear && month === currentMonth && day > currentDay);
+                
+                const attendance = memberAttendance.find(a => a.date.getUTCDate() === day && a.date.getUTCMonth() === month - 1);
+                
+                // Check if on leave
+                const onLeave = memberLeaves.some((l: any) => {
+                    const lStart = new Date(l.startDate);
+                    const lEnd = new Date(l.endDate);
+                    return currentDate >= lStart && currentDate <= lEnd;
+                });
+
+                let status = "";
+                if (attendance && attendance.status !== "ABSENT" && attendance.status !== "ON_LEAVE") {
+                    status = attendance.status === "HALF_DAY" ? "HD" : (attendance.status === "LATE" ? "L" : "P");
+                    totalPresent++;
+                } else if (onLeave) {
+                    status = "LV";
+                    totalLeave++;
+                } else {
+                    if (!isFuture) {
+                        status = "A";
+                        totalAbsent++;
+                    }
+                }
+                rowData[`day_${day}`] = status;
+            }
+
+            rowData.present = totalPresent;
+            rowData.absent = totalAbsent;
+            rowData.leave = totalLeave;
+
+            worksheet.addRow(rowData);
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return buffer;
     }
 }

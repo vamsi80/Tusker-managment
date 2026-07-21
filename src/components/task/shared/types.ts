@@ -105,11 +105,11 @@ export interface TaskFilters {
     /** Project ID filter (workspace-level only) */
     projectId?: string;
 
-    /** Status filter */
-    status?: TaskStatus;
+    /** Status filter (one or more values; multiple values use OR semantics) */
+    status?: TaskStatus | TaskStatus[];
 
-    /** Assignee user ID filter */
-    assigneeId?: string;
+    /** Assignee user ID filter (one or more values; multiple values use OR semantics) */
+    assigneeId?: string | string[];
 
     /** Start date filter (from) */
     startDate?: Date | string;
@@ -120,8 +120,8 @@ export interface TaskFilters {
     /** Due date shortcut filter */
     dueDateFilter?: DueDateFilter;
 
-    /** Tag ID filter (alias for tag) */
-    tagId?: string;
+    /** Tag ID filter (one or more values; multiple values match any selected tag) */
+    tagId?: string | string[];
 
     /** Search query */
     search?: string;
@@ -324,10 +324,12 @@ export function getActiveFilters(filters: TaskFilters): ActiveFilter[] {
         active.push({ key: "projectId", label: "Project", value: filters.projectId });
     }
     if (filters.status) {
-        active.push({ key: "status", label: "Status", value: filters.status });
+        const values = Array.isArray(filters.status) ? filters.status : [filters.status];
+        values.forEach((value) => active.push({ key: "status", label: "Status", value }));
     }
     if (filters.assigneeId) {
-        active.push({ key: "assigneeId", label: "Assignee", value: filters.assigneeId });
+        const values = Array.isArray(filters.assigneeId) ? filters.assigneeId : [filters.assigneeId];
+        values.forEach((value) => active.push({ key: "assigneeId", label: "Assignee", value }));
     }
     if (filters.startDate) {
         active.push({ key: "startDate", label: "Start Date", value: String(filters.startDate) });
@@ -339,7 +341,8 @@ export function getActiveFilters(filters: TaskFilters): ActiveFilter[] {
         active.push({ key: "dueDateFilter", label: "Due", value: filters.dueDateFilter });
     }
     if (filters.tagId) {
-        active.push({ key: "tagId", label: "Tag", value: filters.tagId });
+        const values = Array.isArray(filters.tagId) ? filters.tagId : [filters.tagId];
+        values.forEach((value) => active.push({ key: "tagId", label: "Tag", value }));
     }
     if (filters.search) {
         active.push({ key: "search", label: "Search", value: filters.search });
