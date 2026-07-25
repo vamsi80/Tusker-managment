@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,8 @@ interface DataTableProps<TData, TValue> {
     manualFiltering?: boolean;
     containerClassName?: string;
     enableGlobalFilter?: boolean;
+    isCustomRow?: (row: TData) => boolean;
+    renderCustomRow?: (row: TData, columnsLength: number) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -87,6 +89,8 @@ export function DataTable<TData, TValue>({
     onPaginationChange,
     containerClassName,
     enableGlobalFilter = false,
+    isCustomRow,
+    renderCustomRow,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -410,26 +414,43 @@ export function DataTable<TData, TValue>({
                                     </TableRow>
                                 ))
                             ) : table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map((row) => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                        onClick={() => onRowClick?.(row.original)}
-                                        className={`
-                                        ${onRowClick ? "cursor-pointer" : ""}
-                                        ${getRowClassName?.(row) || ""}
-                                    `.trim()}
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell
-                                                key={cell.id}
-                                                className={(cell.column.columnDef.meta as { className?: string })?.className}
+                                table.getRowModel().rows.map((row) => {
+                                    if (isCustomRow?.(row.original)) {
+                                        return (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && "selected"}
+                                                onClick={() => onRowClick?.(row.original)}
+                                                className={`
+                                                ${onRowClick ? "cursor-pointer" : ""}
+                                                ${getRowClassName?.(row) || ""}
+                                            `.trim()}
                                             >
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
+                                                {renderCustomRow?.(row.original, columns.length)}
+                                            </TableRow>
+                                        );
+                                    }
+                                    return (
+                                        <TableRow
+                                            key={row.id}
+                                            data-state={row.getIsSelected() && "selected"}
+                                            onClick={() => onRowClick?.(row.original)}
+                                            className={`
+                                            ${onRowClick ? "cursor-pointer" : ""}
+                                            ${getRowClassName?.(row) || ""}
+                                        `.trim()}
+                                        >
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell
+                                                    key={cell.id}
+                                                    className={(cell.column.columnDef.meta as { className?: string })?.className}
+                                                >
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    );
+                                })
                             ) : (
                                 !onAdd && (
                                     <TableRow>

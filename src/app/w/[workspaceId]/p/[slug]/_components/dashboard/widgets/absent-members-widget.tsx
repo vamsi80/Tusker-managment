@@ -39,7 +39,7 @@ export function AbsentMembersWidget({ allMembers, absentRecords }: AbsentMembers
         status: record?.status || null,
       };
     })
-    .filter((m) => m.status !== null);
+    .filter((m) => m.status !== null && !(new Date().getDay() === 0 && m.status === "ABSENT"));
 
   return (
     <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
