@@ -38,6 +38,27 @@ export class AttendanceService {
     }
 
     /**
+     * Lazy evaluation for auto check-out after 15 hours.
+     */
+    private static async handleAutoCheckOut(record: any, now: Date) {
+        if (!record || record.checkOut || !record.checkIn) return record;
+
+        const hoursSinceCheckIn = (now.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceCheckIn >= 15) {
+            const autoCheckOutTime = new Date(record.checkIn.getTime() + (15 * 60 * 60 * 1000));
+            // ponytail: skip calculating precise overtime status for auto-checkout.
+            const updated = await AttendanceRepository.update(record.id, {
+                checkOut: autoCheckOutTime,
+                checkOutNotes: (record.checkOutNotes ? record.checkOutNotes + "\n" : "") + "System: Auto-checked out after 15 hours.",
+                updatedAt: now,
+            });
+            await AttendanceEvents.emitAttendanceUpdate(record.workspaceId, "CHECK_OUT", "CHECKED_OUT", updated, "System Auto");
+            return updated;
+        }
+        return record;
+    }
+
+    /**
      * Get attendance for today for a specific user.
      */
     static async getTodayAttendance(workspaceId: string, userId: string) {
@@ -47,7 +68,11 @@ export class AttendanceService {
         const dateOnly = getISTDateOnly(now);
 
         // 1. Try to find a record for today (IST)
-        const record = await AttendanceRepository.findByMemberAndDate(member.id, dateOnly);
+        let record = await AttendanceRepository.findByMemberAndDate(member.id, dateOnly);
+
+        if (record && !record.checkOut && record.checkIn) {
+            record = await this.handleAutoCheckOut(record, now);
+        }
 
         // 2. If we have a record for today, use it
         if (record && record.status !== AttendanceStatus.ABSENT) {
@@ -58,12 +83,12 @@ export class AttendanceService {
         const yesterday = new Date(dateOnly);
         yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-        const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
+        let openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
 
-        // Use yesterday's record ONLY if it is still open and recently started (< 22 hours ago)
+        // Use yesterday's record ONLY if it is still open and recently started (< 15 hours ago)
         if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
-            const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
-            if (hoursSinceCheckIn < 22) {
+            openRecord = await this.handleAutoCheckOut(openRecord, now);
+            if (openRecord && !openRecord.checkOut) {
                 return openRecord;
             }
         }
@@ -209,14 +234,18 @@ export class AttendanceService {
 
         let existing = await AttendanceRepository.findByMemberAndDate(member.id, dateOnly);
 
+        if (existing && !existing.checkOut && existing.checkIn) {
+            existing = await this.handleAutoCheckOut(existing, now);
+        }
+
         if (!existing || existing.checkOut) {
             const yesterday = new Date(dateOnly);
             yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-            const openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
+            let openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
             
             if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
-                const hoursSinceCheckIn = (now.getTime() - openRecord.checkIn.getTime()) / (1000 * 60 * 60);
-                if (hoursSinceCheckIn < 24) {
+                openRecord = await this.handleAutoCheckOut(openRecord, now);
+                if (openRecord && !openRecord.checkOut) {
                     existing = openRecord;
                 }
             }
@@ -648,7 +677,7 @@ export class AttendanceService {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet(`Attendance ${year}-${month}`);
 
-        // Columns: Name, 1..daysInMonth, Total Present, Total Absent, Total Late, Total Approved Leave
+        // Columns: Name, 1..daysInMonth, Total Present, Total Absent, Total Approved Leave
         const columns: Partial<ExcelJS.Column>[] = [
             { header: "Name", key: "name", width: 25 },
         ];
@@ -660,7 +689,6 @@ export class AttendanceService {
         }
         columns.push({ header: "Total Present", key: "present", width: 15 });
         columns.push({ header: "Total Absent", key: "absent", width: 15 });
-        columns.push({ header: "Total Late", key: "late", width: 15 });
         columns.push({ header: "Total Approved Leave", key: "leave", width: 22 });
 
         worksheet.columns = columns;
@@ -679,12 +707,14 @@ export class AttendanceService {
 
         // Calculate for each member
         for (const member of members) {
-            const memberName = `${member.user.name || ""} ${member.user.surname || ""}`.trim() || "Unknown";
+            // ponytail: extract only the actual name, stripping surnames and nicknames in quotes/brackets
+            const rawName = member.user.name || "";
+            const cleanName = rawName.replace(/\s*\([^)]*\)/g, '').replace(/\s*"[^"]*"/g, '').trim();
+            const memberName = cleanName || "Unknown";
             const rowData: any = { name: memberName };
             
             let totalPresent = 0;
             let totalAbsent = 0;
-            let totalLate = 0;
             let totalLeave = 0;
 
             const memberAttendance = attendanceRecords.filter(r => r.workspaceMemberId === member.id);
@@ -692,6 +722,7 @@ export class AttendanceService {
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const currentDate = new Date(Date.UTC(year, month - 1, day));
+                const isSunday = currentDate.getUTCDay() === 0;
                 
                 // Don't mark future days as absent
                 const isFuture = year > currentYear || (year === currentYear && month > currentMonth) || (year === currentYear && month === currentMonth && day > currentDay);
@@ -707,11 +738,10 @@ export class AttendanceService {
 
                 let status = "";
                 if (attendance && attendance.status !== "ABSENT" && attendance.status !== "ON_LEAVE") {
-                    status = attendance.status === "HALF_DAY" ? "Half Day" : "Present";
-                    if (attendance.status === "LATE") {
-                        totalLate++;
-                    }
+                    status = "Present";
                     totalPresent++;
+                } else if (isSunday) {
+                    status = "Sunday";
                 } else if (onLeave) {
                     status = "Approved Leave";
                     totalLeave++;
@@ -726,7 +756,6 @@ export class AttendanceService {
 
             rowData.present = totalPresent;
             rowData.absent = totalAbsent;
-            rowData.late = totalLate;
             rowData.leave = totalLeave;
 
             worksheet.addRow(rowData);
