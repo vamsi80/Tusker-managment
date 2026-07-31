@@ -227,7 +227,7 @@ export class WorkspaceService {
       throw new Error("Invalid input data");
     }
 
-    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId } =
+    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId, employeeId, dateOfBirth } =
       parsed.data;
 
     // 1. Pre-flight checks (Validation BEFORE any side effects)
@@ -302,6 +302,8 @@ export class WorkspaceService {
             workspaceRole: role,
             designation: designation || null,
             reportToId: reportToId || null,
+            employeeId: employeeId || null,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
           },
         }),
       ]);
