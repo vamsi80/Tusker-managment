@@ -35,6 +35,9 @@ export const env = createEnv({
 
     // Cron
     CRON_SECRET: z.string().optional(),
+
+    // Face-recognition attendance kiosk (shared device secret)
+    ATTENDANCE_DEVICE_SECRET: z.string().min(1).optional(),
   },
 
   client: {
@@ -66,6 +69,7 @@ export const env = createEnv({
     PUSHER_APP_ID: process.env.PUSHER_APP_ID,
     PUSHER_SECRET: process.env.PUSHER_SECRET,
     CRON_SECRET: process.env.CRON_SECRET,
+    ATTENDANCE_DEVICE_SECRET: process.env.ATTENDANCE_DEVICE_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_S3_BUCKET_NAME: process.env.NEXT_PUBLIC_S3_BUCKET_NAME,
     NEXT_PUBLIC_PUSHER_KEY: process.env.NEXT_PUBLIC_PUSHER_KEY,
