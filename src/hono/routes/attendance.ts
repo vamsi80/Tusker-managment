@@ -3,6 +3,7 @@ import { AttendanceService } from "@/server/services/attendance";
 import { LeaveService } from "@/server/services/leave";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { invalidateWorkspaceAttendance } from "@/lib/cache/invalidation";
+import { toDateOnly } from "@/lib/date-utils";
 import { HonoVariables } from "../types";
 
 const parseMultiQuery = (value?: string): string[] | undefined => {
@@ -32,19 +33,18 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         const memberId = parseMultiQuery(c.req.query("memberId"));
         const status = parseMultiQuery(c.req.query("status")) as any;
 
-        const startDate = startDateStr ? new Date(startDateStr) : undefined;
-        const endDate = endDateStr ? new Date(endDateStr) : undefined;
         const refresh = c.req.query("refresh") === "true";
 
         if (refresh && workspaceId) {
             await invalidateWorkspaceAttendance(workspaceId);
         }
 
-        // Adjust for IST if dates are provided to match the @db.Date storage logic
-        const normalizedStart = startDate ? new Date(startDate.getTime() + (5.5 * 60 * 60 * 1000)) : undefined;
-        if (normalizedStart) normalizedStart.setUTCHours(0, 0, 0, 0);
+        // The bounds are calendar days; resolve them onto the same UTC day grid
+        // the @db.Date column uses, then widen the end to cover its whole day.
+        const normalizedStart = toDateOnly(startDateStr) ?? undefined;
 
-        const normalizedEnd = endDate ? new Date(endDate.getTime() + (5.5 * 60 * 60 * 1000)) : undefined;
+        const endDay = toDateOnly(endDateStr);
+        const normalizedEnd = endDay ? new Date(endDay.getTime()) : undefined;
         if (normalizedEnd) normalizedEnd.setUTCHours(23, 59, 59, 999);
 
         try {
@@ -270,11 +270,22 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
         try {
             const { startDate, endDate, reason, type } = await c.req.json();
+
+            // startDate/endDate are calendar days ("yyyy-MM-dd"), not instants.
+            // toDateOnly keeps them on the day the user picked; older clients
+            // sending a full ISO string are resolved back to their IST day.
+            const start = toDateOnly(startDate);
+            const end = toDateOnly(endDate ?? startDate);
+
+            if (!start || !end) {
+                return c.json({ success: false, error: "A valid start and end date are required." }, 400);
+            }
+
             const result = await LeaveService.createLeaveRequest({
                 workspaceId,
                 userId: user.id,
-                startDate: new Date(startDate),
-                endDate: new Date(endDate),
+                startDate: start,
+                endDate: end,
                 reason,
                 type,
             });

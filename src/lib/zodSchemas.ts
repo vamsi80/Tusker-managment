@@ -547,12 +547,25 @@ export const dailyReportSchema = z.object({
     entries: z.array(dailyReportEntrySchema).min(1, "At least one report entry is required."),
 });
 
+// Leave dates are calendar days, so they must be compared day-to-day. Comparing
+// against `new Date()` (an instant) made today's date always look "in the past",
+// which blocked applying for leave that starts today.
+const startOfLocalDay = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
 export const leaveRequestSchema = z.object({
     type: z.enum(["CASUAL", "SICK"], { message: "Please select a leave type" }),
+    // `to` is optional: clicking a single day is a one-day leave.
     dateRange: z.object({
-        from: z.date().min(new Date(), { message: "Start date cannot be in the past" }),
-        to: z.date().min(new Date(), { message: "End date cannot be in the past" }),
-    }),
+        from: z.date(),
+        to: z.date().optional(),
+    }, { message: "Please select your leave dates" })
+        .refine((range) => startOfLocalDay(range.from) >= startOfLocalDay(new Date()), {
+            message: "Start date cannot be in the past",
+        })
+        .refine((range) => !range.to || range.to >= range.from, {
+            message: "End date must be on or after the start date",
+        }),
     reason: z.string().min(10, {
         message: "Reason must be at least 10 characters.",
     }),

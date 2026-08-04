@@ -6,6 +6,7 @@ import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
+import { formatDateOnly, toDateOnly, toDateOnlyString } from "@/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
@@ -217,8 +218,10 @@ export function AttendanceTable({
             });
             if (!silent) setLoading(true);
             const params = new URLSearchParams();
-            if (activeFilters.from && isValidDate(activeFilters.from)) params.append("startDate", activeFilters.from.toISOString());
-            if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", activeFilters.to.toISOString());
+            // Send the range as calendar days. toISOString() would hand the server
+            // an instant it has to guess a day from, shifting the bounds by one.
+            if (activeFilters.from && isValidDate(activeFilters.from)) params.append("startDate", toDateOnlyString(activeFilters.from));
+            if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", toDateOnlyString(activeFilters.to));
             if (activeFilters.memberId.length > 0) params.append("memberId", JSON.stringify(activeFilters.memberId));
             if (activeFilters.status.length > 0) params.append("status", JSON.stringify(activeFilters.status));
             if (debouncedSearch) params.append("search", debouncedSearch);
@@ -303,11 +306,12 @@ export function AttendanceTable({
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 try {
-                    const d = new Date(row.original.date);
-                    if (!isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
+                    // A calendar day, not an instant — render it from its UTC parts.
+                    const d = toDateOnly(row.original.date);
+                    if (!d || !isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
                     return (
                         <div className="text-sm text-foreground/80">
-                            {format(d, APP_DATE_FORMAT)}
+                            {formatDateOnly(d, APP_DATE_FORMAT)}
                         </div>
                     );
                 } catch (e) {

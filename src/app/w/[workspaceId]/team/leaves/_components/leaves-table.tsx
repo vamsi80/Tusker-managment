@@ -3,8 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { countDateOnlyDays, formatDateOnly, toDateOnly } from "@/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
@@ -242,7 +242,7 @@ export function LeavesTable({
                                     <div className="col-span-2 p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
                                         <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">Duration</p>
                                         <p className="font-medium">
-                                            {format(new Date(leave.startDate), "MMMM d")} - {format(new Date(leave.endDate), "MMMM d, yyyy")}
+                                            {formatDateOnly(leave.startDate, "MMMM d")} - {formatDateOnly(leave.endDate, "MMMM d, yyyy")}
                                         </p>
                                     </div>
                                 </div>
@@ -305,16 +305,20 @@ export function LeavesTable({
             id: "dates",
             header: "Duration",
             cell: ({ row }) => {
-                const start = new Date(row.original.startDate);
-                const end = new Date(row.original.endDate);
-                const diffTime = Math.abs(end.getTime() - start.getTime());
-                const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                // Stored as calendar days, so render and count them in UTC —
+                // new Date(...) + format() would shift the day for some viewers.
+                const start = toDateOnly(row.original.startDate)!;
+                const end = toDateOnly(row.original.endDate)!;
+                const days = countDateOnlyDays(start, end);
+                const isSingleDay = start.getTime() === end.getTime();
 
                 return (
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1.5 text-sm font-medium">
                             <CalendarIcon className="size-3.5 text-muted-foreground" />
-                            {format(start, "MMM d")} - {format(end, "MMM d, yyyy")}
+                            {isSingleDay
+                                ? formatDateOnly(start, "MMM d, yyyy")
+                                : `${formatDateOnly(start, "MMM d")} - ${formatDateOnly(end, "MMM d, yyyy")}`}
                         </div>
                         <span className="text-[10px] font-medium text-muted-foreground uppercase">
                             {days} {days === 1 ? 'Day' : 'Days'}

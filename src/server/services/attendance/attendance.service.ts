@@ -8,7 +8,7 @@ import { randomUUID } from "crypto";
 import { unstable_cache } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
 import { AttendanceStatus, WorkspaceRole } from "@/generated/prisma/client";
-import { getISTDateOnly } from "@/lib/date-utils";
+import { addDateOnlyDays, floorToUTCDay, getISTDateOnly, toDateOnly } from "@/lib/date-utils";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendanceEvents } from "./attendance.events";
 import { 
@@ -464,12 +464,17 @@ export class AttendanceService {
                     const existingKeys = new Set(records.map(r => `${r.workspaceMemberId}_${r.date.toISOString().split('T')[0]}`));
 
                     for (const leave of approvedLeaves) {
-                        let current = new Date(Math.max(new Date(leave.startDate).getTime(), startDate?.getTime() || 0));
-                        const last = new Date(Math.min(new Date(leave.endDate).getTime(), endDate?.getTime() || Infinity));
+                        // Leave dates and the requested range are calendar days at
+                        // midnight UTC; step through them in UTC so the server's
+                        // local timezone cannot shift a row onto the next day.
+                        const firstDay = toDateOnly(leave.startDate)!;
+                        const lastDay = toDateOnly(leave.endDate)!;
+                        let current = new Date(Math.max(firstDay.getTime(), startDate ? floorToUTCDay(startDate).getTime() : 0));
+                        const last = new Date(Math.min(lastDay.getTime(), endDate ? floorToUTCDay(endDate).getTime() : Infinity));
                         let iterations = 0;
 
                         while (current <= last && iterations < 100) {
-                            const dateOnly = getISTDateOnly(current);
+                            const dateOnly = new Date(current.getTime());
                             const key = `${leave.workspaceMemberId}_${dateOnly.toISOString().split('T')[0]}`;
 
                             if (!existingKeys.has(key)) {
@@ -484,7 +489,7 @@ export class AttendanceService {
                                 });
                                 existingKeys.add(key);
                             }
-                            current.setDate(current.getDate() + 1);
+                            current = addDateOnlyDays(current, 1);
                             iterations++;
                         }
                     }

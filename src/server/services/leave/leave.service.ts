@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
 import { randomUUID } from "crypto";
 import { AttendanceStatus } from "@/generated/prisma/client";
-import { getISTDateOnly } from "@/lib/date-utils";
+import { addDateOnlyDays, countDateOnlyDays, toDateOnly } from "@/lib/date-utils";
 import { LeaveRepository } from "./leave.repository";
 import { LeaveEvents } from "./leave.events";
 import { LeaveMapper } from "./leave.mapper";
@@ -20,8 +20,21 @@ export class LeaveService {
 
     static async createLeaveRequest(params: CreateLeaveParams) {
         const member = await this.getWorkspaceMember(params.workspaceId, params.userId);
-        const leaveRequest = await LeaveRepository.create(params, member.id);
-        
+
+        // Pin both ends to calendar days before they reach a `@db.Date` column,
+        // whatever the caller handed us. An omitted end date means a single day.
+        const startDate = toDateOnly(params.startDate);
+        const endDate = toDateOnly(params.endDate) ?? startDate;
+
+        if (!startDate || !endDate) {
+            throw AppError.ValidationError("A valid start and end date are required.");
+        }
+        if (endDate < startDate) {
+            throw AppError.ValidationError("End date must be on or after the start date.");
+        }
+
+        const leaveRequest = await LeaveRepository.create({ ...params, startDate, endDate }, member.id);
+
         await LeaveEvents.emitLeaveRequested(params.userId, params.workspaceId, leaveRequest);
         return leaveRequest;
     }
@@ -47,10 +60,12 @@ export class LeaveService {
         if (leave.status !== "PENDING") throw AppError.ValidationError("This leave request has already been processed.");
 
         if (status === "APPROVED") {
-            const start = new Date(leave.startDate);
-            const end = new Date(leave.endDate);
-            const diffTime = Math.abs(end.getTime() - start.getTime());
-            const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            // startDate/endDate come from `@db.Date` columns, so they are already
+            // calendar days at midnight UTC. Iterate them in UTC — getDate/setDate
+            // would fold the server's local timezone into the day boundary.
+            const start = toDateOnly(leave.startDate)!;
+            const end = toDateOnly(leave.endDate)!;
+            const days = countDateOnlyDays(start, end);
 
             await prisma.workspaceMember.update({
                 where: { id: leave.workspaceMemberId },
@@ -60,9 +75,8 @@ export class LeaveService {
             });
 
             // Sync with attendance records
-            const current = new Date(start);
-            while (current <= end) {
-                const dateOnly = getISTDateOnly(current);
+            for (let current = start; current <= end; current = addDateOnlyDays(current, 1)) {
+                const dateOnly = new Date(current.getTime());
                 await (prisma.attendance as any).upsert({
                     where: {
                         workspaceMemberId_date: {
@@ -83,7 +97,6 @@ export class LeaveService {
                         updatedAt: new Date()
                     }
                 });
-                current.setDate(current.getDate() + 1);
             }
         }
 

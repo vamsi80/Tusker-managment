@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { formatIST, cn } from "@/lib/utils";
+import { differenceInCalendarDays, format } from "date-fns";
+import { APP_DATE_FORMAT, cn } from "@/lib/utils";
+import { toDateOnlyString } from "@/lib/date-utils";
 import { CalendarIcon, Loader2, Send, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
@@ -55,9 +57,20 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
         },
     });
 
+    // Both ends of the range are counted, matching the inclusive deduction the
+    // service applies on approval — weekends and holidays included.
+    const dateRange = form.watch("dateRange");
+    const selectedDays = dateRange?.from
+        ? Math.max(1, differenceInCalendarDays(dateRange.to ?? dateRange.from, dateRange.from) + 1)
+        : 0;
+    const selectedDaysLabel = `${selectedDays} ${selectedDays === 1 ? "day" : "days"}`;
+
     async function onSubmit(values: LeaveRequestFormType) {
         setIsLoading(true);
         try {
+            // A single click selects one day, so `to` collapses onto `from`.
+            // Send calendar days as "yyyy-MM-dd" — toISOString() would push the
+            // day back by one for anyone east of UTC once it hits the DATE column.
             const res = await fetch(`/api/v1/attendance/leave-request`, {
                 method: "POST",
                 headers: {
@@ -66,8 +79,8 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                 },
                 body: JSON.stringify({
                     type: values.type,
-                    startDate: values.dateRange.from.toISOString(),
-                    endDate: values.dateRange.to.toISOString(),
+                    startDate: toDateOnlyString(values.dateRange.from),
+                    endDate: toDateOnlyString(values.dateRange.to ?? values.dateRange.from),
                     reason: values.reason,
                 }),
             });
@@ -155,7 +168,14 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                 name="dateRange"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
-                                        <FormLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Dates</FormLabel>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <FormLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Dates</FormLabel>
+                                            {selectedDays > 0 && (
+                                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                                    {selectedDaysLabel}
+                                                </span>
+                                            )}
+                                        </div>
                                         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                             <PopoverTrigger asChild>
                                                 <Button
@@ -169,16 +189,16 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                     <CalendarIcon className="mr-2 size-4 opacity-70" />
                                                     <span className="truncate">
                                                         {field.value?.from ? (
-                                                            field.value.to ? (
+                                                            field.value.to && field.value.to.getTime() !== field.value.from.getTime() ? (
                                                                 <>
-                                                                    {formatIST(field.value.from)} -{" "}
-                                                                    {formatIST(field.value.to)}
+                                                                    {format(field.value.from, APP_DATE_FORMAT)} -{" "}
+                                                                    {format(field.value.to, APP_DATE_FORMAT)}
                                                                 </>
                                                             ) : (
-                                                                formatIST(field.value.from)
+                                                                format(field.value.from, APP_DATE_FORMAT)
                                                             )
                                                         ) : (
-                                                            "Select start & end dates"
+                                                            "Select a day, or a start & end date"
                                                         )}
                                                     </span>
                                                 </Button>
@@ -186,7 +206,9 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                             <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" align="start">
                                                 <div className="bg-background">
                                                     <div className="bg-primary/5 p-3 border-b flex items-center justify-between">
-                                                        <h4 className="text-[10px] font-medium uppercase tracking-wider text-primary">Select Date Range</h4>
+                                                        <h4 className="text-[10px] font-medium uppercase tracking-wider text-primary">
+                                                            {selectedDays > 0 ? `Selected: ${selectedDaysLabel}` : "Select Date Range"}
+                                                        </h4>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -208,7 +230,7 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                                                     />
                                                     <div className="border-t p-3 bg-muted/20 flex items-center justify-between gap-4">
                                                         <p className="text-[10px] text-muted-foreground font-medium italic">
-                                                            * Click the first day, then the last day.
+                                                            * One click for a single day. For a range, click the first day, then the last day.
                                                         </p>
                                                         <div className="flex items-center gap-2">
                                                             <Button
