@@ -677,7 +677,7 @@ export class AttendanceService {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet(`Attendance ${year}-${month}`);
 
-        // Columns: Name, 1..daysInMonth, Total Present, Total Absent, Total Approved Leave
+        // Columns: Name, 1..daysInMonth, Total Present, Weekly Off, Total Absent, Late, Total Approved Leave, Payable Days
         const columns: Partial<ExcelJS.Column>[] = [
             { header: "Name", key: "name", width: 25 },
         ];
@@ -688,8 +688,12 @@ export class AttendanceService {
             columns.push({ header: `${dd}/${mm}/${yyyy}`, key: `day_${i}`, width: 12 });
         }
         columns.push({ header: "Total Present", key: "present", width: 15 });
+        columns.push({ header: "Weekly Off", key: "weeklyOff", width: 12 });
         columns.push({ header: "Total Absent", key: "absent", width: 15 });
+        columns.push({ header: "Late", key: "late", width: 10 });
         columns.push({ header: "Total Approved Leave", key: "leave", width: 22 });
+        // Payable Days is reported as a header only; values are filled in downstream by payroll
+        columns.push({ header: "Payable Days", key: "payableDays", width: 15 });
 
         worksheet.columns = columns;
 
@@ -714,7 +718,9 @@ export class AttendanceService {
             const rowData: any = { name: memberName };
             
             let totalPresent = 0;
+            let totalWeeklyOff = 0;
             let totalAbsent = 0;
+            let totalLate = 0;
             let totalLeave = 0;
 
             const memberAttendance = attendanceRecords.filter(r => r.workspaceMemberId === member.id);
@@ -736,12 +742,18 @@ export class AttendanceService {
                     return currentDate >= lStart && currentDate <= lEnd;
                 });
 
+                // A late check-in still counts as a present day; it is tallied separately
+                if (attendance && attendance.status === "LATE") {
+                    totalLate++;
+                }
+
                 let status = "";
                 if (attendance && attendance.status !== "ABSENT" && attendance.status !== "ON_LEAVE") {
                     status = "Present";
                     totalPresent++;
                 } else if (isSunday) {
                     status = "Sunday";
+                    totalWeeklyOff++;
                 } else if (onLeave) {
                     status = "Approved Leave";
                     totalLeave++;
@@ -755,7 +767,9 @@ export class AttendanceService {
             }
 
             rowData.present = totalPresent;
+            rowData.weeklyOff = totalWeeklyOff;
             rowData.absent = totalAbsent;
+            rowData.late = totalLate;
             rowData.leave = totalLeave;
 
             worksheet.addRow(rowData);
