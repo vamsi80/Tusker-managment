@@ -38,7 +38,9 @@ export class AttendanceEvents {
         });
 
         // Record Audit Activity
-        const userName = attendance.WorkspaceMember.user?.surname || (() => { throw new Error(`User surname missing for member: ${attendance.WorkspaceMember.id}`); })();
+        // Never throw here: the attendance row is already committed by this point,
+        // so a missing surname would 500 an otherwise successful check-in.
+        const userName = attendance.WorkspaceMember.user?.surname || "Unknown";
 
         await recordActivity({
             userId,

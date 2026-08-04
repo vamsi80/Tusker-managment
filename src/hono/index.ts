@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import cron from "./routes/cron";
+import kiosk from "./routes/kiosk";
 import { attendanceRouter } from "./routes/attendance";
 import tasks from "./routes/tasks";
 import projects from "./routes/projects";
@@ -103,6 +104,9 @@ app.get("/health", (c) => {
 
 // Cron Job Routes (Secret-based Auth)
 app.route("/cron", cron);
+
+// Kiosk Attendance Routes (Device Secret Auth - face recognition terminal)
+app.route("/kiosk", kiosk);
 
 // Public Auth Routes (Token verification, Invitation acceptance)
 app.route("/auth", auth);

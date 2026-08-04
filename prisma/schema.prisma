@@ -175,6 +175,7 @@ model WorkspaceMember {
   addedMaterialItems     ProjectMaterialItem[]
 
   @@unique([userId, workspaceId])
+  @@unique([workspaceId, employeeId])
   @@index([workspaceId, workspaceRole])
   @@index([userId, createdAt(sort: Desc)])
   @@index([workspaceId, userId])
