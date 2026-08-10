@@ -193,6 +193,7 @@ export class WorkspaceService {
         id: true,
         casualLeaveBalance: true,
         sickLeaveBalance: true,
+        workspaceRole: true,
         user: {
           select: {
             surname: true,
@@ -208,10 +209,11 @@ export class WorkspaceService {
 
     return members.map(m => ({
       id: m.id,
+      casualLeaveBalance: m.casualLeaveBalance,
+      sickLeaveBalance: m.sickLeaveBalance,
+      workspaceRole: m.workspaceRole,
       surname: m.user?.surname || "Member",
       email: m.user?.email,
-      casualLeaveBalance: m.casualLeaveBalance,
-      sickLeaveBalance: m.sickLeaveBalance
     }));
   }
 

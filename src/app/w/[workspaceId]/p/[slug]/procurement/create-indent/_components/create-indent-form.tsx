@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown, Search, X } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Search, X, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CreateMaterialDialog } from "../../../materials/_components/create-material-dialog";
 
 const COMMON_UNITS = [
@@ -31,6 +31,85 @@ const COMMON_UNITS = [
   { value: "nos", label: "Numbers (nos)" },
 ];
 
+const PREDEFINED_TAGS = [
+  "electrical", "plumbing", "decor", "networking", "flooring", "ceiling", "furniture", "miscellaneous"
+];
+
+function IndentTagSelector({ value, onChange, disabled }: { value: string, onChange: (v: string) => void, disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filtered = PREDEFINED_TAGS.filter(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+  const exactMatch = PREDEFINED_TAGS.some(t => t.toLowerCase() === searchQuery.toLowerCase());
+  const isCustomValue = value && !PREDEFINED_TAGS.some(t => t.toLowerCase() === value.toLowerCase());
+
+  // Merge custom value if it exists and matches search
+  const displayTags = [...filtered];
+  if (isCustomValue && value.toLowerCase().includes(searchQuery.toLowerCase())) {
+     if (!displayTags.includes(value)) {
+         displayTags.push(value);
+     }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <button
+          type="button"
+          onClick={() => !disabled && setOpen(true)}
+          disabled={disabled}
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left font-normal"
+        >
+          <span className={value ? "text-foreground font-medium truncate capitalize" : "text-muted-foreground truncate"}>
+            {value || "Select a tag..."}
+          </span>
+          <ChevronDown className="size-3.5 text-muted-foreground/70 shrink-0 ml-2" />
+        </button>
+      </PopoverAnchor>
+      <PopoverContent className="w-[300px] p-0 bg-popover border border-border/80 rounded-md shadow-lg z-50 flex flex-col max-h-64 overflow-hidden" align="start">
+        <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2 shrink-0">
+          <Search className="size-3.5 text-muted-foreground/60 shrink-0" />
+          <input
+            autoFocus
+            placeholder="Search tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/60 text-foreground"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => setSearchQuery("")} className="text-muted-foreground/50 hover:text-foreground">
+              <X className="size-3 shrink-0" />
+            </button>
+          )}
+        </div>
+        <div className="overflow-y-auto max-h-48 divide-y divide-border/20">
+          {displayTags.length === 0 && !searchQuery.trim() ? (
+            <div className="px-3 py-4 text-center text-xs text-muted-foreground">No tags found</div>
+          ) : (
+            displayTags.map((t) => (
+              <div
+                key={t}
+                className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center justify-between transition-colors font-medium capitalize"
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onChange(t); setOpen(false); }}
+              >
+                {t}
+              </div>
+            ))
+          )}
+        </div>
+        {searchQuery.trim() && !exactMatch && !displayTags.includes(searchQuery.trim()) && (
+          <div
+            className="px-3 py-2.5 text-xs cursor-pointer hover:bg-primary/5 text-primary flex items-center transition-colors font-semibold border-t border-border/40 bg-muted/20 mt-auto shrink-0"
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onChange(searchQuery.trim()); setOpen(false); }}
+          >
+            <Plus className="mr-2 size-3 text-primary shrink-0" /> Create &quot;{searchQuery.trim()}&quot;
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // AutoCompleteInput
 // ---------------------------------------------------------------------------
@@ -43,9 +122,6 @@ function AutoCompleteInput({
   isLoading,
   currentUnit,
   onFocusTrigger,
-  workspaceId,
-  unitsList,
-  onCreatedSuccess,
 }: {
   value: string;
   onChange: (val: string) => void;
@@ -59,26 +135,7 @@ function AutoCompleteInput({
   unitsList: string[];
   onCreatedSuccess?: () => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newMaterialName, setNewMaterialName] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Reset search query when popover opens
-  useEffect(() => {
-    if (open) {
-      setSearchQuery("");
-      if (onFocusTrigger) onFocusTrigger();
-    }
-  }, [open]);
-
-  const filtered = searchQuery
-    ? catalog.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : catalog;
-
-  const exactMatch = catalog.some(
-    (c) => c.name.toLowerCase() === searchQuery.trim().toLowerCase()
-  );
+  const [listId] = useState(() => "catalog-" + Math.random().toString(36).substr(2, 9));
 
   // Auto-fill unit if the user types or enters the exact name of an existing material
   useEffect(() => {
@@ -95,120 +152,25 @@ function AutoCompleteInput({
 
   return (
     <div className="relative w-full">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverAnchor asChild>
-          <button
-            type="button"
-            onClick={() => !disabled && !isLoading && setOpen(true)}
-            disabled={disabled || isLoading}
-            className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left font-normal"
-          >
-            <span className={value ? "text-foreground font-medium truncate" : "text-muted-foreground truncate"}>
-              {value || "Select material..."}
-            </span>
-            <ChevronDown className="size-3.5 text-muted-foreground/70 shrink-0 ml-2" />
-          </button>
-        </PopoverAnchor>
-        <PopoverContent
-          onOpenAutoFocus={(e) => {
-            const searchInput = document.getElementById("material-search-input");
-            if (searchInput) searchInput.focus();
-          }}
-          className="w-[300px] p-0 bg-popover border border-border/80 rounded-md shadow-lg z-50 flex flex-col max-h-64 overflow-hidden"
-          align="start"
-        >
-          {/* Search Bar inside popover */}
-          <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2 shrink-0">
-            <Search className="size-3.5 text-muted-foreground/60 shrink-0" />
-            <input
-              id="material-search-input"
-              placeholder="Search materials..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/60 text-foreground"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="text-muted-foreground/50 hover:text-foreground transition-colors"
-              >
-                <X className="size-3 shrink-0" />
-              </button>
-            )}
-          </div>
-
-          {/* Material List */}
-          <div className="overflow-y-auto max-h-48 divide-y divide-border/20">
-            {isLoading ? (
-              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                Loading materials...
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                No matching materials
-              </div>
-            ) : (
-              filtered.map((item) => (
-                <div
-                  key={item.id}
-                  className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center justify-between transition-colors font-medium"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onChange(item.name);
-                    if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
-                      onUnitAutoFill(item.defaultUnit.abbreviation);
-                    }
-                    setOpen(false);
-                  }}
-                >
-                  <span className="truncate mr-2">{item.name}</span>
-                  {item.defaultUnit?.abbreviation && (
-                    <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono shrink-0 font-bold uppercase border border-border/30">
-                      {item.defaultUnit.abbreviation}
-                    </span>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Create New Option */}
-          {searchQuery.trim() && !exactMatch && (
-            <div
-              className="px-3 py-2.5 text-xs cursor-pointer hover:bg-primary/5 text-primary flex items-center transition-colors font-semibold border-t border-border/40 bg-muted/20 mt-auto shrink-0"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setNewMaterialName(searchQuery.trim());
-                setDialogOpen(true);
-                setOpen(false);
-              }}
-            >
-              <Plus className="mr-2 size-3 text-primary shrink-0" /> Create &quot;{searchQuery.trim()}&quot;
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
-
-      <CreateMaterialDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        workspaceId={workspaceId}
-        units={unitsList}
-        initialName={newMaterialName}
-        onSuccess={async (created: any) => {
-          onChange(created.name);
-          const unitAbbr = created.defaultUnit?.abbreviation || created.unit;
-          if (onUnitAutoFill && unitAbbr) {
-            onUnitAutoFill(unitAbbr);
-          }
-          if (onCreatedSuccess) {
-            await onCreatedSuccess();
-          }
+      <Input
+        list={listId}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
         }}
+        onFocus={() => {
+           if (onFocusTrigger) onFocusTrigger();
+        }}
+        disabled={disabled || isLoading}
+        placeholder={isLoading ? "Loading..." : "Enter material..."}
+        className="h-8 text-xs bg-background font-medium px-2"
+        autoComplete="off"
       />
+      <datalist id={listId}>
+        {catalog.map((item) => (
+          <option key={item.id} value={item.name} />
+        ))}
+      </datalist>
     </div>
   );
 }
@@ -219,8 +181,10 @@ function AutoCompleteInput({
 interface LineItemInput {
   materialName: string;
   unit: string;
-  quantity: number;
+  quantity: number | "";
   specifications?: string;
+  unitPrice?: string | number;
+  totalPrice?: string | number;
 }
 
 const FALLBACK_UNITS = [
@@ -280,11 +244,17 @@ export function CreateIndentForm({
   const [selectedTaskId, setSelectedTaskId] = useState(taskId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
-    { materialName: "", unit: "pcs", quantity: 1, specifications: "" },
+    { materialName: "", unit: "pcs", quantity: 1, unitPrice: "", totalPrice: "" },
   ]);
   const [shouldLoadCatalog, setShouldLoadCatalog] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]);
-  const [units, setUnits] = useState<{ abbreviation: string; name: string }[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+
+  // Approvers Multi-Select
+  const [approverIds, setApproverIds] = useState<string[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
+  const [ownersOpen, setOwnersOpen] = useState(false);
+
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
 
   // Dynamic fetch of project tasks if we change projects at workspace level
@@ -351,29 +321,48 @@ export function CreateIndentForm({
   };
 
   useEffect(() => {
+    // Fetch units and owners
+    const fetchUnits = async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`);
+        const json = await res.json();
+        if (json.success && json.data) setUnits(json.data);
+      } catch (err) {
+        console.error("Failed to load units", err);
+      }
+    };
+    const fetchOwners = async () => {
+      try {
+        const res = await fetch(`/api/v1/workspaces/${workspaceId}/members/slim`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          const workspaceOwners = json.data.filter((m: any) => m.workspaceRole === "OWNER");
+          setOwners(workspaceOwners);
+        }
+      } catch (err) {
+        console.error("Failed to fetch owners", err);
+      }
+    };
+
+    fetchUnits();
+    fetchOwners();
+  }, [workspaceId]);
+
+  useEffect(() => {
     if (!shouldLoadCatalog) return;
 
     let mounted = true;
     setIsLoadingCatalog(true);
     const fetchCatalogAndUnits = async () => {
       try {
-        const [catalogRes, unitsRes] = await Promise.all([
-          fetch(`/api/v1/materials?w=${workspaceId}`),
-          fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`)
-        ]);
+        const catalogRes = await fetch(`/api/v1/materials?w=${workspaceId}`);
         const catalogJson = await catalogRes.json();
-        const unitsJson = await unitsRes.json();
 
-        if (mounted) {
-          if (catalogJson.success && catalogJson.data) {
-            setCatalog(catalogJson.data);
-          }
-          if (unitsJson.success && unitsJson.data) {
-            setUnits(unitsJson.data);
-          }
+        if (mounted && catalogJson.success && catalogJson.data) {
+          setCatalog(catalogJson.data);
         }
       } catch (err) {
-        console.error("Failed to load catalog or units", err);
+        console.error("Failed to load catalog", err);
       } finally {
         if (mounted) setIsLoadingCatalog(false);
       }
@@ -385,7 +374,7 @@ export function CreateIndentForm({
   const handleAddRow = () => {
     setLineItems([
       ...lineItems,
-      { materialName: "", unit: "pcs", quantity: 1, specifications: "" },
+      { materialName: "", unit: "pcs", quantity: 1, unitPrice: "", totalPrice: "" },
     ]);
   };
 
@@ -397,7 +386,31 @@ export function CreateIndentForm({
   const handleRowChange = (index: number, field: keyof LineItemInput, value: any) => {
     setLineItems((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      const item = { ...updated[index], [field]: value };
+      
+      const qty = Number(item.quantity) || 0;
+      
+      if (field === 'quantity') {
+        if (item.unitPrice !== "" && item.unitPrice !== undefined && !isNaN(Number(item.unitPrice))) {
+          item.totalPrice = Math.round((Number(item.unitPrice) * qty) * 100) / 100;
+        } else if (item.totalPrice !== "" && item.totalPrice !== undefined && qty > 0 && !isNaN(Number(item.totalPrice))) {
+          item.unitPrice = Math.round((Number(item.totalPrice) / qty) * 100) / 100;
+        }
+      } else if (field === 'unitPrice') {
+        if (value !== "" && !isNaN(Number(value))) {
+          item.totalPrice = Math.round((Number(value) * qty) * 100) / 100;
+        } else if (value === "") {
+          item.totalPrice = "";
+        }
+      } else if (field === 'totalPrice') {
+        if (value !== "" && !isNaN(Number(value)) && qty > 0) {
+          item.unitPrice = Math.round((Number(value) / qty) * 100) / 100;
+        } else if (value === "") {
+          item.unitPrice = "";
+        }
+      }
+      
+      updated[index] = item;
       return updated;
     });
   };
@@ -424,7 +437,7 @@ export function CreateIndentForm({
         toast.error(`Please enter unit for item ${i + 1}`);
         return;
       }
-      if (item.quantity <= 0) {
+      if (Number(item.quantity) <= 0) {
         toast.error(`Quantity must be greater than 0 for item ${i + 1}`);
         return;
       }
@@ -439,11 +452,12 @@ export function CreateIndentForm({
         name,
         description: description || undefined,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery).toISOString() : undefined,
+        approverIds,
         lineItems: lineItems.map((item) => ({
           materialName: item.materialName.trim(),
           unit: item.unit.trim(),
           quantity: Number(item.quantity),
-          specifications: item.specifications?.trim() || undefined,
+          estimatedUnitPrice: item.unitPrice ? Math.round(Number(item.unitPrice) * 100) : undefined,
         })),
       };
 
@@ -494,7 +508,7 @@ export function CreateIndentForm({
       <div className="flex flex-1 gap-5 overflow-hidden min-h-0">
 
         {/* ── LEFT: Indent Details ── */}
-        <div className="flex flex-col gap-4 w-[30%] overflow-y-auto pr-2">
+        <div className="flex flex-col gap-4 w-[25%] lg:w-[22%] overflow-y-auto pr-2">
 
           {/* Project Selector (only workspace level or locked display) */}
           {lockedProject && activeProjectId ? (
@@ -559,18 +573,15 @@ export function CreateIndentForm({
             </div>
           )}
 
-          {/* Indent Name */}
+          {/* Indent Tag */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="indent-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Indent Name
+            <Label htmlFor="indent-tag" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Indent Tag <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="indent-name"
-              placeholder="e.g. Screws and Bolts for Block A"
+            <IndentTagSelector
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(v) => setName(v)}
               disabled={isSubmitting}
-              className="h-9"
             />
           </div>
 
@@ -603,10 +614,58 @@ export function CreateIndentForm({
               className="min-h-[80px] resize-none"
             />
           </div>
+
+          {/* Approval Required By */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Approval Required By
+            </Label>
+            <Popover open={ownersOpen} onOpenChange={setOwnersOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={ownersOpen}
+                  className="w-full justify-between h-9 text-xs"
+                  disabled={isSubmitting}
+                >
+                  {approverIds.length > 0
+                    ? `${approverIds.length} owner(s) selected`
+                    : "Select owners..."}
+                  <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <div className="max-h-[200px] overflow-y-auto py-1">
+                  {owners.map((owner) => (
+                    <div
+                      key={owner.id}
+                      onClick={() => {
+                        setApproverIds(prev => 
+                          prev.includes(owner.id) 
+                            ? prev.filter(id => id !== owner.id)
+                            : [...prev, owner.id]
+                        );
+                      }}
+                      className="flex items-center space-x-2 px-3 py-2 cursor-pointer hover:bg-muted text-xs"
+                    >
+                      <div className={`flex h-4 w-4 items-center justify-center rounded-sm border ${approverIds.includes(owner.id) ? 'bg-primary border-primary text-primary-foreground' : 'border-primary/50'}`}>
+                        {approverIds.includes(owner.id) && <Check className="h-3 w-3" />}
+                      </div>
+                      <span className="flex-1 truncate">{owner.surname || "Owner"} ({owner.email})</span>
+                    </div>
+                  ))}
+                  {owners.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No owners found</div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {/* ── RIGHT: Line Items ── */}
-        <div className="flex flex-col gap-3 w-[70%] border-l border-border/30 pl-5 overflow-hidden">
+        <div className="flex flex-col gap-3 flex-1 border-l border-border/30 pl-5 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between shrink-0">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -631,9 +690,10 @@ export function CreateIndentForm({
                 <TableRow>
                   <TableHead className="text-xs">Material Name</TableHead>
                   <TableHead className="text-xs w-[90px]">Unit</TableHead>
-                  <TableHead className="text-xs w-[90px]">Qty</TableHead>
-                  <TableHead className="text-xs">Specifications (Optional)</TableHead>
-                  <TableHead className="text-xs text-right w-[50px]"></TableHead>
+                  <TableHead className="text-xs w-[80px]">Qty</TableHead>
+                  <TableHead className="text-xs w-[150px]">Unit Price</TableHead>
+                  <TableHead className="text-xs w-[150px]">Total Price</TableHead>
+                  <TableHead className="text-xs text-right w-[40px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -674,7 +734,7 @@ export function CreateIndentForm({
                         ))}
                       </select>
                     </TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className="py-2 px-1">
                       <Input
                         type="number"
                         placeholder="10"
@@ -683,17 +743,36 @@ export function CreateIndentForm({
                           handleRowChange(index, "quantity", e.target.value === "" ? "" : Number(e.target.value))
                         }
                         disabled={isSubmitting}
-                        className="h-8 text-xs bg-background font-mono"
+                        className="h-8 text-xs bg-background font-mono px-2"
                       />
                     </TableCell>
-                    <TableCell className="py-2">
-                      <Input
-                        placeholder="e.g. Grade 500D"
-                        value={item.specifications || ""}
-                        onChange={(e) => handleRowChange(index, "specifications", e.target.value)}
-                        disabled={isSubmitting}
-                        className="h-8 text-xs bg-background text-muted-foreground"
-                      />
+                    <TableCell className="py-2 px-1">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1.5 text-xs text-muted-foreground">₹</span>
+                        <Input
+                          type="number"
+                          step="any"
+                          placeholder="0.00"
+                          value={item.unitPrice || ""}
+                          onChange={(e) => handleRowChange(index, "unitPrice", e.target.value)}
+                          disabled={isSubmitting}
+                          className="h-8 text-xs bg-background font-mono pl-5 pr-2"
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-2 px-1">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1.5 text-xs text-muted-foreground">₹</span>
+                        <Input
+                          type="number"
+                          step="any"
+                          placeholder="0.00"
+                          value={item.totalPrice || ""}
+                          onChange={(e) => handleRowChange(index, "totalPrice", e.target.value)}
+                          disabled={isSubmitting}
+                          className="h-8 text-xs bg-background font-mono pl-5 pr-2"
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-right py-2">
                       <Button

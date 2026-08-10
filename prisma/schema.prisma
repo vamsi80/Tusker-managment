@@ -693,6 +693,8 @@ model Indent {
   finalApprovedById String?
   cancelledAt       DateTime?
   cancelReason      String?
+  approverIds       String[]         @default([])
+  approvedByIds     String[]         @default([])
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   assignedTo        WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
@@ -898,6 +900,7 @@ enum IndentStatus {
   DRAFT
   SUBMITTED
   ASSIGNED
+  PENDING_PAYMENT
   APPROVED
   CANCELLED
 }

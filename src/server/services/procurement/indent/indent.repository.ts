@@ -103,6 +103,7 @@ export class IndentRepository {
     description?: string;
     expectedDelivery?: Date;
     requestedById: string;
+    approverIds?: string[];
     lineItems?: {
       materialName: string;
       unit: string;
@@ -121,6 +122,7 @@ export class IndentRepository {
           description: data.description,
           expectedDelivery: data.expectedDelivery,
           requestedById: data.requestedById,
+          approverIds: data.approverIds || [],
           status: "DRAFT",
           lineItems: data.lineItems
             ? {

@@ -37,6 +37,7 @@ const CreateIndentSchema = z.object({
       specifications: z.string().nullable().optional(),
     })
   ).optional(),
+  approverIds: z.array(z.string()).optional(),
 });
 
 const AddLineItemSchema = z.object({
@@ -432,6 +433,21 @@ procurementIndents.get("/projects/:projectId/tasks", async (c) => {
   const tasks = allTasks.filter((t) => !claimedTaskIds.has(t.id));
 
   return c.json({ success: true, data: tasks });
+});
+
+/**
+ * POST /api/v1/procurement/indents/:id/approve
+ * Approve an indent as an owner/admin
+ */
+procurementIndents.post("/:id/approve", async (c) => {
+  const user = c.get("user");
+  const indentId = c.req.param("id");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const updated = await IndentService.approveIndent(indentId, user.id, workspaceId);
+  return c.json({ success: true, data: updated });
 });
 
 export default procurementIndents;
