@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
 import { IndentRepository } from "./indent.repository";
 import { INDENT_TRANSITIONS, assertTransition } from "../utils/state-machine";
+import { broadcastProjectUpdate } from "@/lib/realtime";
 
 export class IndentService {
   static async createIndent(
@@ -70,6 +71,12 @@ export class IndentService {
         })),
       });
     }
+
+    await broadcastProjectUpdate({
+      workspaceId,
+      projectId: indent.projectId,
+      type: "UPDATE"
+    });
 
     return updated;
   }
@@ -175,6 +182,13 @@ export class IndentService {
             })),
           });
         }
+
+        await broadcastProjectUpdate({
+          workspaceId,
+          projectId: indent.projectId,
+          type: "UPDATE"
+        });
+
         return updated;
       }
 
@@ -232,12 +246,37 @@ export class IndentService {
             })),
           });
         }
+
+        await broadcastProjectUpdate({
+          workspaceId,
+          projectId: indent.projectId,
+          type: "UPDATE"
+        });
+
         return updated;
       } else {
         return IndentRepository.updateStatus(indentId, indent.status, {
           approvedByIds: newApprovedIds,
         });
       }
+    } else if (indent.status === "PENDING_PAYMENT") {
+      // Stage 3: Accounts Approval
+      if (member.workspaceRole !== "ADMIN") {
+        throw AppError.Forbidden("Only accounts (Admins) can approve payments");
+      }
+
+      assertTransition(INDENT_TRANSITIONS, indent.status, "APPROVED", "Indent");
+      const updated = await IndentRepository.updateStatus(indentId, "APPROVED", {
+        // We could track accountsApprovedAt if we add it, but for now we just change status
+      });
+      
+      await broadcastProjectUpdate({
+        workspaceId,
+        projectId: indent.projectId,
+        type: "UPDATE"
+      });
+
+      return updated;
     } else {
       throw AppError.Conflict("Indent has already passed the approval stages");
     }
@@ -252,16 +291,24 @@ export class IndentService {
 
     assertTransition(INDENT_TRANSITIONS, indent.status, "CANCELLED", "Indent");
 
-    await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx) => {
       await tx.indentLineItem.updateMany({
         where: { indentId, status: { in: ["PENDING", "RFQ_SENT", "QUOTES_RECEIVED"] } },
         data: { status: "REJECTED" },
       });
-      await tx.indent.update({
+      return await tx.indent.update({
         where: { id: indentId },
         data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: reason },
       });
     });
+
+    await broadcastProjectUpdate({
+      workspaceId,
+      projectId: indent.projectId,
+      type: "UPDATE"
+    });
+
+    return updated;
   }
 
   static async addLineItem(

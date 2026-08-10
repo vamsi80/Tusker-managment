@@ -412,6 +412,29 @@ export function ProjectProcurementClient({
                         </Button>
                       </div>
                     )}
+
+                    {/* Stage 3: Accounts Approval */}
+                    {selectedIndent.status === "PENDING_PAYMENT" && ["ADMIN"].includes(userRole) && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={handleRejectIndent}
+                          disabled={isSubmitting}
+                          variant="outline"
+                          className="h-7 text-xs px-2.5 text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleApproveIndent}
+                          disabled={isSubmitting}
+                          className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          Accounts Approve
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
