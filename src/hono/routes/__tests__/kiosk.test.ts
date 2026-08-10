@@ -67,6 +67,32 @@ describe("kiosk attendance route", () => {
         expect(await res.json()).toEqual({ success: true, data: { id: "att-1", status: "PRESENT" } });
     });
 
+    test("serves the roster, skipping unenrolled members and leaking nothing else", async () => {
+        (prisma.workspaceMember.findMany as any).mockResolvedValue([
+            { employeeId: "EMP-042", user: { name: "Priya", surname: "S" } },
+            { employeeId: "EMP-043", user: { name: "Arun", surname: null } },
+        ]);
+
+        const res = await kiosk.request("/members", { headers: authed });
+
+        expect(prisma.workspaceMember.findMany).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { workspaceId: "ws-1", employeeId: { not: null } } })
+        );
+        expect(await res.json()).toEqual({
+            success: true,
+            data: [
+                { employeeId: "EMP-042", name: "Priya S" },
+                { employeeId: "EMP-043", name: "Arun" },
+            ],
+        });
+    });
+
+    test("roster needs the device secret too", async () => {
+        const res = await kiosk.request("/members", { headers: { authorization: "Bearer nope", "x-workspace-id": "ws-1" } });
+        expect(res.status).toBe(401);
+        expect(prisma.workspaceMember.findMany).not.toHaveBeenCalled();
+    });
+
     test("propagates the service status code (duplicate check-in)", async () => {
         (AttendanceService.checkIn as any).mockRejectedValue(
             Object.assign(new Error("You have already checked in today."), { statusCode: 409 })

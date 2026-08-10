@@ -1,12 +1,13 @@
 import { AppError } from "@/lib/errors/app-error";
 
 export const INDENT_TRANSITIONS: Record<string, string[]> = {
-  DRAFT:           ["SUBMITTED", "CANCELLED"],
-  SUBMITTED:       ["ASSIGNED", "PENDING_PAYMENT", "APPROVED", "CANCELLED"],
-  ASSIGNED:        ["PENDING_PAYMENT", "APPROVED", "CANCELLED"],
-  PENDING_PAYMENT: ["APPROVED", "CANCELLED"],
-  APPROVED:        [],
-  CANCELLED:       [],
+  DRAFT:                  ["SUBMITTED", "CANCELLED"],
+  SUBMITTED:              ["PENDING_OWNER_APPROVAL", "PENDING_PAYMENT", "CANCELLED"],
+  PENDING_OWNER_APPROVAL: ["PENDING_PAYMENT", "CANCELLED"],
+  ASSIGNED:               ["PENDING_PAYMENT", "APPROVED", "CANCELLED"],
+  PENDING_PAYMENT:        ["APPROVED", "CANCELLED"],
+  APPROVED:               [],
+  CANCELLED:              [],
 };
 
 export const LINE_ITEM_TRANSITIONS: Record<string, string[]> = {

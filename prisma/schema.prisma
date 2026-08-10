@@ -167,6 +167,7 @@ model WorkspaceMember {
   boardItems             Board[]           @relation("BoardMember")
   indentsAssigned        Indent[]          @relation("IndentAssignee")
   indentsApproved        Indent[]          @relation("IndentFinalApprover")
+  indentsManagerApproved Indent[]          @relation("IndentManagerApprover")
   indentsRequested       Indent[]          @relation("IndentRequester")
   processedLeaveRequests leave_request[]   @relation("LeaveProcessor")
   leaveRequests          leave_request[]
@@ -689,17 +690,20 @@ model Indent {
   requestedById     String
   assignedToId      String?
   submittedAt       DateTime?
-  finalApprovedAt   DateTime?
-  finalApprovedById String?
-  cancelledAt       DateTime?
-  cancelReason      String?
-  approverIds       String[]         @default([])
-  approvedByIds     String[]         @default([])
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  assignedTo        WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
-  finalApprovedBy   WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
-  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  finalApprovedAt     DateTime?
+  finalApprovedById   String?
+  managerApprovedAt   DateTime?
+  managerApprovedById String?
+  cancelledAt         DateTime?
+  cancelReason        String?
+  approverIds         String[]         @default([])
+  approvedByIds       String[]         @default([])
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  assignedTo          WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
+  finalApprovedBy     WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
+  managerApprovedBy   WorkspaceMember? @relation("IndentManagerApprover", fields: [managerApprovedById], references: [id])
+  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   requestedBy       WorkspaceMember  @relation("IndentRequester", fields: [requestedById], references: [id])
   task              Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -899,6 +903,7 @@ enum QuoteStatus {
 enum IndentStatus {
   DRAFT
   SUBMITTED
+  PENDING_OWNER_APPROVAL
   ASSIGNED
   PENDING_PAYMENT
   APPROVED

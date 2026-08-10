@@ -31,7 +31,7 @@ export async function ProjectProcurementView({
     }),
     db.workspaceMember.findFirst({
       where: { workspaceId, userId },
-      select: { workspaceRole: true }
+      select: { id: true, workspaceRole: true }
     })
   ]);
 
@@ -42,6 +42,7 @@ export async function ProjectProcurementView({
         projectId={projectId}
         indents={indents}
         userRole={member?.workspaceRole || "MEMBER"}
+        memberId={member?.id || ""}
       />
     </div>
   );

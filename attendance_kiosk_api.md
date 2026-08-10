@@ -38,6 +38,19 @@ Body
 Check-in and check-out are **separate calls** — the device decides which one to send
 (e.g. an on-screen IN / OUT toggle, or shift time).
 
+### Roster
+
+```
+GET {BASE_URL}/api/v1/kiosk/members     # same two headers
+
+→ {"success":true,"data":[{"employeeId":"EMP-042","name":"Priya S"}, ...]}
+```
+
+Everyone in the workspace who has an `employeeId` set. Use it to check enrolment folders
+against Tusker and to show a name on the screen. `employeeId` is `null` for members HR
+hasn't assigned one to — they're omitted, and they cannot punch until that's fixed.
+Names only: no email, phone, role or leave data is exposed to the device.
+
 ### Responses
 
 | Code | Meaning | What the kiosk should do |

@@ -65,4 +65,34 @@ const scanHandler = (mode: "CHECK_IN" | "CHECK_OUT") => async (c: any) => {
 kiosk.post("/check-in", scanHandler("CHECK_IN"));
 kiosk.post("/check-out", scanHandler("CHECK_OUT"));
 
+/**
+ * GET /api/v1/kiosk/members — the enrolment roster.
+ *
+ * employeeId + display name only. A wall-mounted device holding the shared secret is a
+ * weak trust boundary, so no email, phone, leave balance or role goes over this wire.
+ * Members without an employeeId can't be matched by the device, so they're omitted.
+ */
+kiosk.get("/members", async (c) => {
+    if (!verifyDeviceSecret(c)) {
+        return c.json({ success: false, error: "Unauthorized device" }, 401);
+    }
+
+    const workspaceId = c.req.header("x-workspace-id");
+    if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+    const members = await prisma.workspaceMember.findMany({
+        where: { workspaceId, employeeId: { not: null } },
+        select: { employeeId: true, user: { select: { name: true, surname: true } } },
+        orderBy: { user: { name: "asc" } },
+    });
+
+    return c.json({
+        success: true,
+        data: members.map((m) => ({
+            employeeId: m.employeeId,
+            name: [m.user.name, m.user.surname].filter(Boolean).join(" "),
+        })),
+    });
+});
+
 export default kiosk;

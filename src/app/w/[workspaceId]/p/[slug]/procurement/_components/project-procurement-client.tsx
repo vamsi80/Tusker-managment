@@ -77,6 +77,7 @@ interface ProjectProcurementClientProps {
   projectId: string;
   indents: any[];
   userRole: string;
+  memberId: string;
 }
 
 export function ProjectProcurementClient({
@@ -84,6 +85,7 @@ export function ProjectProcurementClient({
   projectId,
   indents,
   userRole,
+  memberId,
 }: ProjectProcurementClientProps) {
   const router = useSafeNavigation();
   const { slug } = useParams();
@@ -174,7 +176,19 @@ export function ProjectProcurementClient({
       case "SUBMITTED":
         return (
           <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] py-0 px-2 font-medium">
-            Submitted
+            Manager Review
+          </Badge>
+        );
+      case "PENDING_OWNER_APPROVAL":
+        return (
+          <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200 text-[10px] py-0 px-2 font-medium">
+            Owner Review
+          </Badge>
+        );
+      case "PENDING_PAYMENT":
+        return (
+          <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] py-0 px-2 font-medium">
+            Pending Payment
           </Badge>
         );
       case "APPROVED":
@@ -350,7 +364,8 @@ export function ProjectProcurementClient({
                         {isSubmitting ? "Submitting..." : "Submit for Approval"}
                       </Button>
                     )}
-                    {selectedIndent.status === "SUBMITTED" && ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"].includes(userRole) && (
+                    {/* Stage 1: Manager Approval */}
+                    {selectedIndent.status === "SUBMITTED" && ["MANAGER", "ADMIN", "OWNER"].includes(userRole) && (
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
@@ -367,7 +382,33 @@ export function ProjectProcurementClient({
                           disabled={isSubmitting}
                           className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          Approve
+                          Manager Approve
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Stage 2: Owner Approval */}
+                    {selectedIndent.status === "PENDING_OWNER_APPROVAL" && (
+                      (selectedIndent.approverIds?.includes(memberId)) || 
+                      (!selectedIndent.approverIds?.length && ["OWNER", "ADMIN"].includes(userRole))
+                    ) && !selectedIndent.approvedByIds?.includes(memberId) && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={handleRejectIndent}
+                          disabled={isSubmitting}
+                          variant="outline"
+                          className="h-7 text-xs px-2.5 text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleApproveIndent}
+                          disabled={isSubmitting}
+                          className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                          Owner Approve
                         </Button>
                       </div>
                     )}
