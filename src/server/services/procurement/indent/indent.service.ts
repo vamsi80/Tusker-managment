@@ -75,8 +75,9 @@ export class IndentService {
     await broadcastProjectUpdate({
       workspaceId,
       projectId: indent.projectId,
-      type: "UPDATE"
-    });
+      type: "UPDATE",
+      action: "PROJECT_INDENT_UPDATED"
+    } as any);
 
     return updated;
   }
@@ -186,8 +187,9 @@ export class IndentService {
         await broadcastProjectUpdate({
           workspaceId,
           projectId: indent.projectId,
-          type: "UPDATE"
-        });
+          type: "UPDATE",
+          action: "PROJECT_INDENT_UPDATED"
+        } as any);
 
         return updated;
       }
@@ -250,8 +252,9 @@ export class IndentService {
         await broadcastProjectUpdate({
           workspaceId,
           projectId: indent.projectId,
-          type: "UPDATE"
-        });
+          type: "UPDATE",
+          action: "PROJECT_INDENT_UPDATED"
+        } as any);
 
         return updated;
       } else {
@@ -273,8 +276,9 @@ export class IndentService {
       await broadcastProjectUpdate({
         workspaceId,
         projectId: indent.projectId,
-        type: "UPDATE"
-      });
+        type: "UPDATE",
+        action: "PROJECT_INDENT_UPDATED"
+      } as any);
 
       return updated;
     } else {
@@ -305,8 +309,9 @@ export class IndentService {
     await broadcastProjectUpdate({
       workspaceId,
       projectId: indent.projectId,
-      type: "UPDATE"
-    });
+      type: "UPDATE",
+      action: "PROJECT_INDENT_UPDATED"
+    } as any);
 
     return updated;
   }
