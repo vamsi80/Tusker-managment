@@ -219,7 +219,7 @@ export class ProjectService {
             hasAccess: true,
             projectRole: "PROJECT_MANAGER",
           },
-          ...(values.memberAccess || [])
+          ...([...new Set(values.memberAccess || [])])
             .filter(id => id !== assignedProjectManagerId)
             .map(id => ({
               workspaceMemberId: id,
@@ -332,6 +332,7 @@ export class ProjectService {
 
       if (values.projectManagerId && values.projectManagerId !== project.projectManagerId) {
         const newPmId = values.projectManagerId;
+        const oldPmId = project.projectManagerId;
 
         // 1. Update Project table
         await tx.project.update({
@@ -339,7 +340,15 @@ export class ProjectService {
           data: { projectManagerId: newPmId }
         });
 
-        // 2. Add/Update ProjectMember table
+        // 2. Demote old Project Manager to MEMBER so they can be handled by sync logic
+        if (oldPmId) {
+          await tx.projectMember.updateMany({
+            where: { projectId: values.projectId, workspaceMemberId: oldPmId },
+            data: { projectRole: "MEMBER" }
+          });
+        }
+
+        // 3. Add/Update ProjectMember table for new PM
         await tx.projectMember.upsert({
           where: { workspaceMemberId_projectId: { projectId: values.projectId, workspaceMemberId: newPmId } },
           update: { projectRole: "PROJECT_MANAGER", hasAccess: true },
@@ -371,13 +380,16 @@ export class ProjectService {
         }
 
         if (toAdd.length > 0) {
+          // Remove duplicates from toAdd before creating, or use skipDuplicates
+          const uniqueToAdd = [...new Set(toAdd)];
           await tx.projectMember.createMany({
-            data: toAdd.map(id => ({
+            data: uniqueToAdd.map(id => ({
               projectId: values.projectId,
               workspaceMemberId: id,
               hasAccess: true,
               projectRole: "MEMBER"
-            }))
+            })),
+            skipDuplicates: true
           });
         }
       }

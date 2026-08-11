@@ -144,7 +144,7 @@ export class ProjectRepository {
   }
 
   static async addProjectMembers(data: any[]) {
-    return prisma.projectMember.createMany({ data });
+    return prisma.projectMember.createMany({ data, skipDuplicates: true });
   }
 
   static async removeProjectMembers(ids: string[]) {
