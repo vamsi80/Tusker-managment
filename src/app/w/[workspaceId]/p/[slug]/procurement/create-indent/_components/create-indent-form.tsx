@@ -32,7 +32,22 @@ const COMMON_UNITS = [
 ];
 
 const PREDEFINED_TAGS = [
-  "electrical", "plumbing", "decor", "networking", "flooring", "ceiling", "furniture", "miscellaneous"
+  "Civil Works",
+  "Carpentry & Finishes",
+  "Stone & Tiles",
+  "Glass",
+  "Metal Works",
+  "Hardware & Fittings",
+  "Paint & Coatings",
+  "Electrical",
+  "Lighting",
+  "HVAC",
+  "Plumbing",
+  "Ceiling Systems",
+  "Flooring",
+  "Furniture",
+  "Soft Furnishings",
+  "Signage & Graphics"
 ];
 
 function IndentTagSelector({ value, onChange, disabled }: { value: string, onChange: (v: string) => void, disabled?: boolean }) {

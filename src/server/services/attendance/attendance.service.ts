@@ -470,7 +470,7 @@ export class AttendanceService {
                         const firstDay = toDateOnly(leave.startDate)!;
                         const lastDay = toDateOnly(leave.endDate)!;
                         let current = new Date(Math.max(firstDay.getTime(), startDate ? floorToUTCDay(startDate).getTime() : 0));
-                        const last = new Date(Math.min(lastDay.getTime(), endDate ? floorToUTCDay(endDate).getTime() : Infinity));
+                        const last = new Date(Math.min(lastDay.getTime(), endDate ? floorToUTCDay(endDate).getTime() : floorToUTCDay(new Date()).getTime()));
                         let iterations = 0;
 
                         while (current <= last && iterations < 100) {

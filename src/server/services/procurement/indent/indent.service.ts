@@ -112,87 +112,61 @@ export class IndentService {
     const indent = await IndentRepository.findById(indentId);
     if (!indent) throw AppError.NotFound("Indent not found");
 
-    if (indent.status === "SUBMITTED") {
+    if (indent.status === "SUBMITTED" || indent.status === "ASSIGNED") {
       // Stage 1: Manager Approval
       const allowedRoles = ["MANAGER", "ADMIN", "OWNER"];
       if (!allowedRoles.includes(member.workspaceRole)) {
         throw AppError.Forbidden("Only managers or admins can approve at this stage");
       }
 
-      if (indent.approverIds && indent.approverIds.length > 0) {
-        assertTransition(INDENT_TRANSITIONS, indent.status, "PENDING_OWNER_APPROVAL", "Indent");
-        const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_APPROVAL", {
-          managerApprovedAt: new Date(),
-          managerApprovedById: member.id,
-        });
+      assertTransition(INDENT_TRANSITIONS, indent.status, "PENDING_OWNER_APPROVAL", "Indent");
+      const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_APPROVAL", {
+        managerApprovedAt: new Date(),
+        managerApprovedById: member.id,
+      });
 
-        // Notify Owners
+      // Notify Owners (specific approverIds if set, otherwise all workspace owners)
+      let ownerUserIds: string[] = [];
+      if (indent.approverIds && indent.approverIds.length > 0) {
         const approverMembers = await prisma.workspaceMember.findMany({
           where: { id: { in: indent.approverIds } },
           select: { userId: true },
         });
-
-        if (approverMembers.length > 0) {
-          const { randomUUID } = require("crypto");
-          await prisma.notification.createMany({
-            data: approverMembers.map(m => ({
-              id: randomUUID(),
-              userId: m.userId,
-              workspaceId,
-              title: "Indent Approval Required",
-              body: `Indent "${indent.name}" has been approved by the manager and requires your final approval.`,
-              type: "INDENT_APPROVAL",
-              entityId: indent.id,
-              entityType: "Indent",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })),
-          });
-        }
-        return updated;
+        ownerUserIds = approverMembers.map((m) => m.userId);
       } else {
-        // Skip Owner Approval if none requested
-        assertTransition(INDENT_TRANSITIONS, indent.status, "PENDING_PAYMENT", "Indent");
-        const updated = await IndentRepository.updateStatus(indentId, "PENDING_PAYMENT", {
-          managerApprovedAt: new Date(),
-          managerApprovedById: member.id,
-          finalApprovedAt: new Date(),
-          finalApprovedById: member.id,
-        });
-
-        // Notify Accounts
-        const accountsMembers = await prisma.workspaceMember.findMany({
-          where: { workspaceId, workspaceRole: "ADMIN" },
+        const ownerMembers = await prisma.workspaceMember.findMany({
+          where: { workspaceId, workspaceRole: "OWNER" },
           select: { userId: true },
         });
-
-        if (accountsMembers.length > 0) {
-          const { randomUUID } = require("crypto");
-          await prisma.notification.createMany({
-            data: accountsMembers.map(m => ({
-              id: randomUUID(),
-              userId: m.userId,
-              workspaceId,
-              title: "Indent Pending Payment Approval",
-              body: `Indent "${indent.name}" has been approved and is waiting for payment approval.`,
-              type: "INDENT_APPROVAL",
-              entityId: indent.id,
-              entityType: "Indent",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })),
-          });
-        }
-
-        await broadcastProjectUpdate({
-          workspaceId,
-          projectId: indent.projectId,
-          type: "UPDATE",
-          action: "PROJECT_INDENT_UPDATED"
-        } as any);
-
-        return updated;
+        ownerUserIds = ownerMembers.map((m) => m.userId);
       }
+
+      if (ownerUserIds.length > 0) {
+        const { randomUUID } = require("crypto");
+        await prisma.notification.createMany({
+          data: ownerUserIds.map((userId) => ({
+            id: randomUUID(),
+            userId,
+            workspaceId,
+            title: "Indent Approval Required",
+            body: `Indent "${indent.name}" has been approved by the manager and requires your final approval.`,
+            type: "INDENT_APPROVAL",
+            entityId: indent.id,
+            entityType: "Indent",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        });
+      }
+
+      await broadcastProjectUpdate({
+        workspaceId,
+        projectId: indent.projectId,
+        type: "UPDATE",
+        action: "PROJECT_INDENT_UPDATED",
+      } as any);
+
+      return updated;
 
     } else if (indent.status === "PENDING_OWNER_APPROVAL") {
       // Stage 2: Owner Approval

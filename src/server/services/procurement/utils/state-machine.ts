@@ -2,9 +2,9 @@ import { AppError } from "@/lib/errors/app-error";
 
 export const INDENT_TRANSITIONS: Record<string, string[]> = {
   DRAFT:                  ["SUBMITTED", "CANCELLED"],
-  SUBMITTED:              ["PENDING_OWNER_APPROVAL", "PENDING_PAYMENT", "CANCELLED"],
+  SUBMITTED:              ["PENDING_OWNER_APPROVAL", "PENDING_PAYMENT", "ASSIGNED", "CANCELLED"],
   PENDING_OWNER_APPROVAL: ["PENDING_PAYMENT", "CANCELLED"],
-  ASSIGNED:               ["PENDING_PAYMENT", "APPROVED", "CANCELLED"],
+  ASSIGNED:               ["PENDING_OWNER_APPROVAL", "PENDING_PAYMENT", "APPROVED", "CANCELLED"],
   PENDING_PAYMENT:        ["APPROVED", "CANCELLED"],
   APPROVED:               [],
   CANCELLED:              [],

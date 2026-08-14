@@ -232,6 +232,7 @@ procurementIndents.post("/", zValidator("json", CreateIndentSchema), async (c) =
       description: body.description,
       expectedDelivery: body.expectedDelivery ? new Date(body.expectedDelivery) : undefined,
       lineItems: body.lineItems,
+      approverIds: body.approverIds,
     },
     user.id
   );
