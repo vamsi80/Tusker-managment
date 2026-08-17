@@ -25,7 +25,7 @@ const CreateIndentSchema = z.object({
   taskId: z.string().optional().nullable(),
   projectId: z.string(),
   workspaceId: z.string(),
-  name: z.string().min(1),
+  name: z.string().min(1).optional(),
   description: z.string().optional(),
   expectedDelivery: z.string().optional(),
   lineItems: z.array(
@@ -37,7 +37,9 @@ const CreateIndentSchema = z.object({
       specifications: z.string().nullable().optional(),
     })
   ).optional(),
-  approverIds: z.array(z.string()).optional(),
+  approverIds: z
+    .array(z.string().min(1))
+    .min(1, "Select at least one owner for approval"),
 });
 
 const AddLineItemSchema = z.object({
@@ -64,6 +66,16 @@ const AssignIndentSchema = z.object({
   assigneeId: z.string(),
 });
 
+const SubmitFinalRatesSchema = z.object({
+  rates: z.array(z.object({
+    itemId: z.string(),
+    finalUnitPrice: z.number().int().positive(),
+  })).min(1),
+});
+
+const canReadProcurement = (perms: any) =>
+  Boolean(perms?.hasAccess || ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT", "ACCOUNTS"].includes(perms?.workspaceRole));
+
 /**
  * GET /api/v1/procurement/indents/units
  * List all active units of measure in a workspace
@@ -75,7 +87,7 @@ procurementIndents.get("/units", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!canReadProcurement(perms)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
@@ -101,7 +113,7 @@ procurementIndents.get("/", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!canReadProcurement(perms)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
@@ -111,12 +123,30 @@ procurementIndents.get("/", async (c) => {
       project: { select: { id: true, name: true, slug: true } },
       requestedBy: { select: { user: { select: { name: true, surname: true } } } },
       task: { select: { name: true } },
+      lineItems: {
+        select: {
+          quantity: true,
+          estimatedUnitPrice: true,
+          finalUnitPrice: true,
+        },
+      },
       _count: { select: { lineItems: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return c.json({ success: true, data: indents });
+  const shaped = indents.map(({ lineItems, ...indent }) => ({
+    ...indent,
+    estimatedTotal: lineItems.reduce(
+      (total, item) => total + (item.estimatedUnitPrice || 0) * item.quantity,
+      0
+    ),
+    finalTotal: lineItems.every((item) => item.finalUnitPrice != null)
+      ? lineItems.reduce((total, item) => total + (item.finalUnitPrice || 0) * item.quantity, 0)
+      : null,
+  }));
+
+  return c.json({ success: true, data: shaped });
 });
 
 /**
@@ -146,7 +176,7 @@ procurementIndents.get("/line-items", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"];
+  const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT", "ACCOUNTS"];
   if (!perms || !allowedRoles.includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Insufficient permissions to view workspace procurement line items");
   }
@@ -185,6 +215,8 @@ procurementIndents.get("/line-items", async (c) => {
     materialName: item.materialName,
     unit: item.unit,
     quantity: item.quantity,
+    estimatedUnitPrice: item.estimatedUnitPrice,
+    finalUnitPrice: item.finalUnitPrice,
     specifications: item.specifications,
     status: item.status,
     rfqDeadline: item.rfqDeadline,
@@ -193,6 +225,7 @@ procurementIndents.get("/line-items", async (c) => {
       indentId: item.indent.indentId,
       name: item.indent.name,
       status: item.indent.status,
+      rejectedStage: item.indent.rejectedStage,
       project: item.indent.project,
       expectedDelivery: item.indent.expectedDelivery,
       requestedBy: item.indent.requestedBy,
@@ -209,9 +242,14 @@ procurementIndents.get("/line-items", async (c) => {
  * Get single indent with all items, requestedBy, assignee, project and task details
  */
 procurementIndents.get("/:id", async (c) => {
+  const user = c.get("user");
   const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!canReadProcurement(perms)) throw AppError.Forbidden("Access denied to procurement");
   const indent = await IndentRepository.findById(id);
-  if (!indent) throw AppError.NotFound("Indent not found");
+  if (!indent || indent.workspaceId !== workspaceId) throw AppError.NotFound("Indent not found");
   return c.json({ success: true, data: indent });
 });
 
@@ -283,6 +321,47 @@ procurementIndents.post("/:id/approve", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const updated = await IndentService.approveIndent(id, user.id, workspaceId);
+  return c.json({ success: true, data: updated });
+});
+
+/**
+ * POST /api/v1/procurement/indents/:id/reject
+ * Return an indent to its requester for an editable, stage-aware revision.
+ */
+procurementIndents.post("/:id/reject", zValidator("json", CancelIndentSchema), async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+  const { reason } = c.req.valid("json");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+  const updated = await IndentService.rejectIndent(id, reason, user.id, workspaceId);
+  return c.json({ success: true, data: updated });
+});
+
+/**
+ * POST /api/v1/procurement/indents/:id/resubmit
+ * Resubmit a rejected estimate or rejected final-rate revision.
+ */
+procurementIndents.post("/:id/resubmit", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+  const updated = await IndentService.resubmitIndent(id, user.id, workspaceId);
+  return c.json({ success: true, data: updated });
+});
+
+/**
+ * POST /api/v1/procurement/indents/:id/final-rates
+ * Save manual final rates and send them to the requester's manager.
+ */
+procurementIndents.post("/:id/final-rates", zValidator("json", SubmitFinalRatesSchema), async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+  const { rates } = c.req.valid("json");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+  const updated = await IndentService.submitFinalRates(id, rates, user.id, workspaceId);
   return c.json({ success: true, data: updated });
 });
 
@@ -402,7 +481,7 @@ procurementIndents.get("/projects/:projectId/tasks", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!canReadProcurement(perms)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
@@ -434,21 +513,6 @@ procurementIndents.get("/projects/:projectId/tasks", async (c) => {
   const tasks = allTasks.filter((t) => !claimedTaskIds.has(t.id));
 
   return c.json({ success: true, data: tasks });
-});
-
-/**
- * POST /api/v1/procurement/indents/:id/approve
- * Approve an indent as an owner/admin
- */
-procurementIndents.post("/:id/approve", async (c) => {
-  const user = c.get("user");
-  const indentId = c.req.param("id");
-  const workspaceId = c.req.query("w");
-
-  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-
-  const updated = await IndentService.approveIndent(indentId, user.id, workspaceId);
-  return c.json({ success: true, data: updated });
 });
 
 export default procurementIndents;

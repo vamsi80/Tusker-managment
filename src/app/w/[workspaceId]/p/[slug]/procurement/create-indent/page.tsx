@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
 import db from "@/lib/db";
 import { CreateIndentPageClient } from "./_components/create-indent-page-client";
+import { redirect } from "next/navigation";
 
 interface iAppProps {
   params: Promise<{ workspaceId: string; slug: string }>;
@@ -48,12 +49,19 @@ async function CreateIndentServer({
   slug: string;
   taskId?: string;
 }) {
-  const [project] = await Promise.all([
+  const [project, user] = await Promise.all([
     ProjectService.getProjectBySlug(workspaceId, slug),
     requireUser(),
   ]);
 
   if (!project) return null;
+  const member = await db.workspaceMember.findFirst({
+    where: { workspaceId, userId: user.id },
+    select: { workspaceRole: true },
+  });
+  if (member?.workspaceRole === "ACCOUNTS") {
+    redirect(`/w/${workspaceId}/p/${slug}/procurement`);
+  }
 
   // Fetch tasks with procurement tags AND existing indent taskIds in parallel
   const [allTasks, existingIndents] = await Promise.all([

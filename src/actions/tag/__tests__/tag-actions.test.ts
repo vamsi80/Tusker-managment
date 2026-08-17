@@ -4,11 +4,13 @@ import { updateTag } from "../update-tag";
 import { deleteTag } from "../delete-tag";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { tagNameExists } from "@/data/tag/get-tags";
+import { getSession } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 
 describe("Tag Actions", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        (getSession as any).mockResolvedValue({ user: { id: "admin_user" } });
     });
 
     const validWorkspaceId = "846e17c7-d85f-4453-9ca0-0acc7bfce49c";
@@ -32,7 +34,7 @@ describe("Tag Actions", () => {
 
         it("should fail if tag name already exists", async () => {
             (getWorkspacePermissions as any).mockResolvedValue({ isWorkspaceAdmin: true });
-            (tagNameExists as any).mockResolvedValue(true);
+            (prisma.tag.findFirst as any).mockResolvedValue({ id: validTagId, name: "Duplicate" });
 
             const result = await createTag({
                 workspaceId: validWorkspaceId,

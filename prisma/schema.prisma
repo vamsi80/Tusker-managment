@@ -142,38 +142,40 @@ model Workspace {
 }
 
 model WorkspaceMember {
-  id                     String            @id @default(uuid())
-  userId                 String
-  workspaceId            String
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
-  workspaceRole          WorkspaceRole     @default(MEMBER)
-  designation            String?
-  reportToId             String?
-  accruedDaysCount       Int               @default(0)
-  casualLeaveBalance     Float             @default(0)
-  sickLeaveBalance       Float             @default(12)
-  position               Int               @default(0)
-  dateOfBirth            DateTime?
-  employeeId             String?
-  managedProjects        Project[]         @relation("ProjectManager")
-  projectMembers         ProjectMember[]
-  reportTo               WorkspaceMember?  @relation("ReportTo", fields: [reportToId], references: [id])
-  subordinates           WorkspaceMember[] @relation("ReportTo")
-  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace              Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  attendance             attendance[]
-  assignedBoardItems     Board[]           @relation("BoardAssigner")
-  boardItems             Board[]           @relation("BoardMember")
-  indentsAssigned        Indent[]          @relation("IndentAssignee")
-  indentsApproved        Indent[]          @relation("IndentFinalApprover")
-  indentsManagerApproved Indent[]          @relation("IndentManagerApprover")
-  indentsRequested       Indent[]          @relation("IndentRequester")
-  processedLeaveRequests leave_request[]   @relation("LeaveProcessor")
-  leaveRequests          leave_request[]
-  memberTodos            MemberTodo[]
-  quotesReviewed         VendorQuote[]     @relation("QuoteReviewer")
-  addedMaterialItems     ProjectMaterialItem[]
+  id                          String                @id @default(uuid())
+  userId                      String
+  workspaceId                 String
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  workspaceRole               WorkspaceRole         @default(MEMBER)
+  designation                 String?
+  reportToId                  String?
+  accruedDaysCount            Int                   @default(0)
+  casualLeaveBalance          Float                 @default(0)
+  sickLeaveBalance            Float                 @default(12)
+  position                    Int                   @default(0)
+  dateOfBirth                 DateTime?
+  employeeId                  String?
+  managedProjects             Project[]             @relation("ProjectManager")
+  projectMembers              ProjectMember[]
+  reportTo                    WorkspaceMember?      @relation("ReportTo", fields: [reportToId], references: [id])
+  subordinates                WorkspaceMember[]     @relation("ReportTo")
+  user                        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace                   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  attendance                  attendance[]
+  assignedBoardItems          Board[]               @relation("BoardAssigner")
+  boardItems                  Board[]               @relation("BoardMember")
+  indentsAssigned             Indent[]              @relation("IndentAssignee")
+  indentsApproved             Indent[]              @relation("IndentFinalApprover")
+  indentsFinalRatesSubmitted  Indent[]              @relation("IndentFinalRatesSubmitter")
+  indentsFinalManagerApproved Indent[]              @relation("IndentFinalManagerApprover")
+  indentsManagerApproved      Indent[]              @relation("IndentManagerApprover")
+  indentsRequested            Indent[]              @relation("IndentRequester")
+  processedLeaveRequests      leave_request[]       @relation("LeaveProcessor")
+  leaveRequests               leave_request[]
+  memberTodos                 MemberTodo[]
+  quotesReviewed              VendorQuote[]         @relation("QuoteReviewer")
+  addedMaterialItems          ProjectMaterialItem[]
 
   @@unique([userId, workspaceId])
   @@unique([workspaceId, employeeId])
@@ -185,26 +187,26 @@ model WorkspaceMember {
 }
 
 model Project {
-  id               String           @id @default(uuid())
+  id               String                @id @default(uuid())
   name             String
   description      String?
   workspaceId      String
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  slug             String           @unique
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  slug             String                @unique
   color            String
   createdBy        String?
   projectManagerId String?
   clintId          String?
-  legacyClints     Clints[]         @relation("LegacyProjectClints")
-  clint            Clints?          @relation(fields: [clintId], references: [id])
-  projectManager   WorkspaceMember? @relation("ProjectManager", fields: [projectManagerId], references: [id])
-  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  legacyClints     Clints[]              @relation("LegacyProjectClints")
+  clint            Clints?               @relation(fields: [clintId], references: [id])
+  projectManager   WorkspaceMember?      @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  workspace        Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   projectMembers   ProjectMember[]
   tasks            Task[]
   indents          Indent[]
   materialItems    ProjectMaterialItem[]
-  tags             Tag[]            @relation("ProjectTags")
+  tags             Tag[]                 @relation("ProjectTags")
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -278,40 +280,40 @@ model Tag {
 }
 
 model Task {
-  id                    String             @id @default(uuid())
+  id                    String                @id @default(uuid())
   projectId             String
   description           String?
   status                TaskStatus?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
   createdById           String
   days                  Int?
   name                  String
   parentTaskId          String?
   startDate             DateTime?
-  taskSlug              String             @unique
+  taskSlug              String                @unique
   assigneeId            String?
-  completedSubtaskCount Int                @default(0)
+  completedSubtaskCount Int                   @default(0)
   dueDate               DateTime?
-  isParent              Boolean            @default(true)
+  isParent              Boolean               @default(true)
   path                  String?
   reviewerId            String?
-  subtaskCount          Int                @default(0)
+  subtaskCount          Int                   @default(0)
   workspaceId           String
-  position              Int                @default(0)
+  position              Int                   @default(0)
   activities            Activity[]
-  assignee              ProjectMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  createdBy             ProjectMember      @relation("TaskCreator", fields: [createdById], references: [id])
-  parentTask            Task?              @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subTasks              Task[]             @relation("Task_subTasks")
-  project               Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  reviewer              ProjectMember?     @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  assignee              ProjectMember?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy             ProjectMember         @relation("TaskCreator", fields: [createdById], references: [id])
+  parentTask            Task?                 @relation("Task_subTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subTasks              Task[]                @relation("Task_subTasks")
+  project               Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewer              ProjectMember?        @relation("TaskReviewer", fields: [reviewerId], references: [id])
   comments              Comment[]
   dailyReportEntries    DailyReportEntry[]
   indent                Indent?
-  Task_TaskDependency_A Task[]             @relation("TaskDependency")
-  Task_TaskDependency_B Task[]             @relation("TaskDependency")
-  tags                  Tag[]              @relation("TaskTags")
+  Task_TaskDependency_A Task[]                @relation("TaskDependency")
+  Task_TaskDependency_B Task[]                @relation("TaskDependency")
+  tags                  Tag[]                 @relation("TaskTags")
   materialItems         ProjectMaterialItem[]
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
@@ -678,36 +680,50 @@ model UnitOfMeasure {
 }
 
 model Indent {
-  id                String           @id @default(uuid())
-  indentId          String?          @unique
-  workspaceId       String
-  projectId         String
-  taskId            String?          @unique
-  name              String
-  description       String?
-  status            IndentStatus     @default(DRAFT)
-  expectedDelivery  DateTime?
-  requestedById     String
-  assignedToId      String?
-  submittedAt       DateTime?
-  finalApprovedAt     DateTime?
-  finalApprovedById   String?
-  managerApprovedAt   DateTime?
-  managerApprovedById String?
-  cancelledAt         DateTime?
-  cancelReason        String?
-  approverIds         String[]         @default([])
-  approvedByIds       String[]         @default([])
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  assignedTo          WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
-  finalApprovedBy     WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
-  managerApprovedBy   WorkspaceMember? @relation("IndentManagerApprover", fields: [managerApprovedById], references: [id])
-  project             Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requestedBy       WorkspaceMember  @relation("IndentRequester", fields: [requestedById], references: [id])
-  task              Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  lineItems         IndentLineItem[]
+  id                       String           @id @default(uuid())
+  indentId                 String?          @unique
+  workspaceId              String
+  projectId                String
+  taskId                   String?          @unique
+  name                     String
+  description              String?
+  status                   IndentStatus     @default(DRAFT)
+  expectedDelivery         DateTime?
+  requestedById            String
+  assignedToId             String?
+  submittedAt              DateTime?
+  finalApprovedAt          DateTime?
+  finalApprovedById        String?
+  ownerAuthorizedAt        DateTime?
+  finalRatesSubmittedAt    DateTime?
+  finalRatesSubmittedById  String?
+  finalManagerApprovedAt   DateTime?
+  finalManagerApprovedById String?
+  managerApprovedAt        DateTime?
+  managerApprovedById      String?
+  cancelledAt              DateTime?
+  cancelReason             String?
+  approverIds              String[]         @default([])
+  approvedByIds            String[]         @default([])
+  finalOwnerApprovedByIds  String[]         @default([])
+  rejectedAt               DateTime?
+  rejectedById             String?
+  rejectedFromStatus       String?
+  rejectedStage            String?
+  rejectionReason          String?
+  revisionCount            Int              @default(0)
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  assignedTo               WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
+  finalApprovedBy          WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
+  finalRatesSubmittedBy    WorkspaceMember? @relation("IndentFinalRatesSubmitter", fields: [finalRatesSubmittedById], references: [id])
+  finalManagerApprovedBy   WorkspaceMember? @relation("IndentFinalManagerApprover", fields: [finalManagerApprovedById], references: [id])
+  managerApprovedBy        WorkspaceMember? @relation("IndentManagerApprover", fields: [managerApprovedById], references: [id])
+  project                  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy              WorkspaceMember  @relation("IndentRequester", fields: [requestedById], references: [id])
+  task                     Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace                Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lineItems                IndentLineItem[]
 
   @@index([workspaceId, status])
   @@index([projectId, status])
@@ -725,6 +741,7 @@ model IndentLineItem {
   unit               String
   quantity           Int
   estimatedUnitPrice Int?
+  finalUnitPrice     Int?
   specifications     String?
   status             LineItemStatus @default(PENDING)
   rfqSentAt          DateTime?
@@ -832,6 +849,7 @@ enum WorkspaceRole {
   VIEWER
   MANAGER
   PROCUREMENT
+  ACCOUNTS
 }
 
 enum ProjectRole {
@@ -904,9 +922,13 @@ enum IndentStatus {
   DRAFT
   SUBMITTED
   PENDING_OWNER_APPROVAL
+  PENDING_OWNER_COMPARATIVE_APPROVAL
+  COMPARATIVES_IN_PROGRESS
+  PENDING_MANAGER_FINAL_RATE_APPROVAL
+  PENDING_OWNER_FINAL_APPROVAL
   ASSIGNED
-  PENDING_PAYMENT
   APPROVED
+  REJECTED
   CANCELLED
 }
 
@@ -926,9 +948,9 @@ enum CapabilityServiceType {
 }
 
 model ProjectMaterialItem {
-  id                     String           @id @default(uuid())
+  id                     String   @id @default(uuid())
   projectId              String
-  subtaskId              String?          // Nullable to allow SetNull on task deletion
+  subtaskId              String? // Nullable to allow SetNull on task deletion
   subtaskNameSnapshot    String?
   parentTaskNameSnapshot String?
   materialName           String
@@ -936,12 +958,12 @@ model ProjectMaterialItem {
   quantity               Float
   notes                  String?
   addedById              String
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  subtask   Task?           @relation(fields: [subtaskId], references: [id], onDelete: SetNull)
-  addedBy   WorkspaceMember @relation(fields: [addedById], references: [id])
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subtask Task?           @relation(fields: [subtaskId], references: [id], onDelete: SetNull)
+  addedBy WorkspaceMember @relation(fields: [addedById], references: [id])
 
   @@index([projectId])
   @@index([subtaskId])

@@ -33,17 +33,12 @@ const transporter = nodemailer.createTransport({
   family: 4
 } as any);
 
-// Verify transporter configuration on startup (Skip during build to avoid noise)
-if (process.env.NEXT_PHASE !== 'phase-production-build') {
-  transporter.verify(function (error, success) {
-    if (error) {
-      console.error('SMTP Connection Error:', error);
-    }
-  });
-}
-
 /**
  * Send an email using the configured SMTP server
+ *
+ * Connection/authentication is intentionally checked lazily by sendMail.
+ * Verifying at module load caused repeated SMTP attempts whenever the Next.js
+ * development server reloaded this module.
  */
 export async function sendEmail({ to, subject, html, from, attachments }: EmailOptions) {
   try {

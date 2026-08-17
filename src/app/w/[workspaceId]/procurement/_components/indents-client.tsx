@@ -10,6 +10,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface IndentsClientProps {
   workspaceId: string;
@@ -17,6 +18,9 @@ interface IndentsClientProps {
 
 export function IndentsClient({ workspaceId }: IndentsClientProps) {
   const router = useRouter();
+  const { data: workspaceData } = useWorkspaceLayout();
+  const workspaceRole = workspaceData?.permissions?.workspaceRole;
+  const workspaceMemberId = workspaceData?.permissions?.workspaceMemberId;
   const [indents, setIndents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -64,14 +68,14 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     }
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/v1/procurement/indents/${indentId}/cancel?w=${workspaceId}`, {
+        const res = await fetch(`/api/v1/procurement/indents/${indentId}/reject?w=${workspaceId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reason }),
         });
         const data = await res.json();
         if (data.success) {
-          toast.success("Indent rejected successfully");
+          toast.success("Indent returned to the requester for revision");
           fetchIndents();
         } else {
           toast.error(data.error || "Failed to reject indent");
@@ -93,13 +97,20 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       case "SUBMITTED":
         return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Review</Badge>;
       case "PENDING_OWNER_APPROVAL":
+      case "PENDING_OWNER_COMPARATIVE_APPROVAL":
         return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Owner Review</Badge>;
-      case "PENDING_PAYMENT":
-        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Pending Payment</Badge>;
+      case "COMPARATIVES_IN_PROGRESS":
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Getting Comparatives</Badge>;
+      case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Rate Review</Badge>;
+      case "PENDING_OWNER_FINAL_APPROVAL":
+        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">Owner Final Review</Badge>;
       case "APPROVED":
         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>;
       case "CANCELLED":
         return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Cancelled</Badge>;
+      case "REJECTED":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Rejected — Revision Required</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -135,6 +146,26 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       cell: ({ row }) => <span className="text-xs">{row.original._count?.lineItems || 0} Materials</span>,
     },
     {
+      id: "estimatedTotal",
+      header: "Approx. Value",
+      cell: ({ row }) => (
+        <span className="text-xs font-mono font-semibold">
+          {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format((row.original.estimatedTotal || 0) / 100)}
+        </span>
+      ),
+    },
+    {
+      id: "finalTotal",
+      header: "Final Value",
+      cell: ({ row }) => (
+        <span className="text-xs font-mono font-semibold">
+          {row.original.finalTotal == null
+            ? "—"
+            : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(row.original.finalTotal / 100)}
+        </span>
+      ),
+    },
+    {
       id: "requestedBy",
       header: "Requested By",
       cell: ({ row }) => (
@@ -164,7 +195,18 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
         const ind = row.original;
-        if (!["SUBMITTED", "PENDING_OWNER_APPROVAL", "PENDING_PAYMENT"].includes(ind.status)) return null;
+        if (workspaceRole === "ACCOUNTS") return null;
+        const managerStage = ["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(ind.status);
+        const ownerStage = ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL", "PENDING_OWNER_FINAL_APPROVAL"].includes(ind.status);
+        const canAct =
+          (managerStage && ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "")) ||
+          (ownerStage && Boolean(workspaceMemberId && ind.approverIds?.includes(workspaceMemberId)));
+        if (!canAct) return null;
+        const approveLabel = ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL"].includes(ind.status)
+          ? "Authorize Comparatives"
+          : ind.status === "PENDING_OWNER_FINAL_APPROVAL"
+            ? "Final Approve"
+            : "Approve";
         return (
           <div className="flex justify-end gap-1.5">
             <Button
@@ -182,7 +224,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
               disabled={isPending}
               className="h-7 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              Approve
+              {approveLabel}
             </Button>
           </div>
         );
@@ -197,11 +239,13 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
           <h1 className="text-base font-bold text-foreground">Indents Register</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Manage and approve procurement indent requests</p>
         </div>
-        <Link href={`/w/${workspaceId}/procurement/indents/create`}>
-          <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
-            <Plus className="size-3.5" /> Create Indent
-          </Button>
-        </Link>
+        {workspaceRole !== "ACCOUNTS" && (
+          <Link href={`/w/${workspaceId}/procurement/indents/create`}>
+            <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
+              <Plus className="size-3.5" /> Create Indent
+            </Button>
+          </Link>
+        )}
       </div>
       <DataTable
         columns={indentColumns}

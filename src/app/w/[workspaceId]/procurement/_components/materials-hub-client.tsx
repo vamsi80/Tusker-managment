@@ -40,6 +40,8 @@ interface LineItemRow {
   materialName: string;
   unit: string;
   quantity: number;
+  estimatedUnitPrice?: number | null;
+  finalUnitPrice?: number | null;
   specifications?: string;
   status: string;
   rfqDeadline?: string | null;
@@ -48,6 +50,7 @@ interface LineItemRow {
     indentId: string | null;
     name: string;
     status: string;
+    rejectedStage?: string | null;
     project: Project;
     expectedDelivery?: string | null;
     requestedBy?: {
@@ -85,7 +88,9 @@ export function MaterialsHubClient({
   const router = useRouter();
   const { data: workspaceData } = useWorkspaceLayout();
   const workspaceRole = workspaceData?.permissions?.workspaceRole;
+  const workspaceMemberId = workspaceData?.permissions?.workspaceMemberId;
   const isApprover = workspaceRole === "OWNER" || workspaceRole === "ADMIN" || workspaceRole === "MANAGER";
+  const isAccounts = workspaceRole === "ACCOUNTS";
 
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
@@ -276,6 +281,17 @@ export function MaterialsHubClient({
         return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">Submitted</Badge>;
       case "ASSIGNED":
         return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 font-medium">Assigned</Badge>;
+      case "PENDING_OWNER_APPROVAL":
+      case "PENDING_OWNER_COMPARATIVE_APPROVAL":
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-medium">Owner Review</Badge>;
+      case "COMPARATIVES_IN_PROGRESS":
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 font-medium">Comparatives</Badge>;
+      case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">Manager Rate Review</Badge>;
+      case "PENDING_OWNER_FINAL_APPROVAL":
+        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 font-medium">Owner Final Review</Badge>;
+      case "REJECTED":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 font-medium">Rejected</Badge>;
       case "APPROVED":
         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-medium">Approved</Badge>;
       case "CANCELLED":
@@ -445,6 +461,8 @@ export function MaterialsHubClient({
                       <TableHead className="text-xs">Indent Ref</TableHead>
                       <TableHead className="text-xs">Due Date</TableHead>
                       <TableHead className="text-xs">Quantity</TableHead>
+                      <TableHead className="text-xs">Approx. Rate</TableHead>
+                      <TableHead className="text-xs">Final Rate</TableHead>
                       <TableHead className="text-xs text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -454,9 +472,9 @@ export function MaterialsHubClient({
                       const indentStatus = item.indent.status;
                       const isDraft = indentStatus === "DRAFT";
                       const isSubmittedOrAssigned = indentStatus === "SUBMITTED" || indentStatus === "ASSIGNED";
+                      const isRequester = item.indent.requestedBy?.id === workspaceMemberId;
 
-                      // DRAFT can be edited by any workspace member; SUBMITTED/ASSIGNED can only be edited by OWNER/ADMIN/MANAGER (isApprover)
-                      const canUserEdit = isDraft || (isApprover && isSubmittedOrAssigned);
+                      const canUserEdit = !isAccounts && isRequester && isDraft;
 
                       return (
                         <TableRow key={item.id} className="hover:bg-muted/10">
@@ -508,6 +526,16 @@ export function MaterialsHubClient({
                               </span>
                             )}
                           </TableCell>
+                          <TableCell className="py-3 text-xs font-mono align-middle">
+                            {item.estimatedUnitPrice
+                              ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(item.estimatedUnitPrice / 100)
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="py-3 text-xs font-mono font-semibold align-middle">
+                            {item.finalUnitPrice
+                              ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(item.finalUnitPrice / 100)
+                              : "—"}
+                          </TableCell>
                           <TableCell className="py-3 text-right align-middle">
                             <div className="flex items-center justify-end gap-2">
                               {isEditing ? (
@@ -545,7 +573,7 @@ export function MaterialsHubClient({
                                       <Pencil className="size-3.5" /> Edit
                                     </Button>
                                   )}
-                                  {isDraft && (
+                                  {isDraft && isRequester && !isAccounts && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -555,7 +583,7 @@ export function MaterialsHubClient({
                                       <Send className="size-3.5" /> Submit
                                     </Button>
                                   )}
-                                  {isSubmittedOrAssigned && isApprover && (
+                                  {isSubmittedOrAssigned && isApprover && !isAccounts && (
                                     <Button
                                       size="sm"
                                       onClick={() => handleApproveIndent(item.indent.id)}

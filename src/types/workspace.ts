@@ -2,7 +2,7 @@
 /**
  * Types for workspace data
  */
-export type WorkspaceRole = "ADMIN" | "OWNER" | "MANAGER" | "MEMBER" | "VIEWER";
+export type WorkspaceRole = "ADMIN" | "OWNER" | "MANAGER" | "PROCUREMENT" | "ACCOUNTS" | "MEMBER" | "VIEWER";
 export type WorkspaceData = {
   id: string;
   name: string;

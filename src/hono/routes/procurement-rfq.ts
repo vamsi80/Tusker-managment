@@ -193,6 +193,11 @@ procurementRfq.post("/quotes", zValidator("json", SubmitQuoteSchema), async (c) 
   const workspaceId = c.req.query("w");
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (perms.workspaceRole === "ACCOUNTS") {
+    throw AppError.Forbidden("Accounts has view-only access to procurement");
+  }
+
   const quote = await RFQService.submitQuote(
     {
       lineItemId: body.lineItemId,

@@ -18,6 +18,30 @@ import {
     UpdateSettingsParams 
 } from "@/types/attendance";
 
+/**
+ * Last calendar day (as a timestamp) the attendance list may show.
+ *
+ * Approving a leave writes an ON_LEAVE record for every day of it up front, so
+ * a leave booked into next week already exists in the table today. Rows are
+ * sorted newest first, so those days pile on top of the current view. A leave
+ * that has not happened yet is still only a plan: the list stops at today, and
+ * runs to the end of the requested range only when the request actually asks
+ * for leaves — an ON_LEAVE status filter, or a range starting in the future.
+ */
+export function getVisibleThrough(
+    startDate: Date | undefined,
+    endDate: Date | undefined,
+    statusFilters: AttendanceStatus[],
+    now: Date = new Date()
+) {
+    const today = getISTDateOnly(now).getTime();
+    const rangeEnd = endDate ? floorToUTCDay(endDate).getTime() : Infinity;
+    const wantsFuture = statusFilters.includes(AttendanceStatus.ON_LEAVE)
+        || (startDate ? floorToUTCDay(startDate).getTime() > today : false);
+
+    return wantsFuture ? rangeEnd : Math.min(rangeEnd, today);
+}
+
 export class AttendanceService {
     /**
      * Get the WorkspaceMember ID for a specific user in a workspace.
@@ -410,9 +434,17 @@ export class AttendanceService {
                     ? (Array.isArray(filters.status) ? filters.status : [filters.status])
                     : [];
 
+                // Cap the range at today unless the request asks for future leaves,
+                // so days that have not happened yet stay out of the current view.
+                const visibleThrough = getVisibleThrough(startDate, endDate, statusFilters);
+                const dateWhere = {
+                    ...(startDate ? { gte: startDate } : {}),
+                    ...(Number.isFinite(visibleThrough) ? { lte: new Date(visibleThrough) } : {}),
+                };
+
                 const where: any = {
                     workspaceId,
-                    ...(startDate && endDate ? { date: { gte: startDate, lte: endDate } } : {}),
+                    ...(Object.keys(dateWhere).length > 0 ? { date: dateWhere } : {}),
                     ...memberWhere,
                     ...(statusFilters.length > 0 ? { status: { in: statusFilters } } : {}),
                 };
@@ -439,7 +471,8 @@ export class AttendanceService {
                         where: {
                             workspaceId,
                             status: "APPROVED",
-                            ...(startDate && endDate ? { startDate: { lte: endDate }, endDate: { gte: startDate } } : {}),
+                            ...(Number.isFinite(visibleThrough) ? { startDate: { lte: new Date(visibleThrough) } } : {}),
+                            ...(startDate ? { endDate: { gte: startDate } } : {}),
                             ...memberWhere,
                             ...(filters?.search ? {
                                 WorkspaceMember: {
@@ -470,7 +503,7 @@ export class AttendanceService {
                         const firstDay = toDateOnly(leave.startDate)!;
                         const lastDay = toDateOnly(leave.endDate)!;
                         let current = new Date(Math.max(firstDay.getTime(), startDate ? floorToUTCDay(startDate).getTime() : 0));
-                        const last = new Date(Math.min(lastDay.getTime(), endDate ? floorToUTCDay(endDate).getTime() : Infinity));
+                        const last = new Date(Math.min(lastDay.getTime(), visibleThrough));
                         let iterations = 0;
 
                         while (current <= last && iterations < 100) {

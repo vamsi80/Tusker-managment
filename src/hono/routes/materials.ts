@@ -19,7 +19,7 @@ materials.get("/", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 

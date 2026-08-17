@@ -23,6 +23,14 @@ export default async function WorkspaceProcurementCreateIndent({ params, searchP
     redirect("/login");
   }
 
+  const member = await db.workspaceMember.findFirst({
+    where: { workspaceId, userId: user.id },
+    select: { workspaceRole: true },
+  });
+  if (member?.workspaceRole === "ACCOUNTS") {
+    redirect(`/w/${workspaceId}/procurement/indents`);
+  }
+
   // Fetch active projects for this workspace to populate the selector
   const projects = await db.project.findMany({
     where: {

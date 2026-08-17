@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown, Search, X, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -16,114 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CreateMaterialDialog } from "../../../materials/_components/create-material-dialog";
-
-const COMMON_UNITS = [
-  { value: "pcs", label: "Pieces (pcs)" },
-  { value: "kg", label: "Kilograms (kg)" },
-  { value: "bags", label: "Bags" },
-  { value: "cum", label: "Cubic Meters (cum)" },
-  { value: "sqft", label: "Square Feet (sqft)" },
-  { value: "rft", label: "Running Feet (rft)" },
-  { value: "ton", label: "Tons" },
-  { value: "liters", label: "Liters" },
-  { value: "nos", label: "Numbers (nos)" },
-];
-
-const PREDEFINED_TAGS = [
-  "Civil Works",
-  "Carpentry & Finishes",
-  "Stone & Tiles",
-  "Glass",
-  "Metal Works",
-  "Hardware & Fittings",
-  "Paint & Coatings",
-  "Electrical",
-  "Lighting",
-  "HVAC",
-  "Plumbing",
-  "Ceiling Systems",
-  "Flooring",
-  "Furniture",
-  "Soft Furnishings",
-  "Signage & Graphics"
-];
-
-function IndentTagSelector({ value, onChange, disabled }: { value: string, onChange: (v: string) => void, disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filtered = PREDEFINED_TAGS.filter(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
-  const exactMatch = PREDEFINED_TAGS.some(t => t.toLowerCase() === searchQuery.toLowerCase());
-  const isCustomValue = value && !PREDEFINED_TAGS.some(t => t.toLowerCase() === value.toLowerCase());
-
-  // Merge custom value if it exists and matches search
-  const displayTags = [...filtered];
-  if (isCustomValue && value.toLowerCase().includes(searchQuery.toLowerCase())) {
-     if (!displayTags.includes(value)) {
-         displayTags.push(value);
-     }
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverAnchor asChild>
-        <button
-          type="button"
-          onClick={() => !disabled && setOpen(true)}
-          disabled={disabled}
-          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left font-normal"
-        >
-          <span className={value ? "text-foreground font-medium truncate capitalize" : "text-muted-foreground truncate"}>
-            {value || "Select a tag..."}
-          </span>
-          <ChevronDown className="size-3.5 text-muted-foreground/70 shrink-0 ml-2" />
-        </button>
-      </PopoverAnchor>
-      <PopoverContent className="w-[300px] p-0 bg-popover border border-border/80 rounded-md shadow-lg z-50 flex flex-col max-h-64 overflow-hidden" align="start">
-        <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2 shrink-0">
-          <Search className="size-3.5 text-muted-foreground/60 shrink-0" />
-          <input
-            autoFocus
-            placeholder="Search tags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/60 text-foreground"
-          />
-          {searchQuery && (
-            <button type="button" onClick={() => setSearchQuery("")} className="text-muted-foreground/50 hover:text-foreground">
-              <X className="size-3 shrink-0" />
-            </button>
-          )}
-        </div>
-        <div className="overflow-y-auto max-h-48 divide-y divide-border/20">
-          {displayTags.length === 0 && !searchQuery.trim() ? (
-            <div className="px-3 py-4 text-center text-xs text-muted-foreground">No tags found</div>
-          ) : (
-            displayTags.map((t) => (
-              <div
-                key={t}
-                className="px-3 py-2 text-xs cursor-pointer hover:bg-accent text-popover-foreground flex items-center justify-between transition-colors font-medium capitalize"
-                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onChange(t); setOpen(false); }}
-              >
-                {t}
-              </div>
-            ))
-          )}
-        </div>
-        {searchQuery.trim() && !exactMatch && !displayTags.includes(searchQuery.trim()) && (
-          <div
-            className="px-3 py-2.5 text-xs cursor-pointer hover:bg-primary/5 text-primary flex items-center transition-colors font-semibold border-t border-border/40 bg-muted/20 mt-auto shrink-0"
-            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onChange(searchQuery.trim()); setOpen(false); }}
-          >
-            <Plus className="mr-2 size-3 text-primary shrink-0" /> Create &quot;{searchQuery.trim()}&quot;
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // ---------------------------------------------------------------------------
 // AutoCompleteInput
@@ -146,11 +38,17 @@ function AutoCompleteInput({
   isLoading: boolean;
   currentUnit?: string;
   onFocusTrigger?: () => void;
-  workspaceId: string;
-  unitsList: string[];
-  onCreatedSuccess?: () => Promise<void>;
 }) {
-  const [listId] = useState(() => "catalog-" + Math.random().toString(36).substr(2, 9));
+  const [open, setOpen] = useState(false);
+  const query = value.trim().toLowerCase();
+  const suggestions = catalog
+    .filter((item) => !query || item.name.toLowerCase().includes(query))
+    .sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(query) ? 0 : 1;
+      const bStarts = b.name.toLowerCase().startsWith(query) ? 0 : 1;
+      return aStarts - bStarts || a.name.localeCompare(b.name);
+    })
+    .slice(0, 8);
 
   // Auto-fill unit if the user types or enters the exact name of an existing material
   useEffect(() => {
@@ -168,24 +66,54 @@ function AutoCompleteInput({
   return (
     <div className="relative w-full">
       <Input
-        list={listId}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
+          setOpen(true);
         }}
         onFocus={() => {
            if (onFocusTrigger) onFocusTrigger();
+           setOpen(true);
         }}
+        onBlur={() => window.setTimeout(() => setOpen(false), 100)}
         disabled={disabled || isLoading}
         placeholder={isLoading ? "Loading..." : "Enter material..."}
         className="h-8 text-xs bg-background font-medium px-2"
         autoComplete="off"
       />
-      <datalist id={listId}>
-        {catalog.map((item) => (
-          <option key={item.id} value={item.name} />
-        ))}
-      </datalist>
+      {open && !isLoading && value.trim() && suggestions.length > 0 && (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
+        >
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Use a remembered material
+          </div>
+          {suggestions.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="flex w-full items-center justify-between rounded px-2 py-2 text-left text-xs hover:bg-accent"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onChange(item.name);
+                if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
+                  onUnitAutoFill(item.defaultUnit.abbreviation);
+                }
+                setOpen(false);
+              }}
+            >
+              <span className="font-medium">{item.name}</span>
+              {item.defaultUnit?.abbreviation && (
+                <span className="text-[10px] uppercase text-muted-foreground">{item.defaultUnit.abbreviation}</span>
+              )}
+            </button>
+          ))}
+          <div className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
+            Keep typing to use a new material name.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -253,7 +181,6 @@ export function CreateIndentForm({
   const [activeProjectId, setActiveProjectId] = useState(projectId);
   const [projectError, setProjectError] = useState("");
   const [projectTasks, setProjectTasks] = useState(tasks);
-  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState(taskId || "");
@@ -267,6 +194,7 @@ export function CreateIndentForm({
 
   // Approvers Multi-Select
   const [approverIds, setApproverIds] = useState<string[]>([]);
+  const [approverError, setApproverError] = useState("");
   const [owners, setOwners] = useState<any[]>([]);
   const [ownersOpen, setOwnersOpen] = useState(false);
 
@@ -438,8 +366,9 @@ export function CreateIndentForm({
       toast.error("Please select a project");
       return;
     }
-    if (!name.trim()) {
-      toast.error("Please enter an indent name");
+    if (approverIds.length === 0) {
+      setApproverError("Select at least one owner for approval");
+      toast.error("Select at least one owner for approval");
       return;
     }
     for (let i = 0; i < lineItems.length; i++) {
@@ -464,7 +393,6 @@ export function CreateIndentForm({
         taskId: selectedTaskId || undefined,
         projectId: activeProjectId,
         workspaceId,
-        name,
         description: description || undefined,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery).toISOString() : undefined,
         approverIds,
@@ -588,18 +516,6 @@ export function CreateIndentForm({
             </div>
           )}
 
-          {/* Indent Tag */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="indent-tag" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Indent Tag <span className="text-destructive">*</span>
-            </Label>
-            <IndentTagSelector
-              value={name}
-              onChange={(v) => setName(v)}
-              disabled={isSubmitting}
-            />
-          </div>
-
           {/* Expected Delivery */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="expected-delivery" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -633,7 +549,7 @@ export function CreateIndentForm({
           {/* Approval Required By */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Approval Required By
+              Approval Required By <span className="text-destructive">*</span>
             </Label>
             <Popover open={ownersOpen} onOpenChange={setOwnersOpen}>
               <PopoverTrigger asChild>
@@ -641,7 +557,11 @@ export function CreateIndentForm({
                   variant="outline"
                   role="combobox"
                   aria-expanded={ownersOpen}
-                  className="w-full justify-between h-9 text-xs"
+                  aria-invalid={Boolean(approverError)}
+                  aria-describedby={approverError ? "approver-error" : undefined}
+                  className={`w-full justify-between h-9 text-xs ${
+                    approverError ? "border-destructive focus-visible:ring-destructive" : ""
+                  }`}
                   disabled={isSubmitting}
                 >
                   {approverIds.length > 0
@@ -656,6 +576,7 @@ export function CreateIndentForm({
                     <div
                       key={owner.id}
                       onClick={() => {
+                        setApproverError("");
                         setApproverIds(prev => 
                           prev.includes(owner.id) 
                             ? prev.filter(id => id !== owner.id)
@@ -676,6 +597,11 @@ export function CreateIndentForm({
                 </div>
               </PopoverContent>
             </Popover>
+            {approverError && (
+              <p id="approver-error" className="mt-0.5 text-[11px] font-medium text-destructive">
+                {approverError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -724,15 +650,6 @@ export function CreateIndentForm({
                         disabled={isSubmitting}
                         catalog={catalog}
                         isLoading={isLoadingCatalog}
-                        workspaceId={workspaceId}
-                        unitsList={displayedUnits.map((u) => u.abbreviation)}
-                        onCreatedSuccess={async () => {
-                          const catalogRes = await fetch(`/api/v1/materials?w=${workspaceId}`);
-                          const catalogJson = await catalogRes.json();
-                          if (catalogJson.success && catalogJson.data) {
-                            setCatalog(catalogJson.data);
-                          }
-                        }}
                       />
                     </TableCell>
                     <TableCell className="py-2">

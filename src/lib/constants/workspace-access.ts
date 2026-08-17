@@ -84,6 +84,10 @@ export function getWorkspacePermissions(role: WorkspaceRole): WorkspacePermissio
                 "project:create",
             ];
 
+        case "PROCUREMENT":
+        case "ACCOUNTS":
+            return [];
+
         case "MEMBER":
             return [
                 // Limited permissions - can only work on assigned projects
@@ -116,7 +120,7 @@ export function canManageRole(
 
     if (managerRole === "ADMIN") {
         // Admin can manage MANAGER, MEMBER and VIEWER, but not OWNER or other ADMINs
-        return targetRole === "MANAGER" || targetRole === "MEMBER" || targetRole === "VIEWER";
+        return targetRole === "MANAGER" || targetRole === "PROCUREMENT" || targetRole === "ACCOUNTS" || targetRole === "MEMBER" || targetRole === "VIEWER";
     }
 
     if (managerRole === "MANAGER") {
@@ -143,7 +147,7 @@ export function canAssignRole(
 
     if (assignerRole === "ADMIN") {
         // Admin can only assign MANAGER, MEMBER and VIEWER
-        return roleToAssign === "MANAGER" || roleToAssign === "MEMBER" || roleToAssign === "VIEWER";
+        return roleToAssign === "MANAGER" || roleToAssign === "PROCUREMENT" || roleToAssign === "ACCOUNTS" || roleToAssign === "MEMBER" || roleToAssign === "VIEWER";
     }
 
     if (assignerRole === "MANAGER") {
@@ -175,7 +179,7 @@ export function canRemoveMember(
 
     if (removerRole === "ADMIN") {
         // Admin can remove MANAGER, MEMBER and VIEWER
-        return targetRole === "MANAGER" || targetRole === "MEMBER" || targetRole === "VIEWER";
+        return targetRole === "MANAGER" || targetRole === "PROCUREMENT" || targetRole === "ACCOUNTS" || targetRole === "MEMBER" || targetRole === "VIEWER";
     }
 
     if (removerRole === "MANAGER") {
@@ -196,6 +200,9 @@ export function getRoleLevel(role: WorkspaceRole): number {
             return 4;
         case "MANAGER":
             return 3;
+        case "PROCUREMENT":
+        case "ACCOUNTS":
+            return 2;
         case "MEMBER":
             return 2;
         case "VIEWER":
@@ -230,6 +237,10 @@ export function getRoleDisplayName(role: WorkspaceRole): string {
             return "Admin";
         case "MANAGER":
             return "Manager";
+        case "PROCUREMENT":
+            return "Procurement";
+        case "ACCOUNTS":
+            return "Accounts";
         case "MEMBER":
             return "Member";
         case "VIEWER":
@@ -250,6 +261,10 @@ export function getRoleDescription(role: WorkspaceRole): string {
             return "Can manage workspace, projects, and members";
         case "MANAGER":
             return "Can create projects and manage members";
+        case "PROCUREMENT":
+            return "Can manage vendors, comparatives, and procurement records";
+        case "ACCOUNTS":
+            return "Read-only access to procurement items and rates";
         case "MEMBER":
             return "Can access assigned projects and create tasks";
         case "VIEWER":

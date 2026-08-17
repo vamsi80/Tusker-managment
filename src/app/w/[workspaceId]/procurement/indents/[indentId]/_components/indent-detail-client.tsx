@@ -43,12 +43,25 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
   const router = useRouter();
   const { data: workspaceData } = useWorkspaceLayout();
   const workspaceRole = workspaceData?.permissions?.workspaceRole;
+  const workspaceMemberId = workspaceData?.permissions?.workspaceMemberId;
   const isApprover = workspaceRole === "OWNER" || workspaceRole === "ADMIN" || workspaceRole === "MANAGER";
+  const isAccounts = workspaceRole === "ACCOUNTS";
 
   const [indent, setIndent] = useState(initialIndent);
   const [isPending, startTransition] = useTransition();
 
-  const canEdit = indent.status === "DRAFT" || (isApprover && (indent.status === "SUBMITTED" || indent.status === "ASSIGNED"));
+  const isRequester = Boolean(workspaceMemberId && workspaceMemberId === indent.requestedById);
+  const allSelectedOwnersAuthorized = Boolean(
+    indent.approverIds?.length &&
+    indent.approverIds.every((id: string) => indent.approvedByIds?.includes(id))
+  );
+  const isInitialRevision = indent.status === "REJECTED" && indent.rejectedStage !== "FINAL";
+  const isFinalRateEntry =
+    indent.status === "COMPARATIVES_IN_PROGRESS" ||
+    (indent.status === "REJECTED" && indent.rejectedStage === "FINAL");
+  const canEdit = !isAccounts && (indent.status === "DRAFT" || isInitialRevision) && (isRequester || isApprover);
+  const canEnterFinalRates =
+    !isAccounts && isRequester && isFinalRateEntry && allSelectedOwnersAuthorized;
 
   // Edit row states
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -56,16 +69,51 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
   const [editQuantity, setEditQuantity] = useState(0);
   const [editUnit, setEditUnit] = useState("pcs");
   const [editSpecifications, setEditSpecifications] = useState("");
+  const [editEstimatedRate, setEditEstimatedRate] = useState("");
 
   // Add row states
   const [addMaterialName, setAddMaterialName] = useState("");
   const [addQuantity, setAddQuantity] = useState(1);
   const [addUnit, setAddUnit] = useState("pcs");
   const [addSpecifications, setAddSpecifications] = useState("");
+  const [addEstimatedRate, setAddEstimatedRate] = useState("");
+  const [finalRates, setFinalRates] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      (initialIndent.lineItems || []).map((item: any) => [
+        item.id,
+        item.finalUnitPrice ? String(item.finalUnitPrice / 100) : "",
+      ])
+    )
+  );
+  const [materialCatalog, setMaterialCatalog] = useState<any[]>([]);
 
   useEffect(() => {
-    setIndent(initialIndent);
-  }, [initialIndent]);
+    let active = true;
+    fetch(`/api/v1/materials?w=${workspaceId}`)
+      .then((response) => response.json())
+      .then((payload) => {
+        if (active && payload.success) setMaterialCatalog(payload.data || []);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [workspaceId]);
+
+  const applyRememberedMaterial = (
+    value: string,
+    setName: (name: string) => void,
+    setUnit: (unit: string) => void
+  ) => {
+    setName(value);
+    const match = materialCatalog.find((material) => material.name.toLowerCase() === value.trim().toLowerCase());
+    if (match?.defaultUnit?.abbreviation) setUnit(match.defaultUnit.abbreviation);
+  };
+
+  const formatRate = (value?: number | null) =>
+    value == null
+      ? "—"
+      : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value / 100);
 
   const showErrorToast = (errPayload: any, fallback: string) => {
     if (!errPayload) {
@@ -86,11 +134,22 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
       case "DRAFT":
         return <Badge variant="outline" className="bg-muted text-muted-foreground border-neutral-300">Draft</Badge>;
       case "SUBMITTED":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Submitted</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Estimate Review</Badge>;
+      case "PENDING_OWNER_APPROVAL":
+      case "PENDING_OWNER_COMPARATIVE_APPROVAL":
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Owner Comparative Authorization</Badge>;
+      case "COMPARATIVES_IN_PROGRESS":
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Getting Comparatives</Badge>;
+      case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Final-Rate Review</Badge>;
+      case "PENDING_OWNER_FINAL_APPROVAL":
+        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">Owner Final Approval</Badge>;
       case "APPROVED":
         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>;
       case "CANCELLED":
         return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Cancelled</Badge>;
+      case "REJECTED":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Rejected — Revision Required</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -105,7 +164,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         const data = await res.json();
         if (data.success) {
           toast.success("Indent approved successfully");
-          const updated = { ...indent, status: "APPROVED" };
+          const updated = { ...indent, ...data.data };
           setIndent(updated);
           router.refresh();
         } else {
@@ -126,21 +185,71 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     }
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/cancel?w=${workspaceId}`, {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/reject?w=${workspaceId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reason }),
         });
         const data = await res.json();
         if (data.success) {
-          toast.success("Indent rejected successfully");
-          const updated = { ...indent, status: "CANCELLED" };
+          toast.success("Indent returned to the requester for revision");
+          const updated = { ...indent, ...data.data };
           setIndent(updated);
           router.refresh();
         } else {
           showErrorToast(data.error, "Failed to reject indent");
         }
       } catch (error) {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleResubmit = async () => {
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/resubmit?w=${workspaceId}`, {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Indent resubmitted for approval");
+          setIndent({ ...indent, ...data.data });
+          router.refresh();
+        } else {
+          showErrorToast(data.error, "Failed to resubmit indent");
+        }
+      } catch {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleSubmitFinalRates = async () => {
+    const rates = (indent.lineItems || []).map((item: any) => ({
+      itemId: item.id,
+      finalUnitPrice: Math.round(Number(finalRates[item.id] || 0) * 100),
+    }));
+    if (rates.some((rate: any) => rate.finalUnitPrice <= 0)) {
+      toast.error("Enter a positive final rate for every material");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}/final-rates?w=${workspaceId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rates }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Final rates submitted to the manager");
+          setIndent({ ...indent, ...data.data });
+          router.refresh();
+        } else {
+          showErrorToast(data.error, "Failed to submit final rates");
+        }
+      } catch {
         toast.error("Request failed");
       }
     });
@@ -177,6 +286,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     setEditQuantity(item.quantity);
     setEditUnit(item.unit || "pcs");
     setEditSpecifications(item.specifications || "");
+    setEditEstimatedRate(item.estimatedUnitPrice ? String(item.estimatedUnitPrice / 100) : "");
   };
 
   const handleEditCancel = () => {
@@ -202,6 +312,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             quantity: Number(editQuantity),
             unit: editUnit.trim(),
             specifications: editSpecifications.trim() || null,
+            estimatedUnitPrice: editEstimatedRate ? Math.round(Number(editEstimatedRate) * 100) : undefined,
           }),
         });
         const data = await res.json();
@@ -261,6 +372,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             quantity: Number(addQuantity),
             unit: addUnit.trim(),
             specifications: addSpecifications.trim() || undefined,
+            estimatedUnitPrice: addEstimatedRate ? Math.round(Number(addEstimatedRate) * 100) : undefined,
           }),
         });
         const data = await res.json();
@@ -272,6 +384,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           setAddQuantity(1);
           setAddUnit("pcs");
           setAddSpecifications("");
+          setAddEstimatedRate("");
         } else {
           showErrorToast(data.error, "Failed to add item");
         }
@@ -306,7 +419,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         </div>
 
         {/* Top Actions panel */}
-        {indent.status === "SUBMITTED" && (
+        {!isAccounts && ["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(indent.status) && ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "") && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -321,11 +434,23 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               disabled={isPending}
               className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              <Check className="mr-1.5 size-3.5" /> Approve
+              <Check className="mr-1.5 size-3.5" />
+              {indent.status === "PENDING_MANAGER_FINAL_RATE_APPROVAL" ? "Approve Final Rates" : "Approve Estimates"}
             </Button>
           </div>
         )}
-        {indent.status === "DRAFT" && (
+        {!isAccounts && ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL", "PENDING_OWNER_FINAL_APPROVAL"].includes(indent.status) && ["OWNER", "ADMIN"].includes(workspaceRole || "") && indent.approverIds?.includes(workspaceMemberId) && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleReject} disabled={isPending} className="h-8 text-xs font-semibold text-red-600 border-red-200 hover:bg-red-50">
+              <X className="mr-1.5 size-3.5" /> Reject
+            </Button>
+            <Button onClick={handleApprove} disabled={isPending} className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Check className="mr-1.5 size-3.5" />
+              {indent.status === "PENDING_OWNER_FINAL_APPROVAL" ? "Final Approve" : "Authorize Comparatives"}
+            </Button>
+          </div>
+        )}
+        {indent.status === "DRAFT" && isRequester && !isAccounts && (
           <div className="flex items-center gap-2">
             <Button
               onClick={handleSubmitForApproval}
@@ -336,7 +461,18 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             </Button>
           </div>
         )}
+        {indent.status === "REJECTED" && isRequester && indent.rejectedStage !== "FINAL" && !isAccounts && (
+          <Button onClick={handleResubmit} disabled={isPending} className="h-8 text-xs font-semibold">
+            <FileCheck className="mr-1.5 size-3.5" /> Resubmit Revised Indent
+          </Button>
+        )}
       </div>
+
+      {indent.status === "REJECTED" && indent.rejectionReason && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+          <strong>Rejected for revision:</strong> {indent.rejectionReason}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Left column: Indent metadata info */}
@@ -428,6 +564,8 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                   <TableRow>
                     <TableHead className="text-xs">Material Name</TableHead>
                     <TableHead className="text-xs w-[180px]">Quantity</TableHead>
+                    <TableHead className="text-xs">Approx. Rate</TableHead>
+                    <TableHead className="text-xs">Final Rate</TableHead>
                     <TableHead className="text-xs">Specifications</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     {canEdit && <TableHead className="text-xs text-right w-[100px]">Actions</TableHead>}
@@ -442,8 +580,9 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                           <>
                             <TableCell className="py-2">
                               <Input
+                                list="indent-material-catalog"
                                 value={editMaterialName}
-                                onChange={(e) => setEditMaterialName(e.target.value)}
+                                onChange={(e) => applyRememberedMaterial(e.target.value, setEditMaterialName, setEditUnit)}
                                 className="h-8 text-xs font-semibold"
                                 disabled={isPending}
                               />
@@ -469,6 +608,19 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                 </select>
                               </div>
                             </TableCell>
+                            <TableCell className="py-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editEstimatedRate}
+                                onChange={(event) => setEditEstimatedRate(event.target.value)}
+                                placeholder="Approx. rate"
+                                className="h-8 text-xs font-mono"
+                                disabled={isPending}
+                              />
+                            </TableCell>
+                            <TableCell className="py-2 text-xs text-muted-foreground">{formatRate(item.finalUnitPrice)}</TableCell>
                             <TableCell className="py-2">
                               <Input
                                 value={editSpecifications}
@@ -511,6 +663,25 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                             </TableCell>
                             <TableCell className="font-mono text-xs text-foreground py-2.5">
                               {item.quantity} {item.unit}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-foreground py-2.5">
+                              {formatRate(item.estimatedUnitPrice)}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              {canEnterFinalRates ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={finalRates[item.id] || ""}
+                                  onChange={(event) => setFinalRates((current) => ({ ...current, [item.id]: event.target.value }))}
+                                  placeholder="Enter final rate"
+                                  className="h-8 min-w-[120px] text-xs font-mono"
+                                  disabled={isPending}
+                                />
+                              ) : (
+                                <span className="font-mono text-xs font-semibold">{formatRate(item.finalUnitPrice)}</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground py-2.5 max-w-[200px] truncate">
                               {item.specifications || "—"}
@@ -555,9 +726,10 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                     <TableRow className="bg-muted/10 hover:bg-muted/10">
                       <TableCell className="py-2">
                         <Input
+                          list="indent-material-catalog"
                           placeholder="Add new material name..."
                           value={addMaterialName}
-                          onChange={(e) => setAddMaterialName(e.target.value)}
+                          onChange={(e) => applyRememberedMaterial(e.target.value, setAddMaterialName, setAddUnit)}
                           className="h-8 text-xs font-semibold"
                           disabled={isPending}
                         />
@@ -586,6 +758,19 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                       </TableCell>
                       <TableCell className="py-2">
                         <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Approx. rate"
+                          value={addEstimatedRate}
+                          onChange={(event) => setAddEstimatedRate(event.target.value)}
+                          className="h-8 text-xs font-mono"
+                          disabled={isPending}
+                        />
+                      </TableCell>
+                      <TableCell className="py-2 text-xs text-muted-foreground">—</TableCell>
+                      <TableCell className="py-2">
+                        <Input
                           placeholder="Specifications (optional)..."
                           value={addSpecifications}
                           onChange={(e) => setAddSpecifications(e.target.value)}
@@ -611,13 +796,29 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
 
                   {(!indent.lineItems || indent.lineItems.length === 0) && !canEdit && (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={canEdit ? 7 : 6} className="h-24 text-center text-xs text-muted-foreground">
                         No materials found in this indent.
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+              <datalist id="indent-material-catalog">
+                {materialCatalog.map((material) => (
+                  <option key={material.id} value={material.name} />
+                ))}
+              </datalist>
+              {canEnterFinalRates && (
+                <div className="flex items-center justify-between gap-4 border-t bg-amber-50/50 px-4 py-3">
+                  <p className="text-xs text-amber-800">
+                    Enter the least manually negotiated rate for every material, then send the rates to your manager.
+                  </p>
+                  <Button onClick={handleSubmitFinalRates} disabled={isPending} className="shrink-0 h-8 text-xs">
+                    <FileCheck className="mr-1.5 size-3.5" />
+                    {indent.status === "REJECTED" ? "Resubmit Final Rates" : "Submit Final Rates"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

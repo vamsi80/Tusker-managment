@@ -9,12 +9,15 @@ import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface RfqsClientProps {
   workspaceId: string;
 }
 
 export function RfqsClient({ workspaceId }: RfqsClientProps) {
+  const { data: workspaceData } = useWorkspaceLayout();
+  const isAccounts = workspaceData?.permissions?.workspaceRole === "ACCOUNTS";
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -125,11 +128,13 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
           <h1 className="text-base font-bold text-foreground">Active RFQs</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Track and compare vendor quotes for sent RFQs</p>
         </div>
-        <Link href={`/w/${workspaceId}/procurement/rfqs/create`}>
-          <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
-            <Plus className="size-3.5" /> Create RFQ
-          </Button>
-        </Link>
+        {!isAccounts && (
+          <Link href={`/w/${workspaceId}/procurement/rfqs/create`}>
+            <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
+              <Plus className="size-3.5" /> Create RFQ
+            </Button>
+          </Link>
+        )}
       </div>
       <DataTable
         columns={rfqColumns}

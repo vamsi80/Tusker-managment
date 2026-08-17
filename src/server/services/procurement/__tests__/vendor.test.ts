@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, beforeEach, vi } from "vitest";
+import { describe, test, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 
 // Ensure this test runs against the real DB since it tests pg_trgm logic
 vi.unmock("@/lib/db");
@@ -8,9 +8,10 @@ import { VendorService } from "../vendor/vendor.service";
 import { VendorRepository } from "../vendor/vendor.repository";
 
 const prisma = new PrismaClient();
+const describeDatabaseIntegration =
+  process.env.RUN_DB_INTEGRATION_TESTS === "true" ? describe : describe.skip;
 
-
-describe("Vendor Onboarding & Comparison Tests", () => {
+describeDatabaseIntegration("Vendor Onboarding & Comparison Tests", () => {
   const mockWorkspaceId = "test-workspace-uuid-123";
   let activeVendorId: string;
   let blacklistedVendorId: string;
@@ -65,6 +66,10 @@ describe("Vendor Onboarding & Comparison Tests", () => {
     });
     await VendorService.blacklistVendor(blacklisted.id, mockWorkspaceId);
     blacklistedVendorId = blacklisted.id;
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
   });
 
   test("suggestVendors returns empty when no capability matches", async () => {

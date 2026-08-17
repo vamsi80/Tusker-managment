@@ -17,6 +17,14 @@ export default async function WorkspaceProcurementCreateRfq({ params }: PageProp
     redirect("/login");
   }
 
+  const member = await db.workspaceMember.findFirst({
+    where: { workspaceId, userId: user.id },
+    select: { workspaceRole: true },
+  });
+  if (member?.workspaceRole === "ACCOUNTS") {
+    redirect(`/w/${workspaceId}/procurement/rfqs`);
+  }
+
   // Fetch approved indents with line items
   const indents = await db.indent.findMany({
     where: {

@@ -102,6 +102,7 @@ vi.mock("@/lib/colors/project-colors", () => ({
 // No longer mocking deleted get-workspace-by-id
 
 vi.mock("@/lib/auth/require-user", () => ({
+    getSession: vi.fn(),
     requireUser: vi.fn(),
 }));
 

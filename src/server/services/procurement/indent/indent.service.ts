@@ -1,26 +1,151 @@
+import { randomUUID } from "crypto";
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
-import { IndentRepository } from "./indent.repository";
-import { INDENT_TRANSITIONS, assertTransition } from "../utils/state-machine";
 import { broadcastProjectUpdate } from "@/lib/realtime";
+import { IndentRepository } from "./indent.repository";
+
+type InitialLineItemInput = {
+  materialName: string;
+  unit: string;
+  quantity: number;
+  estimatedUnitPrice?: number;
+  specifications?: string | null;
+};
 
 export class IndentService {
+  private static async getIndent(indentId: string, workspaceId: string) {
+    const indent = await IndentRepository.findById(indentId);
+    if (!indent || indent.workspaceId !== workspaceId) {
+      throw AppError.NotFound("Indent not found");
+    }
+    return indent;
+  }
+
+  private static async getMember(userId: string, workspaceId: string) {
+    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
+    if (!member) throw AppError.Forbidden("Not a workspace member");
+    return member;
+  }
+
+  private static ensureCanMutate(member: { workspaceRole: string }) {
+    if (member.workspaceRole === "ACCOUNTS") {
+      throw AppError.Forbidden("Accounts has view-only access to procurement");
+    }
+  }
+
+  private static isManagerForIndent(member: { id: string; workspaceRole: string }, indent: any) {
+    const reportingManagerId = indent.requestedBy?.reportToId;
+    if (reportingManagerId) return member.id === reportingManagerId;
+    return ["MANAGER", "ADMIN", "OWNER"].includes(member.workspaceRole);
+  }
+
+  private static isOwnerApprover(member: { id: string; workspaceRole: string }, indent: any) {
+    return Boolean(
+      indent.approverIds?.length &&
+      indent.approverIds.includes(member.id) &&
+      ["OWNER", "ADMIN"].includes(member.workspaceRole)
+    );
+  }
+
+  private static ensureOwnerApprovers(indent: any) {
+    if (!indent.approverIds?.length) {
+      throw AppError.ValidationError("Select at least one owner for approval");
+    }
+  }
+
+  private static haveAllSelectedOwnersApproved(indent: any, approvedIds: string[]) {
+    return Boolean(
+      indent.approverIds?.length &&
+      indent.approverIds.every((id: string) => approvedIds.includes(id))
+    );
+  }
+
+  private static async getManagerUserIds(indent: any, workspaceId: string) {
+    if (indent.requestedBy?.reportToId) {
+      const reportingManager = await prisma.workspaceMember.findFirst({
+        where: { id: indent.requestedBy.reportToId, workspaceId },
+        select: { userId: true },
+      });
+      if (reportingManager) return [reportingManager.userId];
+    }
+
+    const managers = await prisma.workspaceMember.findMany({
+      where: { workspaceId, workspaceRole: "MANAGER" },
+      select: { userId: true },
+    });
+    if (managers.length) return managers.map((manager) => manager.userId);
+
+    const fallbackApprovers = await prisma.workspaceMember.findMany({
+      where: { workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
+      select: { userId: true },
+    });
+    return fallbackApprovers.map((member) => member.userId);
+  }
+
+  private static async getOwnerUserIds(indent: any, workspaceId: string) {
+    this.ensureOwnerApprovers(indent);
+    const owners = await prisma.workspaceMember.findMany({
+      where: { workspaceId, id: { in: indent.approverIds } },
+      select: { userId: true },
+    });
+    return owners.map((owner) => owner.userId);
+  }
+
+  private static async notify(
+    userIds: string[],
+    workspaceId: string,
+    indentId: string,
+    title: string,
+    body: string
+  ) {
+    const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
+    if (!uniqueUserIds.length) return;
+    const now = new Date();
+    await prisma.notification.createMany({
+      data: uniqueUserIds.map((userId) => ({
+        id: randomUUID(),
+        userId,
+        workspaceId,
+        title,
+        body,
+        type: "INDENT_APPROVAL",
+        entityId: indentId,
+        entityType: "Indent",
+        createdAt: now,
+        updatedAt: now,
+      })),
+    });
+  }
+
+  private static async broadcast(indent: { projectId: string }, workspaceId: string) {
+    await broadcastProjectUpdate({
+      workspaceId,
+      projectId: indent.projectId,
+      type: "UPDATE",
+      action: "PROJECT_INDENT_UPDATED",
+    } as any);
+  }
+
+  private static ensureApproximateRates(indent: any) {
+    if (!indent.lineItems.length) {
+      throw AppError.ValidationError("Add at least one material before submitting the indent");
+    }
+    const missing = indent.lineItems.find((item: any) => !item.estimatedUnitPrice || item.estimatedUnitPrice <= 0);
+    if (missing) {
+      throw AppError.ValidationError(`Enter an approximate rate for ${missing.materialName}`);
+    }
+  }
+
   static async createIndent(
     data: {
       taskId?: string;
       projectId: string;
       workspaceId: string;
-      name: string;
+      name?: string;
       description?: string;
       expectedDelivery?: Date;
-      lineItems?: {
-        materialName: string;
-        unit: string;
-        quantity: number;
-        estimatedUnitPrice?: number;
-        specifications?: string | null;
-      }[];
-      approverIds?: string[];
+      lineItems?: InitialLineItemInput[];
+      approverIds: string[];
     },
     userId: string
   ) {
@@ -29,388 +154,475 @@ export class IndentService {
       if (existing) throw AppError.Conflict("An indent already exists for this task");
     }
 
-    const member = await IndentRepository.findWorkspaceMember(userId, data.workspaceId);
-    if (!member) throw AppError.Forbidden("Not a workspace member");
+    const member = await this.getMember(userId, data.workspaceId);
+    this.ensureCanMutate(member);
 
-    // Create indent and return
-    const indent = await IndentRepository.create({
+    if (!data.approverIds.length) {
+      throw AppError.ValidationError("Select at least one owner for approval");
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: data.projectId, workspaceId: data.workspaceId },
+      select: { name: true },
+    });
+    if (!project) throw AppError.NotFound("Project not found in this workspace");
+
+    const validApprovers = await prisma.workspaceMember.count({
+      where: {
+        workspaceId: data.workspaceId,
+        id: { in: data.approverIds },
+        workspaceRole: { in: ["OWNER", "ADMIN"] },
+      },
+    });
+    if (validApprovers !== new Set(data.approverIds).size) {
+      throw AppError.ValidationError("Every selected approver must be an owner or admin in this workspace");
+    }
+
+    const firstMaterial = data.lineItems?.[0]?.materialName?.trim() || "Materials";
+    const additionalCount = Math.max((data.lineItems?.length || 1) - 1, 0);
+    const materialLabel = `${firstMaterial}${additionalCount ? ` +${additionalCount}` : ""}`;
+    const dateLabel = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date());
+    const generatedName = `${project.name} - ${materialLabel} - ${dateLabel}`;
+
+    return IndentRepository.create({
       ...data,
+      name: data.name?.trim() || generatedName,
       requestedById: member.id,
     });
-
-    return indent;
   }
 
   static async submitIndent(indentId: string, userId: string, workspaceId: string) {
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
-    assertTransition(INDENT_TRANSITIONS, indent.status, "SUBMITTED", "Indent");
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    const indent = await this.getIndent(indentId, workspaceId);
 
-    const updated = await IndentRepository.updateStatus(indentId, "SUBMITTED", { submittedAt: new Date() });
+    if (indent.status !== "DRAFT") {
+      throw AppError.Conflict("Only a draft indent can be submitted");
+    }
+    if (member.id !== indent.requestedById && !["OWNER", "ADMIN", "MANAGER"].includes(member.workspaceRole)) {
+      throw AppError.Forbidden("Only the requester can submit this indent");
+    }
+    this.ensureOwnerApprovers(indent);
+    this.ensureApproximateRates(indent);
 
-    // Notify Managers
-    const managers = await prisma.workspaceMember.findMany({
-      where: { workspaceId, workspaceRole: { in: ["MANAGER", "ADMIN"] } },
-      select: { userId: true },
+    const updated = await IndentRepository.updateStatus(indentId, "SUBMITTED", {
+      submittedAt: new Date(),
+      rejectedAt: null,
+      rejectedById: null,
+      rejectedFromStatus: null,
+      rejectedStage: null,
+      rejectionReason: null,
     });
 
-    if (managers.length > 0) {
-      const { randomUUID } = require("crypto");
-      await prisma.notification.createMany({
-        data: managers.map(m => ({
-          id: randomUUID(),
-          userId: m.userId,
-          workspaceId,
-          title: "Indent Pending Manager Approval",
-          body: `An indent "${indent.name}" has been submitted and is awaiting your approval.`,
-          type: "INDENT_APPROVAL",
-          entityId: indent.id,
-          entityType: "Indent",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })),
-      });
+    await this.notify(
+      await this.getManagerUserIds(indent, workspaceId),
+      workspaceId,
+      indent.id,
+      "Indent pending manager approval",
+      `Indent "${indent.name}" is ready for review with approximate rates.`
+    );
+    await this.broadcast(indent, workspaceId);
+    return updated;
+  }
+
+  static async resubmitIndent(indentId: string, userId: string, workspaceId: string) {
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    const indent = await this.getIndent(indentId, workspaceId);
+    if (indent.status !== "REJECTED") throw AppError.Conflict("Only a rejected indent can be resubmitted");
+    if (member.id !== indent.requestedById) throw AppError.Forbidden("Only the requester can resubmit this indent");
+
+    const isFinalRevision = indent.rejectedStage === "FINAL";
+    this.ensureOwnerApprovers(indent);
+    if (isFinalRevision) {
+      const missing = indent.lineItems.find((item: any) => !item.finalUnitPrice || item.finalUnitPrice <= 0);
+      if (missing) throw AppError.ValidationError(`Enter a final rate for ${missing.materialName}`);
+    } else {
+      this.ensureApproximateRates(indent);
     }
 
-    await broadcastProjectUpdate({
-      workspaceId,
-      projectId: indent.projectId,
-      type: "UPDATE",
-      action: "PROJECT_INDENT_UPDATED"
-    } as any);
+    const nextStatus = isFinalRevision ? "PENDING_MANAGER_FINAL_RATE_APPROVAL" : "SUBMITTED";
+    const updated = await IndentRepository.updateStatus(indentId, nextStatus, {
+      rejectedAt: null,
+      rejectedById: null,
+      rejectedFromStatus: null,
+      rejectedStage: null,
+      rejectionReason: null,
+      ...(isFinalRevision
+        ? {
+            finalRatesSubmittedAt: new Date(),
+            finalRatesSubmittedById: member.id,
+            finalManagerApprovedAt: null,
+            finalManagerApprovedById: null,
+            finalOwnerApprovedByIds: [],
+          }
+        : {
+            submittedAt: new Date(),
+            managerApprovedAt: null,
+            managerApprovedById: null,
+            ownerAuthorizedAt: null,
+            approvedByIds: [],
+            finalRatesSubmittedAt: null,
+            finalRatesSubmittedById: null,
+            finalManagerApprovedAt: null,
+            finalManagerApprovedById: null,
+            finalOwnerApprovedByIds: [],
+            finalApprovedAt: null,
+            finalApprovedById: null,
+          }),
+    });
 
+    await this.notify(
+      await this.getManagerUserIds(indent, workspaceId),
+      workspaceId,
+      indent.id,
+      isFinalRevision ? "Final rates resubmitted" : "Indent resubmitted",
+      isFinalRevision
+        ? `Revised final rates for "${indent.name}" are ready for approval.`
+        : `Revised approximate rates for "${indent.name}" are ready for approval.`
+    );
+    await this.broadcast(indent, workspaceId);
     return updated;
   }
 
   static async assignIndent(indentId: string, assigneeId: string, userId: string, workspaceId: string) {
-    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
-    if (!member) throw AppError.Forbidden("Not a workspace member");
-
-    const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"];
-    if (!allowedRoles.includes(member.workspaceRole)) {
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    if (!["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"].includes(member.workspaceRole)) {
       throw AppError.Forbidden("Insufficient permissions to assign indents");
     }
+    const indent = await this.getIndent(indentId, workspaceId);
+    if (indent.status !== "SUBMITTED") throw AppError.Conflict("Only submitted indents can be assigned");
 
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
-    assertTransition(INDENT_TRANSITIONS, indent.status, "ASSIGNED", "Indent");
-
-    const assignee = await prisma.workspaceMember.findFirst({
-      where: { id: assigneeId, workspaceId },
-    });
+    const assignee = await prisma.workspaceMember.findFirst({ where: { id: assigneeId, workspaceId } });
     if (!assignee) throw AppError.NotFound("Assignee not found in workspace");
-
-    return IndentRepository.updateStatus(indentId, "ASSIGNED", {
-      assignedToId: assigneeId,
-    });
+    return IndentRepository.updateStatus(indentId, "ASSIGNED", { assignedToId: assigneeId });
   }
 
   static async approveIndent(indentId: string, userId: string, workspaceId: string) {
-    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
-    if (!member) throw AppError.Forbidden("Not a workspace member");
-
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    const indent = await this.getIndent(indentId, workspaceId);
 
     if (indent.status === "SUBMITTED" || indent.status === "ASSIGNED") {
-      // Stage 1: Manager Approval
-      const allowedRoles = ["MANAGER", "ADMIN", "OWNER"];
-      if (!allowedRoles.includes(member.workspaceRole)) {
-        throw AppError.Forbidden("Only managers or admins can approve at this stage");
+      if (!this.isManagerForIndent(member, indent)) {
+        throw AppError.Forbidden("Only the requester's manager can approve approximate rates");
       }
-
-      assertTransition(INDENT_TRANSITIONS, indent.status, "PENDING_OWNER_APPROVAL", "Indent");
-      const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_APPROVAL", {
+      this.ensureOwnerApprovers(indent);
+      const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_COMPARATIVE_APPROVAL", {
         managerApprovedAt: new Date(),
         managerApprovedById: member.id,
+        approvedByIds: [],
       });
-
-      // Notify Owners (specific approverIds if set, otherwise all workspace owners)
-      let ownerUserIds: string[] = [];
-      if (indent.approverIds && indent.approverIds.length > 0) {
-        const approverMembers = await prisma.workspaceMember.findMany({
-          where: { id: { in: indent.approverIds } },
-          select: { userId: true },
-        });
-        ownerUserIds = approverMembers.map((m) => m.userId);
-      } else {
-        const ownerMembers = await prisma.workspaceMember.findMany({
-          where: { workspaceId, workspaceRole: "OWNER" },
-          select: { userId: true },
-        });
-        ownerUserIds = ownerMembers.map((m) => m.userId);
-      }
-
-      if (ownerUserIds.length > 0) {
-        const { randomUUID } = require("crypto");
-        await prisma.notification.createMany({
-          data: ownerUserIds.map((userId) => ({
-            id: randomUUID(),
-            userId,
-            workspaceId,
-            title: "Indent Approval Required",
-            body: `Indent "${indent.name}" has been approved by the manager and requires your final approval.`,
-            type: "INDENT_APPROVAL",
-            entityId: indent.id,
-            entityType: "Indent",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })),
-        });
-      }
-
-      await broadcastProjectUpdate({
+      await this.notify(
+        await this.getOwnerUserIds(indent, workspaceId),
         workspaceId,
-        projectId: indent.projectId,
-        type: "UPDATE",
-        action: "PROJECT_INDENT_UPDATED",
-      } as any);
-
+        indent.id,
+        "Authorize procurement comparatives",
+        `Approximate rates for "${indent.name}" were approved by the manager. Authorize the requester to get comparatives.`
+      );
+      await this.broadcast(indent, workspaceId);
       return updated;
-
-    } else if (indent.status === "PENDING_OWNER_APPROVAL") {
-      // Stage 2: Owner Approval
-      if (indent.approverIds && indent.approverIds.length > 0) {
-        if (!indent.approverIds.includes(member.id)) {
-          throw AppError.Forbidden("You are not listed as an approver for this indent");
-        }
-      } else {
-        const allowedRoles = ["OWNER", "ADMIN"];
-        if (!allowedRoles.includes(member.workspaceRole)) {
-          throw AppError.Forbidden("Insufficient permissions to approve indents");
-        }
-      }
-
-      const currentApprovedIds = indent.approvedByIds || [];
-      if (currentApprovedIds.includes(member.id)) {
-        throw AppError.Conflict("You have already approved this indent");
-      }
-
-      const newApprovedIds = [...currentApprovedIds, member.id];
-      const allApproved = indent.approverIds && indent.approverIds.length > 0 
-        ? indent.approverIds.every(id => newApprovedIds.includes(id))
-        : true;
-
-      if (allApproved) {
-        assertTransition(INDENT_TRANSITIONS, indent.status, "PENDING_PAYMENT", "Indent");
-        const updated = await IndentRepository.updateStatus(indentId, "PENDING_PAYMENT", {
-          approvedByIds: newApprovedIds,
-          finalApprovedAt: new Date(),
-          finalApprovedById: member.id,
-        });
-
-        // Notify Accounts
-        const accountsMembers = await prisma.workspaceMember.findMany({
-          where: { workspaceId, workspaceRole: "ADMIN" },
-          select: { userId: true },
-        });
-
-        if (accountsMembers.length > 0) {
-          const { randomUUID } = require("crypto");
-          await prisma.notification.createMany({
-            data: accountsMembers.map(m => ({
-              id: randomUUID(),
-              userId: m.userId,
-              workspaceId,
-              title: "Indent Pending Payment Approval",
-              body: `Indent "${indent.name}" has been approved by all required owners and is waiting for payment approval.`,
-              type: "INDENT_APPROVAL",
-              entityId: indent.id,
-              entityType: "Indent",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })),
-          });
-        }
-
-        await broadcastProjectUpdate({
-          workspaceId,
-          projectId: indent.projectId,
-          type: "UPDATE",
-          action: "PROJECT_INDENT_UPDATED"
-        } as any);
-
-        return updated;
-      } else {
-        return IndentRepository.updateStatus(indentId, indent.status, {
-          approvedByIds: newApprovedIds,
-        });
-      }
-    } else if (indent.status === "PENDING_PAYMENT") {
-      // Stage 3: Accounts Approval
-      if (member.workspaceRole !== "ADMIN") {
-        throw AppError.Forbidden("Only accounts (Admins) can approve payments");
-      }
-
-      assertTransition(INDENT_TRANSITIONS, indent.status, "APPROVED", "Indent");
-      const updated = await IndentRepository.updateStatus(indentId, "APPROVED", {
-        // We could track accountsApprovedAt if we add it, but for now we just change status
-      });
-      
-      await broadcastProjectUpdate({
-        workspaceId,
-        projectId: indent.projectId,
-        type: "UPDATE",
-        action: "PROJECT_INDENT_UPDATED"
-      } as any);
-
-      return updated;
-    } else {
-      throw AppError.Conflict("Indent has already passed the approval stages");
     }
+
+    if (indent.status === "PENDING_OWNER_COMPARATIVE_APPROVAL" || indent.status === "PENDING_OWNER_APPROVAL") {
+      if (!this.isOwnerApprover(member, indent)) {
+        throw AppError.Forbidden("Only a selected owner can authorize comparatives");
+      }
+      const currentApprovedIds = indent.approvedByIds || [];
+      if (currentApprovedIds.includes(member.id)) throw AppError.Conflict("You have already authorized this indent");
+      const approvedByIds = [...currentApprovedIds, member.id];
+      const allApproved = this.haveAllSelectedOwnersApproved(indent, approvedByIds);
+
+      const updated = await IndentRepository.updateStatus(
+        indentId,
+        allApproved ? "COMPARATIVES_IN_PROGRESS" : "PENDING_OWNER_COMPARATIVE_APPROVAL",
+        {
+          approvedByIds,
+          ...(allApproved ? { ownerAuthorizedAt: new Date() } : {}),
+        }
+      );
+      if (allApproved) {
+        await this.notify(
+          [indent.requestedBy.user.id],
+          workspaceId,
+          indent.id,
+          "Start getting comparatives",
+          `Approximate rates for "${indent.name}" are authorized. Get comparative prices and enter the least final rates.`
+        );
+      }
+      await this.broadcast(indent, workspaceId);
+      return updated;
+    }
+
+    if (indent.status === "PENDING_MANAGER_FINAL_RATE_APPROVAL") {
+      if (!this.isManagerForIndent(member, indent)) {
+        throw AppError.Forbidden("Only the requester's manager can approve final rates");
+      }
+      const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_FINAL_APPROVAL", {
+        finalManagerApprovedAt: new Date(),
+        finalManagerApprovedById: member.id,
+        finalOwnerApprovedByIds: [],
+      });
+      await this.notify(
+        await this.getOwnerUserIds(indent, workspaceId),
+        workspaceId,
+        indent.id,
+        "Final procurement approval required",
+        `The manager approved the final rates for "${indent.name}". Final owner approval is required.`
+      );
+      await this.broadcast(indent, workspaceId);
+      return updated;
+    }
+
+    if (indent.status === "PENDING_OWNER_FINAL_APPROVAL") {
+      if (!this.isOwnerApprover(member, indent)) {
+        throw AppError.Forbidden("Only a selected owner can give final approval");
+      }
+      const currentApprovedIds = indent.finalOwnerApprovedByIds || [];
+      if (currentApprovedIds.includes(member.id)) throw AppError.Conflict("You have already given final approval");
+      const finalOwnerApprovedByIds = [...currentApprovedIds, member.id];
+      const allApproved = this.haveAllSelectedOwnersApproved(indent, finalOwnerApprovedByIds);
+      const updated = await IndentRepository.updateStatus(
+        indentId,
+        allApproved ? "APPROVED" : "PENDING_OWNER_FINAL_APPROVAL",
+        {
+          finalOwnerApprovedByIds,
+          ...(allApproved
+            ? { finalApprovedAt: new Date(), finalApprovedById: member.id }
+            : {}),
+        }
+      );
+      if (allApproved) {
+        await this.notify(
+          [indent.requestedBy.user.id],
+          workspaceId,
+          indent.id,
+          "Indent finally approved",
+          `The final rates for "${indent.name}" have been approved.`
+        );
+      }
+      await this.broadcast(indent, workspaceId);
+      return updated;
+    }
+
+    throw AppError.Conflict("Indent is not awaiting your approval");
+  }
+
+  static async submitFinalRates(
+    indentId: string,
+    rates: { itemId: string; finalUnitPrice: number }[],
+    userId: string,
+    workspaceId: string
+  ) {
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    const indent = await this.getIndent(indentId, workspaceId);
+    const allowed =
+      indent.status === "COMPARATIVES_IN_PROGRESS" ||
+      (indent.status === "REJECTED" && indent.rejectedStage === "FINAL");
+    if (!allowed) throw AppError.Conflict("Final rates cannot be entered at this stage");
+    this.ensureOwnerApprovers(indent);
+    if (!this.haveAllSelectedOwnersApproved(indent, indent.approvedByIds || [])) {
+      throw AppError.Conflict("Every selected owner must authorize comparatives before final rates can be entered");
+    }
+    if (member.id !== indent.requestedById) {
+      throw AppError.Forbidden("Only the original requester can enter final rates");
+    }
+
+    const rateByItemId = new Map(rates.map((rate) => [rate.itemId, rate.finalUnitPrice]));
+    for (const item of indent.lineItems) {
+      const rate = rateByItemId.get(item.id);
+      if (!rate || rate <= 0) throw AppError.ValidationError(`Enter a final rate for ${item.materialName}`);
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await Promise.all(
+        indent.lineItems.map((item) =>
+          tx.indentLineItem.update({
+            where: { id: item.id },
+            data: { finalUnitPrice: rateByItemId.get(item.id)! },
+          })
+        )
+      );
+      return tx.indent.update({
+        where: { id: indentId },
+        data: {
+          status: "PENDING_MANAGER_FINAL_RATE_APPROVAL",
+          finalRatesSubmittedAt: new Date(),
+          finalRatesSubmittedById: member.id,
+          finalManagerApprovedAt: null,
+          finalManagerApprovedById: null,
+          finalOwnerApprovedByIds: [],
+          rejectedAt: null,
+          rejectedById: null,
+          rejectedFromStatus: null,
+          rejectedStage: null,
+          rejectionReason: null,
+        },
+      });
+    });
+
+    await this.notify(
+      await this.getManagerUserIds(indent, workspaceId),
+      workspaceId,
+      indent.id,
+      "Final rates pending approval",
+      `The requester entered final rates for "${indent.name}". Review and approve them.`
+    );
+    await this.broadcast(indent, workspaceId);
+    return updated;
+  }
+
+  static async rejectIndent(indentId: string, reason: string, userId: string, workspaceId: string) {
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    const indent = await this.getIndent(indentId, workspaceId);
+    const initialStatuses = ["SUBMITTED", "ASSIGNED", "PENDING_OWNER_COMPARATIVE_APPROVAL", "PENDING_OWNER_APPROVAL"];
+    const finalStatuses = ["PENDING_MANAGER_FINAL_RATE_APPROVAL", "PENDING_OWNER_FINAL_APPROVAL"];
+    if (![...initialStatuses, ...finalStatuses].includes(indent.status)) {
+      throw AppError.Conflict("Indent cannot be rejected at this stage");
+    }
+
+    const isManagerStage = indent.status === "SUBMITTED" || indent.status === "ASSIGNED" || indent.status === "PENDING_MANAGER_FINAL_RATE_APPROVAL";
+    if (isManagerStage && !this.isManagerForIndent(member, indent)) {
+      throw AppError.Forbidden("Only the requester's manager can reject at this stage");
+    }
+    if (!isManagerStage && !this.isOwnerApprover(member, indent)) {
+      throw AppError.Forbidden("Only a selected owner can reject at this stage");
+    }
+
+    const rejectedStage = finalStatuses.includes(indent.status) ? "FINAL" : "INITIAL";
+    const updated = await IndentRepository.updateStatus(indentId, "REJECTED", {
+      rejectedAt: new Date(),
+      rejectedById: member.id,
+      rejectedFromStatus: indent.status,
+      rejectedStage,
+      rejectionReason: reason,
+      revisionCount: { increment: 1 },
+    });
+    await this.notify(
+      [indent.requestedBy.user.id],
+      workspaceId,
+      indent.id,
+      "Indent rejected for revision",
+      `"${indent.name}" was rejected: ${reason}. Edit it and resubmit for approval.`
+    );
+    await this.broadcast(indent, workspaceId);
+    return updated;
   }
 
   static async cancelIndent(indentId: string, reason: string, userId: string, workspaceId: string) {
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
-
-    const hasPOCreated = indent.lineItems.some((li: any) => li.status === "PO_CREATED");
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    const indent = await this.getIndent(indentId, workspaceId);
+    if (member.id !== indent.requestedById && !["OWNER", "ADMIN", "MANAGER"].includes(member.workspaceRole)) {
+      throw AppError.Forbidden("You cannot cancel this indent");
+    }
+    if (["APPROVED", "CANCELLED"].includes(indent.status)) {
+      throw AppError.Conflict("This indent can no longer be cancelled");
+    }
+    const hasPOCreated = indent.lineItems.some((item: any) => item.status === "PO_CREATED");
     if (hasPOCreated) throw AppError.Conflict("Cannot cancel: some line items are already PO generated");
-
-    assertTransition(INDENT_TRANSITIONS, indent.status, "CANCELLED", "Indent");
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.indentLineItem.updateMany({
         where: { indentId, status: { in: ["PENDING", "RFQ_SENT", "QUOTES_RECEIVED"] } },
         data: { status: "REJECTED" },
       });
-      return await tx.indent.update({
+      return tx.indent.update({
         where: { id: indentId },
         data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: reason },
       });
     });
-
-    await broadcastProjectUpdate({
-      workspaceId,
-      projectId: indent.projectId,
-      type: "UPDATE",
-      action: "PROJECT_INDENT_UPDATED"
-    } as any);
-
+    await this.broadcast(indent, workspaceId);
     return updated;
+  }
+
+  private static canEditInitialDetails(member: { id: string; workspaceRole: string }, indent: any) {
+    if (member.workspaceRole === "ACCOUNTS") return false;
+    const editableStatus = indent.status === "DRAFT" || (indent.status === "REJECTED" && indent.rejectedStage !== "FINAL");
+    if (!editableStatus) return false;
+    return member.id === indent.requestedById || ["OWNER", "ADMIN", "MANAGER"].includes(member.workspaceRole);
   }
 
   static async addLineItem(
     indentId: string,
-    data: {
-      materialName: string;
-      unit: string;
-      quantity: number;
-      estimatedUnitPrice?: number;
-      specifications?: string | null;
-    },
+    data: InitialLineItemInput,
     userId: string,
     workspaceId: string
   ) {
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
-
-    const allowedStatuses = ["DRAFT", "SUBMITTED", "ASSIGNED"];
-    if (!allowedStatuses.includes(indent.status)) {
-      throw AppError.Conflict(`Cannot add items for an indent that is already ${indent.status}`);
+    const member = await this.getMember(userId, workspaceId);
+    const indent = await this.getIndent(indentId, workspaceId);
+    if (!this.canEditInitialDetails(member, indent)) {
+      throw AppError.Forbidden("This indent is not editable at the current stage");
     }
 
-    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
-    if (!member) throw AppError.Forbidden("Not a workspace member");
-
-    if (indent.status !== "DRAFT") {
-      const allowedRoles = ["OWNER", "ADMIN", "MANAGER"];
-      if (!allowedRoles.includes(member.workspaceRole)) {
-        throw AppError.Forbidden("Only owners, admins, and managers can add items after submission");
-      }
-    }
-
-    return prisma.indentLineItem.create({
-      data: {
-        indentId,
-        materialName: data.materialName,
-        unit: data.unit,
-        quantity: data.quantity,
-        estimatedUnitPrice: data.estimatedUnitPrice,
-        specifications: data.specifications,
-        status: "PENDING",
-      },
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.indentLineItem.create({
+        data: {
+          indentId,
+          materialName: data.materialName.trim(),
+          unit: data.unit.trim(),
+          quantity: data.quantity,
+          estimatedUnitPrice: data.estimatedUnitPrice,
+          specifications: data.specifications,
+          status: "PENDING",
+        },
+      });
+      await IndentRepository.rememberMaterial(workspaceId, data.materialName, data.unit, tx);
+      return item;
     });
   }
 
   static async removeLineItem(indentId: string, itemId: string, userId: string, workspaceId: string) {
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
-
-    const allowedStatuses = ["DRAFT", "SUBMITTED", "ASSIGNED"];
-    if (!allowedStatuses.includes(indent.status)) {
-      throw AppError.Conflict(`Cannot remove items from an indent that is already ${indent.status}`);
+    const member = await this.getMember(userId, workspaceId);
+    const indent = await this.getIndent(indentId, workspaceId);
+    if (!this.canEditInitialDetails(member, indent)) {
+      throw AppError.Forbidden("This indent is not editable at the current stage");
     }
-
-    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
-    if (!member) throw AppError.Forbidden("Not a workspace member");
-
-    if (indent.status !== "DRAFT") {
-      const allowedRoles = ["OWNER", "ADMIN", "MANAGER"];
-      if (!allowedRoles.includes(member.workspaceRole)) {
-        throw AppError.Forbidden("Only owners, admins, and managers can remove items after submission");
-      }
-    }
-
-    const item = await prisma.indentLineItem.findUnique({
-      where: { id: itemId },
-    });
-    if (!item || item.indentId !== indentId) {
-      throw AppError.NotFound("Line item not found in this indent");
-    }
-
-    return prisma.indentLineItem.delete({
-      where: { id: itemId },
-    });
+    const item = await prisma.indentLineItem.findFirst({ where: { id: itemId, indentId } });
+    if (!item) throw AppError.NotFound("Line item not found in this indent");
+    return prisma.indentLineItem.delete({ where: { id: itemId } });
   }
 
   static async updateLineItem(
     indentId: string,
     itemId: string,
-    data: {
-      materialName?: string;
-      unit?: string;
-      quantity?: number;
-      estimatedUnitPrice?: number;
-      specifications?: string | null;
-    },
+    data: Partial<InitialLineItemInput>,
     userId: string,
     workspaceId: string
   ) {
-    const indent = await IndentRepository.findById(indentId);
-    if (!indent) throw AppError.NotFound("Indent not found");
-
-    const allowedStatuses = ["DRAFT", "SUBMITTED", "ASSIGNED"];
-    if (!allowedStatuses.includes(indent.status)) {
-      throw AppError.Conflict(`Cannot update items of an indent that is already ${indent.status}`);
+    const member = await this.getMember(userId, workspaceId);
+    const indent = await this.getIndent(indentId, workspaceId);
+    if (!this.canEditInitialDetails(member, indent)) {
+      throw AppError.Forbidden("This indent is not editable at the current stage");
     }
+    const item = await prisma.indentLineItem.findFirst({ where: { id: itemId, indentId } });
+    if (!item) throw AppError.NotFound("Line item not found in this indent");
 
-    const member = await IndentRepository.findWorkspaceMember(userId, workspaceId);
-    if (!member) throw AppError.Forbidden("Not a workspace member");
-
-    if (indent.status !== "DRAFT") {
-      const allowedRoles = ["OWNER", "ADMIN", "MANAGER"];
-      if (!allowedRoles.includes(member.workspaceRole)) {
-        throw AppError.Forbidden("Only owners, admins, and managers can update items after submission");
-      }
-    }
-
-    const item = await prisma.indentLineItem.findUnique({
-      where: { id: itemId },
-    });
-    if (!item || item.indentId !== indentId) {
-      throw AppError.NotFound("Line item not found in this indent");
-    }
-
-    return prisma.indentLineItem.update({
-      where: { id: itemId },
-      data: {
-        materialName: data.materialName,
-        unit: data.unit,
-        quantity: data.quantity,
-        estimatedUnitPrice: data.estimatedUnitPrice,
-        specifications: data.specifications,
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.indentLineItem.update({
+        where: { id: itemId },
+        data: {
+          materialName: data.materialName?.trim(),
+          unit: data.unit?.trim(),
+          quantity: data.quantity,
+          estimatedUnitPrice: data.estimatedUnitPrice,
+          specifications: data.specifications,
+        },
+      });
+      await IndentRepository.rememberMaterial(
+        workspaceId,
+        data.materialName || item.materialName,
+        data.unit || item.unit,
+        tx
+      );
+      return updated;
     });
   }
 }

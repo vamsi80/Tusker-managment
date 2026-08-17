@@ -17,6 +17,8 @@ interface LineItemData {
   materialName: string;
   unit: string;
   quantity: number;
+  estimatedUnitPrice?: number | null;
+  finalUnitPrice?: number | null;
   specifications?: string;
   status: string;
 }
@@ -53,6 +55,22 @@ const lineItemColumns: ColumnDef<LineItemData>[] = [
     cell: ({ getValue }) => {
       const val = getValue() as number;
       return <span className="text-xs font-mono font-bold">{val}</span>;
+    },
+  },
+  {
+    accessorKey: "estimatedUnitPrice",
+    header: "Approx. Rate",
+    cell: ({ getValue }) => {
+      const value = getValue() as number | null;
+      return <span className="text-xs font-mono">{value ? `₹${(value / 100).toLocaleString("en-IN")}` : "—"}</span>;
+    },
+  },
+  {
+    accessorKey: "finalUnitPrice",
+    header: "Final Rate",
+    cell: ({ getValue }) => {
+      const value = getValue() as number | null;
+      return <span className="text-xs font-mono font-semibold">{value ? `₹${(value / 100).toLocaleString("en-IN")}` : "—"}</span>;
     },
   },
   {
@@ -147,7 +165,7 @@ export function ProjectProcurementClient({
     }
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/v1/procurement/indents/${selectedIndent.id}/cancel?w=${workspaceId}`, {
+        const res = await fetch(`/api/v1/procurement/indents/${selectedIndent.id}/reject?w=${workspaceId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reason }),
@@ -180,17 +198,22 @@ export function ProjectProcurementClient({
           </Badge>
         );
       case "PENDING_OWNER_APPROVAL":
+      case "PENDING_OWNER_COMPARATIVE_APPROVAL":
         return (
           <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200 text-[10px] py-0 px-2 font-medium">
             Owner Review
           </Badge>
         );
-      case "PENDING_PAYMENT":
+      case "COMPARATIVES_IN_PROGRESS":
         return (
           <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] py-0 px-2 font-medium">
-            Pending Payment
+            Getting Comparatives
           </Badge>
         );
+      case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] py-0 px-2">Manager Rate Review</Badge>;
+      case "PENDING_OWNER_FINAL_APPROVAL":
+        return <Badge variant="outline" className="bg-violet-50 text-violet-600 border-violet-200 text-[10px] py-0 px-2">Owner Final Review</Badge>;
       case "APPROVED":
         return (
           <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px] py-0 px-2 font-medium">
@@ -225,12 +248,14 @@ export function ProjectProcurementClient({
             Manage material requests, track indents, and view required materials.
           </p>
         </div>
-        <Button
-          onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
-          className="h-8 text-xs px-3"
-        >
-          <Plus className="mr-1.5 size-3.5" /> Create New Indent
-        </Button>
+        {userRole !== "ACCOUNTS" && (
+          <Button
+            onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
+            className="h-8 text-xs px-3"
+          >
+            <Plus className="mr-1.5 size-3.5" /> Create New Indent
+          </Button>
+        )}
       </div>
 
       {indents.length === 0 ? (
@@ -240,12 +265,14 @@ export function ProjectProcurementClient({
           <p className="text-xs text-muted-foreground mt-1 max-w-[280px] text-center">
             Create your first material request to track line items and vendor quotes.
           </p>
-          <Button
-            onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
-            className="h-8 text-xs mt-4"
-          >
-            <Plus className="mr-1.5 size-3.5" /> Create First Indent
-          </Button>
+          {userRole !== "ACCOUNTS" && (
+            <Button
+              onClick={() => router.push(`/w/${workspaceId}/p/${slug}/procurement/create-indent`)}
+              className="h-8 text-xs mt-4"
+            >
+              <Plus className="mr-1.5 size-3.5" /> Create First Indent
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
@@ -325,9 +352,9 @@ export function ProjectProcurementClient({
                           {selectedIndent.description}
                         </p>
                       )}
-                      {selectedIndent.status === "CANCELLED" && selectedIndent.cancelReason && (
+                      {["CANCELLED", "REJECTED"].includes(selectedIndent.status) && (selectedIndent.rejectionReason || selectedIndent.cancelReason) && (
                         <p className="text-xs text-red-600 font-medium mt-1.5 bg-red-50 border border-red-200 rounded px-2.5 py-1 inline-block">
-                          Rejection Reason: {selectedIndent.cancelReason}
+                          Rejection Reason: {selectedIndent.rejectionReason || selectedIndent.cancelReason}
                         </p>
                       )}
                     </div>
@@ -353,7 +380,7 @@ export function ProjectProcurementClient({
                         </div>
                       )}
                     </div>
-                    {selectedIndent.status === "DRAFT" && (
+                    {selectedIndent.status === "DRAFT" && userRole !== "ACCOUNTS" && (
                       <Button
                         size="sm"
                         onClick={handleSubmitForApproval}
@@ -365,7 +392,7 @@ export function ProjectProcurementClient({
                       </Button>
                     )}
                     {/* Stage 1: Manager Approval */}
-                    {selectedIndent.status === "SUBMITTED" && ["MANAGER", "ADMIN", "OWNER"].includes(userRole) && (
+                    {["SUBMITTED", "ASSIGNED"].includes(selectedIndent.status) && ["MANAGER", "ADMIN", "OWNER"].includes(userRole) && (
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
@@ -388,9 +415,8 @@ export function ProjectProcurementClient({
                     )}
 
                     {/* Stage 2: Owner Approval */}
-                    {selectedIndent.status === "PENDING_OWNER_APPROVAL" && (
-                      (selectedIndent.approverIds?.includes(memberId)) || 
-                      (!selectedIndent.approverIds?.length && ["OWNER", "ADMIN"].includes(userRole))
+                    {["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL"].includes(selectedIndent.status) && (
+                      selectedIndent.approverIds?.includes(memberId)
                     ) && !selectedIndent.approvedByIds?.includes(memberId) && (
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
@@ -408,13 +434,28 @@ export function ProjectProcurementClient({
                           disabled={isSubmitting}
                           className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          Owner Approve
+                          Authorize Comparatives
                         </Button>
                       </div>
                     )}
 
-                    {/* Stage 3: Accounts Approval */}
-                    {selectedIndent.status === "PENDING_PAYMENT" && ["ADMIN"].includes(userRole) && (
+                    {/* Manual comparative/final-rate entry by the original requester */}
+                    {selectedIndent.status === "COMPARATIVES_IN_PROGRESS" &&
+                      selectedIndent.requestedById === memberId &&
+                      userRole !== "ACCOUNTS" &&
+                      selectedIndent.approverIds?.length > 0 &&
+                      selectedIndent.approverIds.every((id: string) => selectedIndent.approvedByIds?.includes(id)) && (
+                      <Button
+                        size="sm"
+                        onClick={() => router.push(`/w/${workspaceId}/procurement/indents/${selectedIndent.id}`)}
+                        className="h-7 text-xs px-2.5 bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        Enter Final Rates
+                      </Button>
+                    )}
+
+                    {/* Stage 3: Manager approval of final rates */}
+                    {selectedIndent.status === "PENDING_MANAGER_FINAL_RATE_APPROVAL" && ["MANAGER", "ADMIN", "OWNER"].includes(userRole) && (
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
                           size="sm"
@@ -431,9 +472,33 @@ export function ProjectProcurementClient({
                           disabled={isSubmitting}
                           className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          Accounts Approve
+                          Approve Final Rates
                         </Button>
                       </div>
+                    )}
+
+                    {/* Stage 4: Owner final approval */}
+                    {selectedIndent.status === "PENDING_OWNER_FINAL_APPROVAL" && (
+                      selectedIndent.approverIds?.includes(memberId)
+                    ) && !selectedIndent.finalOwnerApprovedByIds?.includes(memberId) && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" onClick={handleRejectIndent} disabled={isSubmitting} variant="outline" className="h-7 text-xs px-2.5 text-red-600 border-red-200 hover:bg-red-50">
+                          Reject
+                        </Button>
+                        <Button size="sm" onClick={handleApproveIndent} disabled={isSubmitting} className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+                          Final Approve
+                        </Button>
+                      </div>
+                    )}
+
+                    {selectedIndent.status === "REJECTED" && selectedIndent.requestedById === memberId && userRole !== "ACCOUNTS" && (
+                      <Button
+                        size="sm"
+                        onClick={() => router.push(`/w/${workspaceId}/procurement/indents/${selectedIndent.id}`)}
+                        className="h-7 text-xs px-2.5"
+                      >
+                        Edit &amp; Resubmit
+                      </Button>
                     )}
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createBoardItem, toggleBoardItemStatus, deleteBoardItem } from "../board-actions";
-import { requireUser } from "@/lib/auth/require-user";
+import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
 
@@ -14,7 +14,7 @@ describe("Board Actions", () => {
 
     describe("createBoardItem", () => {
         it("should allow admin to create a note for any member", async () => {
-            (requireUser as any).mockResolvedValue({ id: "admin_user" });
+            (getSession as any).mockResolvedValue({ user: { id: "admin_user" } });
             (getWorkspacePermissions as any).mockResolvedValue({ isWorkspaceAdmin: true, workspaceMemberId: "wm_admin" });
             (prisma.board.create as any).mockResolvedValue({ id: "b_1" });
 
@@ -25,7 +25,7 @@ describe("Board Actions", () => {
         });
 
         it("should prevent members from adding notes to others' boards", async () => {
-            (requireUser as any).mockResolvedValue({ id: "member_user" });
+            (getSession as any).mockResolvedValue({ user: { id: "member_user" } });
             (getWorkspacePermissions as any).mockResolvedValue({ isWorkspaceAdmin: false, workspaceMemberId: "wm_member" });
 
             const result = await createBoardItem(validWorkspaceId, "wm_other", "Member note");
@@ -37,7 +37,7 @@ describe("Board Actions", () => {
 
     describe("deleteBoardItem", () => {
         it("should prevent members from deleting notes created by admins", async () => {
-            (requireUser as any).mockResolvedValue({ id: "member_user" });
+            (getSession as any).mockResolvedValue({ user: { id: "member_user" } });
             (getWorkspacePermissions as any).mockResolvedValue({ isWorkspaceAdmin: false, workspaceMemberId: "wm_member" });
             
             // Mock item created by an OWNER (Admin role)
@@ -55,7 +55,7 @@ describe("Board Actions", () => {
         });
 
         it("should allow members to delete their own self-created notes", async () => {
-            (requireUser as any).mockResolvedValue({ id: "member_user" });
+            (getSession as any).mockResolvedValue({ user: { id: "member_user" } });
             (getWorkspacePermissions as any).mockResolvedValue({ isWorkspaceAdmin: false, workspaceMemberId: "wm_member" });
             
             (prisma.board.findUnique as any).mockResolvedValue({

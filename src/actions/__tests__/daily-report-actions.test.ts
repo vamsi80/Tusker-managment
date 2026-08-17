@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { submitDailyReport } from "../daily-report-actions";
-import { requireUser } from "@/lib/auth/require-user";
+import { getSession } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
 
 describe("Daily Report Actions", () => {
@@ -22,7 +22,9 @@ describe("Daily Report Actions", () => {
         };
 
         it("should successfully submit a report with valid entries", async () => {
-            (requireUser as any).mockResolvedValue({ id: "user_1", email: "user@example.com" });
+            (getSession as any).mockResolvedValue({
+                user: { id: "user_1", email: "user@example.com" },
+            });
             (prisma.dailyReport.findUnique as any).mockResolvedValue(null);
             (prisma.dailyReport.create as any).mockResolvedValue({ id: "dr_1" });
             
@@ -33,7 +35,7 @@ describe("Daily Report Actions", () => {
         });
 
         it("should transition from ABSENT to SUBMITTED if report exists", async () => {
-            (requireUser as any).mockResolvedValue({ id: "user_1" });
+            (getSession as any).mockResolvedValue({ user: { id: "user_1" } });
             (prisma.dailyReport.findUnique as any).mockResolvedValue({ id: "dr_absent", status: "ABSENT" });
             (prisma.dailyReport.update as any).mockResolvedValue({ id: "dr_absent", status: "SUBMITTED" });
 
@@ -46,7 +48,7 @@ describe("Daily Report Actions", () => {
         });
 
         it("should fail if validation fails (missing entries)", async () => {
-            (requireUser as any).mockResolvedValue({ id: "user_1" });
+            (getSession as any).mockResolvedValue({ user: { id: "user_1" } });
             
             await expect(submitDailyReport({
                 ...reportData,

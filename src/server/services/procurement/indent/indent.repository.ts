@@ -15,7 +15,9 @@ export class IndentRepository {
           },
         },
         requestedBy: {
-          include: {
+          select: {
+            id: true,
+            reportToId: true,
             user: {
               select: {
                 id: true,
@@ -143,27 +145,14 @@ export class IndentRepository {
       });
 
       if (data.lineItems && data.lineItems.length > 0) {
-        await Promise.all(
-          data.lineItems.map((item) =>
-            tx.materialCatalog.upsert({
-              where: {
-                workspaceId_name: {
-                  workspaceId: data.workspaceId,
-                  name: item.materialName.trim(),
-                },
-              },
-              create: {
-                workspaceId: data.workspaceId,
-                name: item.materialName.trim(),
-                unit: item.unit.trim(),
-                source: "INDENT",
-              },
-              update: {
-                unit: item.unit.trim(),
-              },
-            })
-          )
-        );
+        for (const item of data.lineItems) {
+          await IndentRepository.rememberMaterial(
+            data.workspaceId,
+            item.materialName,
+            item.unit,
+            tx
+          );
+        }
       }
 
       return indent;
@@ -182,6 +171,41 @@ export class IndentRepository {
     return prisma.workspaceMember.findFirst({
       where: { userId, workspaceId },
       select: { id: true, workspaceRole: true },
+    });
+  }
+
+  static async rememberMaterial(
+    workspaceId: string,
+    materialName: string,
+    unit?: string,
+    tx?: any
+  ) {
+    const client = tx || prisma;
+    const name = materialName.trim();
+    const resolvedUnit = unit?.trim() || null;
+
+    const existing = await client.materialCatalog.findFirst({
+      where: {
+        workspaceId,
+        name: { equals: name, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return client.materialCatalog.update({
+        where: { id: existing.id },
+        data: resolvedUnit ? { unit: resolvedUnit } : {},
+      });
+    }
+
+    return client.materialCatalog.create({
+      data: {
+        workspaceId,
+        name,
+        unit: resolvedUnit,
+        source: "INDENT",
+      },
     });
   }
 }

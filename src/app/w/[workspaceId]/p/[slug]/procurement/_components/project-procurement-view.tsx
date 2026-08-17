@@ -22,6 +22,8 @@ export async function ProjectProcurementView({
             materialName: true,
             unit: true,
             quantity: true,
+            estimatedUnitPrice: true,
+            finalUnitPrice: true,
             specifications: true,
             status: true,
           }

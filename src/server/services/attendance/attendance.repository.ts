@@ -66,9 +66,13 @@ export class AttendanceRepository {
                     }
                 }
             },
+            // Newest day first, and within a day the most recent check-in leads.
+            // Rows with no check-in (absent / on leave) have a null time and sit at
+            // the bottom of their day; id breaks the tie so paging stays stable.
             orderBy: [
                 { date: 'desc' },
-                { WorkspaceMember: { position: 'asc' } }
+                { checkIn: { sort: 'desc', nulls: 'last' } },
+                { id: 'asc' }
             ],
             skip,
             take

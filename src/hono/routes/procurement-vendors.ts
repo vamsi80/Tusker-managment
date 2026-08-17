@@ -61,7 +61,7 @@ procurementVendors.get("/materials/coverage", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
@@ -137,7 +137,7 @@ procurementVendors.get("/", async (c) => {
 
   // Any member can read vendors
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
@@ -167,7 +167,7 @@ procurementVendors.get("/:id", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess) {
+  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
 
@@ -242,7 +242,7 @@ procurementVendors.get("/:id/capabilities", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (perms.workspaceRole !== "PROCUREMENT" && !perms.isWorkspaceAdmin) {
+  if (!["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole) && !perms.isWorkspaceAdmin) {
     throw AppError.Forbidden("Insufficient permissions");
   }
 
