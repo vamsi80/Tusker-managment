@@ -2,6 +2,7 @@ import "server-only";
 
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
+import { attachmentKeyPrefix } from "@/lib/attachments";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
 import { resolveProjectMemberId } from "@/lib/auth/resolve-member-chain";
 import { parseIST } from "@/lib/utils";
@@ -1906,12 +1907,28 @@ export class TasksService {
       ? `${transitionHeader}\n${comment.trim()}`
       : transitionHeader;
 
+    const attachmentUrl =
+      typeof attachmentData === "string"
+        ? attachmentData
+        : attachmentData?.url || attachmentData?.data || undefined;
+
+    // Only keep uploaded files whose key was minted for this very task, so a crafted
+    // request cannot attach objects belonging to another task or workspace.
+    const keyPrefix = attachmentKeyPrefix(workspaceId, subTaskId);
+    const attachmentFiles = (Array.isArray(attachmentData?.files) ? attachmentData.files : [])
+      .filter((f: any) => typeof f?.key === "string" && f.key.startsWith(keyPrefix))
+      .map((f: any) => ({
+        key: f.key,
+        name: String(f.name || f.key.split("/").pop()),
+        mime: String(f.mime || ""),
+        size: Number(f.size) || 0,
+      }));
+
     const attachmentJson = {
       previousStatus: subTask.status,
       targetStatus: newStatus,
-      ...(attachmentData ? {
-        url: typeof attachmentData === "string" ? attachmentData : (attachmentData.url || attachmentData.data || attachmentData),
-      } : {})
+      ...(attachmentUrl ? { url: attachmentUrl } : {}),
+      ...(attachmentFiles.length ? { files: attachmentFiles } : {}),
     };
 
     const result = await TaskRepository.updateStatus(

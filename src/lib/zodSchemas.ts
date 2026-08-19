@@ -1,9 +1,21 @@
 import { z } from 'zod'
 import { parseIST } from './utils'
+import { attachedFileSchema, MAX_FILES } from './attachments'
 
 export const activitySchema = z.object({
     comment: z.string().min(1, { message: "A reason (comment) is required for this move." }),
     attachmentLink: z.string().url({ message: "Invalid URL" }).optional().nullable().or(z.literal("")),
+    files: z.array(attachedFileSchema).max(MAX_FILES).optional(),
+});
+
+/** Body of POST /api/v1/uploads/presign */
+export const presignUploadSchema = z.object({
+    workspaceId: z.string().min(1),
+    projectId: z.string().min(1),
+    taskId: z.string().min(1),
+    name: z.string().min(1),
+    mime: z.string().default(""),
+    size: z.number().int().positive(),
 });
 
 export const SubTaskStatus = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD", "COMPLETED", "CANCELLED"] as const

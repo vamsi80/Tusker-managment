@@ -16,6 +16,7 @@ import {
   ParentTaskOption,
 } from "../shared/global-filter-toolbar";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
+import type { ActivityAttachment } from "@/lib/attachments";
 import {
   DndContext,
   DragEndEvent,
@@ -854,7 +855,7 @@ export function KanbanBoard({
 
   const handleActivitySubmit = async (
     commentStr: string,
-    attachmentLink?: string,
+    attachment?: ActivityAttachment,
   ) => {
     if (!pendingReviewMove) return;
 
@@ -869,13 +870,6 @@ export function KanbanBoard({
     setIsActivityDialogOpen(false);
 
     try {
-      let attachmentData = null;
-      if (attachmentLink) {
-        attachmentData = {
-          url: attachmentLink,
-        };
-      }
-
       // 2. Perform the update in the background (exactly like non-mandatory moves)
       // We pass the actual previousStatus so that if the update fails, 
       // performStatusUpdate can correctly revert it.
@@ -885,7 +879,7 @@ export function KanbanBoard({
         previousStatus,
         undefined,
         commentStr,
-        attachmentData,
+        attachment,
       );
     } catch (error) {
       console.error("Error submitting activity in background:", error);
@@ -985,6 +979,10 @@ export function KanbanBoard({
     const project = projects?.find((p) => p.id === filters.projectId);
     return project?.memberIds?.includes(m.id);
   });
+
+  const pendingReviewTask = pendingReviewMove
+    ? Object.values(kanbanTasks).flat().find((t) => t.id === pendingReviewMove.subTaskId)
+    : null;
 
   return (
     <div className="space-y-4">
@@ -1094,11 +1092,10 @@ export function KanbanBoard({
         isOpen={isActivityDialogOpen}
         onClose={handleActivityClose}
         onSubmit={handleActivitySubmit}
-        subTaskName={
-          pendingReviewMove
-            ? Object.values(kanbanTasks).flat().find(t => t.id === pendingReviewMove.subTaskId)?.name || "Subtask"
-            : ""
-        }
+        subTaskName={pendingReviewMove ? pendingReviewTask?.name || "Subtask" : ""}
+        workspaceId={workspaceId}
+        projectId={pendingReviewTask?.projectId || projectId}
+        taskId={pendingReviewMove?.subTaskId}
       />
     </div>
   );

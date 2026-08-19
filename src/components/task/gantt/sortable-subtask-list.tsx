@@ -23,6 +23,7 @@ import { DependencyPicker } from "./dependency-picker";
 import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
+import type { ActivityAttachment } from "@/lib/attachments";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;
@@ -166,10 +167,9 @@ function SortableSubtaskRow({
         }
     };
 
-    const handleActivitySubmit = async (comment: string, attachmentLink?: string) => {
+    const handleActivitySubmit = async (comment: string, attachment?: ActivityAttachment) => {
         if (!pendingStatus) return;
-        const attachmentData = attachmentLink ? { url: attachmentLink } : undefined;
-        await performStatusUpdate(pendingStatus, comment, attachmentData);
+        await performStatusUpdate(pendingStatus, comment, attachment);
         setPendingStatus(null);
     };
 
@@ -437,6 +437,9 @@ function SortableSubtaskRow({
                     }}
                     onSubmit={handleActivitySubmit}
                     subTaskName={subtask.name}
+                    workspaceId={workspaceId}
+                    projectId={(subtask as any).projectId || projectId}
+                    taskId={subtask.id}
                 />
             )}
         </div>

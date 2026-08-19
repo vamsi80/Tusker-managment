@@ -6,10 +6,11 @@ import { WorkspaceService } from "@/server/services/workspace.service";
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
+  // `redirect()` in requireUser throws NEXT_REDIRECT by design. Keep the auth
+  // guard outside the workspace error boundary so that Next.js can handle it.
+  const session = await requireUser();
 
   try {
-    const session = await requireUser();
-
     if (!session?.id) {
       return NextResponse.redirect(`${origin}/sign-in`);
     }

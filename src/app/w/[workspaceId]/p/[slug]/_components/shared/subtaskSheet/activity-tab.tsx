@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, ArrowRight, Link as LinkIcon } from "lucide-react";
+import { AttachmentList } from "@/components/task/shared/attachment-preview";
+import type { AttachedFile } from "@/lib/attachments";
 
 interface Activity {
     id: string;
@@ -14,6 +16,7 @@ interface Activity {
         fileType?: string;
         fileSize?: number;
         url?: string;
+        files?: AttachedFile[];
         previousStatus?: string;
         targetStatus?: string;
     } | null;
@@ -134,14 +137,20 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                                     attachmentUrl = (attachment as any).url || (attachment as any).data || "";
                                                 }
                                             }
-                                            if (!attachmentUrl) return null;
+                                            const files = (attachment && typeof attachment === "object" && (attachment as any).files) || [];
+                                            if (!attachmentUrl && files.length === 0) return null;
 
                                             return (
-                                                <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-2 rounded-md max-w-full overflow-hidden transition-all duration-200 shadow-sm w-max mt-1">
-                                                    <LinkIcon className="size-4 flex-shrink-0 text-primary" />
-                                                    <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="truncate hover:underline font-semibold tracking-wide">
-                                                        {attachmentUrl}
-                                                    </a>
+                                                <div className="flex w-full flex-col gap-1.5 mt-1">
+                                                    {attachmentUrl && (
+                                                        <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-2 rounded-md max-w-full overflow-hidden transition-all duration-200 shadow-sm w-max">
+                                                            <LinkIcon className="size-4 flex-shrink-0 text-primary" />
+                                                            <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="truncate hover:underline font-semibold tracking-wide">
+                                                                {attachmentUrl}
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                    <AttachmentList files={files} uploadedAt={activity.createdAt} />
                                                 </div>
                                             );
                                         })()}

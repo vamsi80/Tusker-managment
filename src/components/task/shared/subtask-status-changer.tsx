@@ -16,6 +16,7 @@ import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms
 import { cn } from "@/lib/utils";
 import type { SubTaskType } from "@/types/task";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
+import type { ActivityAttachment } from "@/lib/attachments";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
@@ -147,7 +148,7 @@ export function SubtaskStatusChanger({
         return !!isMandatory;
     };
 
-    const updateStatus = async (targetStatus: TaskStatus, comment?: string, attachmentData?: string) => {
+    const updateStatus = async (targetStatus: TaskStatus, comment?: string, attachmentData?: ActivityAttachment) => {
         if (!workspaceId || !projectId) {
             toast.error("Missing workspace or project context");
             return;
@@ -201,9 +202,9 @@ export function SubtaskStatusChanger({
         }
     };
 
-    const handleActivitySubmit = async (comment: string, attachmentLink?: string) => {
+    const handleActivitySubmit = async (comment: string, attachment?: ActivityAttachment) => {
         if (!pendingStatus) return;
-        await updateStatus(pendingStatus, comment, attachmentLink);
+        await updateStatus(pendingStatus, comment, attachment);
         setIsActivityOpen(false);
         setPendingStatus(null);
     };
@@ -283,6 +284,9 @@ export function SubtaskStatusChanger({
                     }}
                     onSubmit={handleActivitySubmit}
                     subTaskName={subTask.name}
+                    workspaceId={workspaceId}
+                    projectId={projectId}
+                    taskId={subTask.id}
                 />
             )}
         </>

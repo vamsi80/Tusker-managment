@@ -26,6 +26,8 @@ const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
 
 export function useTaskTableLogic({
   initialTasks,
+  initialHasMore,
+  initialNextCursor,
   workspaceId,
   projectId,
   level,
@@ -47,7 +49,9 @@ export function useTaskTableLogic({
   const tasksRef = useRef<TaskWithSubTasks[]>([]);
   const fetchingIdsRef = useRef<Set<string>>(new Set());
   const isInitialMountRef = useRef<boolean>(true);
-  const projectPaginationRef = useRef<Record<string, any>>({});
+  const projectPaginationRef = useRef<Record<string, any>>({
+    ...(level === "project" && projectId ? { [projectId]: { page: 0, nextCursor: initialNextCursor, hasMore: initialHasMore ?? true, isLoading: false } } : {})
+  });
   const processedSubTasksRef = useRef<Set<string>>(new Set());
   const fetchingSubTasksRef = useRef<Set<string>>(new Set());
   const subTaskBatchQueueRef = useRef<Set<string>>(new Set());
@@ -75,7 +79,12 @@ export function useTaskTableLogic({
   const [sortedNextCursor, setSortedNextCursor] = useState<any>(null);
   const [isLoadingMoreSorted, setIsLoadingMoreSorted] = useState(false);
   const [isSortedViewLoading, setIsSortedViewLoading] = useState(false);
-  const [projectPagination, setProjectPagination] = useState<Record<string, any>>({});
+  const [projectPagination, setProjectPagination] = useState<Record<string, any>>(() => {
+    if (level === "project" && projectId) {
+      return { [projectId]: { page: 0, nextCursor: initialNextCursor, hasMore: initialHasMore ?? true, isLoading: false } };
+    }
+    return {};
+  });
   const [activeInlineProjectIdState, setActiveInlineProjectIdState] = useState<string | null>(null);
 
   const clearFilters = useCallback(() => {
@@ -351,13 +360,16 @@ export function useTaskTableLogic({
       lastContextIdRef.current = contextId;
 
       // 🚀 Reset pagination and processing state
-      setProjectPagination({});
-      projectPaginationRef.current = {};
+      const initialPagination = level === "project" && projectId 
+        ? { [projectId]: { page: 0, nextCursor: initialNextCursor, hasMore: initialHasMore ?? true, isLoading: false } }
+        : {};
+      setProjectPagination(initialPagination);
+      projectPaginationRef.current = initialPagination;
       fetchingIdsRef.current.clear();
       processedSubTasksRef.current.clear();
       fetchingSubTasksRef.current.clear();
     }
-  }, [workspaceId, projectId, initialTasks, hydrateTasks, orderRootTasks]);
+  }, [workspaceId, projectId, initialTasks, hydrateTasks, orderRootTasks, level, initialNextCursor, initialHasMore]);
 
   const lastFiltersActiveRef = useRef(false);
 
@@ -512,6 +524,9 @@ export function useTaskTableLogic({
 
     const params = new URLSearchParams({ w: workspaceId, vm: "list", hm: "parents", sub: "false", l: "50" });
     if (targetProjectId !== "__global_filter__") params.set("p", targetProjectId);
+    // ponytail: workspace groups start without a cursor (the SSR multi-project preload
+    // returns no per-project one), so their first load-more refetches page 1 and dedupes.
+    // Seed per-project cursors server-side if that extra request ever matters.
     if (currentPagination.nextCursor) params.set("c", JSON.stringify(currentPagination.nextCursor));
 
     // Apply filters to pagination too

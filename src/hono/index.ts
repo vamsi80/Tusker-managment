@@ -5,6 +5,7 @@ import cron from "./routes/cron";
 import kiosk from "./routes/kiosk";
 import { attendanceRouter } from "./routes/attendance";
 import tasks from "./routes/tasks";
+import uploads from "./routes/uploads";
 import projects from "./routes/projects";
 import tags from "./routes/tags";
 import workspaces from "./routes/workspaces";
@@ -123,6 +124,9 @@ app.route("/attendance", attendanceRouter);
 
 // Tasks API
 app.route("/tasks", tasks);
+
+// Attachment uploads (presigned S3/R2)
+app.route("/uploads", uploads);
 
 // Projects API
 app.route("/projects", projects);

@@ -24,10 +24,14 @@ export const env = createEnv({
     SMTP_PASSWORD: z.string().min(1),
     SMTP_FROM: z.string().email(),
 
-    // AWS S3 (For file uploads) - Optional in dev/setup phase
+    // S3-compatible object storage (Cloudflare R2) for task attachments.
+    // Optional in dev/setup phase; uploads are disabled when unset.
     AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
     AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     AWS_REGION: z.string().min(1).optional(),
+    S3_BUCKET_NAME: z.string().min(1).optional(),
+    // R2: https://<accountid>.r2.cloudflarestorage.com — omit for plain AWS S3.
+    S3_ENDPOINT: z.string().url().optional(),
 
     // Pusher (Real-time) - Optional in dev/setup phase
     PUSHER_APP_ID: z.string().min(1).optional(),
@@ -66,6 +70,8 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     AWS_REGION: process.env.AWS_REGION,
+    S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+    S3_ENDPOINT: process.env.S3_ENDPOINT,
     PUSHER_APP_ID: process.env.PUSHER_APP_ID,
     PUSHER_SECRET: process.env.PUSHER_SECRET,
     CRON_SECRET: process.env.CRON_SECRET,

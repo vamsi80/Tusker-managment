@@ -300,13 +300,13 @@ export function TaskTableBody({
           onTasksChange={setTasks}
         />
       )}
-      {!groupedTasks && projectPagination[projectId]?.hasMore && (
+      {!groupedTasks && !filtersActive && projectPagination[projectId]?.hasMore && (
         <LoadMoreSentinel
           visibleColumnsCount={visibleColumnsCount}
           projectId={projectId}
           onLoadMore={() => loadProjectTasks(projectId)}
-          hasMore={projectPagination[projectId]?.hasMore}
-          isLoading={projectPagination[projectId]?.isLoading}
+          hasMore={projectPagination[projectId].hasMore}
+          isLoading={projectPagination[projectId].isLoading}
         />
       )}
 
@@ -318,17 +318,7 @@ export function TaskTableBody({
         <EmptyState message="No tasks found" visibleColumnsCount={visibleColumnsCount} />
       )}
 
-      {level === "workspace" && filtersActive && projectPagination["__global_filter__"]?.hasMore && (
-        <LoadMoreSentinel
-          visibleColumnsCount={visibleColumnsCount}
-          projectId="__global_filter__"
-          onLoadMore={() => loadProjectTasks("__global_filter__")}
-          hasMore={projectPagination["__global_filter__"]?.hasMore}
-          isLoading={projectPagination["__global_filter__"]?.isLoading}
-        />
-      )}
-
-      {isSubtaskFirstMode && filterPagination.hasMore && (
+      {filtersActive && filterPagination.hasMore && (
         <FilterLoadMoreSentinel
           visibleColumnsCount={visibleColumnsCount}
           onLoadMore={loadMoreFiltered}

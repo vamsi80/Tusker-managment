@@ -164,6 +164,7 @@ function TaskTable(props: TaskTableProps) {
                 groupedTasks={groupedTasks}
                 orderedWorkspaceProjects={orderedWorkspaceProjects}
                 projectTaskCounts={projectTaskCounts}
+                currentProjectCounts={logic.currentProjectCounts}
                 expandedProjects={logic.expandedProjects}
                 toggleProjectExpand={logic.toggleProjectExpand}
                 visibleColumnsCount={visibleColumnsCount}
