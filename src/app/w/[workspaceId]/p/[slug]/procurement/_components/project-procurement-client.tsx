@@ -434,7 +434,7 @@ export function ProjectProcurementClient({
                           disabled={isSubmitting}
                           className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          Authorize Comparatives
+                          Get Comparitives
                         </Button>
                       </div>
                     )}

@@ -203,7 +203,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
           (ownerStage && Boolean(workspaceMemberId && ind.approverIds?.includes(workspaceMemberId)));
         if (!canAct) return null;
         const approveLabel = ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL"].includes(ind.status)
-          ? "Authorize Comparatives"
+          ? "Get Comparitives"
           : ind.status === "PENDING_OWNER_FINAL_APPROVAL"
             ? "Final Approve"
             : "Approve";

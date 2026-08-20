@@ -889,6 +889,7 @@ enum LeaveStatus {
   PENDING
   APPROVED
   REJECTED
+  DELETED
 }
 
 enum AttendanceStatus {

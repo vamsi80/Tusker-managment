@@ -446,7 +446,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             </Button>
             <Button onClick={handleApprove} disabled={isPending} className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
               <Check className="mr-1.5 size-3.5" />
-              {indent.status === "PENDING_OWNER_FINAL_APPROVAL" ? "Final Approve" : "Authorize Comparatives"}
+              {indent.status === "PENDING_OWNER_FINAL_APPROVAL" ? "Final Approve" : "Get Comparitives"}
             </Button>
           </div>
         )}

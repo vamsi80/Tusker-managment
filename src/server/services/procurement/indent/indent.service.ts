@@ -322,7 +322,7 @@ export class IndentService {
         await this.getOwnerUserIds(indent, workspaceId),
         workspaceId,
         indent.id,
-        "Authorize procurement comparatives",
+        "Get procurement comparitives",
         `Approximate rates for "${indent.name}" were approved by the manager. Authorize the requester to get comparatives.`
       );
       await this.broadcast(indent, workspaceId);
@@ -331,7 +331,7 @@ export class IndentService {
 
     if (indent.status === "PENDING_OWNER_COMPARATIVE_APPROVAL" || indent.status === "PENDING_OWNER_APPROVAL") {
       if (!this.isOwnerApprover(member, indent)) {
-        throw AppError.Forbidden("Only a selected owner can authorize comparatives");
+        throw AppError.Forbidden("Only a selected owner can get comparitives");
       }
       const currentApprovedIds = indent.approvedByIds || [];
       if (currentApprovedIds.includes(member.id)) throw AppError.Conflict("You have already authorized this indent");
@@ -428,7 +428,7 @@ export class IndentService {
     if (!allowed) throw AppError.Conflict("Final rates cannot be entered at this stage");
     this.ensureOwnerApprovers(indent);
     if (!this.haveAllSelectedOwnersApproved(indent, indent.approvedByIds || [])) {
-      throw AppError.Conflict("Every selected owner must authorize comparatives before final rates can be entered");
+      throw AppError.Conflict("Every selected owner must get comparitives before final rates can be entered");
     }
     if (member.id !== indent.requestedById) {
       throw AppError.Forbidden("Only the original requester can enter final rates");

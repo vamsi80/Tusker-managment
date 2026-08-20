@@ -68,6 +68,41 @@ export class LeaveRepository {
         });
     }
 
+    static async updateRequest(id: string, params: Partial<CreateLeaveParams>) {
+        return await (prisma as any).leave_request.update({
+            where: { id },
+            data: {
+                ...(params.startDate && { startDate: params.startDate }),
+                ...(params.endDate && { endDate: params.endDate }),
+                ...(params.reason && { reason: params.reason }),
+                ...(params.type && { type: params.type }),
+            },
+            include: {
+                WorkspaceMember: {
+                    select: {
+                        id: true,
+                        reportToId: true,
+                        casualLeaveBalance: true,
+                        sickLeaveBalance: true,
+                        user: {
+                            select: {
+                                surname: true,
+                                email: true,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    static async delete(id: string) {
+        return await (prisma as any).leave_request.update({
+            where: { id },
+            data: { status: "DELETED" as LeaveStatus }
+        });
+    }
+
     static async getWorkspaceLeaves(workspaceId: string, memberIds?: string[], skip: number = 0, take: number = 10, search?: string) {
         const where: any = {
             workspaceId,

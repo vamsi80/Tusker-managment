@@ -106,6 +106,76 @@ export class LeaveService {
         return updated;
     }
 
+    static async updateLeaveRequest(id: string, params: Partial<CreateLeaveParams>, actorId: string, workspaceId: string) {
+        const [leave, actorMember] = await Promise.all([
+            LeaveRepository.findById(id),
+            prisma.workspaceMember.findFirst({
+                where: { workspaceId, userId: actorId }
+            })
+        ]);
+
+        if (!leave) throw AppError.NotFound("Leave request not found.");
+        if (!actorMember) throw AppError.Unauthorized("You are not a member of this workspace.");
+
+        if (leave.workspaceMemberId !== actorMember.id) {
+            throw AppError.Forbidden("You can only edit your own leave requests.");
+        }
+
+        if (leave.status !== "PENDING") {
+            throw AppError.ValidationError("You can only edit pending leave requests.");
+        }
+        
+        const startDate = params.startDate ? toDateOnly(params.startDate) : undefined;
+        let endDate = params.endDate ? toDateOnly(params.endDate) : undefined;
+        
+        if (startDate || endDate) {
+            const finalStart = startDate ?? leave.startDate;
+            const finalEnd = endDate ?? leave.endDate;
+            if (finalEnd < finalStart) {
+                throw AppError.ValidationError("End date must be on or after the start date.");
+            }
+        }
+
+        const updated = await LeaveRepository.updateRequest(id, {
+            ...params,
+            ...(startDate && { startDate }),
+            ...(endDate && { endDate })
+        });
+
+        // We can just emit the updated request event, it shares the same payload structure
+        await LeaveEvents.emitLeaveRequested(actorId, workspaceId, updated);
+        
+        return updated;
+    }
+
+    static async deleteLeaveRequest(id: string, actorId: string, workspaceId: string) {
+        const [leave, actorMember] = await Promise.all([
+            LeaveRepository.findById(id),
+            prisma.workspaceMember.findFirst({
+                where: { workspaceId, userId: actorId }
+            })
+        ]);
+
+        if (!leave) throw AppError.NotFound("Leave request not found.");
+        if (!actorMember) throw AppError.Unauthorized("You are not a member of this workspace.");
+
+        const isWorkspaceAdmin = actorMember.workspaceRole === "OWNER" || actorMember.workspaceRole === "ADMIN";
+
+        if (leave.workspaceMemberId !== actorMember.id && !isWorkspaceAdmin) {
+            throw AppError.Forbidden("You can only delete your own leave requests.");
+        }
+
+        if (leave.status !== "PENDING") {
+            throw AppError.ValidationError("You can only delete pending leave requests.");
+        }
+
+        const deleted = await LeaveRepository.delete(id);
+        
+        await LeaveEvents.emitLeaveDeleted(actorId, workspaceId, deleted);
+        
+        return deleted;
+    }
+
     static async getWorkspaceLeaves(workspaceId: string, actorId: string, page: number = 1, pageSize: number = 10, search?: string) {
         const skip = (page - 1) * pageSize;
         

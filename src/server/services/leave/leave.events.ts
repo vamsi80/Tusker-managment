@@ -70,4 +70,25 @@ export class LeaveEvents {
             targetUserIds,
         });
     }
+
+    static async emitLeaveDeleted(actorId: string, workspaceId: string, leaveRequest: any) {
+        const actor = await prisma.user.findUnique({ 
+            where: { id: actorId }, 
+            select: { surname: true } 
+        });
+
+        const targetUserIds = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
+
+        await recordActivity({
+            userId: actorId,
+            userName: actor?.surname || "Member",
+            workspaceId,
+            action: "LEAVE_DELETED",
+            entityType: "LEAVE_REQUEST",
+            entityId: leaveRequest.id,
+            oldData: leaveRequest,
+            broadcastEvent: "team_update",
+            targetUserIds,
+        });
+    }
 }

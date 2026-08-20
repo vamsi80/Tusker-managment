@@ -40,9 +40,11 @@ import { leaveRequestSchema, LeaveRequestFormType } from "@/lib/zodSchemas";
 interface LeaveRequestDialogProps {
     workspaceId: string;
     children?: React.ReactNode;
+    initialData?: any;
+    onSuccess?: () => void;
 }
 
-export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialogProps) {
+export function LeaveRequestDialog({ workspaceId, children, initialData, onSuccess }: LeaveRequestDialogProps) {
     const [open, setOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -52,8 +54,12 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
     const form = useForm<LeaveRequestFormType>({
         resolver: zodResolver(leaveRequestSchema),
         defaultValues: {
-            type: "CASUAL",
-            reason: "",
+            type: initialData?.type || "CASUAL",
+            reason: initialData?.reason || "",
+            dateRange: initialData ? {
+                from: new Date(initialData.startDate),
+                to: new Date(initialData.endDate)
+            } : undefined
         },
     });
 
@@ -71,8 +77,13 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
             // A single click selects one day, so `to` collapses onto `from`.
             // Send calendar days as "yyyy-MM-dd" — toISOString() would push the
             // day back by one for anyone east of UTC once it hits the DATE column.
-            const res = await fetch(`/api/v1/attendance/leave-request`, {
-                method: "POST",
+            const method = initialData ? "PUT" : "POST";
+            const url = initialData 
+                ? `/api/v1/attendance/leave-request/${initialData.id}` 
+                : `/api/v1/attendance/leave-request`;
+
+            const res = await fetch(url, {
+                method,
                 headers: {
                     "Content-Type": "application/json",
                     "x-workspace-id": workspaceId,
@@ -92,9 +103,10 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                 return;
             }
 
-            toast.success("Leave request submitted successfully!");
+            toast.success(initialData ? "Leave request updated successfully!" : "Leave request submitted successfully!");
             setOpen(false);
             form.reset();
+            if (onSuccess) onSuccess();
         } catch (error) {
             toast.error("An error occurred. Please try again.");
         } finally {
@@ -116,10 +128,10 @@ export function LeaveRequestDialog({ workspaceId, children }: LeaveRequestDialog
                 <DialogHeader className="bg-primary/5 p-2 pb-4">
                     <DialogTitle className="text-xl font-medium flex items-center gap-2">
                         <Send className="size-5 text-primary" />
-                        New Leave Request
+                        {initialData ? "Edit Leave Request" : "New Leave Request"}
                     </DialogTitle>
                     <DialogDescription>
-                        Fill out the details below to apply for a leave. Your manager will review it.
+                        {initialData ? "Update the details of your leave request below." : "Fill out the details below to apply for a leave. Your manager will review it."}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="pt-2">
