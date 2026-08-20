@@ -5,6 +5,7 @@ import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
+import { ensureMaterialCatalog } from "@/server/services/procurement/material-catalog.service";
 
 const materials = new Hono<{ Variables: HonoVariables }>();
 
@@ -31,6 +32,7 @@ materials.get("/", async (c) => {
 
   const formatted = catalog.map((m) => ({
     id: m.id,
+    materialId: m.materialId,
     name: m.name,
     defaultUnit: m.defaultUnit
       ? { abbreviation: m.defaultUnit.abbreviation, name: m.defaultUnit.name }
@@ -72,33 +74,26 @@ materials.post("/", zValidator("json", z.object({
     }
   }
 
-  const material = await prisma.materialCatalog.upsert({
-    where: {
-      workspaceId_name: {
-        workspaceId: data.workspaceId,
-        name: data.name.trim(),
-      },
-    },
-    update: {
-      unit: data.unit || undefined,
-      defaultUnitId: defaultUnitId || undefined,
-    },
-    create: {
+  const material = await prisma.$transaction(async (tx) => {
+    const saved = await ensureMaterialCatalog(tx, {
       workspaceId: data.workspaceId,
-      name: data.name.trim(),
-      unit: data.unit || null,
+      name: data.name,
+      unit: data.unit,
       source: "PLANNING",
       defaultUnitId,
-    },
-    include: {
-      defaultUnit: true,
-    },
+    });
+
+    return tx.materialCatalog.findUniqueOrThrow({
+      where: { id: saved.id },
+      include: { defaultUnit: true },
+    });
   });
 
   return c.json({
     success: true,
     data: {
       id: material.id,
+      materialId: material.materialId,
       name: material.name,
       defaultUnit: material.defaultUnit
         ? { abbreviation: material.defaultUnit.abbreviation, name: material.defaultUnit.name }

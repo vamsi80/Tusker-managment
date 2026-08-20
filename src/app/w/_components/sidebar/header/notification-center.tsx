@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,7 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
     const { data: session } = authClient.useSession();
     const router = useSafeNavigation();
 
-    const fetchCount = async () => {
+    const fetchCount = useCallback(async () => {
         if (!workspaceId) return;
         try {
             const count = await workspacesClient.getUnreadCount(workspaceId);
@@ -29,12 +29,13 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
         } catch (err) {
             console.error("[NOTIF_CENTER] Failed to fetch unread count:", err);
         }
-    };
+    }, [workspaceId]);
 
     // Fetch initial count on mount independently
     useEffect(() => {
-        fetchCount();
-    }, [workspaceId]);
+        const timeoutId = window.setTimeout(() => void fetchCount(), 0);
+        return () => window.clearTimeout(timeoutId);
+    }, [fetchCount]);
 
     // Listen for Real-time Notifications via PubSub
     useEffect(() => {
@@ -45,7 +46,7 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
         const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
             console.log("[NOTIF_CENTER] PubSub message received:", data.action, data);
 
-            if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
+            if (data.notification === true || ["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
                 // Pulse and update if NOT the current user
                 if (data.userId !== session?.user?.id) {
                     setPeopleCount(prev => prev + 1);
@@ -65,7 +66,7 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
             unsubscribe();
             window.removeEventListener("notification-count-update", handleCountUpdate);
         };
-    }, [workspaceId, session?.user?.id]);
+    }, [workspaceId, session?.user?.id, fetchCount]);
 
     return (
         <Tooltip>

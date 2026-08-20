@@ -9,7 +9,7 @@ import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface IndentsClientProps {
@@ -79,6 +79,26 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
           fetchIndents();
         } else {
           toast.error(data.error || "Failed to reject indent");
+        }
+      } catch (error) {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleDeleteIndent = async (indentId: string, label: string) => {
+    if (!window.confirm(`Delete indent ${label}? This removes it and all of its materials permanently.`)) return;
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indentId}?w=${workspaceId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Indent deleted");
+          fetchIndents();
+        } else {
+          toast.error(data.error?.message || data.error || "Failed to delete indent");
         }
       } catch (error) {
         toast.error("Request failed");
@@ -210,7 +230,8 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
         const canAct =
           (managerStage && ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "")) ||
           (ownerStage && Boolean(workspaceMemberId && ind.approverIds?.includes(workspaceMemberId)));
-        if (!canAct) return null;
+        const canDelete = ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "");
+        if (!canAct && !canDelete) return null;
         const approveLabel = ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL"].includes(ind.status)
           ? "Get Comparitives"
           : ind.status === "PENDING_OWNER_FINAL_APPROVAL"
@@ -218,23 +239,39 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
             : "Approve";
         return (
           <div className="flex justify-end gap-1.5">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleRejectIndent(ind.id)}
-              disabled={isPending}
-              className="h-7 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50"
-            >
-              Reject
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleApproveIndent(ind.id)}
-              disabled={isPending}
-              className="h-7 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {approveLabel}
-            </Button>
+            {canAct && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleRejectIndent(ind.id)}
+                  disabled={isPending}
+                  className="h-7 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleApproveIndent(ind.id)}
+                  disabled={isPending}
+                  className="h-7 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {approveLabel}
+                </Button>
+              </>
+            )}
+            {canDelete && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleDeleteIndent(ind.id, ind.indentId || ind.name)}
+                disabled={isPending}
+                title="Delete indent"
+                className="h-7 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="size-3" />
+              </Button>
+            )}
           </div>
         );
       },
@@ -269,4 +306,3 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     </div>
   );
 }
-

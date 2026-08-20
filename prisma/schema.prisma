@@ -120,6 +120,8 @@ model Workspace {
   shiftStartTime         String                     @default("21:30")
   sickLeaveLimit         Int                        @default(12)
   casualLeaveAccrualDays Int                        @default(20)
+  nextVendorNumber       Int                        @default(1)
+  nextMaterialNumber     Int                        @default(1)
   clints                 Clints[]
   projects               Project[]
   tags                   Tag[]
@@ -630,35 +632,42 @@ model MemberTodo {
 }
 
 model VendorMaterialCapability {
-  id           String                @id @default(cuid())
-  vendorId     String
-  materialName String
-  unit         String?
-  workspaceId  String
-  source       String                @default("MANUAL")
-  createdAt    DateTime              @default(now())
-  serviceType  CapabilityServiceType @default(SUPPLY)
-  vendor       Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  workspace    Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                String                @id @default(cuid())
+  vendorId          String
+  materialCatalogId String?
+  materialName      String
+  unit              String?
+  workspaceId       String
+  source            String                @default("MANUAL")
+  createdAt         DateTime              @default(now())
+  serviceType       CapabilityServiceType @default(SUPPLY)
+  material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
+  vendor            Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  workspace         Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([vendorId, materialName, serviceType])
+  @@index([materialCatalogId])
   @@index([workspaceId, materialName])
   @@map("vendor_material_capability")
 }
 
 model MaterialCatalog {
-  id            String         @id @default(cuid())
-  workspaceId   String
-  name          String
-  unit          String?
-  source        String         @default("INDENT")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  defaultUnitId String?
-  defaultUnit   UnitOfMeasure? @relation(fields: [defaultUnitId], references: [id])
-  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id                 String                     @id @default(cuid())
+  materialId         String
+  workspaceId        String
+  name               String
+  unit               String?
+  source             String                     @default("INDENT")
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  defaultUnitId      String?
+  defaultUnit        UnitOfMeasure?             @relation(fields: [defaultUnitId], references: [id])
+  indentLineItems    IndentLineItem[]
+  vendorCapabilities VendorMaterialCapability[]
+  workspace          Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, name])
+  @@unique([workspaceId, materialId])
   @@index([workspaceId])
   @@map("material_catalog")
 }
@@ -689,6 +698,9 @@ model Indent {
   description              String?
   status                   IndentStatus     @default(DRAFT)
   expectedDelivery         DateTime?
+  taxPercent               Decimal?         @db.Decimal(5, 2)
+  exciseDutyPercent        Decimal?         @db.Decimal(5, 2)
+  vatPercent               Decimal?         @db.Decimal(5, 2)
   requestedById            String
   assignedToId             String?
   submittedAt              DateTime?
@@ -736,8 +748,9 @@ model Indent {
 }
 
 model IndentLineItem {
-  id                 String         @id @default(uuid())
+  id                 String           @id @default(uuid())
   indentId           String
+  materialCatalogId  String?
   materialName       String
   description        String?
   unit               String
@@ -745,18 +758,20 @@ model IndentLineItem {
   estimatedUnitPrice Int?
   finalUnitPrice     Int?
   specifications     String?
-  status             LineItemStatus @default(PENDING)
+  status             LineItemStatus   @default(PENDING)
   rfqSentAt          DateTime?
   rfqDeadline        DateTime?
   approvedQuoteId    String?
   rejectionReason    String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  approvedQuote      VendorQuote?   @relation("ApprovedQuote", fields: [approvedQuoteId], references: [id])
-  indent             Indent         @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  approvedQuote      VendorQuote?     @relation("ApprovedQuote", fields: [approvedQuoteId], references: [id])
+  indent             Indent           @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  material           MaterialCatalog? @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
   vendorQuotes       VendorQuote[]
 
   @@index([indentId])
+  @@index([materialCatalogId])
   @@index([status])
   @@index([materialName])
   @@map("indent_line_item")
@@ -764,6 +779,7 @@ model IndentLineItem {
 
 model Vendor {
   id            String                     @id @default(uuid())
+  vendorId      String
   name          String
   companyName   String?
   contactPerson String?
@@ -787,6 +803,7 @@ model Vendor {
   indents       Indent[]                   @relation("IndentVendor")
   quotes        VendorQuote[]
 
+  @@unique([workspaceId, vendorId])
   @@index([workspaceId])
   @@index([name])
   @@map("vendor")

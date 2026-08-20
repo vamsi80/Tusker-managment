@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FALLBACK_UNITS } from "@/lib/procurement/units";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
@@ -105,7 +107,7 @@ function AutoCompleteInput({
             >
               <span className="font-medium">{item.name}</span>
               {item.defaultUnit?.abbreviation && (
-                <span className="text-[10px] uppercase text-muted-foreground">{item.defaultUnit.abbreviation}</span>
+                <span className="text-[10px] text-muted-foreground">{item.defaultUnit.abbreviation}</span>
               )}
             </button>
           ))}
@@ -130,22 +132,6 @@ interface LineItemInput {
   totalPrice?: string | number;
 }
 
-const FALLBACK_UNITS = [
-  { abbreviation: "pcs", name: "Pieces" },
-  { abbreviation: "nos", name: "Numbers" },
-  { abbreviation: "kg", name: "Kilogram" },
-  { abbreviation: "ton", name: "Tonne" },
-  { abbreviation: "gm", name: "Gram" },
-  { abbreviation: "ltr", name: "Litre" },
-  { abbreviation: "ml", name: "Millilitre" },
-  { abbreviation: "mtr", name: "Metre" },
-  { abbreviation: "ft", name: "Feet" },
-  { abbreviation: "sqft", name: "Square Feet" },
-  { abbreviation: "bag", name: "Bag" },
-  { abbreviation: "box", name: "Box" },
-  { abbreviation: "roll", name: "Roll" },
-];
-
 interface CreateIndentFormProps {
   taskId?: string;
   projectId?: string;
@@ -157,6 +143,15 @@ interface CreateIndentFormProps {
   onSuccess: (indent: any) => void;
   onCancel?: () => void;
 }
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+  }).format(value);
+
+const optionalPercent = (value: string) => (value === "" ? undefined : Number(value));
 
 // ---------------------------------------------------------------------------
 // CreateIndentForm
@@ -183,6 +178,12 @@ export function CreateIndentForm({
   const [projectTasks, setProjectTasks] = useState(tasks);
   const [description, setDescription] = useState("");
   const [expectedDelivery, setExpectedDelivery] = useState("");
+  const [taxPercent, setTaxPercent] = useState("");
+  const [exciseDutyPercent, setExciseDutyPercent] = useState("");
+  const [vatPercent, setVatPercent] = useState("");
+  const [includeTax, setIncludeTax] = useState(false);
+  const [includeExciseDuty, setIncludeExciseDuty] = useState(false);
+  const [includeVat, setIncludeVat] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(taskId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
@@ -371,6 +372,18 @@ export function CreateIndentForm({
       toast.error("Select at least one owner for approval");
       return;
     }
+    const charges = [
+      ["Tax", taxPercent],
+      ["Excise duty", exciseDutyPercent],
+      ["VAT", vatPercent],
+    ] as const;
+    for (const [label, value] of charges) {
+      const parsed = Number(value);
+      if (value !== "" && (!Number.isFinite(parsed) || parsed < 0 || parsed > 100)) {
+        toast.error(`${label} must be between 0% and 100%`);
+        return;
+      }
+    }
     for (let i = 0; i < lineItems.length; i++) {
       const item = lineItems[i];
       if (!item.materialName.trim()) {
@@ -395,6 +408,9 @@ export function CreateIndentForm({
         workspaceId,
         description: description || undefined,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery).toISOString() : undefined,
+        taxPercent: optionalPercent(taxPercent),
+        exciseDutyPercent: optionalPercent(exciseDutyPercent),
+        vatPercent: optionalPercent(vatPercent),
         approverIds,
         lineItems: lineItems.map((item) => ({
           materialName: item.materialName.trim(),
@@ -428,6 +444,17 @@ export function CreateIndentForm({
   }
 
   const displayedUnits = units.length > 0 ? units : FALLBACK_UNITS;
+  const estimatedSubtotal = lineItems.reduce((total, item) => {
+    const unitPrice = Number(item.unitPrice);
+    const quantity = Number(item.quantity);
+    if (!Number.isFinite(unitPrice) || !Number.isFinite(quantity) || unitPrice <= 0 || quantity <= 0) return total;
+    return total + (Math.round(unitPrice * 100) / 100) * quantity;
+  }, 0);
+  const chargePercentTotal = [taxPercent, exciseDutyPercent, vatPercent].reduce(
+    (total, value) => total + (Number(value) || 0),
+    0
+  );
+  const estimatedCharges = estimatedSubtotal * (chargePercentTotal / 100);
 
   return (
     <form
@@ -604,6 +631,60 @@ export function CreateIndentForm({
               </p>
             )}
           </div>
+
+          {/* Optional Taxes & Duties */}
+          <div className="flex flex-col gap-2">
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Taxes & Duties (Optional)
+              </Label>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                Select only the charges that apply.
+              </p>
+            </div>
+            {[
+              {
+                id: "include-indent-tax",
+                label: "Add Tax",
+                checked: includeTax,
+                setChecked: setIncludeTax,
+                clearValue: () => setTaxPercent(""),
+              },
+              {
+                id: "include-indent-excise",
+                label: "Add Excise Duty",
+                checked: includeExciseDuty,
+                setChecked: setIncludeExciseDuty,
+                clearValue: () => setExciseDutyPercent(""),
+              },
+              {
+                id: "include-indent-vat",
+                label: "Add VAT",
+                checked: includeVat,
+                setChecked: setIncludeVat,
+                clearValue: () => setVatPercent(""),
+              },
+            ].map((charge) => (
+              <div
+                key={charge.id}
+                className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2"
+              >
+                <Checkbox
+                  id={charge.id}
+                  checked={charge.checked}
+                  onCheckedChange={(checked) => {
+                    const isSelected = checked === true;
+                    charge.setChecked(isSelected);
+                    if (!isSelected) charge.clearValue();
+                  }}
+                  disabled={isSubmitting}
+                />
+                <Label htmlFor={charge.id} className="cursor-pointer text-xs font-medium">
+                  {charge.label}
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ── RIGHT: Line Items ── */}
@@ -667,9 +748,12 @@ export function CreateIndentForm({
                         disabled={isSubmitting}
                         className="flex h-8 w-full rounded-md border border-input bg-background text-foreground px-2 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                       >
+                        {item.unit && !displayedUnits.some((u) => u.abbreviation === item.unit) && (
+                          <option value={item.unit}>{item.unit}</option>
+                        )}
                         {displayedUnits.map((u) => (
                           <option key={u.abbreviation} value={u.abbreviation} className="bg-background text-foreground">
-                            {u.abbreviation.toUpperCase()} ({u.name})
+                            {u.abbreviation} ({u.name})
                           </option>
                         ))}
                       </select>
@@ -730,6 +814,87 @@ export function CreateIndentForm({
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Optional charges apply to the complete material subtotal. */}
+          <div className="shrink-0 border-t border-border/50 pt-3">
+            {(includeTax || includeExciseDuty || includeVat) && (
+              <div className="mb-3">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Taxes & Duties (Optional)
+                </Label>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  Enter the percentage for each selected charge.
+                </p>
+              </div>
+            )}
+            {(includeTax || includeExciseDuty || includeVat) && (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {[
+                  {
+                    id: "indent-tax",
+                    label: "Tax (%)",
+                    value: taxPercent,
+                    setValue: setTaxPercent,
+                    visible: includeTax,
+                  },
+                  {
+                    id: "indent-excise",
+                    label: "Excise Duty (%)",
+                    value: exciseDutyPercent,
+                    setValue: setExciseDutyPercent,
+                    visible: includeExciseDuty,
+                  },
+                  {
+                    id: "indent-vat",
+                    label: "VAT (%)",
+                    value: vatPercent,
+                    setValue: setVatPercent,
+                    visible: includeVat,
+                  },
+                ]
+                  .filter((charge) => charge.visible)
+                  .map((charge) => (
+                    <div key={charge.id} className="flex flex-col gap-1">
+                      <Label htmlFor={charge.id} className="text-[10px] font-semibold text-muted-foreground">
+                        {charge.label}
+                      </Label>
+                      <Input
+                        id={charge.id}
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={charge.value}
+                        onChange={(event) => charge.setValue(event.target.value)}
+                        disabled={isSubmitting}
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                  ))}
+              </div>
+            )}
+            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-border/50 pt-3 text-[11px] sm:grid-cols-3">
+              <div className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2 sm:block">
+                <span className="text-muted-foreground">Subtotal</span>
+                <div className="font-mono font-semibold text-foreground sm:mt-0.5">
+                  {formatCurrency(estimatedSubtotal)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-muted/30 px-3 py-2 sm:block">
+                <span className="text-muted-foreground">Charges</span>
+                <div className="font-mono font-semibold text-foreground sm:mt-0.5">
+                  {formatCurrency(estimatedCharges)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-md bg-primary/5 px-3 py-2 sm:block">
+                <span className="font-semibold text-foreground">Estimated Total</span>
+                <div className="font-mono font-bold text-foreground sm:mt-0.5">
+                  {formatCurrency(estimatedSubtotal + estimatedCharges)}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

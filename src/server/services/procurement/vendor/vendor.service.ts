@@ -1,6 +1,8 @@
 import "server-only";
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
+import { ensureMaterialCatalog } from "../material-catalog.service";
+import { nextVendorId } from "../procurement-entity-id";
 
 export class VendorService {
   
@@ -27,12 +29,15 @@ export class VendorService {
       if (existing) throw AppError.Conflict("Vendor with this GST number already exists in this workspace");
     }
 
-    return prisma.vendor.create({
-      data: {
-        ...data,
-        status: "ACTIVE",
-        isActive: true,
-      },
+    return prisma.$transaction(async (tx) => {
+      return tx.vendor.create({
+        data: {
+          ...data,
+          vendorId: await nextVendorId(tx, data.workspaceId),
+          status: "ACTIVE",
+          isActive: true,
+        },
+      });
     });
   }
 
@@ -65,6 +70,13 @@ export class VendorService {
 
     // Upsert capability + sync to MaterialCatalog in one transaction
     return prisma.$transaction(async (tx) => {
+      const material = await ensureMaterialCatalog(tx, {
+        workspaceId,
+        name: normalized,
+        unit,
+        source: "VENDOR",
+      });
+
       const capability = await tx.vendorMaterialCapability.upsert({
         where: {
           vendorId_materialName_serviceType: {
@@ -75,31 +87,21 @@ export class VendorService {
         },
         update: {
           unit: unit || null,
+          materialCatalogId: material.id,
         },
         create: {
           vendorId,
+          materialCatalogId: material.id,
           materialName: normalized,
           unit: unit || null,
           workspaceId,
           source: "MANUAL",
           serviceType: resolvedServiceType,
         },
-      });
-
-      // Keep MaterialCatalog in sync
-      await tx.materialCatalog.upsert({
-        where: {
-          workspaceId_name: { workspaceId, name: normalized },
-        },
-        create: {
-          workspaceId,
-          name: normalized,
-          unit: unit?.trim() || null,
-          source: "VENDOR",
-        },
-        update: {
-          // Only update unit if we have one (don't overwrite with null)
-          ...(unit ? { unit: unit.trim() } : {}),
+        include: {
+          material: {
+            select: { id: true, materialId: true, name: true },
+          },
         },
       });
 

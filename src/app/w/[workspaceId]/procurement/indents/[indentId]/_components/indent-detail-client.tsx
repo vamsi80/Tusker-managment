@@ -27,12 +27,21 @@ import {
   Trash2,
   Save,
   Plus,
+  ReceiptText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-
-const UNITS = ["pcs", "kg", "meter", "box", "bag", "ton", "liter", "sqft", "cum"];
+import { FALLBACK_UNITS } from "@/lib/procurement/units";
 
 interface IndentDetailClientProps {
   workspaceId: string;
@@ -87,6 +96,12 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
   const canEnterFinalRates =
     !isAccounts && isRequester && isFinalRateEntry && allSelectedOwnersAuthorized;
 
+  // Owners / admins / managers run the indent itself; the requester keeps it while it is still theirs.
+  const isIndentManager = !isAccounts && ["OWNER", "ADMIN", "MANAGER"].includes(workspaceRole || "");
+  const canEditIndent =
+    (isIndentManager || (isRequester && canEdit)) && !["APPROVED", "CANCELLED"].includes(indent.status);
+  const canDeleteIndent = isIndentManager;
+
   // Edit row states
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editMaterialName, setEditMaterialName] = useState("");
@@ -111,7 +126,20 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     )
   );
   const [materialCatalog, setMaterialCatalog] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [editName, setEditName] = useState(initialIndent.name || "");
+  const [editDescription, setEditDescription] = useState(initialIndent.description || "");
+  const [editDelivery, setEditDelivery] = useState(
+    initialIndent.expectedDelivery ? new Date(initialIndent.expectedDelivery).toISOString().slice(0, 10) : ""
+  );
+  const [editTaxPercent, setEditTaxPercent] = useState(String(initialIndent.taxPercent ?? ""));
+  const [editExciseDutyPercent, setEditExciseDutyPercent] = useState(String(initialIndent.exciseDutyPercent ?? ""));
+  const [editVatPercent, setEditVatPercent] = useState(String(initialIndent.vatPercent ?? ""));
+  const [editApproverIds, setEditApproverIds] = useState<string[]>(initialIndent.approverIds || []);
   const [selectedVendorId, setSelectedVendorId] = useState<string>(initialIndent.selectedVendorId || "");
 
   useEffect(() => {
@@ -122,10 +150,32 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         if (active && payload.success) setMaterialCatalog(payload.data || []);
       })
       .catch(() => undefined);
+    fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`)
+      .then((response) => response.json())
+      .then((payload) => {
+        if (active && payload.success) setUnits(payload.data || []);
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
     };
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (!isEditOpen) return;
+    let active = true;
+    fetch(`/api/v1/workspaces/${workspaceId}/members/slim`)
+      .then((response) => response.json())
+      .then((payload) => {
+        if (active && payload.success) {
+          setOwners((payload.data || []).filter((m: any) => ["OWNER", "ADMIN"].includes(m.workspaceRole)));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [workspaceId, isEditOpen]);
 
   useEffect(() => {
     if (!canEnterFinalRates) return;
@@ -151,10 +201,26 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     if (match?.defaultUnit?.abbreviation) setUnit(match.defaultUnit.abbreviation);
   };
 
+  const displayedUnits = units.length > 0 ? units : FALLBACK_UNITS;
+
   const formatRate = (value?: number | null) =>
     value == null
       ? "—"
       : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value / 100);
+
+  const estimatedSubtotal = (indent.lineItems || []).reduce(
+    (total: number, item: any) => total + Number(item.estimatedUnitPrice || 0) * Number(item.quantity || 0),
+    0
+  );
+  const optionalCharges = [
+    { label: "Tax", percent: Number(indent.taxPercent || 0) },
+    { label: "Excise duty", percent: Number(indent.exciseDutyPercent || 0) },
+    { label: "VAT", percent: Number(indent.vatPercent || 0) },
+  ].filter((charge) => charge.percent > 0);
+  const optionalChargeTotal = optionalCharges.reduce(
+    (total, charge) => total + estimatedSubtotal * (charge.percent / 100),
+    0
+  );
 
   const showErrorToast = (errPayload: any, fallback: string) => {
     if (!errPayload) {
@@ -325,6 +391,80 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     });
   };
 
+  const handleSaveIndent = async () => {
+    if (!editName.trim()) {
+      toast.error("Indent name is required");
+      return;
+    }
+    if (!editApproverIds.length) {
+      toast.error("Select at least one owner for approval");
+      return;
+    }
+    for (const [label, value] of [
+      ["Tax", editTaxPercent],
+      ["Excise duty", editExciseDutyPercent],
+      ["VAT", editVatPercent],
+    ] as const) {
+      const parsed = Number(value);
+      if (value !== "" && (!Number.isFinite(parsed) || parsed < 0 || parsed > 100)) {
+        toast.error(`${label} must be between 0% and 100%`);
+        return;
+      }
+    }
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: editName.trim(),
+            description: editDescription.trim() || null,
+            expectedDelivery: editDelivery ? new Date(editDelivery).toISOString() : null,
+            ...(canEdit
+              ? {
+                  taxPercent: editTaxPercent === "" ? null : Number(editTaxPercent),
+                  exciseDutyPercent: editExciseDutyPercent === "" ? null : Number(editExciseDutyPercent),
+                  vatPercent: editVatPercent === "" ? null : Number(editVatPercent),
+                }
+              : {}),
+            approverIds: editApproverIds,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Indent updated");
+          setIndent({ ...indent, ...data.data });
+          setIsEditOpen(false);
+          router.refresh();
+        } else {
+          showErrorToast(data.error, "Failed to update indent");
+        }
+      } catch {
+        toast.error("Request failed");
+      }
+    });
+  };
+
+  const handleDeleteIndent = async () => {
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast.success("Indent deleted");
+          router.push(`/w/${workspaceId}/procurement/indents`);
+        } else {
+          setIsDeleteOpen(false);
+          showErrorToast(data.error, "Failed to delete indent");
+        }
+      } catch {
+        toast.error("Request failed");
+      }
+    });
+  };
+
   const handleEditStart = (item: any) => {
     setEditingItemId(item.id);
     setEditMaterialName(item.materialName);
@@ -482,6 +622,32 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           </div>
         </div>
 
+        {/* Indent-level edit / delete */}
+        {(canEditIndent || canDeleteIndent) && (
+          <div className="flex items-center gap-2 ml-auto mr-2">
+            {canEditIndent && (
+              <Button
+                variant="outline"
+                onClick={() => setIsEditOpen(true)}
+                disabled={isPending}
+                className="h-8 text-xs font-semibold"
+              >
+                <Edit className="mr-1.5 size-3.5" /> Edit Indent
+              </Button>
+            )}
+            {canDeleteIndent && (
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteOpen(true)}
+                disabled={isPending}
+                className="h-8 text-xs font-semibold text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="mr-1.5 size-3.5" /> Delete
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Top Actions panel */}
         {!isAccounts && ["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(indent.status) && ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "") && (
           <div className="flex items-center gap-2">
@@ -561,6 +727,34 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               </div>
             </CardContent>
           </Card>
+
+          {optionalCharges.length > 0 && (
+            <Card>
+              <CardHeader className="py-3 border-b">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <ReceiptText className="size-4" /> Taxes & Duties
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-3.5 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Material subtotal</span>
+                  <span className="font-mono font-semibold">{formatRate(estimatedSubtotal)}</span>
+                </div>
+                {optionalCharges.map((charge) => (
+                  <div key={charge.label} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{charge.label} ({charge.percent}%)</span>
+                    <span className="font-mono font-semibold">
+                      {formatRate(estimatedSubtotal * (charge.percent / 100))}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between border-t pt-2.5 text-xs font-bold">
+                  <span>Estimated total</span>
+                  <span className="font-mono">{formatRate(estimatedSubtotal + optionalChargeTotal)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Requester Profile */}
           <Card>
@@ -666,8 +860,13 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                   className="h-8 rounded-md border border-input bg-transparent px-2 text-xs"
                                   disabled={isPending || canRevise}
                                 >
-                                  {UNITS.map((u) => (
-                                    <option key={u} value={u}>{u}</option>
+                                  {editUnit && !displayedUnits.some((u: any) => u.abbreviation === editUnit) && (
+                                    <option value={editUnit}>{editUnit}</option>
+                                  )}
+                                  {displayedUnits.map((u: any) => (
+                                    <option key={u.abbreviation} value={u.abbreviation}>
+                                      {u.abbreviation} ({u.name})
+                                    </option>
                                   ))}
                                 </select>
                               </div>
@@ -832,8 +1031,13 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                             className="h-8 rounded-md border border-input bg-transparent px-2 text-xs"
                             disabled={isPending}
                           >
-                            {UNITS.map((u) => (
-                              <option key={u} value={u}>{u}</option>
+                            {addUnit && !displayedUnits.some((u: any) => u.abbreviation === addUnit) && (
+                              <option value={addUnit}>{addUnit}</option>
+                            )}
+                            {displayedUnits.map((u: any) => (
+                              <option key={u.abbreviation} value={u.abbreviation}>
+                                {u.abbreviation} ({u.name})
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -923,6 +1127,145 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           </Card>
         </div>
       </div>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Edit Indent</DialogTitle>
+            <DialogDescription className="text-xs">
+              Materials and rates are edited in the table below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground">Name</label>
+              <Input
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                disabled={isPending}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground">Description</label>
+              <Textarea
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+                disabled={isPending}
+                rows={3}
+                className="text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground">
+                Requested Delivery Date
+              </label>
+              <Input
+                type="date"
+                value={editDelivery}
+                onChange={(event) => setEditDelivery(event.target.value)}
+                disabled={isPending}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "edit-indent-tax", label: "Tax (%)", value: editTaxPercent, setValue: setEditTaxPercent },
+                {
+                  id: "edit-indent-excise",
+                  label: "Excise Duty (%)",
+                  value: editExciseDutyPercent,
+                  setValue: setEditExciseDutyPercent,
+                },
+                { id: "edit-indent-vat", label: "VAT (%)", value: editVatPercent, setValue: setEditVatPercent },
+              ].map((charge) => (
+                <div key={charge.id} className="flex flex-col gap-1.5">
+                  <label htmlFor={charge.id} className="text-[10px] uppercase font-bold text-muted-foreground">
+                    {charge.label}
+                  </label>
+                  <Input
+                    id={charge.id}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Optional"
+                    value={charge.value}
+                    onChange={(event) => charge.setValue(event.target.value)}
+                    disabled={isPending || !canEdit}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] uppercase font-bold text-muted-foreground">Owners for approval</label>
+              <div className="max-h-[160px] overflow-y-auto rounded-md border">
+                {owners.map((owner) => (
+                  <label
+                    key={owner.id}
+                    className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editApproverIds.includes(owner.id)}
+                      onChange={() =>
+                        setEditApproverIds((current) =>
+                          current.includes(owner.id)
+                            ? current.filter((id) => id !== owner.id)
+                            : [...current, owner.id]
+                        )
+                      }
+                      disabled={isPending}
+                    />
+                    <span className="truncate">{owner.surname || owner.name || "Owner"}</span>
+                  </label>
+                ))}
+                {owners.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">Loading owners...</p>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Dropping an owner also drops the approval they had already given.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditOpen(false)} disabled={isPending} className="h-8 text-xs">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveIndent} disabled={isPending} className="h-8 text-xs">
+              <Save className="mr-1.5 size-3.5" /> Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">Delete this indent?</DialogTitle>
+            <DialogDescription className="text-xs">
+              {indent.indentId || "This indent"} and all of its materials will be permanently removed. To keep the
+              record instead, cancel the indent.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsDeleteOpen(false)} disabled={isPending} className="h-8 text-xs">
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteIndent}
+              disabled={isPending}
+              className="h-8 text-xs"
+            >
+              <Trash2 className="mr-1.5 size-3.5" /> Delete Indent
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

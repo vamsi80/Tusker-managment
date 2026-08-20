@@ -76,17 +76,32 @@ procurementVendors.get("/materials/coverage", async (c) => {
       vendor: {
         select: {
           id: true,
+          vendorId: true,
           name: true,
           status: true,
+        },
+      },
+      material: {
+        select: {
+          materialId: true,
         },
       },
     },
   });
 
-  const coverageMap = new Map<string, { materialName: string; unit: string | null; vendors: { id: string; name: string }[] }>();
+  const coverageMap = new Map<
+    string,
+    {
+      materialId: string | null;
+      materialName: string;
+      unit: string | null;
+      vendors: { id: string; vendorId: string; name: string }[];
+    }
+  >();
 
   catalog.forEach((m) => {
     coverageMap.set(m.name.toLowerCase().trim(), {
+      materialId: m.materialId,
       materialName: m.name,
       unit: m.unit,
       vendors: [],
@@ -101,19 +116,22 @@ procurementVendors.get("/materials/coverage", async (c) => {
       if (!exists && cap.vendor.status === "ACTIVE") {
         entry.vendors.push({
           id: cap.vendor.id,
+          vendorId: cap.vendor.vendorId,
           name: cap.vendor.name,
         });
       }
     } else {
       coverageMap.set(key, {
+        materialId: cap.material?.materialId || null,
         materialName: cap.materialName,
         unit: cap.unit || null,
-        vendors: [{ id: cap.vendor.id, name: cap.vendor.name }],
+        vendors: [{ id: cap.vendor.id, vendorId: cap.vendor.vendorId, name: cap.vendor.name }],
       });
     }
   });
 
   const result = Array.from(coverageMap.values()).map((entry) => ({
+    materialId: entry.materialId,
     materialName: entry.materialName,
     unit: entry.unit,
     vendorCount: entry.vendors.length,
@@ -248,6 +266,11 @@ procurementVendors.get("/:id/capabilities", async (c) => {
 
   const capabilities = await prisma.vendorMaterialCapability.findMany({
     where: { vendorId, workspaceId },
+    include: {
+      material: {
+        select: { id: true, materialId: true, name: true },
+      },
+    },
     orderBy: { createdAt: "desc" }
   });
 

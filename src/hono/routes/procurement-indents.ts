@@ -28,8 +28,12 @@ const CreateIndentSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   expectedDelivery: z.string().optional(),
+  taxPercent: z.number().min(0).max(100).optional(),
+  exciseDutyPercent: z.number().min(0).max(100).optional(),
+  vatPercent: z.number().min(0).max(100).optional(),
   lineItems: z.array(
     z.object({
+      materialCatalogId: z.string().optional(),
       materialName: z.string().min(1),
       unit: z.string().min(1),
       quantity: z.number().int().positive(),
@@ -43,6 +47,7 @@ const CreateIndentSchema = z.object({
 });
 
 const AddLineItemSchema = z.object({
+  materialCatalogId: z.string().optional(),
   materialName: z.string().min(1),
   unit: z.string().min(1),
   quantity: z.number().int().positive(),
@@ -51,6 +56,7 @@ const AddLineItemSchema = z.object({
 });
 
 const UpdateLineItemSchema = z.object({
+  materialCatalogId: z.string().optional(),
   materialName: z.string().min(1).optional(),
   unit: z.string().min(1).optional(),
   quantity: z.number().int().positive().optional(),
@@ -61,6 +67,16 @@ const UpdateLineItemSchema = z.object({
 
 const CancelIndentSchema = z.object({
   reason: z.string().min(1),
+});
+
+const UpdateIndentSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  expectedDelivery: z.string().nullable().optional(),
+  taxPercent: z.number().min(0).max(100).nullable().optional(),
+  exciseDutyPercent: z.number().min(0).max(100).nullable().optional(),
+  vatPercent: z.number().min(0).max(100).nullable().optional(),
+  approverIds: z.array(z.string().min(1)).min(1).optional(),
 });
 
 const AssignIndentSchema = z.object({
@@ -193,6 +209,13 @@ procurementIndents.get("/line-items", async (c) => {
       ...(statusFilters.length > 0 ? { status: { in: statusFilters as any[] } } : {}),
     },
     include: {
+      material: {
+        select: {
+          id: true,
+          materialId: true,
+          name: true,
+        },
+      },
       indent: {
         include: {
           project: { select: { id: true, name: true, slug: true } },
@@ -215,6 +238,9 @@ procurementIndents.get("/line-items", async (c) => {
 
   const shaped = items.map((item) => ({
     id: item.id,
+    materialCatalogId: item.materialCatalogId,
+    materialId: item.material?.materialId || null,
+    material: item.material,
     materialName: item.materialName,
     unit: item.unit,
     quantity: item.quantity,
@@ -272,6 +298,9 @@ procurementIndents.post("/", zValidator("json", CreateIndentSchema), async (c) =
       name: body.name,
       description: body.description,
       expectedDelivery: body.expectedDelivery ? new Date(body.expectedDelivery) : undefined,
+      taxPercent: body.taxPercent,
+      exciseDutyPercent: body.exciseDutyPercent,
+      vatPercent: body.vatPercent,
       lineItems: body.lineItems,
       approverIds: body.approverIds,
     },
@@ -279,6 +308,50 @@ procurementIndents.post("/", zValidator("json", CreateIndentSchema), async (c) =
   );
 
   return c.json({ success: true, data: indent }, 201);
+});
+
+/**
+ * PATCH /api/v1/procurement/indents/:id
+ * Edit an indent's own details (owner / admin / manager, or the requester while it is editable)
+ */
+procurementIndents.patch("/:id", zValidator("json", UpdateIndentSchema), async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+  const body = c.req.valid("json");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const updated = await IndentService.updateIndent(
+    id,
+    {
+      ...body,
+      expectedDelivery:
+        body.expectedDelivery === undefined
+          ? undefined
+          : body.expectedDelivery
+            ? new Date(body.expectedDelivery)
+            : null,
+    },
+    user.id,
+    workspaceId
+  );
+  return c.json({ success: true, data: updated });
+});
+
+/**
+ * DELETE /api/v1/procurement/indents/:id
+ * Delete an indent and its line items (owner / admin / manager)
+ */
+procurementIndents.delete("/:id", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  await IndentService.deleteIndent(id, user.id, workspaceId);
+  return c.json({ success: true, message: "Indent deleted successfully" });
 });
 
 /**

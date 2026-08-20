@@ -1,4 +1,5 @@
 import prisma from "@/lib/db";
+import { ensureMaterialCatalog } from "../material-catalog.service";
 
 export class IndentRepository {
   static async findById(id: string) {
@@ -7,6 +8,7 @@ export class IndentRepository {
       include: {
         lineItems: {
           include: {
+            material: true,
             approvedQuote: {
               include: {
                 vendor: true,
@@ -45,7 +47,7 @@ export class IndentRepository {
           },
         },
         selectedVendor: {
-          select: { id: true, name: true, companyName: true },
+          select: { id: true, vendorId: true, name: true, companyName: true },
         },
         task: {
           select: {
@@ -107,9 +109,13 @@ export class IndentRepository {
     name: string;
     description?: string;
     expectedDelivery?: Date;
+    taxPercent?: number;
+    exciseDutyPercent?: number;
+    vatPercent?: number;
     requestedById: string;
     approverIds?: string[];
     lineItems?: {
+      materialCatalogId?: string;
       materialName: string;
       unit: string;
       quantity: number;
@@ -120,6 +126,21 @@ export class IndentRepository {
     for (let attempt = 0; ; attempt++) {
       try {
         return await prisma.$transaction(async (tx) => {
+          const catalogMaterials: { id: string }[] = [];
+          if (data.lineItems) {
+            for (const item of data.lineItems) {
+              catalogMaterials.push(
+                await IndentRepository.rememberMaterial(
+                  data.workspaceId,
+                  item.materialName,
+                  item.unit,
+                  tx,
+                  item.materialCatalogId
+                )
+              );
+            }
+          }
+
           const indent = await tx.indent.create({
             data: {
               indentId: await IndentRepository.nextIndentNumber(tx),
@@ -129,12 +150,16 @@ export class IndentRepository {
               name: data.name,
               description: data.description,
               expectedDelivery: data.expectedDelivery,
+              taxPercent: data.taxPercent,
+              exciseDutyPercent: data.exciseDutyPercent,
+              vatPercent: data.vatPercent,
               requestedById: data.requestedById,
               approverIds: data.approverIds || [],
               status: "DRAFT",
               lineItems: data.lineItems
                 ? {
-                    create: data.lineItems.map((item) => ({
+                    create: data.lineItems.map((item, index) => ({
+                      materialCatalogId: catalogMaterials[index].id,
                       materialName: item.materialName,
                       unit: item.unit,
                       quantity: item.quantity,
@@ -149,17 +174,6 @@ export class IndentRepository {
               lineItems: true,
             },
           });
-
-          if (data.lineItems && data.lineItems.length > 0) {
-            for (const item of data.lineItems) {
-              await IndentRepository.rememberMaterial(
-                data.workspaceId,
-                item.materialName,
-                item.unit,
-                tx
-              );
-            }
-          }
 
           return indent;
         });
@@ -206,34 +220,16 @@ export class IndentRepository {
     workspaceId: string,
     materialName: string,
     unit?: string,
-    tx?: any
+    tx?: any,
+    materialCatalogId?: string
   ) {
     const client = tx || prisma;
-    const name = materialName.trim();
-    const resolvedUnit = unit?.trim() || null;
-
-    const existing = await client.materialCatalog.findFirst({
-      where: {
-        workspaceId,
-        name: { equals: name, mode: "insensitive" },
-      },
-      select: { id: true },
-    });
-
-    if (existing) {
-      return client.materialCatalog.update({
-        where: { id: existing.id },
-        data: resolvedUnit ? { unit: resolvedUnit } : {},
-      });
-    }
-
-    return client.materialCatalog.create({
-      data: {
-        workspaceId,
-        name,
-        unit: resolvedUnit,
-        source: "INDENT",
-      },
+    return ensureMaterialCatalog(client, {
+      workspaceId,
+      name: materialName,
+      unit,
+      source: "INDENT",
+      catalogId: materialCatalogId,
     });
   }
 }

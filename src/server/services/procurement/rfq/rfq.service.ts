@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
+import { ensureMaterialCatalog } from "../material-catalog.service";
 
 export class RFQService {
   static async sendRFQ(
@@ -110,6 +111,15 @@ export class RFQService {
     }
 
     await prisma.$transaction(async (tx) => {
+      const normalizedMaterialName = quote.lineItem.materialName.toLowerCase().trim();
+      const material = await ensureMaterialCatalog(tx, {
+        workspaceId,
+        name: normalizedMaterialName,
+        unit: quote.lineItem.unit,
+        source: "VENDOR",
+        catalogId: quote.lineItem.materialCatalogId || undefined,
+      });
+
       // 1. Approve this quote
       await tx.vendorQuote.update({
         where: { id: quoteId },
@@ -140,11 +150,11 @@ export class RFQService {
         data: {
           status: "APPROVED",
           approvedQuoteId: quoteId,
+          materialCatalogId: material.id,
         },
       });
 
       // 4. Auto-upsert capability for the vendor with AUTO source
-      const normalizedMaterialName = quote.lineItem.materialName.toLowerCase().trim();
       await tx.vendorMaterialCapability.upsert({
         where: {
           vendorId_materialName_serviceType: {
@@ -153,30 +163,15 @@ export class RFQService {
             serviceType: "SUPPLY",
           },
         },
-        update: {},
+        update: { materialCatalogId: material.id },
         create: {
           vendorId: quote.vendorId,
+          materialCatalogId: material.id,
           materialName: normalizedMaterialName,
           unit: quote.lineItem.unit,
           workspaceId,
           source: "AUTO",
           serviceType: "SUPPLY",
-        },
-      });
-
-      // 5. Keep MaterialCatalog in sync with AUTO-discovered vendor materials
-      await tx.materialCatalog.upsert({
-        where: {
-          workspaceId_name: { workspaceId, name: normalizedMaterialName },
-        },
-        create: {
-          workspaceId,
-          name: normalizedMaterialName,
-          unit: quote.lineItem.unit,
-          source: "VENDOR",
-        },
-        update: {
-          ...(quote.lineItem.unit ? { unit: quote.lineItem.unit } : {}),
         },
       });
     });

@@ -115,7 +115,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (!workspaceId) return;
 
     const unsubscribe = pubsub.subscribe(EVENTS.APP_ACTIVITY_LOG, (data: any) => {
-      if (["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
+      if (data.notification === true || ["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
         if (data.userId !== session?.user?.id) {
           // Trigger a re-fetch of notifications to keep list fully accurate
           loadNotifications(true);
@@ -130,8 +130,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (workspaceId) {
-      loadNotifications(true);
+      const timeoutId = window.setTimeout(() => void loadNotifications(true), 0);
+      return () => window.clearTimeout(timeoutId);
     }
+    // A fresh load is keyed to workspace changes; pagination cursor changes must not restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   return (

@@ -1099,12 +1099,22 @@ export class WorkspaceService {
       ];
     }
 
-    const unreadTasks = await prisma.comment.groupBy({
-      by: ['taskId'],
-      where
-    });
+    const [unreadTasks, unreadDirectNotifications] = await Promise.all([
+      prisma.comment.groupBy({
+        by: ["taskId"],
+        where,
+      }),
+      prisma.notification.count({
+        where: {
+          workspaceId,
+          userId,
+          isRead: false,
+          type: { notIn: ["USER_LOGIN", "REQUESTED_PASSWORD_RESET"] },
+        },
+      }),
+    ]);
 
-    return unreadTasks.length;
+    return unreadTasks.length + unreadDirectNotifications;
   }
 
   /**

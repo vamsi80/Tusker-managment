@@ -2,9 +2,11 @@ import { randomUUID } from "crypto";
 import prisma from "@/lib/db";
 import { AppError } from "@/lib/errors/app-error";
 import { broadcastProjectUpdate } from "@/lib/realtime";
+import { pusherServer } from "@/lib/pusher";
 import { IndentRepository } from "./indent.repository";
 
 type InitialLineItemInput = {
+  materialCatalogId?: string;
   materialName: string;
   unit: string;
   quantity: number;
@@ -30,6 +32,23 @@ export class IndentService {
   private static ensureCanMutate(member: { workspaceRole: string }) {
     if (member.workspaceRole === "ACCOUNTS") {
       throw AppError.Forbidden("Accounts has view-only access to procurement");
+    }
+  }
+
+  private static ensureOptionalChargePercentages(data: {
+    taxPercent?: number | null;
+    exciseDutyPercent?: number | null;
+    vatPercent?: number | null;
+  }) {
+    const charges = [
+      ["Tax", data.taxPercent],
+      ["Excise duty", data.exciseDutyPercent],
+      ["VAT", data.vatPercent],
+    ] as const;
+    for (const [label, value] of charges) {
+      if (value != null && (!Number.isFinite(value) || value < 0 || value > 100)) {
+        throw AppError.ValidationError(`${label} must be between 0% and 100%`);
+      }
     }
   }
 
@@ -91,14 +110,21 @@ export class IndentService {
     return owners.map((owner) => owner.userId);
   }
 
+  private static requesterName(indent: any) {
+    return (
+      [indent.requestedBy?.user?.name, indent.requestedBy?.user?.surname].filter(Boolean).join(" ") || "A member"
+    );
+  }
+
   private static async notify(
     userIds: string[],
     workspaceId: string,
     indentId: string,
     title: string,
-    body: string
+    body: string,
+    actorUserId?: string
   ) {
-    const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
+    const uniqueUserIds = [...new Set(userIds.filter(Boolean))].filter((id) => id !== actorUserId);
     if (!uniqueUserIds.length) return;
     const now = new Date();
     await prisma.notification.createMany({
@@ -115,6 +141,26 @@ export class IndentService {
         updatedAt: now,
       })),
     });
+
+    if (pusherServer) {
+      await pusherServer
+        .trigger(
+          uniqueUserIds.map((userId) => `user-${userId}`),
+          "activity_log",
+          {
+            action: "INDENT_APPROVAL",
+            title,
+            message: title,
+            newData: { text: body },
+            userId: actorUserId,
+            workspaceId,
+            entityId: indentId,
+            entityType: "Indent",
+            notification: true,
+          }
+        )
+        .catch((error: unknown) => console.error("[INDENT] notification push failed:", error));
+    }
   }
 
   private static async broadcast(indent: { projectId: string }, workspaceId: string) {
@@ -144,6 +190,9 @@ export class IndentService {
       name?: string;
       description?: string;
       expectedDelivery?: Date;
+      taxPercent?: number;
+      exciseDutyPercent?: number;
+      vatPercent?: number;
       lineItems?: InitialLineItemInput[];
       approverIds: string[];
     },
@@ -156,6 +205,7 @@ export class IndentService {
 
     const member = await this.getMember(userId, data.workspaceId);
     this.ensureCanMutate(member);
+    this.ensureOptionalChargePercentages(data);
 
     if (!data.approverIds.length) {
       throw AppError.ValidationError("Select at least one owner for approval");
@@ -195,6 +245,106 @@ export class IndentService {
     });
   }
 
+  /** Owners, admins and managers run the indent; the requester only owns it while it is theirs to edit. */
+  private static canManageIndent(member: { id: string; workspaceRole: string }, indent: any) {
+    if (member.workspaceRole === "ACCOUNTS") return false;
+    if (["OWNER", "ADMIN", "MANAGER"].includes(member.workspaceRole)) return true;
+    return member.id === indent.requestedById && this.canEditInitialDetails(member, indent);
+  }
+
+  static async updateIndent(
+    indentId: string,
+    data: {
+      name?: string;
+      description?: string | null;
+      expectedDelivery?: Date | null;
+      taxPercent?: number | null;
+      exciseDutyPercent?: number | null;
+      vatPercent?: number | null;
+      approverIds?: string[];
+    },
+    userId: string,
+    workspaceId: string
+  ) {
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    this.ensureOptionalChargePercentages(data);
+    const indent = await this.getIndent(indentId, workspaceId);
+
+    if (!this.canManageIndent(member, indent)) {
+      throw AppError.Forbidden("You cannot edit this indent");
+    }
+    if (["APPROVED", "CANCELLED"].includes(indent.status)) {
+      throw AppError.Conflict("A closed indent can no longer be edited");
+    }
+    const changesOptionalCharges = [data.taxPercent, data.exciseDutyPercent, data.vatPercent].some(
+      (value) => value !== undefined
+    );
+    if (changesOptionalCharges && !this.canEditInitialDetails(member, indent)) {
+      throw AppError.Conflict("Taxes and duties can only be changed while the indent is a draft or initial revision");
+    }
+    if (data.name !== undefined && !data.name.trim()) {
+      throw AppError.ValidationError("Indent name cannot be empty");
+    }
+
+    let approverReset: Record<string, string[]> = {};
+    if (data.approverIds) {
+      if (!data.approverIds.length) {
+        throw AppError.ValidationError("Select at least one owner for approval");
+      }
+      const validApprovers = await prisma.workspaceMember.count({
+        where: {
+          workspaceId,
+          id: { in: data.approverIds },
+          workspaceRole: { in: ["OWNER", "ADMIN"] },
+        },
+      });
+      if (validApprovers !== new Set(data.approverIds).size) {
+        throw AppError.ValidationError("Every selected approver must be an owner or admin in this workspace");
+      }
+      // Approvals belong to the people still on the list - drop the ones who left it.
+      approverReset = {
+        approvedByIds: (indent.approvedByIds || []).filter((id: string) => data.approverIds!.includes(id)),
+        finalOwnerApprovedByIds: (indent.finalOwnerApprovedByIds || []).filter((id: string) =>
+          data.approverIds!.includes(id)
+        ),
+      };
+    }
+
+    const updated = await prisma.indent.update({
+      where: { id: indentId },
+      data: {
+        name: data.name?.trim(),
+        description: data.description,
+        expectedDelivery: data.expectedDelivery,
+        taxPercent: data.taxPercent,
+        exciseDutyPercent: data.exciseDutyPercent,
+        vatPercent: data.vatPercent,
+        ...(data.approverIds ? { approverIds: data.approverIds, ...approverReset } : {}),
+      },
+    });
+    await this.broadcast(indent, workspaceId);
+    return updated;
+  }
+
+  static async deleteIndent(indentId: string, userId: string, workspaceId: string) {
+    const member = await this.getMember(userId, workspaceId);
+    this.ensureCanMutate(member);
+    if (!["OWNER", "ADMIN", "MANAGER"].includes(member.workspaceRole)) {
+      throw AppError.Forbidden("Only an owner, admin or manager can delete an indent");
+    }
+    const indent = await this.getIndent(indentId, workspaceId);
+
+    // A purchase order already refers to these materials - cancel the indent instead.
+    if (indent.lineItems.some((item: any) => item.status === "PO_CREATED")) {
+      throw AppError.Conflict("Cannot delete: some line items are already PO generated");
+    }
+
+    await prisma.indent.delete({ where: { id: indentId } });
+    await this.broadcast(indent, workspaceId);
+    return { id: indentId };
+  }
+
   static async submitIndent(indentId: string, userId: string, workspaceId: string) {
     const member = await this.getMember(userId, workspaceId);
     this.ensureCanMutate(member);
@@ -222,8 +372,9 @@ export class IndentService {
       await this.getManagerUserIds(indent, workspaceId),
       workspaceId,
       indent.id,
-      "Indent pending manager approval",
-      `Indent "${indent.name}" is ready for review with approximate rates.`
+      "Indent needs your approval",
+      `${this.requesterName(indent)} raised indent ${indent.indentId || indent.name} for ${indent.project?.name || "a project"}. Approve the approximate rates to move it forward.`,
+      userId
     );
     await this.broadcast(indent, workspaceId);
     return updated;
@@ -283,7 +434,8 @@ export class IndentService {
       isFinalRevision ? "Final rates resubmitted" : "Indent resubmitted",
       isFinalRevision
         ? `Revised final rates for "${indent.name}" are ready for approval.`
-        : `Revised approximate rates for "${indent.name}" are ready for approval.`
+        : `Revised approximate rates for "${indent.name}" are ready for approval.`,
+      userId
     );
     await this.broadcast(indent, workspaceId);
     return updated;
@@ -323,7 +475,8 @@ export class IndentService {
         workspaceId,
         indent.id,
         "Get procurement comparitives",
-        `Approximate rates for "${indent.name}" were approved by the manager. Authorize the requester to get comparatives.`
+        `Approximate rates for "${indent.name}" were approved by the manager. Authorize the requester to get comparatives.`,
+        userId
       );
       await this.broadcast(indent, workspaceId);
       return updated;
@@ -352,7 +505,8 @@ export class IndentService {
           workspaceId,
           indent.id,
           "Start getting comparatives",
-          `Approximate rates for "${indent.name}" are authorized. Get comparative prices and enter the least final rates.`
+          `Approximate rates for "${indent.name}" are authorized. Get comparative prices and enter the least final rates.`,
+          userId
         );
       }
       await this.broadcast(indent, workspaceId);
@@ -373,7 +527,8 @@ export class IndentService {
         workspaceId,
         indent.id,
         "Final procurement approval required",
-        `The manager approved the final rates for "${indent.name}". Final owner approval is required.`
+        `The manager approved the final rates for "${indent.name}". Final owner approval is required.`,
+        userId
       );
       await this.broadcast(indent, workspaceId);
       return updated;
@@ -403,7 +558,8 @@ export class IndentService {
           workspaceId,
           indent.id,
           "Indent finally approved",
-          `The final rates for "${indent.name}" have been approved.`
+          `The final rates for "${indent.name}" have been approved.`,
+          userId
         );
       }
       await this.broadcast(indent, workspaceId);
@@ -480,7 +636,8 @@ export class IndentService {
       workspaceId,
       indent.id,
       "Final rates pending approval",
-      `The requester entered final rates for "${indent.name}". Review and approve them.`
+      `The requester entered final rates for "${indent.name}". Review and approve them.`,
+      userId
     );
     await this.broadcast(indent, workspaceId);
     return updated;
@@ -518,7 +675,8 @@ export class IndentService {
       workspaceId,
       indent.id,
       "Indent rejected for revision",
-      `"${indent.name}" was rejected: ${reason}. Edit it and resubmit for approval.`
+      `"${indent.name}" was rejected: ${reason}. Edit it and resubmit for approval.`,
+      userId
     );
     await this.broadcast(indent, workspaceId);
     return updated;
@@ -602,9 +760,17 @@ export class IndentService {
     }
 
     return prisma.$transaction(async (tx) => {
+      const material = await IndentRepository.rememberMaterial(
+        workspaceId,
+        data.materialName,
+        data.unit,
+        tx,
+        data.materialCatalogId
+      );
       const item = await tx.indentLineItem.create({
         data: {
           indentId,
+          materialCatalogId: material.id,
           materialName: data.materialName.trim(),
           unit: data.unit.trim(),
           quantity: data.quantity,
@@ -613,7 +779,6 @@ export class IndentService {
           status: "PENDING",
         },
       });
-      await IndentRepository.rememberMaterial(workspaceId, data.materialName, data.unit, tx);
       return item;
     });
   }
@@ -669,9 +834,17 @@ export class IndentService {
     }
 
     return prisma.$transaction(async (tx) => {
+      const material = await IndentRepository.rememberMaterial(
+        workspaceId,
+        data.materialName || item.materialName,
+        data.unit || item.unit,
+        tx,
+        data.materialCatalogId || (data.materialName === undefined ? item.materialCatalogId || undefined : undefined)
+      );
       const updated = await tx.indentLineItem.update({
         where: { id: itemId },
         data: {
+          materialCatalogId: material.id,
           materialName: data.materialName?.trim(),
           unit: data.unit?.trim(),
           quantity: data.quantity,
@@ -679,12 +852,6 @@ export class IndentService {
           specifications: data.specifications,
         },
       });
-      await IndentRepository.rememberMaterial(
-        workspaceId,
-        data.materialName || item.materialName,
-        data.unit || item.unit,
-        tx
-      );
       return updated;
     });
   }
