@@ -3,13 +3,15 @@
 import { memo, useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { useFilterStore } from "@/lib/store/filter-store";
 import { GlobalFilterToolbar } from "../shared/global-filter-toolbar";
 import { TaskTableProvider } from "./task-table/context/task-table-context";
 import { useTaskTableLogic } from "./task-table/hooks/use-task-table-logic";
 import { TaskTableHeader } from "./task-table/components/task-header";
 import { TaskTableBody } from "./task-table/components/task-table-body";
-import type { TaskWithSubTasks } from "@/components/task/shared/types";
+import type { TaskStatus, TaskWithSubTasks } from "@/components/task/shared/types";
 import type { ProjectMembersType } from "@/types/project";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
@@ -37,6 +39,14 @@ function TaskTable(props: TaskTableProps) {
     return () => console.log("DEBUG [TaskTable] Unmounted");
   }, []);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Filters come from the URL (dashboard summary cards link here with ?status=TO_DO,IN_PROGRESS)
+  const statusParam = useSearchParams().get("status");
+  useEffect(() => {
+    const { filters, setFilters, clearFilters } = useFilterStore.getState();
+    if (statusParam) setFilters({ status: statusParam.split(",") as TaskStatus[] });
+    else if (Object.keys(filters).length) clearFilters();
+  }, [statusParam]);
   const { data: layoutData } = useWorkspaceLayout();
   const projects = useMemo(() => layoutData.projects || [], [layoutData.projects]);
   const leadProjectIds = layoutData.permissions?.leadProjectIds || [];

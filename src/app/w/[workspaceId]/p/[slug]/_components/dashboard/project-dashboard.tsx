@@ -37,7 +37,7 @@ interface ProjectDashboardProps {
   workspaceId: string;
 }
 
-export function ProjectDashboard({ data }: ProjectDashboardProps) {
+export function ProjectDashboard({ data, workspaceId }: ProjectDashboardProps) {
   const {
     project,
     totalCount,
@@ -51,14 +51,14 @@ export function ProjectDashboard({ data }: ProjectDashboardProps) {
     hasFullAccess,
   } = data;
 
-  // Absent count: only meaningful for PM/Lead who can see all members
-  const absentCount = hasFullAccess
+  // Absent members: only meaningful for PM/Lead who can see all members
+  const absentMembers = hasFullAccess
     ? allMembers.filter((member) =>
       member.workspaceMember?.workspaceRole !== "OWNER" &&
       member.workspaceMember?.workspaceRole !== "ADMIN" &&
       !presentRecords.some((r) => r.workspaceMemberId === member.workspaceMember?.id)
-    ).length
-    : 0;
+    )
+    : [];
 
   return (
     <div className="flex-1 flex flex-col space-y-6 overflow-y-auto">
@@ -66,7 +66,8 @@ export function ProjectDashboard({ data }: ProjectDashboardProps) {
         totalCount={totalCount}
         todoCount={todoCount}
         completedCount={completedCount}
-        absentCount={absentCount}
+        absentMembers={absentMembers}
+        listHref={`/w/${workspaceId}/p/${project.slug}/list`}
         showAbsent={hasFullAccess}
       />
 
