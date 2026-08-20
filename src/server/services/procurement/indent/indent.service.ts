@@ -416,6 +416,7 @@ export class IndentService {
   static async submitFinalRates(
     indentId: string,
     rates: { itemId: string; finalUnitPrice: number }[],
+    vendorId: string,
     userId: string,
     workspaceId: string
   ) {
@@ -433,6 +434,12 @@ export class IndentService {
     if (member.id !== indent.requestedById) {
       throw AppError.Forbidden("Only the original requester can enter final rates");
     }
+
+    const vendor = await prisma.vendor.findFirst({
+      where: { id: vendorId, workspaceId },
+      select: { id: true },
+    });
+    if (!vendor) throw AppError.ValidationError("Select the vendor these rates came from");
 
     const rateByItemId = new Map(rates.map((rate) => [rate.itemId, rate.finalUnitPrice]));
     for (const item of indent.lineItems) {
@@ -453,6 +460,7 @@ export class IndentService {
         where: { id: indentId },
         data: {
           status: "PENDING_MANAGER_FINAL_RATE_APPROVAL",
+          selectedVendorId: vendorId,
           finalRatesSubmittedAt: new Date(),
           finalRatesSubmittedById: member.id,
           finalManagerApprovedAt: null,
@@ -550,6 +558,37 @@ export class IndentService {
     return member.id === indent.requestedById || ["OWNER", "ADMIN", "MANAGER"].includes(member.workspaceRole);
   }
 
+  /**
+   * The manager and the selected owners can revise the numbers while an indent is
+   * sitting in their review stage: approximate rates in the first round, final rates
+   * in the second. Returns which round they are in, or null if they may not revise.
+   */
+  private static reviewerRevisionStage(
+    member: { id: string; workspaceRole: string },
+    indent: any
+  ): "ESTIMATE" | "FINAL" | null {
+    if (member.workspaceRole === "ACCOUNTS") return null;
+
+    const managerStages: Record<string, "ESTIMATE" | "FINAL"> = {
+      SUBMITTED: "ESTIMATE",
+      ASSIGNED: "ESTIMATE",
+      PENDING_MANAGER_FINAL_RATE_APPROVAL: "FINAL",
+    };
+    const ownerStages: Record<string, "ESTIMATE" | "FINAL"> = {
+      PENDING_OWNER_APPROVAL: "ESTIMATE",
+      PENDING_OWNER_COMPARATIVE_APPROVAL: "ESTIMATE",
+      PENDING_OWNER_FINAL_APPROVAL: "FINAL",
+    };
+
+    if (managerStages[indent.status]) {
+      return this.isManagerForIndent(member, indent) ? managerStages[indent.status] : null;
+    }
+    if (ownerStages[indent.status]) {
+      return this.isOwnerApprover(member, indent) ? ownerStages[indent.status] : null;
+    }
+    return null;
+  }
+
   static async addLineItem(
     indentId: string,
     data: InitialLineItemInput,
@@ -593,17 +632,41 @@ export class IndentService {
   static async updateLineItem(
     indentId: string,
     itemId: string,
-    data: Partial<InitialLineItemInput>,
+    data: Partial<InitialLineItemInput> & { finalUnitPrice?: number },
     userId: string,
     workspaceId: string
   ) {
     const member = await this.getMember(userId, workspaceId);
     const indent = await this.getIndent(indentId, workspaceId);
-    if (!this.canEditInitialDetails(member, indent)) {
+    const canEditAll = this.canEditInitialDetails(member, indent);
+    const revisionStage = canEditAll ? null : this.reviewerRevisionStage(member, indent);
+    if (!canEditAll && !revisionStage) {
       throw AppError.Forbidden("This indent is not editable at the current stage");
     }
     const item = await prisma.indentLineItem.findFirst({ where: { id: itemId, indentId } });
     if (!item) throw AppError.NotFound("Line item not found in this indent");
+
+    if (revisionStage) {
+      if (data.quantity !== undefined && data.quantity <= 0) {
+        throw AppError.ValidationError("Quantity must be greater than 0");
+      }
+      // A revised number voids the approvals already collected in this round, so no
+      // approver is ever counted for a figure they did not see.
+      return prisma.$transaction(async (tx) => {
+        const updated = await tx.indentLineItem.update({
+          where: { id: itemId },
+          data:
+            revisionStage === "FINAL"
+              ? { quantity: data.quantity, finalUnitPrice: data.finalUnitPrice }
+              : { quantity: data.quantity, estimatedUnitPrice: data.estimatedUnitPrice },
+        });
+        await tx.indent.update({
+          where: { id: indentId },
+          data: revisionStage === "FINAL" ? { finalOwnerApprovedByIds: [] } : { approvedByIds: [] },
+        });
+        return updated;
+      });
+    }
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.indentLineItem.update({

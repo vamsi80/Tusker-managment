@@ -34,7 +34,7 @@ const lineItemColumns: ColumnDef<LineItemData>[] = [
           <span className="font-semibold text-xs text-foreground">{item.materialName}</span>
           {item.specifications && (
             <span className="text-[10px] text-muted-foreground line-clamp-1">
-              Spec: {item.specifications}
+              Desc: {item.specifications}
             </span>
           )}
         </div>

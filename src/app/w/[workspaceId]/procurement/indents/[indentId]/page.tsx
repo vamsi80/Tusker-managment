@@ -33,6 +33,7 @@ export default async function IndentDetailPage({ params }: PageProps) {
         },
       },
       lineItems: true,
+      selectedVendor: { select: { id: true, name: true, companyName: true } },
     },
   });
 

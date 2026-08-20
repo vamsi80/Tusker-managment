@@ -60,6 +60,30 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     indent.status === "COMPARATIVES_IN_PROGRESS" ||
     (indent.status === "REJECTED" && indent.rejectedStage === "FINAL");
   const canEdit = !isAccounts && (indent.status === "DRAFT" || isInitialRevision) && (isRequester || isApprover);
+
+  // The manager / selected owners can revise the numbers while the indent sits in
+  // their review stage - approximate rates in the first round, final rates in the second.
+  const isManagerForIndent = Boolean(
+    workspaceMemberId &&
+    (indent.requestedBy?.reportToId
+      ? workspaceMemberId === indent.requestedBy.reportToId
+      : ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || ""))
+  );
+  const isSelectedOwner = Boolean(
+    workspaceMemberId &&
+    indent.approverIds?.includes(workspaceMemberId) &&
+    ["OWNER", "ADMIN"].includes(workspaceRole || "")
+  );
+  const isReviewer =
+    (["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(indent.status) && isManagerForIndent) ||
+    (["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL", "PENDING_OWNER_FINAL_APPROVAL"].includes(indent.status) && isSelectedOwner);
+  const revisionStage: "ESTIMATE" | "FINAL" | null =
+    isAccounts || canEdit || !isReviewer
+      ? null
+      : ["PENDING_MANAGER_FINAL_RATE_APPROVAL", "PENDING_OWNER_FINAL_APPROVAL"].includes(indent.status)
+        ? "FINAL"
+        : "ESTIMATE";
+  const canRevise = revisionStage !== null;
   const canEnterFinalRates =
     !isAccounts && isRequester && isFinalRateEntry && allSelectedOwnersAuthorized;
 
@@ -70,6 +94,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
   const [editUnit, setEditUnit] = useState("pcs");
   const [editSpecifications, setEditSpecifications] = useState("");
   const [editEstimatedRate, setEditEstimatedRate] = useState("");
+  const [editFinalRate, setEditFinalRate] = useState("");
 
   // Add row states
   const [addMaterialName, setAddMaterialName] = useState("");
@@ -86,6 +111,8 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     )
   );
   const [materialCatalog, setMaterialCatalog] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState<string>(initialIndent.selectedVendorId || "");
 
   useEffect(() => {
     let active = true;
@@ -99,6 +126,20 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
       active = false;
     };
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (!canEnterFinalRates) return;
+    let active = true;
+    fetch(`/api/v1/procurement/vendors?w=${workspaceId}&status=ACTIVE`)
+      .then((response) => response.json())
+      .then((payload) => {
+        if (active && payload.success) setVendors(payload.data || []);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [workspaceId, canEnterFinalRates]);
 
   const applyRememberedMaterial = (
     value: string,
@@ -234,12 +275,16 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
       toast.error("Enter a positive final rate for every material");
       return;
     }
+    if (!selectedVendorId) {
+      toast.error("Select the vendor these rates came from");
+      return;
+    }
     startTransition(async () => {
       try {
         const res = await fetch(`/api/v1/procurement/indents/${indent.id}/final-rates?w=${workspaceId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rates }),
+          body: JSON.stringify({ rates, vendorId: selectedVendorId }),
         });
         const data = await res.json();
         if (data.success) {
@@ -287,6 +332,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     setEditUnit(item.unit || "pcs");
     setEditSpecifications(item.specifications || "");
     setEditEstimatedRate(item.estimatedUnitPrice ? String(item.estimatedUnitPrice / 100) : "");
+    setEditFinalRate(item.finalUnitPrice ? String(item.finalUnitPrice / 100) : "");
   };
 
   const handleEditCancel = () => {
@@ -302,18 +348,27 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
       toast.error("Quantity must be greater than 0");
       return;
     }
+    const toPaise = (value: string) => (value ? Math.round(Number(value) * 100) : undefined);
+    const payload = canRevise
+      ? {
+          quantity: Number(editQuantity),
+          ...(revisionStage === "FINAL"
+            ? { finalUnitPrice: toPaise(editFinalRate) }
+            : { estimatedUnitPrice: toPaise(editEstimatedRate) }),
+        }
+      : {
+          materialName: editMaterialName.trim(),
+          quantity: Number(editQuantity),
+          unit: editUnit.trim(),
+          specifications: editSpecifications.trim() || null,
+          estimatedUnitPrice: toPaise(editEstimatedRate),
+        };
     startTransition(async () => {
       try {
         const res = await fetch(`/api/v1/procurement/indents/${indent.id}/items/${itemId}?w=${workspaceId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            materialName: editMaterialName.trim(),
-            quantity: Number(editQuantity),
-            unit: editUnit.trim(),
-            specifications: editSpecifications.trim() || null,
-            estimatedUnitPrice: editEstimatedRate ? Math.round(Number(editEstimatedRate) * 100) : undefined,
-          }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (data.success) {
@@ -323,6 +378,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
           );
           setIndent({ ...indent, lineItems: updatedItems });
           setEditingItemId(null);
+          if (canRevise) router.refresh();
         } else {
           showErrorToast(data.error, "Failed to update item");
         }
@@ -414,6 +470,14 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             </div>
             <span className="text-[11px] text-muted-foreground mt-0.5">
               Indent ID: <strong className="font-mono text-foreground">{indent.indentId || "Draft"}</strong>
+              {indent.selectedVendor && (
+                <>
+                  {" · "}Vendor:{" "}
+                  <strong className="text-foreground">
+                    {indent.selectedVendor.companyName || indent.selectedVendor.name}
+                  </strong>
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -566,9 +630,9 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                     <TableHead className="text-xs w-[180px]">Quantity</TableHead>
                     <TableHead className="text-xs">Approx. Rate</TableHead>
                     <TableHead className="text-xs">Final Rate</TableHead>
-                    <TableHead className="text-xs">Specifications</TableHead>
+                    <TableHead className="text-xs">Description</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
-                    {canEdit && <TableHead className="text-xs text-right w-[100px]">Actions</TableHead>}
+                    {(canEdit || canRevise) && <TableHead className="text-xs text-right w-[100px]">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -584,7 +648,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                 value={editMaterialName}
                                 onChange={(e) => applyRememberedMaterial(e.target.value, setEditMaterialName, setEditUnit)}
                                 className="h-8 text-xs font-semibold"
-                                disabled={isPending}
+                                disabled={isPending || canRevise}
                               />
                             </TableCell>
                             <TableCell className="py-2">
@@ -600,7 +664,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                   value={editUnit}
                                   onChange={(e) => setEditUnit(e.target.value)}
                                   className="h-8 rounded-md border border-input bg-transparent px-2 text-xs"
-                                  disabled={isPending}
+                                  disabled={isPending || canRevise}
                                 >
                                   {UNITS.map((u) => (
                                     <option key={u} value={u}>{u}</option>
@@ -617,16 +681,31 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                 onChange={(event) => setEditEstimatedRate(event.target.value)}
                                 placeholder="Approx. rate"
                                 className="h-8 text-xs font-mono"
-                                disabled={isPending}
+                                disabled={isPending || revisionStage === "FINAL"}
                               />
                             </TableCell>
-                            <TableCell className="py-2 text-xs text-muted-foreground">{formatRate(item.finalUnitPrice)}</TableCell>
+                            <TableCell className="py-2">
+                              {revisionStage === "FINAL" ? (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editFinalRate}
+                                  onChange={(event) => setEditFinalRate(event.target.value)}
+                                  placeholder="Final rate"
+                                  className="h-8 text-xs font-mono"
+                                  disabled={isPending}
+                                />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">{formatRate(item.finalUnitPrice)}</span>
+                              )}
+                            </TableCell>
                             <TableCell className="py-2">
                               <Input
                                 value={editSpecifications}
                                 onChange={(e) => setEditSpecifications(e.target.value)}
                                 className="h-8 text-xs text-muted-foreground"
-                                disabled={isPending}
+                                disabled={isPending || canRevise}
                               />
                             </TableCell>
                             <TableCell className="py-2 align-middle">
@@ -691,7 +770,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                 {item.status}
                               </Badge>
                             </TableCell>
-                            {canEdit && (
+                            {(canEdit || canRevise) && (
                               <TableCell className="text-right py-2.5">
                                 <div className="flex justify-end gap-1.5">
                                   <Button
@@ -699,19 +778,22 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                                     variant="outline"
                                     onClick={() => handleEditStart(item)}
                                     disabled={isPending}
+                                    title={canRevise ? "Revise quantity / rate" : "Edit material"}
                                     className="size-7 text-blue-600 hover:bg-blue-50"
                                   >
                                     <Edit className="size-3.5" />
                                   </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="outline"
-                                    onClick={() => handleDeleteItem(item.id)}
-                                    disabled={isPending}
-                                    className="size-7 text-red-600 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </Button>
+                                  {canEdit && (
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      onClick={() => handleDeleteItem(item.id)}
+                                      disabled={isPending}
+                                      className="size-7 text-red-600 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  )}
                                 </div>
                               </TableCell>
                             )}
@@ -771,7 +853,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                       <TableCell className="py-2 text-xs text-muted-foreground">—</TableCell>
                       <TableCell className="py-2">
                         <Input
-                          placeholder="Specifications (optional)..."
+                          placeholder="Description (optional)..."
                           value={addSpecifications}
                           onChange={(e) => setAddSpecifications(e.target.value)}
                           className="h-8 text-xs text-muted-foreground"
@@ -810,9 +892,27 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               </datalist>
               {canEnterFinalRates && (
                 <div className="flex items-center justify-between gap-4 border-t bg-amber-50/50 px-4 py-3">
-                  <p className="text-xs text-amber-800">
-                    Enter the least manually negotiated rate for every material, then send the rates to your manager.
-                  </p>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-amber-800">
+                      Enter the least manually negotiated rate for every material, then send the rates to your manager.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-amber-900">Vendor</span>
+                      <select
+                        value={selectedVendorId}
+                        onChange={(event) => setSelectedVendorId(event.target.value)}
+                        disabled={isPending}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      >
+                        <option value="">Select the vendor these rates came from...</option>
+                        {vendors.map((vendor) => (
+                          <option key={vendor.id} value={vendor.id}>
+                            {vendor.companyName || vendor.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                   <Button onClick={handleSubmitFinalRates} disabled={isPending} className="shrink-0 h-8 text-xs">
                     <FileCheck className="mr-1.5 size-3.5" />
                     {indent.status === "REJECTED" ? "Resubmit Final Rates" : "Submit Final Rates"}

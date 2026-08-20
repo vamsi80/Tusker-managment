@@ -44,6 +44,9 @@ export class IndentRepository {
             name: true,
           },
         },
+        selectedVendor: {
+          select: { id: true, name: true, companyName: true },
+        },
         task: {
           select: {
             id: true,
@@ -114,49 +117,74 @@ export class IndentRepository {
       specifications?: string | null;
     }[];
   }) {
-    return prisma.$transaction(async (tx) => {
-      const indent = await tx.indent.create({
-        data: {
-          workspaceId: data.workspaceId,
-          projectId: data.projectId,
-          taskId: data.taskId || null,
-          name: data.name,
-          description: data.description,
-          expectedDelivery: data.expectedDelivery,
-          requestedById: data.requestedById,
-          approverIds: data.approverIds || [],
-          status: "DRAFT",
-          lineItems: data.lineItems
-            ? {
-                create: data.lineItems.map((item) => ({
-                  materialName: item.materialName,
-                  unit: item.unit,
-                  quantity: item.quantity,
-                  estimatedUnitPrice: item.estimatedUnitPrice,
-                  specifications: item.specifications,
-                  status: "PENDING",
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          lineItems: true,
-        },
-      });
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await prisma.$transaction(async (tx) => {
+          const indent = await tx.indent.create({
+            data: {
+              indentId: await IndentRepository.nextIndentNumber(tx),
+              workspaceId: data.workspaceId,
+              projectId: data.projectId,
+              taskId: data.taskId || null,
+              name: data.name,
+              description: data.description,
+              expectedDelivery: data.expectedDelivery,
+              requestedById: data.requestedById,
+              approverIds: data.approverIds || [],
+              status: "DRAFT",
+              lineItems: data.lineItems
+                ? {
+                    create: data.lineItems.map((item) => ({
+                      materialName: item.materialName,
+                      unit: item.unit,
+                      quantity: item.quantity,
+                      estimatedUnitPrice: item.estimatedUnitPrice,
+                      specifications: item.specifications,
+                      status: "PENDING",
+                    })),
+                  }
+                : undefined,
+            },
+            include: {
+              lineItems: true,
+            },
+          });
 
-      if (data.lineItems && data.lineItems.length > 0) {
-        for (const item of data.lineItems) {
-          await IndentRepository.rememberMaterial(
-            data.workspaceId,
-            item.materialName,
-            item.unit,
-            tx
-          );
-        }
+          if (data.lineItems && data.lineItems.length > 0) {
+            for (const item of data.lineItems) {
+              await IndentRepository.rememberMaterial(
+                data.workspaceId,
+                item.materialName,
+                item.unit,
+                tx
+              );
+            }
+          }
+
+          return indent;
+        });
+      } catch (err: any) {
+        // A concurrent create grabbed the same indent number - pick the next one.
+        if (err?.code === "P2002" && String(err?.meta?.target).includes("indentId") && attempt < 3) continue;
+        throw err;
       }
+    }
+  }
 
-      return indent;
+  /**
+   * Human-readable indent number: 2 digit year + 4 digit sequence (260001).
+   * ponytail: max+1 guarded by the unique index on indentId; swap for a DB
+   * sequence if indents ever get created concurrently enough to retry often.
+   */
+  private static async nextIndentNumber(tx: any) {
+    const year = String(new Date().getFullYear()).slice(-2);
+    const last = await tx.indent.findFirst({
+      where: { indentId: { startsWith: year } },
+      orderBy: { indentId: "desc" },
+      select: { indentId: true },
     });
+    const next = last?.indentId ? Number(last.indentId.slice(2)) + 1 : 1;
+    return `${year}${String(next).padStart(4, "0")}`;
   }
 
   static async updateStatus(id: string, status: any, extra?: any, tx?: any) {

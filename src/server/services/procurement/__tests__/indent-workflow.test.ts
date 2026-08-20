@@ -13,6 +13,7 @@ const dbMocks = vi.hoisted(() => {
   const db: any = {
     project: { findFirst: vi.fn() },
     workspaceMember: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
+    vendor: { findFirst: vi.fn() },
     notification: { createMany: vi.fn() },
     indent: { update: vi.fn() },
     indentLineItem: { update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
@@ -158,6 +159,7 @@ describe("Indent approval workflow", () => {
       })
     );
     dbMocks.workspaceMember.findFirst.mockResolvedValue({ userId: "manager-user" });
+    dbMocks.vendor.findFirst.mockResolvedValue({ id: "vendor-1" });
 
     await IndentService.submitFinalRates(
       "indent-1",
@@ -165,6 +167,7 @@ describe("Indent approval workflow", () => {
         { itemId: "item-1", finalUnitPrice: 35000 },
         { itemId: "item-2", finalUnitPrice: 65000 },
       ],
+      "vendor-1",
       "requester-user",
       "workspace-1"
     );
@@ -174,6 +177,7 @@ describe("Indent approval workflow", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: "PENDING_MANAGER_FINAL_RATE_APPROVAL",
+          selectedVendorId: "vendor-1",
           finalRatesSubmittedById: "requester-member",
         }),
       })
@@ -191,6 +195,7 @@ describe("Indent approval workflow", () => {
           { itemId: "item-1", finalUnitPrice: 35000 },
           { itemId: "item-2", finalUnitPrice: 65000 },
         ],
+        "vendor-1",
         "requester-user",
         "workspace-1"
       )
@@ -216,11 +221,63 @@ describe("Indent approval workflow", () => {
           { itemId: "item-1", finalUnitPrice: 35000 },
           { itemId: "item-2", finalUnitPrice: 65000 },
         ],
+        "vendor-1",
         "requester-user",
         "workspace-1"
       )
     ).rejects.toMatchObject({ statusCode: 409 });
 
+    expect(dbMocks.indentLineItem.update).not.toHaveBeenCalled();
+  });
+
+  test("the manager can revise quantity and approximate rate while reviewing", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "manager-member", workspaceRole: "MANAGER" });
+    repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "SUBMITTED", approvedByIds: ["owner-member"] }));
+    dbMocks.indentLineItem.findFirst.mockResolvedValue({ id: "item-1", indentId: "indent-1", materialName: "Cement", unit: "bag" });
+
+    const updated = await IndentService.updateLineItem(
+      "indent-1",
+      "item-1",
+      { quantity: 12, estimatedUnitPrice: 45000 },
+      "manager-user",
+      "workspace-1"
+    );
+
+    expect(updated).toMatchObject({ quantity: 12, estimatedUnitPrice: 45000 });
+    // the revision voids approvals already collected in this round
+    expect(dbMocks.indent.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { approvedByIds: [] } })
+    );
+  });
+
+  test("an owner revising final rates voids the final approvals collected so far", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "owner-member", workspaceRole: "OWNER" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({ status: "PENDING_OWNER_FINAL_APPROVAL", finalOwnerApprovedByIds: ["other-owner"] })
+    );
+    dbMocks.indentLineItem.findFirst.mockResolvedValue({ id: "item-1", indentId: "indent-1", materialName: "Cement", unit: "bag" });
+
+    const updated = await IndentService.updateLineItem(
+      "indent-1",
+      "item-1",
+      { finalUnitPrice: 38000 },
+      "owner-user",
+      "workspace-1"
+    );
+
+    expect(updated).toMatchObject({ finalUnitPrice: 38000 });
+    expect(dbMocks.indent.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { finalOwnerApprovedByIds: [] } })
+    );
+  });
+
+  test("the requester cannot edit line items once the indent is under review", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "SUBMITTED" }));
+
+    await expect(
+      IndentService.updateLineItem("indent-1", "item-1", { quantity: 99 }, "requester-user", "workspace-1")
+    ).rejects.toMatchObject({ statusCode: 403 });
     expect(dbMocks.indentLineItem.update).not.toHaveBeenCalled();
   });
 

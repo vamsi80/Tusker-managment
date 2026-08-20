@@ -166,6 +166,15 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       ),
     },
     {
+      id: "vendor",
+      header: "Vendor",
+      cell: ({ row }) => (
+        <span className="text-xs">
+          {row.original.selectedVendor?.companyName || row.original.selectedVendor?.name || "—"}
+        </span>
+      ),
+    },
+    {
       id: "requestedBy",
       header: "Requested By",
       cell: ({ row }) => (

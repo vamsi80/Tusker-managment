@@ -809,7 +809,7 @@ export function ProcurementHubClient({
 
                         {item.specifications && (
                           <p className="text-[10px] text-muted-foreground/80 line-clamp-1 italic">
-                            Spec: {item.specifications}
+                            Desc: {item.specifications}
                           </p>
                         )}
                       </div>

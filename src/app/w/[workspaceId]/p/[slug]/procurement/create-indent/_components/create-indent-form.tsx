@@ -401,6 +401,7 @@ export function CreateIndentForm({
           unit: item.unit.trim(),
           quantity: Number(item.quantity),
           estimatedUnitPrice: item.unitPrice ? Math.round(Number(item.unitPrice) * 100) : undefined,
+          specifications: item.specifications?.trim() || undefined,
         })),
       };
 
@@ -629,7 +630,7 @@ export function CreateIndentForm({
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow>
-                  <TableHead className="text-xs">Material Name</TableHead>
+                  <TableHead className="text-xs">Material Name / Description</TableHead>
                   <TableHead className="text-xs w-[90px]">Unit</TableHead>
                   <TableHead className="text-xs w-[80px]">Qty</TableHead>
                   <TableHead className="text-xs w-[150px]">Unit Price</TableHead>
@@ -640,7 +641,7 @@ export function CreateIndentForm({
               <TableBody>
                 {lineItems.map((item, index) => (
                   <TableRow key={index} className="hover:bg-muted/5">
-                    <TableCell className="py-2">
+                    <TableCell className="py-2 space-y-1.5">
                       <AutoCompleteInput
                         value={item.materialName}
                         currentUnit={item.unit}
@@ -650,6 +651,13 @@ export function CreateIndentForm({
                         disabled={isSubmitting}
                         catalog={catalog}
                         isLoading={isLoadingCatalog}
+                      />
+                      <Input
+                        placeholder="Description (optional)"
+                        value={item.specifications || ""}
+                        onChange={(e) => handleRowChange(index, "specifications", e.target.value)}
+                        disabled={isSubmitting}
+                        className="h-7 text-xs bg-background"
                       />
                     </TableCell>
                     <TableCell className="py-2">

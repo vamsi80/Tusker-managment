@@ -55,6 +55,7 @@ const UpdateLineItemSchema = z.object({
   unit: z.string().min(1).optional(),
   quantity: z.number().int().positive().optional(),
   estimatedUnitPrice: z.number().int().positive().optional(),
+  finalUnitPrice: z.number().int().positive().optional(),
   specifications: z.string().nullable().optional(),
 });
 
@@ -67,6 +68,7 @@ const AssignIndentSchema = z.object({
 });
 
 const SubmitFinalRatesSchema = z.object({
+  vendorId: z.string().min(1, "Select the vendor these rates came from"),
   rates: z.array(z.object({
     itemId: z.string(),
     finalUnitPrice: z.number().int().positive(),
@@ -122,6 +124,7 @@ procurementIndents.get("/", async (c) => {
     include: {
       project: { select: { id: true, name: true, slug: true } },
       requestedBy: { select: { user: { select: { name: true, surname: true } } } },
+      selectedVendor: { select: { id: true, name: true, companyName: true } },
       task: { select: { name: true } },
       lineItems: {
         select: {
@@ -359,9 +362,9 @@ procurementIndents.post("/:id/final-rates", zValidator("json", SubmitFinalRatesS
   const user = c.get("user");
   const id = c.req.param("id");
   const workspaceId = c.req.query("w");
-  const { rates } = c.req.valid("json");
+  const { rates, vendorId } = c.req.valid("json");
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-  const updated = await IndentService.submitFinalRates(id, rates, user.id, workspaceId);
+  const updated = await IndentService.submitFinalRates(id, rates, vendorId, user.id, workspaceId);
   return c.json({ success: true, data: updated });
 });
 

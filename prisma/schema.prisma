@@ -712,9 +712,11 @@ model Indent {
   rejectedStage            String?
   rejectionReason          String?
   revisionCount            Int              @default(0)
+  selectedVendorId         String?
   createdAt                DateTime         @default(now())
   updatedAt                DateTime         @updatedAt
   assignedTo               WorkspaceMember? @relation("IndentAssignee", fields: [assignedToId], references: [id])
+  selectedVendor           Vendor?          @relation("IndentVendor", fields: [selectedVendorId], references: [id])
   finalApprovedBy          WorkspaceMember? @relation("IndentFinalApprover", fields: [finalApprovedById], references: [id])
   finalRatesSubmittedBy    WorkspaceMember? @relation("IndentFinalRatesSubmitter", fields: [finalRatesSubmittedById], references: [id])
   finalManagerApprovedBy   WorkspaceMember? @relation("IndentFinalManagerApprover", fields: [finalManagerApprovedById], references: [id])
@@ -782,6 +784,7 @@ model Vendor {
   state         String?
   workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   capabilities  VendorMaterialCapability[]
+  indents       Indent[]                   @relation("IndentVendor")
   quotes        VendorQuote[]
 
   @@index([workspaceId])
