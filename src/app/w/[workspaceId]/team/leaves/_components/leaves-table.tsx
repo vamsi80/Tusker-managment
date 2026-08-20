@@ -148,6 +148,9 @@ export function LeavesTable({
             if (data.success) {
                 setRequests(data.data);
                 setTotalCount(data.totalCount || 0);
+            } else {
+                console.error("API returned error:", data.error);
+                toast.error("Failed to load leave requests");
             }
         } catch (error) {
             console.error("Failed to fetch leave requests:", error);

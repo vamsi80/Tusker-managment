@@ -22,6 +22,7 @@ export type AuditAction =
   | "LEAVE_REQUESTED"
   | "LEAVE_APPROVED"
   | "LEAVE_REJECTED"
+  | "LEAVE_DELETED"
   | "DM_MESSAGE"
   | "REQUESTED_PASSWORD_RESET";
 

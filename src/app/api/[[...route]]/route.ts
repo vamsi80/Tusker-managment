@@ -2,6 +2,7 @@ import { handle } from "hono/vercel";
 import app from "@/hono";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export const GET = (req: Request) => {
     console.log(`[NEXT_API_CATCHALL] GET ${req.url}`);
