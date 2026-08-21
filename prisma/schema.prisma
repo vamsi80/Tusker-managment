@@ -701,6 +701,8 @@ model Indent {
   taxPercent               Decimal?         @db.Decimal(5, 2)
   exciseDutyPercent        Decimal?         @db.Decimal(5, 2)
   vatPercent               Decimal?         @db.Decimal(5, 2)
+  transportCharge          Int?
+  labourCharge             Int?
   requestedById            String
   assignedToId             String?
   submittedAt              DateTime?

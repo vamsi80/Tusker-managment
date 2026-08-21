@@ -112,6 +112,8 @@ export class IndentRepository {
     taxPercent?: number;
     exciseDutyPercent?: number;
     vatPercent?: number;
+    transportCharge?: number;
+    labourCharge?: number;
     requestedById: string;
     approverIds?: string[];
     lineItems?: {
@@ -153,6 +155,8 @@ export class IndentRepository {
               taxPercent: data.taxPercent,
               exciseDutyPercent: data.exciseDutyPercent,
               vatPercent: data.vatPercent,
+              transportCharge: data.transportCharge,
+              labourCharge: data.labourCharge,
               requestedById: data.requestedById,
               approverIds: data.approverIds || [],
               status: "DRAFT",

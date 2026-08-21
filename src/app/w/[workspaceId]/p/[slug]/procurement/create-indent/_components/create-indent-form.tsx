@@ -152,6 +152,8 @@ const formatCurrency = (value: number) =>
   }).format(value);
 
 const optionalPercent = (value: string) => (value === "" ? undefined : Number(value));
+/** Flat charges travel in paise, like every other money field. */
+const optionalAmount = (value: string) => (value === "" ? undefined : Math.round(Number(value) * 100));
 
 // ---------------------------------------------------------------------------
 // CreateIndentForm
@@ -184,6 +186,10 @@ export function CreateIndentForm({
   const [includeTax, setIncludeTax] = useState(false);
   const [includeExciseDuty, setIncludeExciseDuty] = useState(false);
   const [includeVat, setIncludeVat] = useState(false);
+  const [transportCharge, setTransportCharge] = useState("");
+  const [labourCharge, setLabourCharge] = useState("");
+  const [includeTransport, setIncludeTransport] = useState(false);
+  const [includeLabour, setIncludeLabour] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(taskId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
@@ -384,6 +390,17 @@ export function CreateIndentForm({
         return;
       }
     }
+    const flatCharges = [
+      ["Transportation charge", transportCharge],
+      ["Labour charge", labourCharge],
+    ] as const;
+    for (const [label, value] of flatCharges) {
+      const parsed = Number(value);
+      if (value !== "" && (!Number.isFinite(parsed) || parsed < 0)) {
+        toast.error(`${label} must be a positive amount`);
+        return;
+      }
+    }
     for (let i = 0; i < lineItems.length; i++) {
       const item = lineItems[i];
       if (!item.materialName.trim()) {
@@ -411,6 +428,8 @@ export function CreateIndentForm({
         taxPercent: optionalPercent(taxPercent),
         exciseDutyPercent: optionalPercent(exciseDutyPercent),
         vatPercent: optionalPercent(vatPercent),
+        transportCharge: optionalAmount(transportCharge),
+        labourCharge: optionalAmount(labourCharge),
         approverIds,
         lineItems: lineItems.map((item) => ({
           materialName: item.materialName.trim(),
@@ -454,7 +473,14 @@ export function CreateIndentForm({
     (total, value) => total + (Number(value) || 0),
     0
   );
-  const estimatedCharges = estimatedSubtotal * (chargePercentTotal / 100);
+  const flatChargeTotal = [transportCharge, labourCharge].reduce(
+    (total, value) => total + (Number(value) || 0),
+    0
+  );
+  // Percentages apply to the materials only - flat charges are added on top.
+  const estimatedCharges = estimatedSubtotal * (chargePercentTotal / 100) + flatChargeTotal;
+  const anyChargeSelected =
+    includeTax || includeExciseDuty || includeVat || includeTransport || includeLabour;
 
   return (
     <form
@@ -632,11 +658,11 @@ export function CreateIndentForm({
             )}
           </div>
 
-          {/* Optional Taxes & Duties */}
+          {/* Optional charges */}
           <div className="flex flex-col gap-2">
             <div>
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Taxes & Duties (Optional)
+                Additional Charges (Optional)
               </Label>
               <p className="mt-0.5 text-[10px] text-muted-foreground">
                 Select only the charges that apply.
@@ -663,6 +689,20 @@ export function CreateIndentForm({
                 checked: includeVat,
                 setChecked: setIncludeVat,
                 clearValue: () => setVatPercent(""),
+              },
+              {
+                id: "include-indent-transport",
+                label: "Add Transportation Charge",
+                checked: includeTransport,
+                setChecked: setIncludeTransport,
+                clearValue: () => setTransportCharge(""),
+              },
+              {
+                id: "include-indent-labour",
+                label: "Add Labour Charge",
+                checked: includeLabour,
+                setChecked: setIncludeLabour,
+                clearValue: () => setLabourCharge(""),
               },
             ].map((charge) => (
               <div
@@ -818,13 +858,13 @@ export function CreateIndentForm({
 
           {/* Optional charges apply to the complete material subtotal. */}
           <div className="shrink-0 border-t border-border/50 pt-3">
-            {(includeTax || includeExciseDuty || includeVat) && (
+            {anyChargeSelected && (
               <div className="mb-3">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Taxes & Duties (Optional)
+                  Additional Charges (Optional)
                 </Label>
                 <p className="mt-0.5 text-[10px] text-muted-foreground">
-                  Enter the percentage for each selected charge.
+                  Taxes and duties are a percentage of the subtotal; transport and labour are flat amounts.
                 </p>
               </div>
             )}
@@ -871,6 +911,48 @@ export function CreateIndentForm({
                         disabled={isSubmitting}
                         className="h-8 text-xs font-mono"
                       />
+                    </div>
+                  ))}
+              </div>
+            )}
+            {(includeTransport || includeLabour) && (
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {[
+                  {
+                    id: "indent-transport",
+                    label: "Transportation Charge (₹)",
+                    value: transportCharge,
+                    setValue: setTransportCharge,
+                    visible: includeTransport,
+                  },
+                  {
+                    id: "indent-labour",
+                    label: "Labour Charge (₹)",
+                    value: labourCharge,
+                    setValue: setLabourCharge,
+                    visible: includeLabour,
+                  },
+                ]
+                  .filter((charge) => charge.visible)
+                  .map((charge) => (
+                    <div key={charge.id} className="flex flex-col gap-1">
+                      <Label htmlFor={charge.id} className="text-[10px] font-semibold text-muted-foreground">
+                        {charge.label}
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1.5 text-xs text-muted-foreground">₹</span>
+                        <Input
+                          id={charge.id}
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.00"
+                          value={charge.value}
+                          onChange={(event) => charge.setValue(event.target.value)}
+                          disabled={isSubmitting}
+                          className="h-8 pl-5 pr-2 text-xs font-mono"
+                        />
+                      </div>
                     </div>
                   ))}
               </div>

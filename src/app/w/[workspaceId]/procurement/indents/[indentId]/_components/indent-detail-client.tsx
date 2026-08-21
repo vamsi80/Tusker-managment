@@ -139,6 +139,12 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
   const [editTaxPercent, setEditTaxPercent] = useState(String(initialIndent.taxPercent ?? ""));
   const [editExciseDutyPercent, setEditExciseDutyPercent] = useState(String(initialIndent.exciseDutyPercent ?? ""));
   const [editVatPercent, setEditVatPercent] = useState(String(initialIndent.vatPercent ?? ""));
+  const [editTransportCharge, setEditTransportCharge] = useState(
+    initialIndent.transportCharge == null ? "" : String(initialIndent.transportCharge / 100)
+  );
+  const [editLabourCharge, setEditLabourCharge] = useState(
+    initialIndent.labourCharge == null ? "" : String(initialIndent.labourCharge / 100)
+  );
   const [editApproverIds, setEditApproverIds] = useState<string[]>(initialIndent.approverIds || []);
   const [selectedVendorId, setSelectedVendorId] = useState<string>(initialIndent.selectedVendorId || "");
 
@@ -217,10 +223,14 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
     { label: "Excise duty", percent: Number(indent.exciseDutyPercent || 0) },
     { label: "VAT", percent: Number(indent.vatPercent || 0) },
   ].filter((charge) => charge.percent > 0);
-  const optionalChargeTotal = optionalCharges.reduce(
-    (total, charge) => total + estimatedSubtotal * (charge.percent / 100),
-    0
-  );
+  // Transport and labour are flat amounts in paise, not a share of the subtotal.
+  const flatCharges = [
+    { label: "Transportation", amount: Number(indent.transportCharge || 0) },
+    { label: "Labour", amount: Number(indent.labourCharge || 0) },
+  ].filter((charge) => charge.amount > 0);
+  const optionalChargeTotal =
+    optionalCharges.reduce((total, charge) => total + estimatedSubtotal * (charge.percent / 100), 0) +
+    flatCharges.reduce((total, charge) => total + charge.amount, 0);
 
   const showErrorToast = (errPayload: any, fallback: string) => {
     if (!errPayload) {
@@ -411,6 +421,16 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         return;
       }
     }
+    for (const [label, value] of [
+      ["Transportation charge", editTransportCharge],
+      ["Labour charge", editLabourCharge],
+    ] as const) {
+      const parsed = Number(value);
+      if (value !== "" && (!Number.isFinite(parsed) || parsed < 0)) {
+        toast.error(`${label} must be a positive amount`);
+        return;
+      }
+    }
     startTransition(async () => {
       try {
         const res = await fetch(`/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`, {
@@ -425,6 +445,9 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                   taxPercent: editTaxPercent === "" ? null : Number(editTaxPercent),
                   exciseDutyPercent: editExciseDutyPercent === "" ? null : Number(editExciseDutyPercent),
                   vatPercent: editVatPercent === "" ? null : Number(editVatPercent),
+                  transportCharge:
+                    editTransportCharge === "" ? null : Math.round(Number(editTransportCharge) * 100),
+                  labourCharge: editLabourCharge === "" ? null : Math.round(Number(editLabourCharge) * 100),
                 }
               : {}),
             approverIds: editApproverIds,
@@ -728,11 +751,11 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             </CardContent>
           </Card>
 
-          {optionalCharges.length > 0 && (
+          {(optionalCharges.length > 0 || flatCharges.length > 0) && (
             <Card>
               <CardHeader className="py-3 border-b">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <ReceiptText className="size-4" /> Taxes & Duties
+                  <ReceiptText className="size-4" /> Additional Charges
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-3.5 flex flex-col gap-2.5">
@@ -746,6 +769,12 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                     <span className="font-mono font-semibold">
                       {formatRate(estimatedSubtotal * (charge.percent / 100))}
                     </span>
+                  </div>
+                ))}
+                {flatCharges.map((charge) => (
+                  <div key={charge.label} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{charge.label}</span>
+                    <span className="font-mono font-semibold">{formatRate(charge.amount)}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between border-t pt-2.5 text-xs font-bold">
@@ -1189,6 +1218,39 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                     min="0"
                     max="100"
                     step="0.01"
+                    placeholder="Optional"
+                    value={charge.value}
+                    onChange={(event) => charge.setValue(event.target.value)}
+                    disabled={isPending || !canEdit}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                {
+                  id: "edit-indent-transport",
+                  label: "Transportation (₹)",
+                  value: editTransportCharge,
+                  setValue: setEditTransportCharge,
+                },
+                {
+                  id: "edit-indent-labour",
+                  label: "Labour (₹)",
+                  value: editLabourCharge,
+                  setValue: setEditLabourCharge,
+                },
+              ].map((charge) => (
+                <div key={charge.id} className="flex flex-col gap-1.5">
+                  <label htmlFor={charge.id} className="text-[10px] uppercase font-bold text-muted-foreground">
+                    {charge.label}
+                  </label>
+                  <Input
+                    id={charge.id}
+                    type="number"
+                    min="0"
+                    step="any"
                     placeholder="Optional"
                     value={charge.value}
                     onChange={(event) => charge.setValue(event.target.value)}

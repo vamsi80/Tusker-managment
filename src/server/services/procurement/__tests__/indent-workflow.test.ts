@@ -128,6 +128,47 @@ describe("Indent approval workflow", () => {
     );
   });
 
+  test("optional transport and labour charges are persisted as flat amounts", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    dbMocks.project.findFirst.mockResolvedValue({ name: "Tower A" });
+    dbMocks.workspaceMember.count.mockResolvedValue(1);
+    repositoryMocks.create.mockResolvedValue({ id: "indent-1" });
+
+    await IndentService.createIndent(
+      {
+        projectId: "project-1",
+        workspaceId: "workspace-1",
+        approverIds: ["owner-member"],
+        transportCharge: 250000,
+        labourCharge: 80000,
+        lineItems: [{ materialName: "Cement", unit: "bag", quantity: 10, estimatedUnitPrice: 40000 }],
+      },
+      "requester-user"
+    );
+
+    expect(repositoryMocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({ transportCharge: 250000, labourCharge: 80000 })
+    );
+  });
+
+  test("a negative flat charge is rejected", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+
+    await expect(
+      IndentService.createIndent(
+        {
+          projectId: "project-1",
+          workspaceId: "workspace-1",
+          approverIds: ["owner-member"],
+          transportCharge: -100,
+          lineItems: [],
+        },
+        "requester-user"
+      )
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(repositoryMocks.create).not.toHaveBeenCalled();
+  });
+
   test("submitting an indent stores and pushes an approval notification to the manager", async () => {
     repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
     repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "DRAFT", indentId: "260001" }));

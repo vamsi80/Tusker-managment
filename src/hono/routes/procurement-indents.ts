@@ -31,6 +31,8 @@ const CreateIndentSchema = z.object({
   taxPercent: z.number().min(0).max(100).optional(),
   exciseDutyPercent: z.number().min(0).max(100).optional(),
   vatPercent: z.number().min(0).max(100).optional(),
+  transportCharge: z.number().int().min(0).optional(),
+  labourCharge: z.number().int().min(0).optional(),
   lineItems: z.array(
     z.object({
       materialCatalogId: z.string().optional(),
@@ -76,6 +78,8 @@ const UpdateIndentSchema = z.object({
   taxPercent: z.number().min(0).max(100).nullable().optional(),
   exciseDutyPercent: z.number().min(0).max(100).nullable().optional(),
   vatPercent: z.number().min(0).max(100).nullable().optional(),
+  transportCharge: z.number().int().min(0).nullable().optional(),
+  labourCharge: z.number().int().min(0).nullable().optional(),
   approverIds: z.array(z.string().min(1)).min(1).optional(),
 });
 
@@ -301,6 +305,8 @@ procurementIndents.post("/", zValidator("json", CreateIndentSchema), async (c) =
       taxPercent: body.taxPercent,
       exciseDutyPercent: body.exciseDutyPercent,
       vatPercent: body.vatPercent,
+      transportCharge: body.transportCharge,
+      labourCharge: body.labourCharge,
       lineItems: body.lineItems,
       approverIds: body.approverIds,
     },

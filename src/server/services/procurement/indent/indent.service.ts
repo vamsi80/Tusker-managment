@@ -39,6 +39,8 @@ export class IndentService {
     taxPercent?: number | null;
     exciseDutyPercent?: number | null;
     vatPercent?: number | null;
+    transportCharge?: number | null;
+    labourCharge?: number | null;
   }) {
     const charges = [
       ["Tax", data.taxPercent],
@@ -48,6 +50,17 @@ export class IndentService {
     for (const [label, value] of charges) {
       if (value != null && (!Number.isFinite(value) || value < 0 || value > 100)) {
         throw AppError.ValidationError(`${label} must be between 0% and 100%`);
+      }
+    }
+
+    // Transport and labour are lump sums in paise, not percentages.
+    const flatCharges = [
+      ["Transportation charge", data.transportCharge],
+      ["Labour charge", data.labourCharge],
+    ] as const;
+    for (const [label, value] of flatCharges) {
+      if (value != null && (!Number.isInteger(value) || value < 0)) {
+        throw AppError.ValidationError(`${label} must be a positive amount`);
       }
     }
   }
@@ -193,6 +206,8 @@ export class IndentService {
       taxPercent?: number;
       exciseDutyPercent?: number;
       vatPercent?: number;
+      transportCharge?: number;
+      labourCharge?: number;
       lineItems?: InitialLineItemInput[];
       approverIds: string[];
     },
@@ -261,6 +276,8 @@ export class IndentService {
       taxPercent?: number | null;
       exciseDutyPercent?: number | null;
       vatPercent?: number | null;
+      transportCharge?: number | null;
+      labourCharge?: number | null;
       approverIds?: string[];
     },
     userId: string,
@@ -277,11 +294,15 @@ export class IndentService {
     if (["APPROVED", "CANCELLED"].includes(indent.status)) {
       throw AppError.Conflict("A closed indent can no longer be edited");
     }
-    const changesOptionalCharges = [data.taxPercent, data.exciseDutyPercent, data.vatPercent].some(
-      (value) => value !== undefined
-    );
+    const changesOptionalCharges = [
+      data.taxPercent,
+      data.exciseDutyPercent,
+      data.vatPercent,
+      data.transportCharge,
+      data.labourCharge,
+    ].some((value) => value !== undefined);
     if (changesOptionalCharges && !this.canEditInitialDetails(member, indent)) {
-      throw AppError.Conflict("Taxes and duties can only be changed while the indent is a draft or initial revision");
+      throw AppError.Conflict("Charges can only be changed while the indent is a draft or initial revision");
     }
     if (data.name !== undefined && !data.name.trim()) {
       throw AppError.ValidationError("Indent name cannot be empty");
@@ -320,6 +341,8 @@ export class IndentService {
         taxPercent: data.taxPercent,
         exciseDutyPercent: data.exciseDutyPercent,
         vatPercent: data.vatPercent,
+        transportCharge: data.transportCharge,
+        labourCharge: data.labourCharge,
         ...(data.approverIds ? { approverIds: data.approverIds, ...approverReset } : {}),
       },
     });
