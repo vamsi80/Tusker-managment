@@ -68,3 +68,7 @@ next-env.d.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Generated OCR/PDF worker assets (scripts/fetch-ocr-assets.mjs)
+public/tesseract/
+public/pdf/

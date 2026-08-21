@@ -6,8 +6,22 @@ import { AppError } from "@/lib/errors/app-error";
 import { VendorService } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
+import { Prisma } from "@/generated/prisma";
 
 const procurementVendors = new Hono<{ Variables: HonoVariables }>();
+
+/**
+ * Header text as the vendor writes it → the indent field it feeds. Kept as a
+ * plain record so a vendor renaming one column does not invalidate the rest.
+ */
+const QuotationMappingSchema = z.object({
+  mapping: z
+    .record(
+      z.string().min(1).max(120),
+      z.enum(["itemName", "description", "quantity", "unit", "unitPrice", "amount"])
+    )
+    .nullable(),
+});
 
 const CreateVendorSchema = z.object({
   workspaceId: z.string(),
@@ -324,5 +338,39 @@ procurementVendors.delete("/:id/capabilities/:capId", async (c) => {
 
   return c.json({ success: true });
 });
+
+/**
+ * PUT /api/v1/procurement/vendors/:id/quotation-mapping
+ * Remembers how this vendor's quotation columns map onto indent fields, so the
+ * next quotation in the same format imports without manual mapping. A null body
+ * mapping forgets it again.
+ */
+procurementVendors.put(
+  "/:id/quotation-mapping",
+  zValidator("json", QuotationMappingSchema),
+  async (c) => {
+    const user = c.get("user");
+    const vendorId = c.req.param("id");
+    const workspaceId = c.req.query("w");
+
+    if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+    await checkProcurementPerms(workspaceId, user.id);
+
+    // Scoped to the workspace so an id from elsewhere cannot be written to.
+    const vendor = await prisma.vendor.findFirst({
+      where: { id: vendorId, workspaceId },
+      select: { id: true },
+    });
+    if (!vendor) throw AppError.NotFound("Vendor not found");
+
+    const updated = await prisma.vendor.update({
+      where: { id: vendor.id },
+      data: { quotationMapping: c.req.valid("json").mapping ?? Prisma.DbNull },
+      select: { id: true, quotationMapping: true },
+    });
+
+    return c.json({ success: true, data: updated });
+  }
+);
 
 export default procurementVendors;

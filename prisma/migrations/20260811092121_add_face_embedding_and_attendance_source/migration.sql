@@ -1,0 +1,12 @@
+-- Reconciliation placeholder — intentionally does nothing.
+--
+-- This migration is recorded as applied in the database's _prisma_migrations
+-- table, but its directory was removed from the repository when the face
+-- recognition feature was reverted. Neither the database nor schema.prisma
+-- contains the columns it once added, so there is nothing to reproduce.
+--
+-- It is kept as a no-op so local migration history matches what the database
+-- believes. Without it, `prisma migrate dev` reports diverged history and
+-- offers to reset the database — which would destroy production data.
+--
+-- Safe to delete only together with its _prisma_migrations row.

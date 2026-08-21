@@ -800,6 +800,9 @@ model Vendor {
   country       String?                    @default("India")
   pincode       String?
   state         String?
+  /// Column mapping remembered from a previous quotation import, keyed by this
+  /// vendor's own header wording. Null until a user chooses to remember one.
+  quotationMapping Json?
   workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   capabilities  VendorMaterialCapability[]
   indents       Indent[]                   @relation("IndentVendor")

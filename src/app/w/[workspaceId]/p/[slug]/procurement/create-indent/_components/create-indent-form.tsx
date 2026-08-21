@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Trash2, Check, ChevronsUpDown, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { QuotationImportDialog, type ImportedItem } from "@/app/w/[workspaceId]/_components/procurement/quotation-import-dialog";
 
 // ---------------------------------------------------------------------------
 // AutoCompleteInput
@@ -326,6 +327,36 @@ export function CreateIndentForm({
       ...lineItems,
       { materialName: "", unit: "pcs", quantity: 1, unitPrice: "", totalPrice: "" },
     ]);
+  };
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  /**
+   * Imported rows land in the same editable table as typed ones — nothing is
+   * saved here. Rows the user already typed are kept and the import appends to
+   * them; only the untouched blank starter row is replaced.
+   */
+  const handleImportedItems = (items: ImportedItem[]) => {
+    const importedRows: LineItemInput[] = items.map((item) => {
+      // The indent stores whole units; a fractional quotation quantity is rounded
+      // up rather than down so the site never under-orders.
+      const quantity = item.quantity && item.quantity > 0 ? Math.ceil(item.quantity) : 1;
+      const unitPrice = item.unitPrice !== null && item.unitPrice > 0 ? item.unitPrice : "";
+      return {
+        materialName: item.itemName,
+        unit: item.unit || "pcs",
+        quantity,
+        specifications: item.description,
+        unitPrice,
+        totalPrice: unitPrice === "" ? "" : Math.round(Number(unitPrice) * quantity * 100) / 100,
+      };
+    });
+
+    const hasTypedRows = lineItems.some(
+      (item) => item.materialName.trim() !== "" || item.unitPrice !== "" || item.totalPrice !== ""
+    );
+    setLineItems(hasTypedRows ? [...lineItems, ...importedRows] : importedRows);
+    toast.success(`${importedRows.length} items added — review them before creating the indent`);
   };
 
   const handleRemoveRow = (index: number) => {
@@ -734,17 +765,30 @@ export function CreateIndentForm({
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Line Items / Materials
             </Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddRow}
-              disabled={isSubmitting}
-              className="h-7 text-xs flex items-center gap-1 hover:bg-muted"
-            >
-              <Plus className="size-3" /> Add Row
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsImportOpen(true)}
+                disabled={isSubmitting}
+                className="h-7 text-xs flex items-center gap-1 hover:bg-muted"
+              >
+                <FileUp className="size-3" /> Upload Quotation
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddRow}
+                disabled={isSubmitting}
+                className="h-7 text-xs flex items-center gap-1 hover:bg-muted"
+              >
+                <Plus className="size-3" /> Add Row
+              </Button>
+            </div>
           </div>
+
 
           {/* Rows Table */}
           <div className="flex-1 overflow-y-auto pr-1">
@@ -1002,6 +1046,13 @@ export function CreateIndentForm({
           {isSubmitting ? "Creating..." : "Create Indent →"}
         </Button>
       </div>
+
+      <QuotationImportDialog
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        workspaceId={workspaceId}
+        onImport={handleImportedItems}
+      />
     </form>
   );
 }

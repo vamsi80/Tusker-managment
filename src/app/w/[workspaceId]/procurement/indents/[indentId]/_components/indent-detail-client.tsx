@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { QuotationImportDialog, type ImportedItem } from "@/app/w/[workspaceId]/_components/procurement/quotation-import-dialog";
+import { matchByMaterialName } from "@/lib/procurement/quote-match";
 import {
   Table,
   TableBody,
@@ -28,6 +30,7 @@ import {
   Save,
   Plus,
   ReceiptText,
+  FileUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -340,6 +343,31 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
         toast.error("Request failed");
       }
     });
+  };
+
+  const [scanMisses, setScanMisses] = useState<string[]>([]);
+  const [isRateImportOpen, setIsRateImportOpen] = useState(false);
+
+  /**
+   * Fills the rate inputs from a scanned quotation. Rows that cannot be matched to
+   * an existing line item are reported rather than guessed at, and nothing is sent
+   * until the user reviews the values and submits.
+   */
+  const handleImportedRates = (items: ImportedItem[]) => {
+    const lineItems = (indent.lineItems || []) as { id: string; materialName: string }[];
+    const scanned = items.map((item) => ({ materialName: item.itemName, unitPrice: item.unitPrice }));
+    const matched = matchByMaterialName(scanned, lineItems);
+
+    setFinalRates((current) => {
+      const next = { ...current };
+      for (const [itemId, row] of matched) {
+        if (row.unitPrice !== null && row.unitPrice > 0) next[itemId] = String(row.unitPrice);
+      }
+      return next;
+    });
+
+    const matchedRows = new Set(matched.values());
+    setScanMisses(scanned.filter((row) => !matchedRows.has(row)).map((row) => row.materialName));
   };
 
   const handleSubmitFinalRates = async () => {
@@ -1146,16 +1174,41 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                       </select>
                     </div>
                   </div>
-                  <Button onClick={handleSubmitFinalRates} disabled={isPending} className="shrink-0 h-8 text-xs">
-                    <FileCheck className="mr-1.5 size-3.5" />
-                    {indent.status === "REJECTED" ? "Resubmit Final Rates" : "Submit Final Rates"}
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      disabled={isPending}
+                      onClick={() => setIsRateImportOpen(true)}
+                    >
+                      <FileUp className="mr-1.5 size-3.5" /> Upload Quotation
+                    </Button>
+                    <Button onClick={handleSubmitFinalRates} disabled={isPending} className="shrink-0 h-8 text-xs">
+                      <FileCheck className="mr-1.5 size-3.5" />
+                      {indent.status === "REJECTED" ? "Resubmit Final Rates" : "Submit Final Rates"}
+                    </Button>
+                  </div>
                 </div>
+              )}
+              {canEnterFinalRates && scanMisses.length > 0 && (
+                <p className="bg-amber-50/50 px-4 pb-3 text-xs text-amber-800">
+                  Not matched to any material on this indent, so no rate was filled in for{" "}
+                  <span className="font-medium">{scanMisses.join(", ")}</span>. Enter those rates yourself.
+                </p>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <QuotationImportDialog
+        open={isRateImportOpen}
+        onOpenChange={setIsRateImportOpen}
+        workspaceId={workspaceId}
+        onImport={handleImportedRates}
+      />
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[520px]">
