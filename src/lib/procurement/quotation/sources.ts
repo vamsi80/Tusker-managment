@@ -43,6 +43,44 @@ export type ProgressReporter = (stage: string) => void;
 
 const extOf = (name: string) => (name.split(".").pop() || "").toLowerCase();
 
+/** Worker assets, staged into public/ at build time by scripts/fetch-ocr-assets.mjs. */
+const PDF_WORKER = "/pdf/pdf.worker.min.mjs";
+const TESSERACT_WORKER = "/tesseract/worker.min.js";
+const TESSERACT_CORE = "/tesseract";
+const TESSERACT_LANG = "/tesseract/lang";
+
+const assetChecks = new Map<string, Promise<void>>();
+
+/**
+ * Confirms a worker asset is really there before handing the URL to a library.
+ *
+ * A deployment missing these serves the app's own 404 *HTML* page in their
+ * place, which pdf.js and tesseract then try to execute as JavaScript — the
+ * failure surfaces as "Unexpected token '<'" with nothing pointing at the real
+ * cause. One HEAD request turns that into a sentence naming the actual problem.
+ */
+function ensureAsset(url: string): Promise<void> {
+  let check = assetChecks.get(url);
+  if (!check) {
+    check = fetch(url, { method: "HEAD" })
+      .then((res) => {
+        if (!res.ok || (res.headers.get("content-type") || "").includes("text/html")) {
+          throw new Error(
+            "This site is missing the files needed to read scanned documents. " +
+              "Excel, CSV, Word and text-based PDFs still work — ask your administrator to redeploy the app."
+          );
+        }
+      })
+      .catch((error) => {
+        // Never cache a failure: a redeploy should fix it without a page reload.
+        assetChecks.delete(url);
+        throw error;
+      });
+    assetChecks.set(url, check);
+  }
+  return check;
+}
+
 /** ExcelJS cell values are unions — formulas, rich text, dates, hyperlinks. */
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -180,9 +218,10 @@ async function pageToImage(page: any): Promise<HTMLCanvasElement> {
 }
 
 async function readPdf(file: File, onProgress?: ProgressReporter): Promise<QuotationSource[]> {
+  await ensureAsset(PDF_WORKER);
   const pdfjs = await import("pdfjs-dist");
   // Self-hosted worker: no CDN, so this keeps working without internet access.
-  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf/pdf.worker.min.mjs";
+  pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER;
 
   // Parsing runs inside the pdf.js worker, so a malformed file fails there
   // rather than taking the page down with it.
@@ -257,12 +296,17 @@ async function ocrWords(
   image: HTMLCanvasElement | File,
   onProgress?: ProgressReporter
 ): Promise<{ words: PositionedWord[]; height: number; text: string; confidence: number }> {
+  await Promise.all([ensureAsset(TESSERACT_WORKER), ensureAsset(`${TESSERACT_LANG}/eng.traineddata.gz`)]);
+
   const { createWorker } = await import("tesseract.js");
+  // Roughly 6MB of engine and language data on first use, then browser-cached.
+  // Worth naming, because on a site connection the wait is otherwise silent.
+  onProgress?.("Preparing text recognition (first use only)");
   const worker = await createWorker("eng", 1, {
     // Self-hosted so OCR works with no internet access. See public/tesseract.
-    workerPath: "/tesseract/worker.min.js",
-    corePath: "/tesseract",
-    langPath: "/tesseract/lang",
+    workerPath: TESSERACT_WORKER,
+    corePath: TESSERACT_CORE,
+    langPath: TESSERACT_LANG,
   });
   try {
     onProgress?.("Reading text");
