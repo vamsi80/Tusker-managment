@@ -49,10 +49,10 @@ export default function VendorsPage() {
       if (data.success) {
         setVendors(data.data);
       } else {
-        toast.error(data.error || "Failed to load vendors");
+        toast.error(data.error || "Failed to load suppliers / contractors");
       }
     } catch (error) {
-      toast.error("Failed to load vendors");
+      toast.error("Failed to load suppliers / contractors");
     } finally {
       setLoading(false);
     }
@@ -69,10 +69,10 @@ export default function VendorsPage() {
         });
         const data = await res.json();
         if (data.success) {
-          toast.success("Vendor activated");
+          toast.success("Supplier / contractor activated");
           fetchVendors();
         } else {
-          toast.error(data.error || "Failed to activate vendor");
+          toast.error(data.error || "Failed to activate supplier / contractor");
         }
       } else {
         const res = await fetch(`/api/v1/procurement/vendors/${vendorId}?w=${workspaceId}`, {
@@ -80,10 +80,10 @@ export default function VendorsPage() {
         });
         const data = await res.json();
         if (data.success) {
-          toast.success("Vendor blacklisted successfully");
+          toast.success("Supplier / contractor blacklisted successfully");
           fetchVendors();
         } else {
-          toast.error(data.error || "Failed to blacklist vendor");
+          toast.error(data.error || "Failed to blacklist supplier / contractor");
         }
       }
     } catch (error) {
@@ -107,10 +107,10 @@ export default function VendorsPage() {
       } else {
         // A vendor with quotes or awarded indents is refused — keep the dialog
         // open so the reason is read next to the vendor it is about.
-        toast.error(data.error || "Failed to delete vendor");
+        toast.error(data.error || "Failed to delete supplier / contractor");
       }
     } catch (error) {
-      toast.error("Failed to delete vendor");
+      toast.error("Failed to delete supplier / contractor");
     } finally {
       setIsDeleting(false);
     }
@@ -119,8 +119,8 @@ export default function VendorsPage() {
   const columns: ColumnDef<any>[] = [
     {
       accessorKey: "name",
-      header: "Vendor Name",
-      cell: ({ row }) => <span className="font-medium text-foreground">{row.getValue("name")}</span>,
+      header: "Supplier / Contractor",
+      cell: ({ row }) => <span className="font-medium text-foreground">{row.getValue("name") || "-"}</span>,
     },
     {
       accessorKey: "companyName",
@@ -213,7 +213,7 @@ export default function VendorsPage() {
                 <DropdownMenuItem
                   onClick={() => router.push(`/w/${workspaceId}/vendors/${vendor.id}/edit`)}
                 >
-                  <Edit className="mr-2 size-4" /> Edit Vendor Details
+                  <Edit className="mr-2 size-4" /> Edit Supplier / Contractor
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => handleToggleBlacklist(vendor.id, vendor.status)}
@@ -225,11 +225,11 @@ export default function VendorsPage() {
                 >
                   {vendor.status === "BLACKLISTED" ? (
                     <>
-                      <CheckCircle className="mr-2 size-4" /> Activate Supplier
+                      <CheckCircle className="mr-2 size-4" /> Activate Supplier / Contractor
                     </>
                   ) : (
                     <>
-                      <Ban className="mr-2 size-4" /> Blacklist Supplier
+                      <Ban className="mr-2 size-4" /> Blacklist Supplier / Contractor
                     </>
                   )}
                 </DropdownMenuItem>
@@ -238,7 +238,7 @@ export default function VendorsPage() {
                   onClick={() => setVendorToDelete(vendor)}
                   className="text-destructive focus:text-destructive font-medium"
                 >
-                  <Trash2 className="mr-2 size-4" /> Delete Vendor
+                  <Trash2 className="mr-2 size-4" /> Delete Supplier / Contractor
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -267,11 +267,11 @@ export default function VendorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground">
-          Vendors
+          Suppliers / Contractors
         </h1>
 
         <Button onClick={() => router.push(`/w/${workspaceId}/vendors/new`)} className="gap-2">
-          <Plus className="size-4" /> Onboard Vendor
+          <Plus className="size-4" /> Onboard Supplier / Contractor
         </Button>
       </div>
 
@@ -309,11 +309,11 @@ export default function VendorsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this vendor?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this supplier / contractor?</AlertDialogTitle>
             <AlertDialogDescription>
               {vendorToDelete?.name} will be removed permanently, along with their material
               capabilities. This cannot be undone — to keep the record and just stop using them,
-              blacklist the vendor instead.
+              blacklist the supplier / contractor instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -326,7 +326,7 @@ export default function VendorsPage() {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete Vendor"}
+              {isDeleting ? "Deleting..." : "Delete Supplier / Contractor"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

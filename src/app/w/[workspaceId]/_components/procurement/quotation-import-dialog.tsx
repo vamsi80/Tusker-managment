@@ -214,7 +214,7 @@ export function QuotationImportDialog({
         {active && (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="font-medium">{active.vendorName || "Unknown vendor"}</span>
+              <span className="font-medium">{active.vendorName || "Unknown supplier / contractor"}</span>
               {active.quotationNumber && (
                 <span className="text-muted-foreground">Quotation: {active.quotationNumber}</span>
               )}
@@ -371,7 +371,7 @@ export function QuotationImportDialog({
                       onChange={(e) => setVendorId(e.target.value)}
                       className="h-7 rounded-md border border-input bg-background px-1.5 text-xs"
                     >
-                      <option value="">select vendor…</option>
+                      <option value="">select supplier / contractor…</option>
                       {vendors.map((vendor) => (
                         <option key={vendor.id} value={vendor.id}>{vendor.companyName || vendor.name}</option>
                       ))}

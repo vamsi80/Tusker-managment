@@ -262,7 +262,7 @@ export function getRoleDescription(role: WorkspaceRole): string {
         case "MANAGER":
             return "Can create projects and manage members";
         case "PROCUREMENT":
-            return "Can manage vendors, comparatives, and procurement records";
+            return "Can manage suppliers / contractors, comparatives, and procurement records";
         case "ACCOUNTS":
             return "Read-only access to procurement items and rates";
         case "MEMBER":

@@ -253,7 +253,7 @@ procurementVendors.get("/:id", async (c) => {
     where: { id, workspaceId }
   });
 
-  if (!vendor) throw AppError.NotFound("Vendor not found");
+  if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
   return c.json({ success: true, data: vendor });
 });
@@ -272,13 +272,14 @@ procurementVendors.patch("/:id", zValidator("json", UpdateVendorSchema), async (
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
   if (!perms.isWorkspaceAdmin) {
-    throw AppError.Forbidden("Only Workspace Admins can edit vendor details");
+    throw AppError.Forbidden("Only Workspace Admins can edit supplier / contractor details");
   }
 
   const vendor = await prisma.vendor.findFirst({ where: { id, workspaceId } });
   if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
   const hasGst = data.hasGst ?? vendor.hasGst;
+  const { name, ...updateData } = data;
   const gstData = hasGst
     ? {}
     : {
@@ -297,8 +298,8 @@ procurementVendors.patch("/:id", zValidator("json", UpdateVendorSchema), async (
   const updated = await prisma.vendor.update({
     where: { id },
     data: {
-      ...data,
-      ...(data.name !== undefined ? { name: data.name?.trim() || "-" } : {}),
+      ...updateData,
+      ...(name !== undefined ? { name: name?.trim() || "-" } : {}),
       hasGst,
       ...gstData,
     },
@@ -320,7 +321,7 @@ procurementVendors.delete("/:id", async (c) => {
 
   const perms = await getWorkspacePermissions(workspaceId, user.id);
   if (perms.workspaceRole !== "OWNER" && !perms.isWorkspaceAdmin) {
-    throw AppError.Forbidden("Only Workspace Admins or Owners can delete vendors");
+    throw AppError.Forbidden("Only Workspace Admins or Owners can delete suppliers / contractors");
   }
 
   // ?permanent=true removes the row outright; the default stays a soft delete
@@ -434,7 +435,7 @@ procurementVendors.put(
       where: { id: vendorId, workspaceId },
       select: { id: true },
     });
-    if (!vendor) throw AppError.NotFound("Vendor not found");
+    if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
     const updated = await prisma.vendor.update({
       where: { id: vendor.id },

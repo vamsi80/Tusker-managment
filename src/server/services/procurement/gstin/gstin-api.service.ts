@@ -156,7 +156,7 @@ export const lookupGstin = async (input: string) => {
   const usage = await prisma.gstinLookupUsage.findUnique({ where: { month } });
   if ((usage?.count ?? 0) >= MONTHLY_LOOKUP_BUDGET) {
     throw AppError.ServiceUnavailable(
-      `This month's limit of ${MONTHLY_LOOKUP_BUDGET} GSTIN verifications has been reached. Please enter this vendor's details manually.`
+      `This month's limit of ${MONTHLY_LOOKUP_BUDGET} GSTIN verifications has been reached. Please enter this supplier / contractor's details manually.`
     );
   }
 

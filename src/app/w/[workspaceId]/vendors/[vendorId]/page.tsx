@@ -29,11 +29,11 @@ export default function VendorDetailPage() {
       if (data.success) {
         setVendor(data.data);
       } else {
-        toast.error("Failed to load vendor details");
+        toast.error("Failed to load supplier / contractor details");
       }
     } catch (error) {
       console.error(error);
-      toast.error("Error loading vendor details");
+      toast.error("Error loading supplier / contractor details");
     } finally {
       setLoadingVendor(false);
     }
@@ -43,7 +43,7 @@ export default function VendorDetailPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <span className="ml-2 text-sm text-muted-foreground">Loading vendor profile...</span>
+        <span className="ml-2 text-sm text-muted-foreground">Loading supplier / contractor profile...</span>
       </div>
     );
   }
@@ -51,7 +51,7 @@ export default function VendorDetailPage() {
   if (!vendor) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-lg font-semibold text-foreground">Vendor not found</h2>
+        <h2 className="text-lg font-semibold text-foreground">Supplier / contractor not found</h2>
         <Button onClick={() => router.push(`/w/${workspaceId}/vendors`)} className="mt-4">
           Back to Directory
         </Button>

@@ -51,7 +51,7 @@ describe("GSTIN monthly lookup budget", () => {
     gstinLookupUsage.findUnique.mockResolvedValue({ count: 75 });
 
     await expect(lookupGstin("33AAACC1206D1ZN")).rejects.toThrow(
-      "limit of 75 GSTIN verifications has been reached. Please enter this vendor's details manually."
+      "limit of 75 GSTIN verifications has been reached. Please enter this supplier / contractor's details manually."
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

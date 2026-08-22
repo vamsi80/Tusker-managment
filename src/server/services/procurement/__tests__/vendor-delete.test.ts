@@ -54,7 +54,7 @@ describe("VendorService.deleteVendor", () => {
   it("rejects a vendor from another workspace", async () => {
     vendor.findFirst.mockResolvedValue(null);
 
-    await expect(VendorService.deleteVendor("v1", "w1")).rejects.toThrow("Vendor not found");
+    await expect(VendorService.deleteVendor("v1", "w1")).rejects.toThrow("Supplier / contractor not found");
     expect(vendor.delete).not.toHaveBeenCalled();
   });
 });

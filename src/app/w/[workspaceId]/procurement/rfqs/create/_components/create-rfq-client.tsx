@@ -168,7 +168,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
       return;
     }
     if (activeVendorIds.length === 0) {
-      toast.error("Please select at least one vendor for comparison");
+      toast.error("Please select at least one supplier / contractor for comparison");
       return;
     }
     if (!rfqDeadline) {
@@ -249,7 +249,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
           <div>
             <h1 className="text-base font-bold text-foreground">RFQ Comparison Sheet</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Add vendors and material items directly inside the comparison sheet
+              Add suppliers / contractors and material items directly inside the comparison sheet
             </p>
           </div>
         </div>
@@ -350,7 +350,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                         <div className="flex flex-col pr-4">
                           <span className="text-xs font-bold text-foreground truncate">{vendor.name}</span>
                           <span className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                            {vendor.companyName || "No Company Specified"}
+                            {vendor.companyName || "-"}
                           </span>
                         </div>
                       </div>
@@ -363,7 +363,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                               size="sm"
                               className="h-8 text-xs font-semibold flex items-center gap-1 w-full border-dashed"
                             >
-                              <Plus className="size-3.5" /> Add Vendor {idx + 1}
+                              <Plus className="size-3.5" /> Add Supplier / Contractor {idx + 1}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-80 p-0" align="start">
@@ -371,7 +371,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                               <div className="relative">
                                 <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
                                 <Input
-                                  placeholder="Search vendors..."
+                                  placeholder="Search suppliers / contractors..."
                                   value={vendorSearchQuery}
                                   onChange={(e) => setVendorSearchQuery(e.target.value)}
                                   className="pl-8 h-8 text-xs"
@@ -400,7 +400,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                                 );
                               })}
                               {filteredVendors.length === 0 && (
-                                <div className="p-4 text-center text-xs text-muted-foreground">No vendors found</div>
+                                <div className="p-4 text-center text-xs text-muted-foreground">No suppliers / contractors found</div>
                               )}
                             </div>
                           </PopoverContent>
@@ -422,7 +422,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                 const vendor = vId ? vendors.find((v) => v.id === vId) : null;
                 return (
                   <th key={`contact-${idx}`} className="p-2 border-r font-medium text-xs text-foreground truncate" colSpan={2}>
-                    {vendor?.contactPerson || "—"}
+                    {vendor?.contactPerson || "-"}
                   </th>
                 );
               })}
@@ -438,7 +438,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                 const vendor = vId ? vendors.find((v) => v.id === vId) : null;
                 return (
                   <th key={`phone-${idx}`} className="p-2 border-r font-mono text-xs text-foreground truncate" colSpan={2}>
-                    {vendor?.phoneNumber || "—"}
+                    {vendor?.phoneNumber || "-"}
                   </th>
                 );
               })}
@@ -447,14 +447,14 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
             {/* Row 4: Vendor Location */}
             <tr className="border-b">
               <th className="p-2 text-[10px] uppercase font-bold text-muted-foreground border-r bg-muted/5">
-                Vendor Location →
+                Supplier / Contractor Location →
               </th>
               <th className="p-2 border-r bg-muted/5" colSpan={2}></th>
               {selectedVendorIds.map((vId, idx) => {
                 const vendor = vId ? vendors.find((v) => v.id === vId) : null;
                 return (
                   <th key={`loc-${idx}`} className="p-2 border-r font-medium text-[11px] text-foreground truncate" colSpan={2}>
-                    {vendor ? `${vendor.city || ""} ${vendor.state || ""}`.trim() || "—" : "—"}
+                    {vendor ? `${vendor.city || ""} ${vendor.state || ""}`.trim() || "-" : "-"}
                   </th>
                 );
               })}

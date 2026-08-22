@@ -11,7 +11,7 @@ const procurementRfq = new Hono<{ Variables: HonoVariables }>();
 
 const SendRfqSchema = z.object({
   lineItemId: z.string(),
-  vendorIds: z.array(z.string()).min(1, "At least one vendor required"),
+  vendorIds: z.array(z.string()).min(1, "At least one supplier / contractor is required"),
   deadline: z.string(), // ISO date string
 });
 

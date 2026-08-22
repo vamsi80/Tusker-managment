@@ -730,7 +730,9 @@ export class IndentService {
         where: { id: vendorId, workspaceId },
         select: { id: true },
       });
-      if (!vendor) throw AppError.ValidationError("The selected vendor was not found in this workspace");
+      if (!vendor) {
+        throw AppError.ValidationError("The selected supplier / contractor was not found in this workspace");
+      }
     }
 
     const rateByItemId = new Map(rates.map((rate) => [rate.itemId, rate.finalUnitPrice]));

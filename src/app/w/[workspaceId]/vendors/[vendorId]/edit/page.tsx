@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { ArrowLeft, FileText, User, Mail, Phone, Building, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GstinLookupField } from "../../_components/gstin-lookup-field";
@@ -33,6 +34,7 @@ export default function EditVendorPage() {
   const [companyName, setCompanyName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [email, setEmail] = useState("");
+  const [hasGst, setHasGst] = useState(false);
   const [gstNumber, setGstNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dialCode, setDialCode] = useState("+91");
@@ -43,7 +45,7 @@ export default function EditVendorPage() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
-  const [country, setCountry] = useState("India");
+  const [country, setCountry] = useState("");
   const [gstDetails, setGstDetails] = useState(EMPTY_GST_DETAILS);
   const [gstLockedKeys, setGstLockedKeys] = useState<(keyof VendorGstDetails)[]>([]);
 
@@ -60,10 +62,11 @@ export default function EditVendorPage() {
       const data = await res.json();
       if (data.success) {
         const v = data.data;
-        setName(v.name || "");
+        setName(v.name === "-" ? "" : (v.name || ""));
         setCompanyName(v.companyName || "");
         setContactPerson(v.contactPerson || "");
         setEmail(v.email || "");
+        setHasGst(v.hasGst ?? Boolean(v.gstNumber));
         setGstNumber(v.gstNumber || "");
         
         // Parse dial code and phone number
@@ -85,16 +88,16 @@ export default function EditVendorPage() {
         setCity(v.city || "");
         setState(v.state || "");
         setPincode(v.pincode || "");
-        setCountry(v.country || "India");
+        setCountry(v.country || "");
         const stored = gstDetailsFromVendor(v);
         setGstDetails(stored);
         setGstLockedKeys(filledGstFields(stored));
       } else {
-        toast.error("Failed to load vendor details");
+        toast.error("Failed to load supplier / contractor details");
         router.push(`/w/${workspaceId}/vendors`);
       }
     } catch (error) {
-      toast.error("Error loading vendor details");
+      toast.error("Error loading supplier / contractor details");
       router.push(`/w/${workspaceId}/vendors`);
     } finally {
       setLoading(false);
@@ -103,10 +106,6 @@ export default function EditVendorPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Vendor Name is required");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -119,32 +118,33 @@ export default function EditVendorPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          companyName: companyName || undefined,
-          contactPerson: contactPerson || undefined,
-          email: email || undefined,
-          phoneNumber: fullPhone || undefined,
-          gstNumber: gstNumber || undefined,
-          address: legacyAddress || undefined,
-          addressLine1: addressLine1 || undefined,
-          addressLine2: addressLine2 || undefined,
-          city: city || undefined,
-          state: state || undefined,
-          pincode: pincode || undefined,
-          country: country || undefined,
-          ...gstDetailsPayload(gstDetails),
+          name: name.trim() || null,
+          companyName: companyName.trim() || null,
+          contactPerson: contactPerson.trim() || null,
+          email: email.trim() || null,
+          phoneNumber: fullPhone || null,
+          hasGst,
+          gstNumber: hasGst ? gstNumber || null : null,
+          address: legacyAddress || null,
+          addressLine1: addressLine1.trim() || null,
+          addressLine2: addressLine2.trim() || null,
+          city: city.trim() || null,
+          state: state.trim() || null,
+          pincode: pincode.trim() || null,
+          country: country || null,
+          ...gstDetailsPayload(hasGst ? gstDetails : EMPTY_GST_DETAILS),
         }),
       });
 
       const data = await res.json();
       if (data.success) {
-        toast.success("Vendor updated successfully");
+        toast.success("Supplier / contractor updated successfully");
         router.push(`/w/${workspaceId}/vendors`);
       } else {
-        toast.error(data.error || "Failed to update vendor");
+        toast.error(data.error || "Failed to update supplier / contractor");
       }
     } catch (error) {
-      toast.error("Failed to update vendor");
+      toast.error("Failed to update supplier / contractor");
     } finally {
       setSubmitting(false);
     }
@@ -183,11 +183,20 @@ export default function EditVendorPage() {
     setGstLockedKeys(filledGstFields(registry));
   };
 
+  const handleHasGstChange = (checked: boolean) => {
+    setHasGst(checked);
+    if (!checked) {
+      setGstNumber("");
+      setGstDetails(EMPTY_GST_DETAILS);
+      setGstLockedKeys([]);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <span className="ml-2 text-sm text-muted-foreground">Loading vendor details...</span>
+        <span className="ml-2 text-sm text-muted-foreground">Loading supplier / contractor details...</span>
       </div>
     );
   }
@@ -204,7 +213,7 @@ export default function EditVendorPage() {
           <ArrowLeft className="size-5" />
         </Button>
         <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground">
-          Edit Vendor Profile
+          Edit Supplier / Contractor Profile
         </h1>
       </div>
 
@@ -220,10 +229,9 @@ export default function EditVendorPage() {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
-                  Vendor Name <span className="text-destructive">*</span>
+                  Supplier / Contractor Name
                 </label>
                 <Input
-                  required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Mahadev Steel Trading"
@@ -291,28 +299,50 @@ export default function EditVendorPage() {
                 />
               </div>
 
-              <GstinLookupField
-                workspaceId={workspaceId}
-                value={gstNumber}
-                onChange={setGstNumber}
-                onVerified={handleGstinVerified}
-              />
+              <div className="flex items-center gap-3 rounded-md border border-border p-3">
+                <Checkbox
+                  id="has-gst"
+                  checked={hasGst}
+                  onCheckedChange={(checked) => handleHasGstChange(checked === true)}
+                />
+                <div className="space-y-0.5">
+                  <label htmlFor="has-gst" className="cursor-pointer text-sm font-semibold text-foreground/90">
+                    Has GST registration
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Select this only when GST details are available or expected.
+                  </p>
+                </div>
+              </div>
             </div>
+
+            {hasGst && (
+              <div className="border-t pt-6">
+                <GstinLookupField
+                  workspaceId={workspaceId}
+                  value={gstNumber}
+                  onChange={setGstNumber}
+                  onVerified={handleGstinVerified}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <GstRegistrationFields
-          value={gstDetails}
-          onChange={setGstDetails}
-          lockedKeys={gstLockedKeys}
-        />
+        {hasGst && (
+          <GstRegistrationFields
+            value={gstDetails}
+            onChange={setGstDetails}
+            lockedKeys={gstLockedKeys}
+          />
+        )}
 
         <Card className="shadow-sm border-border/50 !py-0 !gap-0">
           <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <Building className="size-4 text-muted-foreground" /> Registered Business Address
             </CardTitle>
-            <CardDescription>Update the legal and physical location of the supplier.</CardDescription>
+            <CardDescription>Update the legal and physical location of the supplier / contractor.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
@@ -369,6 +399,7 @@ export default function EditVendorPage() {
                   onChange={(e) => handleCountryChange(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
                 >
+                  <option value="">Select country (optional)</option>
                   {Object.keys(countryDialCodes).map((cName) => (
                     <option key={cName} value={cName} className="bg-background text-foreground">
                       {cName}

@@ -659,7 +659,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               Indent ID: <strong className="font-mono text-foreground">{indent.indentId || "Draft"}</strong>
               {indent.selectedVendor && (
                 <>
-                  {" · "}Vendor:{" "}
+                  {" · "}Supplier / Contractor:{" "}
                   <strong className="text-foreground">
                     {indent.selectedVendor.companyName || indent.selectedVendor.name}
                   </strong>
@@ -1154,14 +1154,14 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
                       Enter the least manually negotiated rate for every material, then send the rates to your manager.
                     </p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-amber-900">Vendor (optional)</span>
+                      <span className="text-xs font-semibold text-amber-900">Supplier / Contractor (optional)</span>
                       <select
                         value={selectedVendorId}
                         onChange={(event) => setSelectedVendorId(event.target.value)}
                         disabled={isPending}
                         className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                       >
-                        <option value="">No vendor selected</option>
+                        <option value="">No supplier / contractor selected</option>
                         {vendors.map((vendor) => (
                           <option key={vendor.id} value={vendor.id}>
                             {vendor.companyName || vendor.name}

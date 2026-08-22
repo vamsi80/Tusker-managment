@@ -60,7 +60,7 @@ export function SendRfqForm({
 
   const handleSend = async () => {
     if (selectedVendorIds.size === 0) {
-      toast.error("Select at least one vendor");
+      toast.error("Select at least one supplier / contractor");
       return;
     }
     if (!deadline) {
@@ -81,7 +81,7 @@ export function SendRfqForm({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to send RFQ");
-      toast.success(`RFQ sent to ${selectedVendorIds.size} vendor${selectedVendorIds.size > 1 ? "s" : ""}`);
+      toast.success(`RFQ sent to ${selectedVendorIds.size} supplier${selectedVendorIds.size > 1 ? "s" : ""} / contractor${selectedVendorIds.size > 1 ? "s" : ""}`);
       onSuccess(json.data);
     } catch (err: any) {
       toast.error(err.message || "Failed to send RFQ");
@@ -97,7 +97,7 @@ export function SendRfqForm({
         <div className="flex items-center gap-2">
           <Users className="size-3.5 text-muted-foreground" />
           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Select Vendors
+            Select Suppliers / Contractors
           </span>
           {selectedVendorIds.size > 0 && (
             <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
@@ -130,10 +130,10 @@ export function SendRfqForm({
         ) : (
           <div className="rounded-lg border border-dashed border-border/60 p-4 text-center">
             <p className="text-xs text-muted-foreground">
-              No vendors found matching this material.
+              No suppliers / contractors found matching this material.
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Add vendors manually via the Vendor directory and set their capabilities.
+              Add suppliers / contractors through the directory and set their capabilities.
             </p>
           </div>
         )}
@@ -168,8 +168,8 @@ export function SendRfqForm({
         {isSending
           ? "Sending RFQ..."
           : selectedVendorIds.size > 0
-          ? `Send RFQ to ${selectedVendorIds.size} Vendor${selectedVendorIds.size > 1 ? "s" : ""}`
-          : "Select vendors to send RFQ"}
+          ? `Send RFQ to ${selectedVendorIds.size} Supplier${selectedVendorIds.size > 1 ? "s" : ""} / Contractor${selectedVendorIds.size > 1 ? "s" : ""}`
+          : "Select suppliers / contractors to send RFQ"}
       </Button>
     </div>
   );

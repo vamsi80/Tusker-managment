@@ -411,7 +411,7 @@ export function MaterialsHubClient({
     },
     {
       id: "vendorCount",
-      header: "Vendors Providing",
+      header: "Suppliers / Contractors Providing",
       cell: ({ row }) => {
         const count = row.original.vendorCount || 0;
         return (
@@ -419,11 +419,11 @@ export function MaterialsHubClient({
             <Truck className="size-3.5 text-muted-foreground" />
             {count > 0 ? (
               <Badge variant="outline" className="bg-emerald-50/55 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800 text-[11px] font-semibold px-2 py-0.5">
-                {count} {count === 1 ? "vendor" : "vendors"}
+                {count} {count === 1 ? "supplier / contractor" : "suppliers / contractors"}
               </Badge>
             ) : (
               <Badge variant="outline" className="bg-neutral-50 text-neutral-400 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-500 dark:border-neutral-800 text-[11px] font-medium px-2 py-0.5">
-                0 vendors
+                0 suppliers / contractors
               </Badge>
             )}
           </div>

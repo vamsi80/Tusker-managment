@@ -263,7 +263,7 @@ export function ProjectProcurementClient({
           <PackageSearch className="size-10 text-muted-foreground/40 mb-3" />
           <h3 className="text-sm font-bold text-foreground">No Indents Created Yet</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-[280px] text-center">
-            Create your first material request to track line items and vendor quotes.
+            Create your first material request to track line items and supplier / contractor quotes.
           </p>
           {userRole !== "ACCOUNTS" && (
             <Button

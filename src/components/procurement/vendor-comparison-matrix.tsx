@@ -25,7 +25,7 @@ export function VendorComparisonMatrix({ quotes, onApprove, onReject }: VendorCo
       <Table>
         <TableHeader className="bg-gray-50">
           <TableRow>
-            <TableHead className="font-semibold text-gray-700">Vendor Attributes</TableHead>
+            <TableHead className="font-semibold text-gray-700">Supplier / Contractor Attributes</TableHead>
             {quotes.map((q) => (
               <TableHead key={q.quoteId} className="text-center font-semibold text-gray-900">
                 {q.vendorName}
@@ -67,7 +67,7 @@ export function VendorComparisonMatrix({ quotes, onApprove, onReject }: VendorCo
             ))}
           </TableRow>
           <TableRow>
-            <TableCell className="font-medium text-gray-600">Vendor Performance</TableCell>
+            <TableCell className="font-medium text-gray-600">Supplier / Contractor Performance</TableCell>
             {quotes.map((q) => (
               <TableCell key={q.quoteId} className="text-center">
                 <span className="text-sm font-semibold px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100">

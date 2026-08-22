@@ -786,27 +786,27 @@ model IndentLineItem {
 }
 
 model Vendor {
-  id            String                     @id @default(uuid())
-  vendorId      String
-  name          String
-  companyName   String?
-  contactPerson String?
-  email         String?
-  address       String?
-  gstNumber     String?
-  hasGst        Boolean                    @default(false)
-  workspaceId   String
-  isActive      Boolean                    @default(true)
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
-  phoneNumber   String?
-  status        VendorStatus               @default(ACTIVE)
-  addressLine1  String?
-  addressLine2  String?
-  city          String?
-  country       String?                    @default("India")
-  pincode       String?
-  state         String?
+  id                   String       @id @default(uuid())
+  vendorId             String
+  name                 String
+  companyName          String?
+  contactPerson        String?
+  email                String?
+  address              String?
+  gstNumber            String?
+  hasGst               Boolean      @default(false)
+  workspaceId          String
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  phoneNumber          String?
+  status               VendorStatus @default(ACTIVE)
+  addressLine1         String?
+  addressLine2         String?
+  city                 String?
+  country              String?      @default("India")
+  pincode              String?
+  state                String?
   /// Snapshot of the GST registry record, taken when the GSTIN is verified and
   /// editable by hand afterwards. Kept as plain columns so a cancelled or
   /// composition-scheme vendor can be filtered for.
@@ -823,10 +823,10 @@ model Vendor {
   /// Column mapping remembered from a previous quotation import, keyed by this
   /// vendor's own header wording. Null until a user chooses to remember one.
   quotationMapping Json?
-  workspace     Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  capabilities  VendorMaterialCapability[]
-  indents       Indent[]                   @relation("IndentVendor")
-  quotes        VendorQuote[]
+  workspace        Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  capabilities     VendorMaterialCapability[]
+  indents          Indent[]                   @relation("IndentVendor")
+  quotes           VendorQuote[]
 
   @@unique([workspaceId, vendorId])
   @@index([workspaceId])

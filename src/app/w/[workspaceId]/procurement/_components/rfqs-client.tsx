@@ -160,7 +160,7 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
       <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-base font-bold text-foreground">Active RFQs</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Track and compare vendor quotes for sent RFQs</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Track and compare supplier / contractor quotes for sent RFQs</p>
         </div>
         {!isAccounts && (
           <Link href={`/w/${workspaceId}/procurement/rfqs/create`}>

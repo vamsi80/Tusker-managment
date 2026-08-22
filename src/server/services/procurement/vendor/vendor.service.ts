@@ -90,7 +90,7 @@ export class VendorService {
     const vendor = await prisma.vendor.findFirst({
       where: { id: vendorId, workspaceId },
     });
-    if (!vendor) throw AppError.NotFound("Vendor not found");
+    if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
     const [quotes, indents] = await Promise.all([
       prisma.vendorQuote.count({ where: { vendorId } }),
@@ -104,7 +104,7 @@ export class VendorService {
 
     if (blockers) {
       throw AppError.Conflict(
-        `${vendor.name} has ${blockers} on record. Blacklist this vendor instead so the history stays intact.`
+        `${vendor.name} has ${blockers} on record. Blacklist this supplier / contractor instead so the history stays intact.`
       );
     }
 
@@ -115,7 +115,7 @@ export class VendorService {
     const vendor = await prisma.vendor.findFirst({
       where: { id: vendorId, workspaceId },
     });
-    if (!vendor) throw AppError.NotFound("Vendor not found");
+    if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
     return prisma.vendor.update({
       where: { id: vendorId },
@@ -134,7 +134,7 @@ export class VendorService {
     const vendor = await prisma.vendor.findFirst({
       where: { id: vendorId, workspaceId },
     });
-    if (!vendor) throw AppError.NotFound("Vendor not found");
+    if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
     const resolvedServiceType = serviceType || "SUPPLY";
 

@@ -306,7 +306,7 @@ export function RfqSheet({
                     <MessageSquare className="size-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-xs font-medium text-muted-foreground">No quotes received yet</p>
                     <p className="text-[10px] text-muted-foreground/70 mt-1">
-                      Vendors will submit quotes before the deadline
+                      Suppliers / contractors will submit quotes before the deadline
                     </p>
                   </div>
                 )}

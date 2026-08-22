@@ -286,7 +286,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       }
     });
     return [
-      { value: NO_VENDOR, label: "No Vendor Selected" },
+      { value: NO_VENDOR, label: "No Supplier / Contractor Selected" },
       ...Array.from(options.values()).sort((first, second) => first.label.localeCompare(second.label)),
     ];
   }, [indents]);
@@ -382,10 +382,10 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     },
     {
       id: "vendor",
-      header: "Vendor",
+      header: "Supplier / Contractor",
       cell: ({ row }) => (
         <span className="text-xs">
-          {row.original.selectedVendor?.companyName || row.original.selectedVendor?.name || "—"}
+          {row.original.selectedVendor?.companyName || row.original.selectedVendor?.name || "-"}
         </span>
       ),
     },
@@ -625,7 +625,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search any indent field: number, name, project, requester, vendor, status..."
+              placeholder="Search any indent field: number, name, project, requester, supplier, contractor, status..."
               aria-label="Search all indent fields"
               className="h-9 bg-background pl-9 text-xs"
             />
@@ -698,13 +698,13 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
           </div>
 
           <div className="min-w-0 space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Vendor</Label>
+            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Supplier / Contractor</Label>
             <MultiSelectFilter
               selected={vendorFilter}
               onChange={setVendorFilter}
               options={vendorOptions}
-              placeholder="All vendors"
-              searchPlaceholder="Search vendors..."
+              placeholder="All suppliers / contractors"
+              searchPlaceholder="Search suppliers / contractors..."
               triggerClassName="h-8 w-full text-xs"
             />
           </div>

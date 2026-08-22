@@ -60,7 +60,7 @@ export function QuoteCard({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to approve quote");
-      toast.success("Quote approved — vendor capability updated automatically");
+      toast.success("Quote approved — supplier / contractor capability updated automatically");
       onUpdate();
     } catch (err: any) {
       toast.error(err.message || "Failed to approve quote");

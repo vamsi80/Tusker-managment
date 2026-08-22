@@ -380,7 +380,7 @@ export function VendorCapabilities({ vendorId, workspaceId }: VendorCapabilities
 
           {capabilityExists && (
             <p className="text-sm font-medium text-amber-500 mt-2 bg-amber-500/10 border border-amber-500/20 rounded p-2 flex items-center gap-1.5">
-              ⚠️ A capability for &quot;{newMaterialName}&quot; with {newServiceType === "SUPPLY" ? "Supply Only" : newServiceType === "LABOUR" ? "Labour Only" : "Labour & Material"} already exists for this vendor.
+              ⚠️ A capability for &quot;{newMaterialName}&quot; with {newServiceType === "SUPPLY" ? "Supply Only" : newServiceType === "LABOUR" ? "Labour Only" : "Labour & Material"} already exists for this supplier / contractor.
             </p>
           )}
         </form>

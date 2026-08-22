@@ -56,8 +56,8 @@ export function VendorMatchPill({
       onClick={onClick}
       title={
         hasVendors
-          ? `${count} vendor${count === 1 ? "" : "s"} can supply "${materialName}"`
-          : `No vendors found for "${materialName}"`
+          ? `${count} supplier${count === 1 ? " / contractor" : "s / contractors"} can provide "${materialName}"`
+          : `No suppliers / contractors found for "${materialName}"`
       }
       className={cn(
         "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold border transition-all",
@@ -67,7 +67,7 @@ export function VendorMatchPill({
       )}
     >
       <Building2 className="size-2.5 flex-shrink-0" />
-      <span>{hasVendors ? count : "–"}</span>
+      <span>{hasVendors ? count : "-"}</span>
     </button>
   );
 }

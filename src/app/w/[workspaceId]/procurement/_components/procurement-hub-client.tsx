@@ -328,7 +328,7 @@ export function ProcurementHubClient({
     }
     const vendorIds = Object.keys(selectedVendors).filter((id) => selectedVendors[id]);
     if (vendorIds.length === 0) {
-      toast.error("Please select at least one vendor");
+      toast.error("Please select at least one supplier / contractor");
       return;
     }
 
@@ -377,7 +377,7 @@ export function ProcurementHubClient({
 
   const handleManualQuoteSubmit = async () => {
     if (!manualQuoteVendorId || !manualQuoteUnitPrice || !manualQuoteQuantity) {
-      toast.error("Please fill in vendor, unit price and quantity");
+      toast.error("Please fill in supplier / contractor, unit price and quantity");
       return;
     }
 
@@ -576,7 +576,7 @@ export function ProcurementHubClient({
                   <h3 className="text-2xl font-bold mt-1 text-blue-600">{isLoadingStats ? "..." : dashboardStats.activeRfqs}</h3>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-2 border-t pt-1 flex items-center gap-1">
-                  <Send className="size-3 text-blue-500" /> Out to vendors
+                  <Send className="size-3 text-blue-500" /> Out to suppliers / contractors
                 </div>
               </div>
 
@@ -602,11 +602,11 @@ export function ProcurementHubClient({
                   <span className="text-sm font-mono font-bold text-foreground">{formatINR(dashboardStats.totalBudgetEstimated)}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b">
-                  <span className="text-xs text-muted-foreground">Registered Active Vendors</span>
-                  <span className="text-sm font-semibold text-foreground">{workspaceVendors.length} vendors</span>
+                  <span className="text-xs text-muted-foreground">Registered Active Suppliers / Contractors</span>
+                  <span className="text-sm font-semibold text-foreground">{workspaceVendors.length} suppliers / contractors</span>
                 </div>
                 <div className="mt-4 text-[11px] text-muted-foreground">
-                  Need to onboard more suppliers? Head to the workspace settings panel to add new vendor directories.
+                  Need to onboard more suppliers / contractors? Open the directory to add them.
                 </div>
               </div>
 
@@ -849,15 +849,15 @@ export function ProcurementHubClient({
                             <DialogContent className="sm:max-w-[425px]">
                               <DialogHeader>
                                 <DialogTitle className="text-sm font-bold uppercase tracking-wider text-foreground">
-                                  Record Vendor Quote
+                                  Record Supplier / Contractor Quote
                                 </DialogTitle>
                               </DialogHeader>
                               <div className="flex flex-col gap-4 py-4">
                                 <div className="flex flex-col gap-1.5">
-                                  <Label className="text-xs font-bold text-muted-foreground uppercase">Select Vendor</Label>
+                                  <Label className="text-xs font-bold text-muted-foreground uppercase">Select Supplier / Contractor</Label>
                                   <Select value={manualQuoteVendorId} onValueChange={setManualQuoteVendorId}>
                                     <SelectTrigger className="h-8 text-xs">
-                                      <SelectValue placeholder="Choose Vendor..." />
+                                      <SelectValue placeholder="Choose supplier / contractor..." />
                                     </SelectTrigger>
                                     <SelectContent>
                                       {workspaceVendors.map((v) => (
@@ -929,17 +929,17 @@ export function ProcurementHubClient({
                     <div className="flex-1 overflow-y-auto">
                       {isLoadingDetails ? (
                         <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                          <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading vendor specifications...
+                          <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading supplier / contractor specifications...
                         </div>
                       ) : selectedItem.status === "PENDING" ? (
                         <div className="flex flex-col h-full justify-between">
                           <div className="flex-1 overflow-y-auto pr-1">
                             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-                              Suggested Capability Vendors ({suggestedVendors.length})
+                              Suggested Suppliers / Contractors ({suggestedVendors.length})
                             </Label>
                             {suggestedVendors.length === 0 ? (
                               <div className="py-6 border border-dashed border-border/85 rounded-lg text-center text-xs text-muted-foreground">
-                                No vendors listed with matching material capabilities. Add capabilities first.
+                                No suppliers / contractors have matching material capabilities. Add capabilities first.
                               </div>
                             ) : (
                               <div className="flex flex-col gap-2">
@@ -1045,7 +1045,7 @@ export function ProcurementHubClient({
                         <Table>
                           <TableHeader className="bg-muted/50 sticky top-0 z-10">
                             <TableRow>
-                              <TableHead className="text-xs">Vendor</TableHead>
+                              <TableHead className="text-xs">Supplier / Contractor</TableHead>
                               <TableHead className="text-xs">Unit Cost</TableHead>
                               <TableHead className="text-xs">Quantity</TableHead>
                               <TableHead className="text-xs">Total Price</TableHead>
@@ -1142,7 +1142,7 @@ export function ProcurementHubClient({
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border/80 rounded-lg p-8 bg-muted/5">
                   <Package className="size-10 opacity-20 mb-2" />
-                  <p className="text-xs">Select a material from the left panel to manage suppliers and compare costs.</p>
+                  <p className="text-xs">Select a material from the left panel to manage suppliers / contractors and compare costs.</p>
                 </div>
               )}
             </div>
@@ -1162,7 +1162,7 @@ export function ProcurementHubClient({
               {rfqMaterials.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
                   <Workflow className="size-10 opacity-20 mb-2" />
-                  <p className="text-xs">No active RFQs currently out to vendors.</p>
+                  <p className="text-xs">No active RFQs currently out to suppliers / contractors.</p>
                   <Button size="sm" onClick={() => setActiveTab("material")} className="h-8 text-xs mt-3">
                     Go to Materials Hub
                   </Button>

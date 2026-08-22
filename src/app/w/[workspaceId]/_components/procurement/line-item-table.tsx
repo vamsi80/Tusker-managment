@@ -331,7 +331,7 @@ export function LineItemTable({
                   Status
                 </TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider h-8 w-16 text-center">
-                  Vendors
+                  Suppliers / Contractors
                 </TableHead>
                 {isDraft && (
                   <TableHead className="h-8 w-10" />
