@@ -25,27 +25,29 @@ const QuotationMappingSchema = z.object({
 });
 
 const GstRegistryField = z.string().max(255).nullable().optional();
+const OptionalVendorField = z.string().max(255).nullable().optional();
 
 const CreateVendorSchema = z.object({
   workspaceId: z.string(),
-  name: z.string().min(2),
-  companyName: z.string().optional(),
-  contactPerson: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  address: z.string().optional(),
-  addressLine1: z.string().optional().or(z.literal("")),
-  addressLine2: z.string().optional().or(z.literal("")),
-  city: z.string().optional().or(z.literal("")),
-  state: z.string().optional().or(z.literal("")),
-  pincode: z.string().optional().or(z.literal("")),
-  country: z.string().optional().default("India"),
+  name: OptionalVendorField,
+  companyName: OptionalVendorField,
+  contactPerson: OptionalVendorField,
+  email: z.string().email().nullable().optional().or(z.literal("")),
+  address: OptionalVendorField,
+  addressLine1: OptionalVendorField,
+  addressLine2: OptionalVendorField,
+  city: OptionalVendorField,
+  state: OptionalVendorField,
+  pincode: OptionalVendorField,
+  country: OptionalVendorField,
+  hasGst: z.boolean().optional(),
   // Same check the lookup field runs, so a vendor saved without pressing
   // Verify still cannot carry a mistyped GSTIN.
   gstNumber: z.string().superRefine((value, ctx) => {
     const result = validateGstin(value);
     if (!result.valid) ctx.addIssue({ code: "custom", message: result.error });
-  }).optional().or(z.literal("")),
-  phoneNumber: z.string().optional(),
+  }).nullable().optional().or(z.literal("")),
+  phoneNumber: OptionalVendorField,
   // GST registry snapshot. Nullable so clearing a field in the form actually
   // clears the column — an omitted key would leave the old value in place.
   gstStatus: GstRegistryField,
@@ -59,7 +61,9 @@ const CreateVendorSchema = z.object({
   einvoiceStatus: GstRegistryField,
 });
 
-const UpdateVendorSchema = CreateVendorSchema.omit({ workspaceId: true }).partial();
+const UpdateVendorSchema = CreateVendorSchema.omit({ workspaceId: true }).partial().extend({
+  status: z.enum(["ACTIVE", "BLACKLISTED"]).optional(),
+});
 
 const GstinLookupSchema = z.object({
   workspaceId: z.string().min(1),
@@ -272,11 +276,32 @@ procurementVendors.patch("/:id", zValidator("json", UpdateVendorSchema), async (
   }
 
   const vendor = await prisma.vendor.findFirst({ where: { id, workspaceId } });
-  if (!vendor) throw AppError.NotFound("Vendor not found");
+  if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
+
+  const hasGst = data.hasGst ?? vendor.hasGst;
+  const gstData = hasGst
+    ? {}
+    : {
+        gstNumber: null,
+        gstStatus: null,
+        taxpayerType: null,
+        businessConstitution: null,
+        gstRegistrationDate: null,
+        gstCancellationDate: null,
+        stateJurisdiction: null,
+        natureOfBusiness: null,
+        blockStatus: null,
+        einvoiceStatus: null,
+      };
 
   const updated = await prisma.vendor.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      ...(data.name !== undefined ? { name: data.name?.trim() || "-" } : {}),
+      hasGst,
+      ...gstData,
+    },
   });
 
   return c.json({ success: true, data: updated });

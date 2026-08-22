@@ -794,6 +794,7 @@ model Vendor {
   email         String?
   address       String?
   gstNumber     String?
+  hasGst        Boolean                    @default(false)
   workspaceId   String
   isActive      Boolean                    @default(true)
   createdAt     DateTime                   @default(now())

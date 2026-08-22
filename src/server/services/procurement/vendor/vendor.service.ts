@@ -8,19 +8,20 @@ export class VendorService {
   
   static async createVendor(data: {
     workspaceId: string;
-    name: string;
-    companyName?: string;
-    contactPerson?: string;
-    email?: string;
-    address?: string;
-    addressLine1?: string;
-    addressLine2?: string;
-    city?: string;
-    state?: string;
-    pincode?: string;
-    country?: string;
-    gstNumber?: string;
-    phoneNumber?: string;
+    name?: string | null;
+    companyName?: string | null;
+    contactPerson?: string | null;
+    email?: string | null;
+    address?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    pincode?: string | null;
+    country?: string | null;
+    hasGst?: boolean;
+    gstNumber?: string | null;
+    phoneNumber?: string | null;
     gstStatus?: string | null;
     taxpayerType?: string | null;
     businessConstitution?: string | null;
@@ -31,18 +32,47 @@ export class VendorService {
     blockStatus?: string | null;
     einvoiceStatus?: string | null;
   }) {
-    if (data.gstNumber) {
+    const hasGst = data.hasGst ?? Boolean(data.gstNumber?.trim());
+    const clean = (value: string | null | undefined) => value?.trim() || null;
+    const gstNumber = hasGst ? clean(data.gstNumber) : null;
+
+    if (gstNumber) {
       const existing = await prisma.vendor.findFirst({
-        where: { workspaceId: data.workspaceId, gstNumber: data.gstNumber },
+        where: { workspaceId: data.workspaceId, gstNumber },
       });
-      if (existing) throw AppError.Conflict("Vendor with this GST number already exists in this workspace");
+      if (existing) {
+        throw AppError.Conflict("Supplier / contractor with this GST number already exists in this workspace");
+      }
     }
 
     return prisma.$transaction(async (tx) => {
       return tx.vendor.create({
         data: {
-          ...data,
+          workspaceId: data.workspaceId,
           vendorId: await nextVendorId(tx, data.workspaceId),
+          name: clean(data.name) || "-",
+          companyName: clean(data.companyName),
+          contactPerson: clean(data.contactPerson),
+          email: clean(data.email),
+          address: clean(data.address),
+          addressLine1: clean(data.addressLine1),
+          addressLine2: clean(data.addressLine2),
+          city: clean(data.city),
+          state: clean(data.state),
+          pincode: clean(data.pincode),
+          country: clean(data.country),
+          phoneNumber: clean(data.phoneNumber),
+          hasGst,
+          gstNumber,
+          gstStatus: hasGst ? clean(data.gstStatus) : null,
+          taxpayerType: hasGst ? clean(data.taxpayerType) : null,
+          businessConstitution: hasGst ? clean(data.businessConstitution) : null,
+          gstRegistrationDate: hasGst ? clean(data.gstRegistrationDate) : null,
+          gstCancellationDate: hasGst ? clean(data.gstCancellationDate) : null,
+          stateJurisdiction: hasGst ? clean(data.stateJurisdiction) : null,
+          natureOfBusiness: hasGst ? clean(data.natureOfBusiness) : null,
+          blockStatus: hasGst ? clean(data.blockStatus) : null,
+          einvoiceStatus: hasGst ? clean(data.einvoiceStatus) : null,
           status: "ACTIVE",
           isActive: true,
         },
