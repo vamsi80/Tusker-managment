@@ -76,7 +76,7 @@ describe("Supplier / contractor onboarding", () => {
     expect(dbMocks.vendor.findFirst).toHaveBeenCalledWith({
       where: { workspaceId: "workspace-1", gstNumber: "27AAAAA0000A1Z5" },
     });
-    expect(dbMocks.vendor.create).toHaveBeenCalledWith({The schema is valid, and the connected database reports exactly one pending additive migration for the new GST flag. I’m applying that migration now; it only adds hasGst and marks existing records with a GST number as registered.
+    expect(dbMocks.vendor.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         hasGst: true,
         gstNumber: "27AAAAA0000A1Z5",
