@@ -1,5 +1,6 @@
 import db from "@/lib/db";
 import { ProjectProcurementClient } from "./project-procurement-client";
+import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
 
 export async function ProjectProcurementView({
   workspaceId,
@@ -42,7 +43,7 @@ export async function ProjectProcurementView({
       <ProjectProcurementClient
         workspaceId={workspaceId}
         projectId={projectId}
-        indents={indents}
+        indents={indents.map(serializeIndentForClient)}
         userRole={member?.workspaceRole || "MEMBER"}
         memberId={member?.id || ""}
       />

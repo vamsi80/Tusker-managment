@@ -6,47 +6,92 @@ export function usePresenceHeartbeat(workspaceId: string | undefined) {
   useEffect(() => {
     if (!workspaceId) return;
 
-    const sendHeartbeat = async (status: 'active' | 'offline' = 'active') => {
-      // Don't send periodic heartbeats if tab is hidden
-      if (status === 'active' && document.visibilityState !== 'visible') return;
+    const heartbeatUrl = `/api/v1/presence/${workspaceId}`;
+    let disposed = false;
+    let activeRequest: AbortController | null = null;
+    const isOffline = () => !navigator.onLine;
+
+    const sendHeartbeat = async () => {
+      if (
+        disposed ||
+        document.visibilityState !== "visible" ||
+        isOffline()
+      ) {
+        return;
+      }
+
+      activeRequest?.abort();
+      const controller = new AbortController();
+      activeRequest = controller;
 
       try {
-        if (status === 'active') console.log("💓 [Presence] Heartbeat...");
-        
-        await fetch(`/api/v1/presence/${workspaceId}`, { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status }),
-          keepalive: status === 'offline'
+        const response = await fetch(heartbeatUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "active" }),
+          cache: "no-store",
+          signal: controller.signal,
         });
-      } catch (e) {
-        if (status === 'active') console.error("❌ [Presence] Heartbeat failed:", e);
+
+        // A signed-out session is expected during logout/navigation. Other
+        // HTTP failures remain visible as diagnostics without crashing the UI.
+        if (!response.ok && response.status !== 401) {
+          console.warn(`[Presence] Heartbeat returned HTTP ${response.status}`);
+        }
+      } catch (error) {
+        // Navigation, visibility changes, dev-server restarts, and brief
+        // offline periods can terminate fetch. Presence is best-effort.
+        if (controller.signal.aborted || disposed || isOffline()) return;
+
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[Presence] Heartbeat unavailable: ${message}`);
+      } finally {
+        if (activeRequest === controller) activeRequest = null;
       }
     };
 
-    // Initial ping
-    sendHeartbeat('active');
+    const sendOffline = () => {
+      const payload = JSON.stringify({ status: "offline" });
+
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(
+          heartbeatUrl,
+          new Blob([payload], { type: "application/json" }),
+        );
+        return;
+      }
+
+      void fetch(heartbeatUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+
+    void sendHeartbeat();
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        sendHeartbeat('active');
+      if (document.visibilityState === "visible") {
+        void sendHeartbeat();
       }
     };
 
-    const onBeforeUnload = () => {
-      sendHeartbeat('offline');
-    };
+    const onOnline = () => void sendHeartbeat();
 
-    window.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('beforeunload', onBeforeUnload);
-    
-    // Heartbeat interval
-    const interval = setInterval(() => sendHeartbeat('active'), 60000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("pagehide", sendOffline);
+
+    const interval = window.setInterval(() => void sendHeartbeat(), 60_000);
 
     return () => {
-      window.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      clearInterval(interval);
+      disposed = true;
+      activeRequest?.abort();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("pagehide", sendOffline);
+      window.clearInterval(interval);
     };
   }, [workspaceId]);
 }
