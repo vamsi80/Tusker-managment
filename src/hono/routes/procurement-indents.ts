@@ -90,7 +90,7 @@ const AssignIndentSchema = z.object({
 });
 
 const SubmitFinalRatesSchema = z.object({
-  vendorId: z.string().min(1, "Select the vendor these rates came from"),
+  vendorId: z.string().trim().min(1).optional(),
   rates: z.array(z.object({
     itemId: z.string(),
     finalUnitPrice: z.number().int().positive(),

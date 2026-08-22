@@ -706,7 +706,7 @@ export class IndentService {
   static async submitFinalRates(
     indentId: string,
     rates: { itemId: string; finalUnitPrice: number }[],
-    vendorId: string,
+    vendorId: string | undefined,
     userId: string,
     workspaceId: string
   ) {
@@ -725,11 +725,13 @@ export class IndentService {
       throw AppError.Forbidden("Only the original requester can enter final rates");
     }
 
-    const vendor = await prisma.vendor.findFirst({
-      where: { id: vendorId, workspaceId },
-      select: { id: true },
-    });
-    if (!vendor) throw AppError.ValidationError("Select the vendor these rates came from");
+    if (vendorId) {
+      const vendor = await prisma.vendor.findFirst({
+        where: { id: vendorId, workspaceId },
+        select: { id: true },
+      });
+      if (!vendor) throw AppError.ValidationError("The selected vendor was not found in this workspace");
+    }
 
     const rateByItemId = new Map(rates.map((rate) => [rate.itemId, rate.finalUnitPrice]));
     for (const item of indent.lineItems) {
@@ -750,7 +752,7 @@ export class IndentService {
         where: { id: indentId },
         data: {
           status: "PENDING_MANAGER_FINAL_RATE_APPROVAL",
-          selectedVendorId: vendorId,
+          ...(vendorId ? { selectedVendorId: vendorId } : {}),
           finalRatesSubmittedAt: new Date(),
           finalRatesSubmittedById: member.id,
           finalManagerApprovedAt: null,

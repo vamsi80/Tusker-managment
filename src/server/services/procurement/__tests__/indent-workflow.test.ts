@@ -277,6 +277,35 @@ describe("Indent approval workflow", () => {
     );
   });
 
+  test("requester can submit final rates without selecting a vendor", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({
+        status: "COMPARATIVES_IN_PROGRESS",
+        approvedByIds: ["owner-member"],
+      })
+    );
+    dbMocks.workspaceMember.findFirst.mockResolvedValue({ userId: "manager-user" });
+
+    await IndentService.submitFinalRates(
+      "indent-1",
+      [
+        { itemId: "item-1", finalUnitPrice: 35000 },
+        { itemId: "item-2", finalUnitPrice: 65000 },
+      ],
+      undefined,
+      "requester-user",
+      "workspace-1"
+    );
+
+    expect(dbMocks.vendor.findFirst).not.toHaveBeenCalled();
+    expect(dbMocks.indent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ selectedVendorId: expect.anything() }),
+      })
+    );
+  });
+
   test("obsolete pending-payment records cannot bypass owner comparative authorization", async () => {
     repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
     repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "PENDING_PAYMENT" }));
