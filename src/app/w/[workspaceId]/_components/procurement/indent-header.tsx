@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import { Check, Send, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { approveActionLabel } from "@/lib/procurement/status-filters";
 
 interface IndentHeaderProps {
   indent: any;
@@ -121,7 +122,7 @@ export function IndentHeader({
               disabled={isActionLoading}
               className="h-8 text-xs font-semibold border-green-600/30 text-green-700 bg-green-50/30 hover:bg-green-50 hover:text-green-800 hover:border-green-600/50 gap-1.5"
             >
-              <Check className="size-3" /> Approve
+              <Check className="size-3" /> {approveActionLabel(status)}
             </Button>
           )}
 

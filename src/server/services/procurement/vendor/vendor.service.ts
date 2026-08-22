@@ -31,6 +31,7 @@ export class VendorService {
     natureOfBusiness?: string | null;
     blockStatus?: string | null;
     einvoiceStatus?: string | null;
+    vendorType?: "SUPPLIER" | "CONTRACTOR";
   }) {
     const hasGst = data.hasGst ?? Boolean(data.gstNumber?.trim());
     const clean = (value: string | null | undefined) => value?.trim() || null;
@@ -50,6 +51,7 @@ export class VendorService {
         data: {
           workspaceId: data.workspaceId,
           vendorId: await nextVendorId(tx, data.workspaceId),
+          vendorType: data.vendorType || "SUPPLIER",
           name: clean(data.name) || "-",
           companyName: clean(data.companyName),
           contactPerson: clean(data.contactPerson),

@@ -428,6 +428,7 @@ export const vendorSchema = z.object({
         .uuid({ message: "Invalid workspace id" }),
     isActive: z.boolean().default(true).optional(),
     materialIds: z.array(z.string()).optional(),
+    vendorType: z.enum(["SUPPLIER", "CONTRACTOR"]).default("SUPPLIER"),
 });
 
 export const indentSchema = z.object({

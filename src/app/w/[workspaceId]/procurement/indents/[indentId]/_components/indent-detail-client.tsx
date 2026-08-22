@@ -45,13 +45,20 @@ import {
 } from "@/components/ui/dialog";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { FALLBACK_UNITS } from "@/lib/procurement/units";
+import { approveActionLabel } from "@/lib/procurement/status-filters";
 
 interface IndentDetailClientProps {
   workspaceId: string;
   indent: any;
+  /** True only for the accounts login that is allowed to raise purchase orders. */
+  canCreatePo?: boolean;
 }
 
-export function IndentDetailClient({ workspaceId, indent: initialIndent }: IndentDetailClientProps) {
+export function IndentDetailClient({
+  workspaceId,
+  indent: initialIndent,
+  canCreatePo = false,
+}: IndentDetailClientProps) {
   const router = useRouter();
   const { data: workspaceData } = useWorkspaceLayout();
   const workspaceRole = workspaceData?.permissions?.workspaceRole;
@@ -712,7 +719,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
               className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               <Check className="mr-1.5 size-3.5" />
-              {indent.status === "PENDING_MANAGER_FINAL_RATE_APPROVAL" ? "Approve Final Rates" : "Approve Estimates"}
+              {approveActionLabel(indent.status)}
             </Button>
           </div>
         )}
@@ -723,9 +730,20 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             </Button>
             <Button onClick={handleApprove} disabled={isPending} className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
               <Check className="mr-1.5 size-3.5" />
-              {indent.status === "PENDING_OWNER_FINAL_APPROVAL" ? "Final Approve" : "Get Comparitives"}
+              {approveActionLabel(indent.status)}
             </Button>
           </div>
+        )}
+        {indent.status === "APPROVED" && canCreatePo && (
+          <Button
+            onClick={() =>
+              router.push(`/w/${workspaceId}/procurement/pos/new?indentId=${indent.id}`)
+            }
+            disabled={isPending}
+            className="h-8 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <FileCheck className="mr-1.5 size-3.5" /> Download PO
+          </Button>
         )}
         {indent.status === "DRAFT" && isRequester && !isAccounts && (
           <div className="flex items-center gap-2">

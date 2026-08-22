@@ -18,6 +18,7 @@ import presence from "./routes/presence";
 import procurementVendors from "./routes/procurement-vendors";
 import procurementIndents from "./routes/procurement-indents";
 import procurementRfq from "./routes/procurement-rfq";
+import procurementPurchaseOrders from "./routes/procurement-purchase-orders";
 import projectMaterials from "./routes/project-materials";
 import materials from "./routes/materials";
 import { HonoVariables } from "./types";
@@ -156,6 +157,7 @@ app.route("/presence", presence);
 app.route("/procurement/vendors", procurementVendors);
 app.route("/procurement/indents", procurementIndents);
 app.route("/procurement/rfq", procurementRfq);
+app.route("/procurement/purchase-orders", procurementPurchaseOrders);
 
 // Project Materials API (Planning BOM)
 app.route("/projects", projectMaterials);

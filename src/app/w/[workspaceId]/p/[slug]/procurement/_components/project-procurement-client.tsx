@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
 import { toast } from "@/lib/toast";
+import { approveActionLabel } from "@/lib/procurement/status-filters";
 
 interface LineItemData {
   id: string;
@@ -434,7 +435,7 @@ export function ProjectProcurementClient({
                           disabled={isSubmitting}
                           className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          Get Comparitives
+                          {approveActionLabel(selectedIndent.status)}
                         </Button>
                       </div>
                     )}
@@ -472,7 +473,7 @@ export function ProjectProcurementClient({
                           disabled={isSubmitting}
                           className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white"
                         >
-                          Approve Final Rates
+                          {approveActionLabel(selectedIndent.status)}
                         </Button>
                       </div>
                     )}
@@ -486,7 +487,7 @@ export function ProjectProcurementClient({
                           Reject
                         </Button>
                         <Button size="sm" onClick={handleApproveIndent} disabled={isSubmitting} className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-                          Final Approve
+                          {approveActionLabel(selectedIndent.status)}
                         </Button>
                       </div>
                     )}

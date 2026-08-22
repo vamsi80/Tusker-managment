@@ -123,6 +123,15 @@ export default function VendorsPage() {
       cell: ({ row }) => <span className="font-medium text-foreground">{row.getValue("name") || "-"}</span>,
     },
     {
+      accessorKey: "vendorType",
+      header: "Category",
+      cell: ({ row }) => (
+        <span className="capitalize text-muted-foreground text-sm">
+          {((row.getValue("vendorType") as string) || "SUPPLIER").toLowerCase()}
+        </span>
+      ),
+    },
+    {
       accessorKey: "companyName",
       header: "Company Name",
       cell: ({ row }) => row.getValue("companyName") || "-",

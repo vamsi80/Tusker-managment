@@ -141,6 +141,7 @@ model Workspace {
   units                  UnitOfMeasure[]
   vendors                Vendor[]
   vendorCapabilities     VendorMaterialCapability[]
+  purchaseOrders         PurchaseOrder[]
 }
 
 model WorkspaceMember {
@@ -178,6 +179,7 @@ model WorkspaceMember {
   memberTodos                 MemberTodo[]
   quotesReviewed              VendorQuote[]         @relation("QuoteReviewer")
   addedMaterialItems          ProjectMaterialItem[]
+  purchaseOrdersCreated       PurchaseOrder[]        @relation("POCreator")
 
   @@unique([userId, workspaceId])
   @@unique([workspaceId, employeeId])
@@ -746,6 +748,7 @@ model Indent {
   task                     Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   workspace                Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lineItems                IndentLineItem[]
+  purchaseOrders           PurchaseOrder[]
 
   @@index([workspaceId, status])
   @@index([projectId, status])
@@ -820,6 +823,7 @@ model Vendor {
   blockStatus          String?
   einvoiceStatus       String?
 
+  vendorType           VendorType   @default(SUPPLIER)
   /// Column mapping remembered from a previous quotation import, keyed by this
   /// vendor's own header wording. Null until a user chooses to remember one.
   quotationMapping Json?
@@ -827,11 +831,19 @@ model Vendor {
   capabilities     VendorMaterialCapability[]
   indents          Indent[]                   @relation("IndentVendor")
   quotes           VendorQuote[]
+  purchaseOrders   PurchaseOrder[]
 
   @@unique([workspaceId, vendorId])
   @@index([workspaceId])
   @@index([name])
+  @@index([status])
+  @@index([gstNumber])
   @@map("vendor")
+}
+
+enum VendorType {
+  SUPPLIER
+  CONTRACTOR
 }
 
 /// One row per calendar month counting the GSTIN lookups that actually spent a
@@ -1027,4 +1039,90 @@ model ProjectMaterialItem {
   @@index([subtaskId])
   @@index([materialName])
   @@map("project_material_item")
+}
+
+/// The two legal entities that issue purchase orders. Their addresses, GSTINs
+/// and where each one's numbering picks up live in
+/// src/lib/procurement/purchase-order.ts.
+enum BuyerCompany {
+  WT
+  PL
+}
+
+/// A purchase order issued to a vendor. Money is paise, matching indent line
+/// items. Line items are copied in rather than referenced: a PO is a contract,
+/// so editing a catalogue entry or the indent behind it must not change one.
+model PurchaseOrder {
+  id              String       @id @default(uuid())
+  workspaceId     String
+  /// WT/26-27/0063 - entity, financial year, sequence.
+  poNumber        String
+  company         BuyerCompany
+  financialYear   String
+  vendorId        String
+  indentId        String?
+  /// The vendor's own quotation / PI reference, printed on the document.
+  referenceNo     String?
+  poDate          DateTime     @default(now())
+  deliveryAddress String
+  /// Same state as the buying entity: tax splits CGST + SGST, otherwise IGST.
+  intraState      Boolean      @default(true)
+  subtotal        Int
+  cgst            Int
+  sgst            Int
+  igst            Int
+  /// Grand total is rounded to the rupee; this holds the difference.
+  roundOff        Int          @default(0)
+  grandTotal      Int
+  status          POStatus     @default(ORDERED)
+  /// Payment terms and conditions as printed, one per line. Copied from the
+  /// standard set when the PO is raised, then editable per order.
+  terms           String[]
+  notes           String?
+  createdById     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vendor    Vendor          @relation(fields: [vendorId], references: [id])
+  indent    Indent?         @relation(fields: [indentId], references: [id], onDelete: SetNull)
+  createdBy WorkspaceMember @relation("POCreator", fields: [createdById], references: [id])
+  items     POLineItem[]
+
+  @@unique([workspaceId, poNumber])
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([vendorId])
+  @@index([indentId])
+  @@map("purchase_order")
+}
+
+model POLineItem {
+  id          String @id @default(uuid())
+  poId        String
+  description String
+  unit        String
+  quantity    Int
+  /// Paise per unit, and quantity x rate.
+  rate        Int
+  amount      Int
+  /// Whole-percent GST for this line (0 / 5 / 12 / 18 / 28).
+  taxPercent  Int    @default(18)
+  sortOrder   Int    @default(0)
+
+  po PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@map("po_line_item")
+}
+
+/// Per-entity, per-financial-year PO counter, so White Tusker and Palm Length
+/// number their orders independently.
+model PoSequence {
+  workspaceId   String
+  company       BuyerCompany
+  financialYear String
+  next          Int
+
+  @@id([workspaceId, company, financialYear])
+  @@map("po_sequence")
 }

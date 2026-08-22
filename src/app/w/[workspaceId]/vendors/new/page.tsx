@@ -36,6 +36,7 @@ export default function OnboardVendorPage() {
   const [gstNumber, setGstNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dialCode, setDialCode] = useState("+91");
+  const [vendorType, setVendorType] = useState<"SUPPLIER" | "CONTRACTOR">("SUPPLIER");
   
   // Structured Address Form States
   const [addressLine1, setAddressLine1] = useState("");
@@ -64,6 +65,7 @@ export default function OnboardVendorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceId,
+          vendorType,
           name: name.trim() || null,
           companyName: companyName.trim() || null,
           contactPerson: contactPerson.trim() || null,
@@ -164,6 +166,22 @@ export default function OnboardVendorPage() {
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
+                  Category
+                </label>
+                <select
+                  value={vendorType}
+                  onChange={(e) => setVendorType(e.target.value as "SUPPLIER" | "CONTRACTOR")}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                >
+                  <option value="SUPPLIER">Supplier</option>
+                  <option value="CONTRACTOR">Contractor</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 border-t pt-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
                   Supplier / Contractor Name

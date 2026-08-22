@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FileText, Package, Workflow } from "lucide-react";
+import { LayoutDashboard, FileText, Package, Workflow, Receipt } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 interface ProcurementTabsProps {
@@ -29,6 +29,12 @@ export function ProcurementTabs({ workspaceId, workspaceName }: ProcurementTabsP
       href: `${baseUrl}/indents`,
       icon: FileText,
       isActive: pathname.startsWith(`${baseUrl}/indents`),
+    },
+    {
+      name: "POs",
+      href: `${baseUrl}/pos`,
+      icon: Receipt,
+      isActive: pathname.startsWith(`${baseUrl}/pos`),
     },
     {
       name: "Materials",

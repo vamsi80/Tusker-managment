@@ -3,6 +3,7 @@ import db from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import { IndentDetailClient } from "./_components/indent-detail-client";
 import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
+import { canCreatePurchaseOrder } from "@/lib/procurement/purchase-order";
 
 interface PageProps {
   params: Promise<{
@@ -46,6 +47,7 @@ export default async function IndentDetailPage({ params }: PageProps) {
     <IndentDetailClient
       workspaceId={workspaceId}
       indent={serializeIndentForClient(indent)}
+      canCreatePo={canCreatePurchaseOrder(user.email)}
     />
   );
 }

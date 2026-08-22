@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { approveActionLabel } from "@/lib/procurement/status-filters";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   addWeeks,
@@ -427,11 +428,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
           (ownerStage && Boolean(workspaceMemberId && ind.approverIds?.includes(workspaceMemberId)));
         const canDelete = ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "");
         if (!canAct && !canDelete) return null;
-        const approveLabel = ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL"].includes(ind.status)
-          ? "Get Comparitives"
-          : ind.status === "PENDING_OWNER_FINAL_APPROVAL"
-            ? "Final Approve"
-            : "Approve";
+        const approveLabel = approveActionLabel(ind.status);
         return (
           <div className="flex justify-end gap-1.5">
             {canAct && (

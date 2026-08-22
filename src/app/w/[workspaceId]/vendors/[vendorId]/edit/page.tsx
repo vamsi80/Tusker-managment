@@ -38,6 +38,7 @@ export default function EditVendorPage() {
   const [gstNumber, setGstNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dialCode, setDialCode] = useState("+91");
+  const [vendorType, setVendorType] = useState<"SUPPLIER" | "CONTRACTOR">("SUPPLIER");
   
   // Structured Address Form States
   const [addressLine1, setAddressLine1] = useState("");
@@ -62,6 +63,7 @@ export default function EditVendorPage() {
       const data = await res.json();
       if (data.success) {
         const v = data.data;
+        setVendorType(v.vendorType || "SUPPLIER");
         setName(v.name === "-" ? "" : (v.name || ""));
         setCompanyName(v.companyName || "");
         setContactPerson(v.contactPerson || "");
@@ -118,6 +120,7 @@ export default function EditVendorPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          vendorType,
           name: name.trim() || null,
           companyName: companyName.trim() || null,
           contactPerson: contactPerson.trim() || null,
@@ -196,6 +199,7 @@ export default function EditVendorPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="size-8 animate-spin text-primary" />
+
         <span className="ml-2 text-sm text-muted-foreground">Loading supplier / contractor details...</span>
       </div>
     );
@@ -223,17 +227,32 @@ export default function EditVendorPage() {
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <FileText className="size-4 text-muted-foreground" /> Company Details
             </CardTitle>
-            <CardDescription>Update primary registry and identification details.</CardDescription>
+            <CardDescription>Enter primary registry and identification details.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
+                  Category
+                </label>
+                <select
+                  value={vendorType}
+                  onChange={(e) => setVendorType(e.target.value as "SUPPLIER" | "CONTRACTOR")}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                >
+                  <option value="SUPPLIER">Supplier</option>
+                  <option value="CONTRACTOR">Contractor</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 border-t pt-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
                   Supplier / Contractor Name
                 </label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Mahadev Steel Trading"
                 />
               </div>

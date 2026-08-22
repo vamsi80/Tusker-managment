@@ -51,3 +51,18 @@ export const parseProcurementStatusParam = (
 
 export const areStatusFiltersEqual = (first: string[], second: string[]) =>
   first.length === second.length && first.every((status, index) => status === second[index]);
+
+export const FINAL_RATE_APPROVAL_STATUSES = [
+  "PENDING_MANAGER_FINAL_RATE_APPROVAL",
+  "PENDING_OWNER_FINAL_APPROVAL",
+];
+
+/**
+ * Label on the approve button at each review stage. The manager and the owner
+ * see the same wording: the first pass only sends the indent out to collect
+ * estimates, the second signs off the final rates that came back.
+ */
+export const approveActionLabel = (status: string) =>
+  FINAL_RATE_APPROVAL_STATUSES.includes(status)
+    ? "Approve Final Rates"
+    : "Proceed for Gathering Estimates";
