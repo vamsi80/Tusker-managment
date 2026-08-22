@@ -14,7 +14,7 @@ import { useFilterStore } from "@/lib/store/filter-store";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface ProjectGanttClientProps {

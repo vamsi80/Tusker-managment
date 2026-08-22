@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Plus, Truck, MoreVertical, Ban, CheckCircle, ExternalLink, Edit } from "lucide-react";
+import { toast } from "@/lib/toast";
+import { Plus, Truck, MoreVertical, Ban, CheckCircle, ExternalLink, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +13,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function VendorsPage() {
   const params = useParams();
@@ -23,6 +34,8 @@ export default function VendorsPage() {
 
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vendorToDelete, setVendorToDelete] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchVendors();
@@ -75,6 +88,31 @@ export default function VendorsPage() {
       }
     } catch (error) {
       toast.error("An error occurred. Please try again.");
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!vendorToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/v1/procurement/vendors/${vendorToDelete.id}?w=${workspaceId}&permanent=true`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${vendorToDelete.name} deleted`);
+        setVendorToDelete(null);
+        fetchVendors();
+      } else {
+        // A vendor with quotes or awarded indents is refused — keep the dialog
+        // open so the reason is read next to the vendor it is about.
+        toast.error(data.error || "Failed to delete vendor");
+      }
+    } catch (error) {
+      toast.error("Failed to delete vendor");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -195,6 +233,13 @@ export default function VendorsPage() {
                     </>
                   )}
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setVendorToDelete(vendor)}
+                  className="text-destructive focus:text-destructive font-medium"
+                >
+                  <Trash2 className="mr-2 size-4" /> Delete Vendor
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -257,6 +302,35 @@ export default function VendorsPage() {
           />
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(vendorToDelete)}
+        onOpenChange={(open) => !open && setVendorToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this vendor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {vendorToDelete?.name} will be removed permanently, along with their material
+              capabilities. This cannot be undone — to keep the record and just stop using them,
+              blacklist the vendor instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                handleDeleteConfirm();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Vendor"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

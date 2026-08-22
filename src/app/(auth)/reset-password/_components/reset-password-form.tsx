@@ -8,7 +8,7 @@ import { authClient } from "@/lib/auth-client";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import Link from "next/link";
 
 export const ResetPasswordForm = () => {

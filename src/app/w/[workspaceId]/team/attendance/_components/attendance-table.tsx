@@ -10,7 +10,7 @@ import { formatDateOnly, toDateOnly, toDateOnlyString } from "@/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AttendanceLogger } from "./attendance-logger";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";

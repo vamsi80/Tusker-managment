@@ -1,48 +1,81 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
+import {
+  ACTIVE_RFQ_STATUSES,
+  areStatusFiltersEqual,
+  parseProcurementStatusParam,
+  RFQ_STATUS_OPTIONS,
+} from "@/lib/procurement/status-filters";
 
 interface RfqsClientProps {
   workspaceId: string;
 }
 
 export function RfqsClient({ workspaceId }: RfqsClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status");
   const { data: workspaceData } = useWorkspaceLayout();
   const isAccounts = workspaceData?.permissions?.workspaceRole === "ACCOUNTS";
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string[]>(() =>
+    parseProcurementStatusParam(statusParam, ACTIVE_RFQ_STATUSES),
+  );
 
-  const fetchRfqItems = async () => {
+  const handleStatusFilterChange = (values: string[]) => {
+    setStatusFilter(values);
+    const params = new URLSearchParams(searchParams.toString());
+    if (values.length > 0) params.set("status", values.join(","));
+    else params.delete("status");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const fetchRfqItems = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/v1/procurement/indents/line-items?w=${workspaceId}&projectId=ALL&status=ALL`);
+      const effectiveStatuses = statusFilter.length > 0 ? statusFilter : ACTIVE_RFQ_STATUSES;
+      const params = new URLSearchParams({
+        w: workspaceId,
+        projectId: "ALL",
+        status: effectiveStatuses.join(","),
+      });
+      const res = await fetch(`/api/v1/procurement/indents/line-items?${params.toString()}`);
       const data = await res.json();
       if (data.success) {
-        // filter for active RFQs
-        const activeRfqs = data.data.filter(
-          (item: any) => item.status === "RFQ_SENT" || item.status === "QUOTES_RECEIVED"
-        );
-        setLineItems(activeRfqs);
+        setLineItems(data.data);
       }
     } catch (e) {
       toast.error("Failed to load active RFQ tracking");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [workspaceId, statusFilter]);
 
   useEffect(() => {
     fetchRfqItems();
-  }, [workspaceId]);
+  }, [fetchRfqItems]);
+
+  useEffect(() => {
+    const nextStatuses = parseProcurementStatusParam(statusParam, ACTIVE_RFQ_STATUSES);
+    setStatusFilter((currentStatuses) =>
+      areStatusFiltersEqual(currentStatuses, nextStatuses) ? currentStatuses : nextStatuses,
+    );
+  }, [statusParam]);
 
   const getLineItemStatusBadge = (status: string) => {
     switch (status) {
@@ -66,7 +99,8 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
       ),
     },
     {
-      accessorKey: "indent.project.name",
+      id: "indent.project.name",
+      accessorFn: (row: any) => row.indent?.project?.name || "General",
       header: "Project",
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground font-medium">
@@ -144,6 +178,16 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
         isLoading={isLoading}
         showPagination={true}
         showColumnToggle={true}
+        extraToolbarContent={(
+          <MultiSelectFilter
+            selected={statusFilter}
+            onChange={handleStatusFilterChange}
+            options={RFQ_STATUS_OPTIONS}
+            placeholder="All active statuses"
+            searchPlaceholder="Search statuses..."
+            triggerClassName="h-9 min-w-40 text-xs"
+          />
+        )}
       />
     </div>
   );

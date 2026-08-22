@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SendRfqForm } from "./send-rfq-form";
 import { QuoteCard } from "./quote-card";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface RfqSheetProps {
   open: boolean;

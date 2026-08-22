@@ -8,7 +8,7 @@ import { countDateOnlyDays, formatDateOnly, toDateOnly } from "@/lib/date-utils"
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Check, X, Loader2, Calendar as CalendarIcon, User, Info, Pencil, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

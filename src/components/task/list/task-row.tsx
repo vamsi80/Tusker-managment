@@ -16,9 +16,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-
-
 interface TaskRowProps {
     task: TaskWithSubTasks;
     isExpanded: boolean;
@@ -211,6 +208,8 @@ export const TaskRow = memo(function TaskRow({
                                     variant="ghost"
                                     size="icon"
                                     className="size-6 shrink-0 p-0"
+                                    aria-expanded={isExpanded}
+                                    aria-label={isExpanded ? `Collapse ${task.name}` : `Expand ${task.name}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggleExpand();
@@ -229,16 +228,33 @@ export const TaskRow = memo(function TaskRow({
 
                 <TableCell className="px-2" colSpan={totalColSpan}>
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className={cn(
-                            "truncate text-sm cursor-pointer hover:text-primary transition-colors",
-                            isSubtaskRow ? "text-muted-foreground" : "font-semibold"
-                        )}>
-                            {task.name}
-                        </span>
-                        {subtaskCount > 0 && (
-                            <span className="text-xs text-muted-foreground shrink-0 font-medium">
-                                ({subtaskCount})
-                            </span>
+                        {!isSubtask && !isSubtaskRow ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleExpand();
+                                }}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? `Collapse ${task.name}` : `Expand ${task.name}`}
+                                className="flex min-w-0 items-center gap-2 text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+                            >
+                                <span className="truncate text-sm font-semibold">{task.name}</span>
+                                {subtaskCount > 0 && (
+                                    <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                                        ({subtaskCount})
+                                    </span>
+                                )}
+                            </button>
+                        ) : (
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="truncate text-sm text-muted-foreground">{task.name}</span>
+                                {subtaskCount > 0 && (
+                                    <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                                        ({subtaskCount})
+                                    </span>
+                                )}
+                            </div>
                         )}
 
                         <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">

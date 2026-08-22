@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, UserPlus, Check } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
     Command,

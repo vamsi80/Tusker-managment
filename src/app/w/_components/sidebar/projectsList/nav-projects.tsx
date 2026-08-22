@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useState } from "react";
 import { useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";

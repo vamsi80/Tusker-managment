@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { apiClient } from "@/lib/api-client";
 import { ProjectReviewer } from "@/types/project";

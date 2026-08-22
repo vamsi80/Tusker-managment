@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "@/hono/validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
-import { VendorService } from "@/server/services/procurement";
+import { lookupGstin, VendorService } from "@/server/services/procurement";
+import { validateGstin } from "@/lib/procurement/gstin";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@/lib/db";
 import { Prisma } from "@/generated/prisma";
@@ -23,6 +24,8 @@ const QuotationMappingSchema = z.object({
     .nullable(),
 });
 
+const GstRegistryField = z.string().max(255).nullable().optional();
+
 const CreateVendorSchema = z.object({
   workspaceId: z.string(),
   name: z.string().min(2),
@@ -36,11 +39,32 @@ const CreateVendorSchema = z.object({
   state: z.string().optional().or(z.literal("")),
   pincode: z.string().optional().or(z.literal("")),
   country: z.string().optional().default("India"),
-  gstNumber: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, "Invalid GST Format").optional().or(z.literal("")),
+  // Same check the lookup field runs, so a vendor saved without pressing
+  // Verify still cannot carry a mistyped GSTIN.
+  gstNumber: z.string().superRefine((value, ctx) => {
+    const result = validateGstin(value);
+    if (!result.valid) ctx.addIssue({ code: "custom", message: result.error });
+  }).optional().or(z.literal("")),
   phoneNumber: z.string().optional(),
+  // GST registry snapshot. Nullable so clearing a field in the form actually
+  // clears the column — an omitted key would leave the old value in place.
+  gstStatus: GstRegistryField,
+  taxpayerType: GstRegistryField,
+  businessConstitution: GstRegistryField,
+  gstRegistrationDate: GstRegistryField,
+  gstCancellationDate: GstRegistryField,
+  stateJurisdiction: GstRegistryField,
+  natureOfBusiness: GstRegistryField,
+  blockStatus: GstRegistryField,
+  einvoiceStatus: GstRegistryField,
 });
 
 const UpdateVendorSchema = CreateVendorSchema.omit({ workspaceId: true }).partial();
+
+const GstinLookupSchema = z.object({
+  workspaceId: z.string().min(1),
+  gstin: z.string().min(1),
+});
 
 // Permission middleware helper
 const checkProcurementPerms = async (workspaceId: string, userId: string) => {
@@ -62,6 +86,24 @@ procurementVendors.post("/", zValidator("json", CreateVendorSchema), async (c) =
 
   const vendor = await VendorService.createVendor(data);
   return c.json({ success: true, data: vendor }, 201);
+});
+
+/**
+ * POST /api/v1/procurement/vendors/gstin/lookup
+ * Verify a GSTIN without exposing the provider API key to the browser.
+ */
+procurementVendors.post("/gstin/lookup", zValidator("json", GstinLookupSchema), async (c) => {
+  const user = c.get("user");
+  const { workspaceId, gstin } = c.req.valid("json");
+
+  await checkProcurementPerms(workspaceId, user.id);
+
+  const result = await lookupGstin(gstin);
+  return c.json({
+    success: true,
+    data: result.data,
+    meta: { cached: result.cached },
+  });
 });
 
 /**
@@ -256,7 +298,13 @@ procurementVendors.delete("/:id", async (c) => {
     throw AppError.Forbidden("Only Workspace Admins or Owners can delete vendors");
   }
 
-  // Use the blacklist method or just soft delete
+  // ?permanent=true removes the row outright; the default stays a soft delete
+  // so the list's Blacklist action keeps working unchanged.
+  if (c.req.query("permanent") === "true") {
+    await VendorService.deleteVendor(id, workspaceId);
+    return c.json({ success: true });
+  }
+
   const updated = await VendorService.blacklistVendor(id, workspaceId);
 
   return c.json({ success: true, data: updated });

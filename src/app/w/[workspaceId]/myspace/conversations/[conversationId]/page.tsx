@@ -4,7 +4,7 @@ import { useState, useEffect, use, useRef } from "react";
 import { ChatPanel } from "../_components/chat-panel";
 import { useConversations } from "../_components/conversations-context";
 import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface PageProps {
   params: Promise<{ workspaceId: string; conversationId: string }>;

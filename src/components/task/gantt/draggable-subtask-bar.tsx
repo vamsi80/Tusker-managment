@@ -6,7 +6,7 @@ import { parseDate, formatDate, getDaysBetween, formatDateForAPI } from "./utils
 import { cn } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";

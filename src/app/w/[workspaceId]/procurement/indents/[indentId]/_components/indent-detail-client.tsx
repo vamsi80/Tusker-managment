@@ -32,7 +32,7 @@ import {
   ReceiptText,
   FileUp,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -768,7 +768,7 @@ export function IndentDetailClient({ workspaceId, indent: initialIndent }: Inden
             <CardContent className="pt-3.5 flex flex-col gap-3.5">
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground">Associated Project</span>
-                <span className="text-xs font-bold text-foreground mt-0.5">{indent.project?.name}</span>
+                <span className="text-xs font-bold text-foreground mt-0.5">{indent.project?.name || "General indent"}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground">Requested Delivery Date</span>

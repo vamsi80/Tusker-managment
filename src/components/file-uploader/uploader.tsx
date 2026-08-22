@@ -5,7 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { FileRejection, useDropzone } from "react-dropzone";
 import { CardContent } from "../ui/card";
 import { RenderEmptyState, RenderErrorState, RenderUplodedState, RenderUplodingState } from "./renderState";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useConstructUrl } from "@/hooks/use-constract-url";
 import { file } from "zod";
 

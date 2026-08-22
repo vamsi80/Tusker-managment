@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { formatIST } from "@/lib/utils";
 import { Label } from "@/components/ui/label";

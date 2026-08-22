@@ -28,7 +28,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
 
 interface SubTaskListProps {

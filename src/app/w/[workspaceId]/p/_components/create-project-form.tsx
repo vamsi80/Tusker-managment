@@ -1,7 +1,7 @@
 "use client";
 
 import slugify from "slugify";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn, toTitleCase } from "@/lib/utils";
 import { useTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

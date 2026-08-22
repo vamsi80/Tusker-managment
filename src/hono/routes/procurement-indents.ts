@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "@/hono/validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { VendorRepository, IndentService, IndentRepository } from "@/server/services/procurement";
@@ -23,7 +23,9 @@ const parseMultiQuery = (value?: string): string[] => {
 // Zod validation schemas
 const CreateIndentSchema = z.object({
   taskId: z.string().optional().nullable(),
-  projectId: z.string(),
+  projectId: z.string().optional().nullable(),
+  // Set by the in-project entry points; the global hub leaves it false.
+  raisedInProject: z.boolean().optional().default(false),
   workspaceId: z.string(),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -144,6 +146,12 @@ procurementIndents.get("/", async (c) => {
     include: {
       project: { select: { id: true, name: true, slug: true } },
       requestedBy: { select: { user: { select: { name: true, surname: true } } } },
+      assignedTo: {
+        select: {
+          id: true,
+          user: { select: { name: true, surname: true } },
+        },
+      },
       selectedVendor: { select: { id: true, name: true, companyName: true } },
       task: { select: { name: true } },
       lineItems: {
@@ -298,6 +306,7 @@ procurementIndents.post("/", zValidator("json", CreateIndentSchema), async (c) =
     {
       taskId: body.taskId || undefined,
       projectId: body.projectId,
+      raisedInProject: body.raisedInProject,
       workspaceId: body.workspaceId,
       name: body.name,
       description: body.description,

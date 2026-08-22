@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface NotificationsContextType {
   unreadNotifications: any[];

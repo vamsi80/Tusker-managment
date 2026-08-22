@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Plus, Trash2 } from "lucide-react"
 import { BoardData } from "@/data/board/get-board-data"
 import { toggleBoardItemStatus, deleteBoardItem } from "@/actions/board/board-actions"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 

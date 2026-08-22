@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Plus, CornerDownRight, ChevronRight, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { VendorMatchPill } from "./vendor-match-pill";
 import { RfqSheet } from "./rfq-sheet";

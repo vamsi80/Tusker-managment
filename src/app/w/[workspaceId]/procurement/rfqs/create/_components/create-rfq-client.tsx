@@ -28,7 +28,7 @@ import {
   FileText,
   Search,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface CreateRfqClientProps {
   workspaceId: string;

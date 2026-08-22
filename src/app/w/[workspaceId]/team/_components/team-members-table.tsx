@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { type WorkspaceMemberRow } from "@/types/workspace";

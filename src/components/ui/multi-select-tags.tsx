@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { workspacesClient } from "@/lib/api-client/workspaces";
 import { apiFetch } from "@/lib/api-client/fetch-wrapper";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 export type Option = {
   id: string;

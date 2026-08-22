@@ -50,4 +50,12 @@ export class AppError extends Error {
     static Internal(message: string = "Internal Server Error") {
         return new AppError(ErrorCode.INTERNAL_SERVER_ERROR, message, 500);
     }
+
+    static BadGateway(message: string = "Upstream service error") {
+        return new AppError(ErrorCode.BAD_GATEWAY, message, 502);
+    }
+
+    static ServiceUnavailable(message: string = "Service temporarily unavailable") {
+        return new AppError(ErrorCode.SERVICE_UNAVAILABLE, message, 503);
+    }
 }

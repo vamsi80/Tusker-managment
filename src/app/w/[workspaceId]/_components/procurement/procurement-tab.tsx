@@ -62,6 +62,7 @@ export function ProcurementTab({
       <div className="p-5 space-y-5">
         {!indent ? (
           <CreateIndentForm
+          raisedInProject
             taskId={taskId}
             projectId={projectId}
             workspaceId={workspaceId}

@@ -1,0 +1,9 @@
+ALTER TABLE "vendor" ADD COLUMN "gstStatus" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "taxpayerType" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "businessConstitution" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "gstRegistrationDate" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "gstCancellationDate" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "stateJurisdiction" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "natureOfBusiness" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "blockStatus" TEXT;
+ALTER TABLE "vendor" ADD COLUMN "einvoiceStatus" TEXT;

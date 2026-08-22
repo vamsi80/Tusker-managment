@@ -15,7 +15,7 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { tryCatch } from "@/hooks/try-catch";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { useReloadView } from "@/hooks/use-reload-view";

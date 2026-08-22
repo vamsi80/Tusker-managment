@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client"
 import { Loader2 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
-import { toast } from "sonner"
+import { toast } from "@/lib/toast"
 
 import { syncUserProfile } from "@/app/actions/user"
 

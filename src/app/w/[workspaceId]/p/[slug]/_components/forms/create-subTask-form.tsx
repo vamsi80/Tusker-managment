@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { subTaskSchema, SubTaskSchemaType } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { ProjectMembersType } from "@/types/project";
 import { projectsClient } from "@/lib/api-client/projects";
 import slugify from "slugify";

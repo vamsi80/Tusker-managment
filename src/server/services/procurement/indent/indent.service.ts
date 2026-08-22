@@ -65,9 +65,24 @@ export class IndentService {
     }
   }
 
+  /**
+   * Who owns the manager approval. An indent raised inside a project is the
+   * project manager's to sign off; one raised from the global hub belongs to
+   * the raiser's reporting manager. Each falls back to the other so a project
+   * with no manager, or a member with no reportTo, still has one named
+   * approver instead of every manager in the workspace.
+   */
+  private static approverMemberId(indent: any): string | null {
+    const projectManagerId = indent.project?.projectManagerId ?? null;
+    const reportingManagerId = indent.requestedBy?.reportToId ?? null;
+    return indent.raisedInProject
+      ? projectManagerId ?? reportingManagerId
+      : reportingManagerId ?? projectManagerId;
+  }
+
   private static isManagerForIndent(member: { id: string; workspaceRole: string }, indent: any) {
-    const reportingManagerId = indent.requestedBy?.reportToId;
-    if (reportingManagerId) return member.id === reportingManagerId;
+    const approverId = this.approverMemberId(indent);
+    if (approverId) return member.id === approverId;
     return ["MANAGER", "ADMIN", "OWNER"].includes(member.workspaceRole);
   }
 
@@ -92,13 +107,45 @@ export class IndentService {
     );
   }
 
+  /**
+   * Where a submitted indent lands. Nobody approves their own indent, so any
+   * stage the raiser would have signed off themselves is cleared on submit: a
+   * manager raising one skips manager approval, and an owner raising one skips
+   * to entering final rates. Approvals owed by *other* people are never
+   * skipped — an owner who also picked co-approvers still waits for them.
+   */
+  private static resolveSubmitStage(indent: any) {
+    const raiser = {
+      id: indent.requestedById,
+      workspaceRole: indent.requestedBy?.workspaceRole ?? "",
+    };
+
+    const managerCleared = this.isManagerForIndent(raiser, indent);
+    const ownerApprovedByIds = this.isOwnerApprover(raiser, indent) ? [raiser.id] : [];
+    const ownerCleared =
+      managerCleared && this.haveAllSelectedOwnersApproved(indent, ownerApprovedByIds);
+
+    if (ownerCleared) {
+      return { status: "COMPARATIVES_IN_PROGRESS" as const, managerCleared, ownerApprovedByIds };
+    }
+    if (managerCleared) {
+      return {
+        status: "PENDING_OWNER_COMPARATIVE_APPROVAL" as const,
+        managerCleared,
+        ownerApprovedByIds: [] as string[],
+      };
+    }
+    return { status: "SUBMITTED" as const, managerCleared: false, ownerApprovedByIds: [] as string[] };
+  }
+
   private static async getManagerUserIds(indent: any, workspaceId: string) {
-    if (indent.requestedBy?.reportToId) {
-      const reportingManager = await prisma.workspaceMember.findFirst({
-        where: { id: indent.requestedBy.reportToId, workspaceId },
+    const approverId = this.approverMemberId(indent);
+    if (approverId) {
+      const approver = await prisma.workspaceMember.findFirst({
+        where: { id: approverId, workspaceId },
         select: { userId: true },
       });
-      if (reportingManager) return [reportingManager.userId];
+      if (approver) return [approver.userId];
     }
 
     const managers = await prisma.workspaceMember.findMany({
@@ -176,7 +223,10 @@ export class IndentService {
     }
   }
 
-  private static async broadcast(indent: { projectId: string }, workspaceId: string) {
+  private static async broadcast(indent: { projectId: string | null }, workspaceId: string) {
+    // A general indent belongs to no project channel, so there is nothing to
+    // broadcast to one.
+    if (!indent.projectId) return;
     await broadcastProjectUpdate({
       workspaceId,
       projectId: indent.projectId,
@@ -198,7 +248,8 @@ export class IndentService {
   static async createIndent(
     data: {
       taskId?: string;
-      projectId: string;
+      projectId?: string | null;
+      raisedInProject?: boolean;
       workspaceId: string;
       name?: string;
       description?: string;
@@ -226,11 +277,18 @@ export class IndentService {
       throw AppError.ValidationError("Select at least one owner for approval");
     }
 
-    const project = await prisma.project.findFirst({
-      where: { id: data.projectId, workspaceId: data.workspaceId },
-      select: { name: true },
-    });
-    if (!project) throw AppError.NotFound("Project not found in this workspace");
+    // A general indent carries no project at all; it lives only in the
+    // workspace-wide list.
+    const project = data.projectId
+      ? await prisma.project.findFirst({
+          where: { id: data.projectId, workspaceId: data.workspaceId },
+          select: { name: true },
+        })
+      : null;
+    if (data.projectId && !project) throw AppError.NotFound("Project not found in this workspace");
+    if (!data.projectId && data.taskId) {
+      throw AppError.ValidationError("A general indent cannot be linked to a task");
+    }
 
     const validApprovers = await prisma.workspaceMember.count({
       where: {
@@ -251,7 +309,7 @@ export class IndentService {
       month: "short",
       year: "numeric",
     }).format(new Date());
-    const generatedName = `${project.name} - ${materialLabel} - ${dateLabel}`;
+    const generatedName = `${project?.name || "General"} - ${materialLabel} - ${dateLabel}`;
 
     return IndentRepository.create({
       ...data,
@@ -382,8 +440,15 @@ export class IndentService {
     this.ensureOwnerApprovers(indent);
     this.ensureApproximateRates(indent);
 
-    const updated = await IndentRepository.updateStatus(indentId, "SUBMITTED", {
-      submittedAt: new Date(),
+    const stage = this.resolveSubmitStage(indent);
+    const now = new Date();
+    const updated = await IndentRepository.updateStatus(indentId, stage.status, {
+      submittedAt: now,
+      approvedByIds: stage.ownerApprovedByIds,
+      ...(stage.managerCleared
+        ? { managerApprovedAt: now, managerApprovedById: indent.requestedById }
+        : {}),
+      ...(stage.status === "COMPARATIVES_IN_PROGRESS" ? { ownerAuthorizedAt: now } : {}),
       rejectedAt: null,
       rejectedById: null,
       rejectedFromStatus: null,
@@ -391,14 +456,42 @@ export class IndentService {
       rejectionReason: null,
     });
 
-    await this.notify(
-      await this.getManagerUserIds(indent, workspaceId),
-      workspaceId,
-      indent.id,
-      "Indent needs your approval",
-      `${this.requesterName(indent)} raised indent ${indent.indentId || indent.name} for ${indent.project?.name || "a project"}. Approve the approximate rates to move it forward.`,
-      userId
-    );
+    const raisedLine = `${this.requesterName(indent)} raised indent ${indent.indentId || indent.name} for ${indent.project?.name || "a project"}.`;
+
+    if (stage.status === "SUBMITTED") {
+      await this.notify(
+        await this.getManagerUserIds(indent, workspaceId),
+        workspaceId,
+        indent.id,
+        "Indent needs your approval",
+        `${raisedLine} Approve the approximate rates to move it forward.`,
+        userId
+      );
+    } else if (stage.status === "PENDING_OWNER_COMPARATIVE_APPROVAL") {
+      await this.notify(
+        await this.getOwnerUserIds(indent, workspaceId),
+        workspaceId,
+        indent.id,
+        "Get procurement comparitives",
+        `${raisedLine} Manager approval was not needed. Authorize the requester to get comparatives.`,
+        userId
+      );
+    } else {
+      // The raiser cleared every approval themselves, so the chain is told what
+      // happened rather than asked for anything.
+      await this.notify(
+        [
+          ...(await this.getManagerUserIds(indent, workspaceId)),
+          ...(await this.getOwnerUserIds(indent, workspaceId)),
+        ],
+        workspaceId,
+        indent.id,
+        "Indent raised and authorized",
+        `${raisedLine} It went straight to getting comparatives.`,
+        userId
+      );
+    }
+
     await this.broadcast(indent, workspaceId);
     return updated;
   }
@@ -501,6 +594,16 @@ export class IndentService {
         `Approximate rates for "${indent.name}" were approved by the manager. Authorize the requester to get comparatives.`,
         userId
       );
+      // The raiser is told every time their indent clears a stage, not only at
+      // the two points where they have something to do.
+      await this.notify(
+        [indent.requestedBy.user.id],
+        workspaceId,
+        indent.id,
+        "Manager approved your indent",
+        `Approximate rates for "${indent.name}" cleared manager approval. Waiting on owner authorization.`,
+        userId
+      );
       await this.broadcast(indent, workspaceId);
       return updated;
     }
@@ -551,6 +654,14 @@ export class IndentService {
         indent.id,
         "Final procurement approval required",
         `The manager approved the final rates for "${indent.name}". Final owner approval is required.`,
+        userId
+      );
+      await this.notify(
+        [indent.requestedBy.user.id],
+        workspaceId,
+        indent.id,
+        "Manager approved your final rates",
+        `Final rates for "${indent.name}" cleared manager approval. Waiting on final owner approval.`,
         userId
       );
       await this.broadcast(indent, workspaceId);

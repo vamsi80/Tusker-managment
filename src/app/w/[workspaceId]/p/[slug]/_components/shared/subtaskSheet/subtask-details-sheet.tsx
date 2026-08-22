@@ -9,7 +9,7 @@ import { ActivityTab } from "./activity-tab";
 import { Tabs } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
 import type { SubTaskType } from "@/types/task";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 import { useProjectTags } from "@/hooks/use-project-tags";

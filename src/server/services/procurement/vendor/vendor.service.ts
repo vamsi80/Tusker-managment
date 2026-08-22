@@ -21,6 +21,15 @@ export class VendorService {
     country?: string;
     gstNumber?: string;
     phoneNumber?: string;
+    gstStatus?: string | null;
+    taxpayerType?: string | null;
+    businessConstitution?: string | null;
+    gstRegistrationDate?: string | null;
+    gstCancellationDate?: string | null;
+    stateJurisdiction?: string | null;
+    natureOfBusiness?: string | null;
+    blockStatus?: string | null;
+    einvoiceStatus?: string | null;
   }) {
     if (data.gstNumber) {
       const existing = await prisma.vendor.findFirst({
@@ -39,6 +48,37 @@ export class VendorService {
         },
       });
     });
+  }
+
+  /**
+   * Hard delete, for a vendor added by mistake. VendorQuote cascades on vendor
+   * delete and an awarded indent would be quietly unlinked, so anyone with
+   * procurement history behind them is refused — blacklisting keeps the record.
+   * Capabilities cascade away, which is fine: they are derived tags.
+   */
+  static async deleteVendor(vendorId: string, workspaceId: string) {
+    const vendor = await prisma.vendor.findFirst({
+      where: { id: vendorId, workspaceId },
+    });
+    if (!vendor) throw AppError.NotFound("Vendor not found");
+
+    const [quotes, indents] = await Promise.all([
+      prisma.vendorQuote.count({ where: { vendorId } }),
+      prisma.indent.count({ where: { selectedVendorId: vendorId } }),
+    ]);
+
+    const blockers = [
+      quotes > 0 ? `${quotes} quotation${quotes === 1 ? "" : "s"}` : null,
+      indents > 0 ? `${indents} awarded indent${indents === 1 ? "" : "s"}` : null,
+    ].filter(Boolean).join(" and ");
+
+    if (blockers) {
+      throw AppError.Conflict(
+        `${vendor.name} has ${blockers} on record. Blacklist this vendor instead so the history stays intact.`
+      );
+    }
+
+    return prisma.vendor.delete({ where: { id: vendorId } });
   }
 
   static async blacklistVendor(vendorId: string, workspaceId: string) {

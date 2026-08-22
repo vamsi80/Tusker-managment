@@ -7,7 +7,7 @@ import { differenceInCalendarDays, format } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
 import { toDateOnlyString } from "@/lib/date-utils";
 import { CalendarIcon, Loader2, Send, UserCheck } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 
 import {

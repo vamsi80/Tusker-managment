@@ -12,7 +12,7 @@ import {
   TaskFilters,
   TagOption,
 } from "@/components/task/shared/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { ProjectMembersType } from "@/types/project";

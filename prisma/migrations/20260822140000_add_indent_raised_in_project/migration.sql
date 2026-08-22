@@ -1,0 +1,1 @@
+ALTER TABLE "indent" ADD COLUMN "raisedInProject" BOOLEAN NOT NULL DEFAULT false;

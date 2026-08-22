@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X, Check, Loader2 } from "lucide-react";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { tryCatch } from "@/hooks/try-catch";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType } from "@/types/project";

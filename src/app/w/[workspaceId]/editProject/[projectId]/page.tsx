@@ -8,7 +8,7 @@ import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, Resolver } from "react-hook-form";
 import { tryCatch } from "@/hooks/try-catch";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { getColorFromString } from "@/lib/colors/project-colors";
 

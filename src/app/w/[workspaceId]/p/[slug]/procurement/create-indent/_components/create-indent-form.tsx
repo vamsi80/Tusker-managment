@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FALLBACK_UNITS } from "@/lib/procurement/units";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import {
   Table,
   TableBody,
@@ -138,6 +138,9 @@ interface CreateIndentFormProps {
   projectId?: string;
   projectName?: string;
   lockedProject?: boolean;
+  /** True for the entry points inside a project, which routes manager approval
+   * to the project manager instead of the raiser's reporting manager. */
+  raisedInProject?: boolean;
   workspaceId: string;
   tasks?: { id: string; name: string; taskSlug?: string; dueDate?: Date | string | null }[];
   projects?: { id: string; name: string; slug: string }[];
@@ -164,6 +167,7 @@ export function CreateIndentForm({
   projectId = "",
   projectName = "",
   lockedProject = false,
+  raisedInProject = false,
   workspaceId,
   tasks = [],
   projects = [],
@@ -177,6 +181,11 @@ export function CreateIndentForm({
   }, []);
 
   const [activeProjectId, setActiveProjectId] = useState(projectId);
+  // Asked only in the global hub: a "No" makes this a general indent with no
+  // project, which then shows up only in the workspace-wide indent list.
+  const [isProjectRelated, setIsProjectRelated] = useState(true);
+  const asksProjectQuestion = !lockedProject && !raisedInProject;
+  const needsProject = !asksProjectQuestion || isProjectRelated;
   const [projectError, setProjectError] = useState("");
   const [projectTasks, setProjectTasks] = useState(tasks);
   const [description, setDescription] = useState("");
@@ -399,7 +408,7 @@ export function CreateIndentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!activeProjectId) {
+    if (needsProject && !activeProjectId) {
       setProjectError("Please select a project");
       toast.error("Please select a project");
       return;
@@ -451,8 +460,9 @@ export function CreateIndentForm({
     try {
       setIsSubmitting(true);
       const payload = {
-        taskId: selectedTaskId || undefined,
-        projectId: activeProjectId,
+        projectId: needsProject ? activeProjectId : undefined,
+        taskId: needsProject ? selectedTaskId || undefined : undefined,
+        raisedInProject,
         workspaceId,
         description: description || undefined,
         expectedDelivery: expectedDelivery ? new Date(expectedDelivery).toISOString() : undefined,
@@ -538,8 +548,49 @@ export function CreateIndentForm({
         {/* ── LEFT: Indent Details ── */}
         <div className="flex flex-col gap-4 w-[25%] lg:w-[22%] overflow-y-auto pr-2">
 
+          {asksProjectQuestion && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Is this related to a project? <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                {[
+                  { label: "Yes", value: true },
+                  { label: "No", value: false },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setIsProjectRelated(option.value);
+                      setProjectError("");
+                      if (!option.value) {
+                        setActiveProjectId("");
+                        setSelectedTaskId("");
+                      }
+                    }}
+                    className={`flex h-9 flex-1 items-center justify-center rounded-md border text-xs font-semibold transition-colors disabled:opacity-50 ${
+                      isProjectRelated === option.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {!isProjectRelated && (
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Saved as a general indent. It appears in the workspace indent list only, not under
+                  any project.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Project Selector (only workspace level or locked display) */}
-          {lockedProject && activeProjectId ? (
+          {!needsProject ? null : lockedProject && activeProjectId ? (
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 Project <span className="text-destructive">*</span>

@@ -9,7 +9,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { apiClient } from "@/lib/api-client";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { useProjectTags } from "@/hooks/use-project-tags";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Loader2, MessageSquare } from "lucide-react";
 import { useNotifications } from "./notifications-context";
 import { Badge } from "@/components/ui/badge";

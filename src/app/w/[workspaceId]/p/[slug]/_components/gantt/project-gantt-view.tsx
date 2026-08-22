@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { AppLoader } from "@/components/shared/app-loader";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { useProjectLayout } from "../project-layout-context";

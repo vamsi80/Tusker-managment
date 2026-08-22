@@ -10,7 +10,7 @@ import { useState, useTransition } from "react";
 import { Label } from "@/components/ui/label";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface LineItemData {
   id: string;

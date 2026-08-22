@@ -5,7 +5,7 @@ import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/types/task";
 import type { ProjectMembersType } from "@/types/project";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption } from "../shared/types";

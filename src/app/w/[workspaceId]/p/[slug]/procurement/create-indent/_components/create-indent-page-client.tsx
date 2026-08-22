@@ -27,6 +27,7 @@ export function CreateIndentPageClient({
   return (
     <div className="h-full">
       <CreateIndentForm
+          raisedInProject
         projectId={projectId}
         projectName={projectName}
         lockedProject={lockedProject}

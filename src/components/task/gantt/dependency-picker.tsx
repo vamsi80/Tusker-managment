@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { Link2, X, Check, Loader2, Search, ChevronRight } from "lucide-react";
 import { useState, useTransition, useEffect, useMemo } from "react";

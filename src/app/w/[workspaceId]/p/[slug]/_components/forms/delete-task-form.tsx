@@ -5,7 +5,7 @@ import { Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { useParams } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { tryCatch } from "@/hooks/try-catch";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
 import { TaskWithSubTasks } from "../list/types";

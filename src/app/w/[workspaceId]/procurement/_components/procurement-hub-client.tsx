@@ -50,7 +50,7 @@ import {
   ArrowRight,
   TrendingUp,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 
 interface Project {
@@ -803,7 +803,7 @@ export function ProcurementHubClient({
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                           <span>Qty: <strong>{item.quantity} {item.unit}</strong></span>
                           <span className="truncate max-w-[120px] font-medium text-foreground">
-                            {item.indent.project.name}
+                            {item.indent.project?.name || "General"}
                           </span>
                         </div>
 
@@ -834,7 +834,7 @@ export function ProcurementHubClient({
                           {selectedItem.materialName}
                         </h2>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                          Quantity Required: <strong className="text-foreground">{selectedItem.quantity} {selectedItem.unit}</strong> • From Indent: <strong className="text-foreground">{selectedItem.indent.name}</strong> ({selectedItem.indent.project.name})
+                          Quantity Required: <strong className="text-foreground">{selectedItem.quantity} {selectedItem.unit}</strong> • From Indent: <strong className="text-foreground">{selectedItem.indent.name}</strong> ({selectedItem.indent.project?.name || "General"})
                         </p>
                       </div>
 
@@ -1187,7 +1187,7 @@ export function ProcurementHubClient({
                           {item.materialName}
                         </TableCell>
                         <TableCell className="py-2.5 text-xs text-muted-foreground">
-                          {item.indent.project.name}
+                          {item.indent.project?.name || "General"}
                         </TableCell>
                         <TableCell className="py-2.5 text-xs font-mono">
                           {item.quantity} {item.unit}

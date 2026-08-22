@@ -20,6 +20,7 @@ export class IndentRepository {
           select: {
             id: true,
             reportToId: true,
+            workspaceRole: true,
             user: {
               select: {
                 id: true,
@@ -44,6 +45,7 @@ export class IndentRepository {
           select: {
             id: true,
             name: true,
+            projectManagerId: true,
           },
         },
         selectedVendor: {
@@ -104,7 +106,7 @@ export class IndentRepository {
 
   static async create(data: {
     workspaceId: string;
-    projectId: string;
+    projectId?: string | null;
     taskId?: string;
     name: string;
     description?: string;
@@ -114,6 +116,7 @@ export class IndentRepository {
     vatPercent?: number;
     transportCharge?: number;
     labourCharge?: number;
+    raisedInProject?: boolean;
     requestedById: string;
     approverIds?: string[];
     lineItems?: {
@@ -147,7 +150,7 @@ export class IndentRepository {
             data: {
               indentId: await IndentRepository.nextIndentNumber(tx),
               workspaceId: data.workspaceId,
-              projectId: data.projectId,
+              projectId: data.projectId ?? null,
               taskId: data.taskId || null,
               name: data.name,
               description: data.description,
@@ -158,6 +161,7 @@ export class IndentRepository {
               transportCharge: data.transportCharge,
               labourCharge: data.labourCharge,
               requestedById: data.requestedById,
+              raisedInProject: data.raisedInProject ?? false,
               approverIds: data.approverIds || [],
               status: "DRAFT",
               lineItems: data.lineItems
@@ -195,14 +199,13 @@ export class IndentRepository {
    * sequence if indents ever get created concurrently enough to retry often.
    */
   private static async nextIndentNumber(tx: any) {
-    const year = String(new Date().getFullYear()).slice(-2);
     const last = await tx.indent.findFirst({
-      where: { indentId: { startsWith: year } },
+      where: { indentId: { startsWith: "IND-" } },
       orderBy: { indentId: "desc" },
       select: { indentId: true },
     });
-    const next = last?.indentId ? Number(last.indentId.slice(2)) + 1 : 1;
-    return `${year}${String(next).padStart(4, "0")}`;
+    const next = last?.indentId ? Number(last.indentId.replace("IND-", "")) + 1 : 1;
+    return `IND-${String(next).padStart(4, "0")}`;
   }
 
   static async updateStatus(id: string, status: any, extra?: any, tx?: any) {

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { ProjectService } from "@/server/services/project";
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "@/hono/validator";
 import { projectSchema, editProjectSchema } from "@/lib/zodSchemas";
 
 const projects = new Hono<{ Variables: HonoVariables }>();

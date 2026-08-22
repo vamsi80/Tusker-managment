@@ -8,7 +8,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, FormEvent } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const ForgotPasswordForm = () => {

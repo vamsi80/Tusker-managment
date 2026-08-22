@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TagDialog } from "./tag-dialog";
 import { deleteTag } from "@/actions/tag/delete-tag";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Pencil, Plus, X } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
 

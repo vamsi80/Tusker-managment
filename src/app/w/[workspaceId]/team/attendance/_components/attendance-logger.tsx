@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { MapPin, LogIn, LogOut, Loader2, X } from "lucide-react";
 import { format } from "date-fns";
 import { APP_DATE_FORMAT } from "@/lib/utils";

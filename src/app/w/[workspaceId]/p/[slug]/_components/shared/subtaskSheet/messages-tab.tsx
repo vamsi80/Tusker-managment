@@ -8,7 +8,7 @@ import { format, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface MessagesTabProps {
     taskId: string;

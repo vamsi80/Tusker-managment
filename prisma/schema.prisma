@@ -692,7 +692,9 @@ model Indent {
   id                       String           @id @default(uuid())
   indentId                 String?          @unique
   workspaceId              String
-  projectId                String
+  /// Null for a general indent raised in the global hub with no project. Those
+  /// are visible only in the workspace-wide indent list.
+  projectId                String?
   taskId                   String?          @unique
   name                     String
   description              String?
@@ -704,6 +706,10 @@ model Indent {
   transportCharge          Int?
   labourCharge             Int?
   requestedById            String
+  /// Raised from inside a project (its procurement tab or create page) rather
+  /// than the global procurement hub. Decides who owns the manager approval:
+  /// the project manager, or the raiser's reporting manager.
+  raisedInProject          Boolean          @default(false)
   assignedToId             String?
   submittedAt              DateTime?
   finalApprovedAt          DateTime?
@@ -735,7 +741,7 @@ model Indent {
   finalRatesSubmittedBy    WorkspaceMember? @relation("IndentFinalRatesSubmitter", fields: [finalRatesSubmittedById], references: [id])
   finalManagerApprovedBy   WorkspaceMember? @relation("IndentFinalManagerApprover", fields: [finalManagerApprovedById], references: [id])
   managerApprovedBy        WorkspaceMember? @relation("IndentManagerApprover", fields: [managerApprovedById], references: [id])
-  project                  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project                  Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   requestedBy              WorkspaceMember  @relation("IndentRequester", fields: [requestedById], references: [id])
   task                     Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   workspace                Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -800,6 +806,19 @@ model Vendor {
   country       String?                    @default("India")
   pincode       String?
   state         String?
+  /// Snapshot of the GST registry record, taken when the GSTIN is verified and
+  /// editable by hand afterwards. Kept as plain columns so a cancelled or
+  /// composition-scheme vendor can be filtered for.
+  gstStatus            String?
+  taxpayerType         String?
+  businessConstitution String?
+  gstRegistrationDate  String?
+  gstCancellationDate  String?
+  stateJurisdiction    String?
+  natureOfBusiness     String?
+  blockStatus          String?
+  einvoiceStatus       String?
+
   /// Column mapping remembered from a previous quotation import, keyed by this
   /// vendor's own header wording. Null until a user chooses to remember one.
   quotationMapping Json?
@@ -812,6 +831,18 @@ model Vendor {
   @@index([workspaceId])
   @@index([name])
   @@map("vendor")
+}
+
+/// One row per calendar month counting the GSTIN lookups that actually spent a
+/// provider credit, so the free monthly allowance cannot be run dry. Global
+/// rather than per-workspace: the provider account, and its credits, are shared
+/// by the whole deployment.
+model GstinLookupUsage {
+  month     String   @id
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("gstin_lookup_usage")
 }
 
 model VendorQuote {

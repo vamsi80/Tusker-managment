@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
+import { zValidator } from "@/hono/validator";
 import { pusherServer } from "@/lib/pusher";
 import prisma from "@/lib/db";
 import { HonoVariables } from "../types";

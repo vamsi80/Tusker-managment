@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import ThemeToggle from "@/components/ui/theme-toggle";
 import { UserDropdown } from "./userDropdown";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 

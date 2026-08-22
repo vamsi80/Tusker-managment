@@ -474,3 +474,218 @@ describe("Indent approval workflow", () => {
     );
   });
 });
+
+describe("Self-approval stages are cleared on submit", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repositoryMocks.updateStatus.mockImplementation(async (_id: any, status: any, extra: any) => ({ status, ...extra }));
+    dbMocks.workspaceMember.findMany.mockResolvedValue([{ userId: "manager-user" }]);
+    dbMocks.workspaceMember.findFirst.mockResolvedValue({ userId: "manager-user" });
+    dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
+    pusherTrigger.mockResolvedValue(undefined);
+  });
+
+  const draftBy = (workspaceRole: string, overrides: Record<string, any> = {}) =>
+    baseIndent({
+      status: "DRAFT",
+      requestedBy: {
+        id: "requester-member",
+        reportToId: null,
+        workspaceRole,
+        user: { id: "requester-user", name: "Requester", surname: "One" },
+      },
+      ...overrides,
+    });
+
+  const submitAs = async (workspaceRole: string, overrides: Record<string, any> = {}) => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole });
+    repositoryMocks.findById.mockResolvedValue(draftBy(workspaceRole, overrides));
+    return IndentService.submitIndent("indent-1", "requester-user", "workspace-1");
+  };
+
+  test("a member's indent still waits on manager approval", async () => {
+    const updated = await submitAs("MEMBER");
+    expect(updated.status).toBe("SUBMITTED");
+    expect(updated.managerApprovedAt).toBeUndefined();
+  });
+
+  test("a manager's own indent skips manager approval", async () => {
+    const updated = await submitAs("MANAGER");
+
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+    expect(updated.managerApprovedById).toBe("requester-member");
+  });
+
+  test("an owner's own indent goes straight to entering final rates", async () => {
+    const updated = await submitAs("OWNER", { approverIds: ["requester-member"] });
+
+    expect(updated.status).toBe("COMPARATIVES_IN_PROGRESS");
+    expect(updated.approvedByIds).toEqual(["requester-member"]);
+    expect(updated.ownerAuthorizedAt).toBeInstanceOf(Date);
+  });
+
+  test("an owner who picked a co-approver still waits for them", async () => {
+    const updated = await submitAs("OWNER", { approverIds: ["requester-member", "other-owner"] });
+
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+  });
+
+  test("a manager who reports to someone still needs that approval", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MANAGER" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({
+        status: "DRAFT",
+        requestedBy: {
+          id: "requester-member",
+          reportToId: "senior-manager",
+          workspaceRole: "MANAGER",
+          user: { id: "requester-user", name: "Requester", surname: "One" },
+        },
+      })
+    );
+
+    const updated = await IndentService.submitIndent("indent-1", "requester-user", "workspace-1");
+    expect(updated.status).toBe("SUBMITTED");
+  });
+
+  test("every submit raises a notification for whoever is next", async () => {
+    await submitAs("MEMBER");
+    expect(dbMocks.notification.createMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Each cleared stage notifies the raiser", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repositoryMocks.updateStatus.mockImplementation(async (_id: any, status: any, extra: any) => ({ status, ...extra }));
+    dbMocks.workspaceMember.findMany.mockResolvedValue([{ userId: "owner-user" }]);
+    dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
+    pusherTrigger.mockResolvedValue(undefined);
+  });
+
+  const titlesSent = () =>
+    dbMocks.notification.createMany.mock.calls.flatMap((call: any) =>
+      call[0].data.map((row: any) => `${row.userId}:${row.title}`)
+    );
+
+  test("manager approval tells the owners and the raiser", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "manager-member", workspaceRole: "MANAGER" });
+    repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "SUBMITTED" }));
+
+    await IndentService.approveIndent("indent-1", "manager-user", "workspace-1");
+
+    expect(titlesSent()).toEqual(
+      expect.arrayContaining([
+        "owner-user:Get procurement comparitives",
+        "requester-user:Manager approved your indent",
+      ])
+    );
+  });
+
+  test("final manager approval tells the owners and the raiser", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "manager-member", workspaceRole: "MANAGER" });
+    repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "PENDING_MANAGER_FINAL_RATE_APPROVAL" }));
+
+    await IndentService.approveIndent("indent-1", "manager-user", "workspace-1");
+
+    expect(titlesSent()).toEqual(
+      expect.arrayContaining([
+        "owner-user:Final procurement approval required",
+        "requester-user:Manager approved your final rates",
+      ])
+    );
+  });
+});
+
+describe("Manager approval routing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repositoryMocks.updateStatus.mockImplementation(async (_id: any, status: any, extra: any) => ({ status, ...extra }));
+    dbMocks.workspaceMember.findMany.mockResolvedValue([]);
+    dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
+    pusherTrigger.mockResolvedValue(undefined);
+  });
+
+  const indentFrom = (raisedInProject: boolean, overrides: Record<string, any> = {}) =>
+    baseIndent({
+      status: "SUBMITTED",
+      raisedInProject,
+      project: { id: "project-1", name: "Tower A", projectManagerId: "project-manager" },
+      ...overrides,
+    });
+
+  const approveAs = async (memberId: string, indent: any) => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: memberId, workspaceRole: "MANAGER" });
+    repositoryMocks.findById.mockResolvedValue(indent);
+    return IndentService.approveIndent("indent-1", "approver-user", "workspace-1");
+  };
+
+  test("an indent raised inside a project goes to the project manager", async () => {
+    const updated = await approveAs("project-manager", indentFrom(true));
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+  });
+
+  test("the reporting manager cannot approve a project-raised indent", async () => {
+    await expect(approveAs("manager-member", indentFrom(true))).rejects.toThrow(
+      "Only the requester's manager can approve approximate rates"
+    );
+  });
+
+  test("an indent raised globally goes to the reporting manager", async () => {
+    const updated = await approveAs("manager-member", indentFrom(false));
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+  });
+
+  test("a project with no manager falls back to the reporting manager", async () => {
+    const indent = indentFrom(true, { project: { id: "project-1", name: "Tower A", projectManagerId: null } });
+    const updated = await approveAs("manager-member", indent);
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+  });
+
+  test("a general indent with no project uses the reporting manager", async () => {
+    const indent = indentFrom(false, { project: null, projectId: null });
+    const updated = await approveAs("manager-member", indent);
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+    // No project channel exists to broadcast a general indent to.
+    expect(broadcastProjectUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("General indents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    dbMocks.workspaceMember.count.mockResolvedValue(1);
+    repositoryMocks.create.mockImplementation(async (data: any) => data);
+  });
+
+  const payload = (overrides: Record<string, any> = {}) => ({
+    projectId: undefined,
+    workspaceId: "workspace-1",
+    approverIds: ["owner-member"],
+    lineItems: [{ materialName: "Cement", quantity: 10, unit: "bag", estimatedUnitPrice: 40000 }],
+    ...overrides,
+  });
+
+  test("can be raised with no project and is named General", async () => {
+    const created: any = await IndentService.createIndent(payload() as any, "requester-user");
+
+    expect(dbMocks.project.findFirst).not.toHaveBeenCalled();
+    expect(created.projectId).toBeUndefined();
+    expect(created.name).toContain("General - Cement");
+  });
+
+  test("cannot be linked to a task", async () => {
+    await expect(
+      IndentService.createIndent(payload({ taskId: "task-1" }) as any, "requester-user")
+    ).rejects.toThrow("A general indent cannot be linked to a task");
+  });
+
+  test("a project-backed indent still validates the project", async () => {
+    dbMocks.project.findFirst.mockResolvedValue(null);
+
+    await expect(
+      IndentService.createIndent(payload({ projectId: "missing" }) as any, "requester-user")
+    ).rejects.toThrow("Project not found in this workspace");
+  });
+});

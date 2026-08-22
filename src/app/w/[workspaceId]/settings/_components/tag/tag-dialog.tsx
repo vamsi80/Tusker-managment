@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createTag } from "@/actions/tag/create-tag";
 import { updateTag } from "@/actions/tag/update-tag";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Loader2 } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
 

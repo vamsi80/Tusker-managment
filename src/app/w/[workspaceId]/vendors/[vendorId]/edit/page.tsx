@@ -2,11 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { ArrowLeft, Truck, FileText, User, Mail, Phone, Building, Loader2 } from "lucide-react";
+import { toast } from "@/lib/toast";
+import { ArrowLeft, FileText, User, Mail, Phone, Building, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { GstinLookupField } from "../../_components/gstin-lookup-field";
+import { GstRegistrationFields } from "../../_components/gst-registration-fields";
+import {
+  EMPTY_GST_DETAILS,
+  filledGstFields,
+  getGstDetailsFromGstin,
+  getVendorFieldsFromGstin,
+  gstDetailsFromVendor,
+  gstDetailsPayload,
+  type GstinLookupData,
+  type VendorGstDetails,
+} from "@/lib/procurement/gstin";
 
 import { countryDialCodes } from "@/lib/country-codes";
 
@@ -32,6 +44,8 @@ export default function EditVendorPage() {
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
   const [country, setCountry] = useState("India");
+  const [gstDetails, setGstDetails] = useState(EMPTY_GST_DETAILS);
+  const [gstLockedKeys, setGstLockedKeys] = useState<(keyof VendorGstDetails)[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +86,9 @@ export default function EditVendorPage() {
         setState(v.state || "");
         setPincode(v.pincode || "");
         setCountry(v.country || "India");
+        const stored = gstDetailsFromVendor(v);
+        setGstDetails(stored);
+        setGstLockedKeys(filledGstFields(stored));
       } else {
         toast.error("Failed to load vendor details");
         router.push(`/w/${workspaceId}/vendors`);
@@ -115,6 +132,7 @@ export default function EditVendorPage() {
           state: state || undefined,
           pincode: pincode || undefined,
           country: country || undefined,
+          ...gstDetailsPayload(gstDetails),
         }),
       });
 
@@ -148,6 +166,21 @@ export default function EditVendorPage() {
     if (matchedCountry) {
       setCountry(matchedCountry);
     }
+  };
+
+  const handleGstinVerified = (details: GstinLookupData) => {
+    const fields = getVendorFieldsFromGstin(details);
+    setName(fields.name);
+    setCompanyName(fields.companyName);
+    setAddressLine1((current) => fields.addressLine1 || current);
+    setAddressLine2((current) => fields.addressLine2 || current);
+    setCity((current) => fields.city || current);
+    setState((current) => fields.state || current);
+    setPincode((current) => fields.pincode || current);
+    setCountry(fields.country);
+    const registry = getGstDetailsFromGstin(details);
+    setGstDetails(registry);
+    setGstLockedKeys(filledGstFields(registry));
   };
 
   if (loading) {
@@ -258,18 +291,21 @@ export default function EditVendorPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground/90">GSTIN / Tax ID</label>
-                <Input
-                  value={gstNumber}
-                  onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
-                  placeholder="e.g. 27AAAAA0000A1Z5"
-                  className="font-mono uppercase"
-                />
-              </div>
+              <GstinLookupField
+                workspaceId={workspaceId}
+                value={gstNumber}
+                onChange={setGstNumber}
+                onVerified={handleGstinVerified}
+              />
             </div>
           </CardContent>
         </Card>
+
+        <GstRegistrationFields
+          value={gstDetails}
+          onChange={setGstDetails}
+          lockedKeys={gstLockedKeys}
+        />
 
         <Card className="shadow-sm border-border/50 !py-0 !gap-0">
           <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">

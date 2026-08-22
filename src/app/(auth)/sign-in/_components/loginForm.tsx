@@ -9,7 +9,7 @@ import { Loader, Loader2, Github } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useTransition, useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { PasswordInput } from "@/components/ui/password-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

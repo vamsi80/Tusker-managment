@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,12 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Pencil, Check, X, Send, FolderKanban, Truck } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
+import {
+  areStatusFiltersEqual,
+  MATERIAL_STATUS_OPTIONS,
+  parseProcurementStatusParam,
+} from "@/lib/procurement/status-filters";
 
 interface Project {
   id: string;
@@ -37,6 +42,7 @@ interface Project {
 
 interface LineItemRow {
   id: string;
+  materialId?: string | null;
   materialName: string;
   unit: string;
   quantity: number;
@@ -72,6 +78,7 @@ interface MaterialsHubClientProps {
 
 interface GroupedMaterialRow {
   groupKey: string;
+  materialId?: string | null;
   materialName: string;
   unit: string;
   combinedQuantity: number;
@@ -81,11 +88,16 @@ interface GroupedMaterialRow {
   vendorCount?: number;
 }
 
+const MATERIAL_STATUSES = MATERIAL_STATUS_OPTIONS.map((option) => option.value);
+
 export function MaterialsHubClient({
   workspaceId,
   projects,
 }: MaterialsHubClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status");
   const { data: workspaceData } = useWorkspaceLayout();
   const workspaceRole = workspaceData?.permissions?.workspaceRole;
   const workspaceMemberId = workspaceData?.permissions?.workspaceMemberId;
@@ -93,6 +105,7 @@ export function MaterialsHubClient({
   const isAccounts = workspaceRole === "ACCOUNTS";
 
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
+  const [catalogMaterials, setCatalogMaterials] = useState<any[]>([]);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
 
   // Edit quantity states
@@ -102,13 +115,24 @@ export function MaterialsHubClient({
 
   // Filters
   const [projectFilter, setProjectFilter] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>(() =>
+    parseProcurementStatusParam(statusParam, MATERIAL_STATUSES),
+  );
+
+  const handleStatusFilterChange = (values: string[]) => {
+    setStatusFilter(values);
+    const params = new URLSearchParams(searchParams.toString());
+    if (values.length > 0) params.set("status", values.join(","));
+    else params.delete("status");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   // Loading states
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [vendorCoverages, setVendorCoverages] = useState<any[]>([]);
 
-  const fetchVendorCoverages = async () => {
+  const fetchVendorCoverages = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/procurement/vendors/materials/coverage?w=${workspaceId}`);
       const data = await res.json();
@@ -118,9 +142,9 @@ export function MaterialsHubClient({
     } catch (e) {
       console.error("Failed to load vendor coverages", e);
     }
-  };
+  }, [workspaceId]);
 
-  const fetchLineItems = async () => {
+  const fetchLineItems = useCallback(async () => {
     setIsLoadingItems(true);
     try {
       const params = new URLSearchParams({ w: workspaceId });
@@ -137,7 +161,7 @@ export function MaterialsHubClient({
     } finally {
       setIsLoadingItems(false);
     }
-  };
+  }, [workspaceId, projectFilter, statusFilter]);
 
   const handleSaveQuantity = async (item: LineItemRow) => {
     if (!editQty || parseFloat(editQty) <= 0) {
@@ -209,18 +233,54 @@ export function MaterialsHubClient({
     }
   };
 
+  const fetchCatalog = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/materials?w=${workspaceId}`);
+      const data = await res.json();
+      if (data.success) {
+        setCatalogMaterials(data.data);
+      }
+    } catch (e) {
+      console.error("Failed to load catalog", e);
+    }
+  }, [workspaceId]);
+
   useEffect(() => {
     fetchLineItems();
     fetchVendorCoverages();
-  }, [workspaceId, projectFilter, statusFilter]);
+    fetchCatalog();
+  }, [fetchLineItems, fetchVendorCoverages, fetchCatalog]);
+
+  useEffect(() => {
+    const nextStatuses = parseProcurementStatusParam(statusParam, MATERIAL_STATUSES);
+    setStatusFilter((currentStatuses) =>
+      areStatusFiltersEqual(currentStatuses, nextStatuses) ? currentStatuses : nextStatuses,
+    );
+  }, [statusParam]);
 
   // Group line items client-side by materialName (case insensitive) and unit
   const groupedItemsMap: Record<string, GroupedMaterialRow> = {};
+
+  // Seed with catalog materials
+  catalogMaterials.forEach((cat) => {
+    const key = `${cat.name.toLowerCase().trim()}_${(cat.defaultUnit?.abbreviation || "").toLowerCase().trim()}`;
+    groupedItemsMap[key] = {
+      groupKey: key,
+      materialId: cat.materialId,
+      materialName: cat.name,
+      unit: cat.defaultUnit?.abbreviation || "",
+      combinedQuantity: 0,
+      statuses: [],
+      items: [],
+    };
+  });
+
   lineItems.forEach((item) => {
     const key = `${item.materialName.toLowerCase().trim()}_${item.unit.toLowerCase().trim()}`;
     if (!groupedItemsMap[key]) {
       groupedItemsMap[key] = {
         groupKey: key,
+        materialId: item.materialId,
         materialName: item.materialName,
         unit: item.unit,
         combinedQuantity: 0,
@@ -305,6 +365,15 @@ export function MaterialsHubClient({
   // Columns for the grouped materials table
   const materialColumns: ColumnDef<GroupedMaterialRow>[] = [
     {
+      accessorKey: "materialId",
+      header: "Material ID",
+      cell: ({ row }) => (
+        <span className="text-xs font-mono text-muted-foreground">
+          {row.original.materialId || "—"}
+        </span>
+      ),
+    },
+    {
       accessorKey: "materialName",
       header: "Material Name",
       cell: ({ row }) => (
@@ -381,8 +450,8 @@ export function MaterialsHubClient({
   return (
     <div className="flex-1 flex flex-col min-h-0 gap-4">
       {/* Search Filters Row */}
-      <div className="flex items-center gap-4 shrink-0 bg-muted/20 p-3 rounded-lg border border-border/50">
-        <div className="flex items-center gap-2">
+      <div className="flex shrink-0 flex-col items-stretch gap-3 rounded-lg border border-border/50 bg-muted/20 p-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex min-w-0 items-center gap-2">
           <Label className="text-xs font-bold text-muted-foreground uppercase shrink-0">Project:</Label>
           <MultiSelectFilter
             selected={projectFilter}
@@ -390,25 +459,19 @@ export function MaterialsHubClient({
             options={projects.map((project) => ({ value: project.id, label: project.name }))}
             placeholder="All Projects"
             searchPlaceholder="Search projects..."
-            triggerClassName="h-8 text-xs w-[180px]"
+            triggerClassName="h-8 w-full text-xs sm:w-[180px]"
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Label className="text-xs font-bold text-muted-foreground uppercase shrink-0">Status:</Label>
           <MultiSelectFilter
             selected={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: "PENDING", label: "Pending RFQ" },
-              { value: "RFQ_SENT", label: "RFQ Sent" },
-              { value: "QUOTES_RECEIVED", label: "Quotes Received" },
-              { value: "APPROVED", label: "Approved" },
-              { value: "PO_CREATED", label: "PO Created" },
-            ]}
+            onChange={handleStatusFilterChange}
+            options={MATERIAL_STATUS_OPTIONS}
             placeholder="All Statuses"
             searchPlaceholder="Search statuses..."
-            triggerClassName="h-8 text-xs w-[160px]"
+            triggerClassName="h-8 w-full text-xs sm:w-[160px]"
           />
         </div>
       </div>
@@ -479,7 +542,7 @@ export function MaterialsHubClient({
                       return (
                         <TableRow key={item.id} className="hover:bg-muted/10">
                           <TableCell className="py-3 text-xs font-semibold text-foreground align-middle">
-                            {item.indent.project.name}
+                            {item.indent.project?.name || "General"}
                           </TableCell>
                           <TableCell className="py-3 align-middle">
                             <div className="flex flex-col gap-1">
