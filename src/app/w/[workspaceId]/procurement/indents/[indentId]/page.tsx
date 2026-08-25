@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { IndentDetailClient } from "./_components/indent-detail-client";
 import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
 import { canCreatePurchaseOrder } from "@/lib/procurement/purchase-order";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 interface PageProps {
   params: Promise<{
@@ -43,11 +44,13 @@ export default async function IndentDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const permissions = await getWorkspacePermissions(workspaceId, user.id, true);
+
   return (
     <IndentDetailClient
       workspaceId={workspaceId}
       indent={serializeIndentForClient(indent)}
-      canCreatePo={canCreatePurchaseOrder(user.email)}
+      canCreatePo={canCreatePurchaseOrder(user.email, permissions.workspaceRole)}
     />
   );
 }

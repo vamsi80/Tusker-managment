@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import {
   BUYER_COMPANIES,
+  isBuyerConfigured,
   formatPaise,
   isIntraState,
   poTotals,
@@ -44,7 +45,13 @@ const emptyRow = (): Row => ({
   taxPercent: "18",
 });
 
-const companyAddress = (company: CompanyCode) => BUYER_COMPANIES[company].addressLines.join("\n");
+/**
+ * Default delivery address: the buying entity's own premises, name first. The
+ * printed PO shows the company name above the address in that block, so it has
+ * to be part of the editable text rather than hardcoded into the document.
+ */
+const companyAddress = (company: CompanyCode) =>
+  [BUYER_COMPANIES[company].name, ...BUYER_COMPANIES[company].addressLines].join("\n");
 
 const toPaise = (rupees: string) => Math.round(Number(rupees || 0) * 100);
 
@@ -62,6 +69,11 @@ export function CreatePurchaseOrderForm() {
   const [vendorId, setVendorId] = useState("");
   const [indentId, setIndentId] = useState(preselectedIndent ?? "");
   const [terms, setTerms] = useState(PO_TERMS.join("\n"));
+  // Extras approved on the indent. Prefilled from it, editable before raising.
+  const [exciseDutyPercent, setExciseDutyPercent] = useState("");
+  const [vatPercent, setVatPercent] = useState("");
+  const [transportCharge, setTransportCharge] = useState("");
+  const [labourCharge, setLabourCharge] = useState("");
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [indents, setIndents] = useState<IndentOption[]>([]);
@@ -107,10 +119,32 @@ export function CreatePurchaseOrderForm() {
       }))
     );
 
+    // Carry the approved extras across so the ordered figure matches the
+    // approved one. They stay editable before the PO is raised.
+    const percent = (value: unknown) => (Number(value) > 0 ? String(Number(value)) : "");
+    const rupees = (paise: unknown) => (Number(paise) > 0 ? (Number(paise) / 100).toFixed(2) : "");
+    setExciseDutyPercent(percent(data.exciseDutyPercent));
+    setVatPercent(percent(data.vatPercent));
+    setTransportCharge(rupees(data.transportCharge));
+    setLabourCharge(rupees(data.labourCharge));
+
     const vendor = data.selectedVendorId ?? data.lineItems?.[0]?.approvedQuote?.vendorId ?? "";
     if (vendor) setVendorId(vendor);
     if (data.indentId) setReferenceNo((current) => current || data.indentId);
   };
+
+  /**
+   * An indent's "Create PO" button links here with ?indentId=..., which seeds the
+   * dropdown but never fires its onValueChange - so without this the form opened
+   * with the indent named and no items or rates behind it.
+   */
+  const hydratedFromQuery = useRef(false);
+  useEffect(() => {
+    if (hydratedFromQuery.current || !preselectedIndent) return;
+    hydratedFromQuery.current = true;
+    loadIndent(preselectedIndent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedIndent, workspaceId]);
 
   const setRow = (index: number, patch: Partial<Row>) =>
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -126,9 +160,23 @@ export function CreatePurchaseOrderForm() {
           rate: toPaise(row.rate),
           taxPercent: Number(row.taxPercent || 0),
         })),
-        isIntraState(buyer.gstNumber, vendor?.gstNumber)
+        isIntraState(buyer.gstNumber, vendor?.gstNumber),
+        {
+          exciseDutyPercent: Number(exciseDutyPercent) || null,
+          vatPercent: Number(vatPercent) || null,
+          transportCharge: toPaise(transportCharge) || null,
+          labourCharge: toPaise(labourCharge) || null,
+        }
       ),
-    [rows, buyer.gstNumber, vendor?.gstNumber]
+    [
+      rows,
+      buyer.gstNumber,
+      vendor?.gstNumber,
+      exciseDutyPercent,
+      vatPercent,
+      transportCharge,
+      labourCharge,
+    ]
   );
 
   const submit = async () => {
@@ -168,6 +216,10 @@ export function CreatePurchaseOrderForm() {
           referenceNo: referenceNo.trim() || null,
           poDate,
           deliveryAddress: deliveryAddress.trim(),
+          exciseDutyPercent: Number(exciseDutyPercent) || null,
+          vatPercent: Number(vatPercent) || null,
+          transportCharge: toPaise(transportCharge) || null,
+          labourCharge: toPaise(labourCharge) || null,
           terms: terms
             .split("\n")
             .map((term) => term.trim())
@@ -202,8 +254,13 @@ export function CreatePurchaseOrderForm() {
               </SelectTrigger>
               <SelectContent>
                 {Object.values(BUYER_COMPANIES).map((entity) => (
-                  <SelectItem key={entity.code} value={entity.code}>
+                  <SelectItem
+                    key={entity.code}
+                    value={entity.code}
+                    disabled={!isBuyerConfigured(entity.code)}
+                  >
                     {entity.name} ({entity.code})
+                    {!isBuyerConfigured(entity.code) && " - not set up yet"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -211,6 +268,12 @@ export function CreatePurchaseOrderForm() {
             <p className="text-xs text-muted-foreground">
               Numbered from {company}&apos;s own series, e.g. {company}/26-27/0064.
             </p>
+            {!isBuyerConfigured(company) && (
+              <p className="text-xs text-destructive">
+                {buyer.name} has no registered address or GSTIN on file, so its
+                purchase orders would print an empty buyer block.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-1.5">
@@ -367,11 +430,37 @@ export function CreatePurchaseOrderForm() {
             </tbody>
           </table>
 
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            {[
+              { label: "Excise duty %", value: exciseDutyPercent, set: setExciseDutyPercent, hint: "% of sub total" },
+              { label: "VAT %", value: vatPercent, set: setVatPercent, hint: "% of sub total" },
+              { label: "Transportation", value: transportCharge, set: setTransportCharge, hint: "flat amount" },
+              { label: "Labour", value: labourCharge, set: setLabourCharge, hint: "flat amount" },
+            ].map((field) => (
+              <div key={field.label} className="grid gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">{field.label}</label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={field.value}
+                  onChange={(e) => field.set(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">{field.hint}</p>
+              </div>
+            ))}
+          </div>
+
           <div className="mt-4 ml-auto w-full max-w-xs text-sm tabular-nums">
             <div className="flex justify-between py-0.5">
               <span className="text-muted-foreground">Sub total</span>
               <span>{formatPaise(totals.subtotal)}</span>
             </div>
+            {totals.chargeRows.map((row) => (
+              <div key={row.label} className="flex justify-between py-0.5">
+                <span className="text-muted-foreground">{row.label}</span>
+                <span>{formatPaise(row.value)}</span>
+              </div>
+            ))}
             {totals.taxRows.map((row) =>
               totals.igst ? (
                 <div key={row.percent} className="flex justify-between py-0.5">

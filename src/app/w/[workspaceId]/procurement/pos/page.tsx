@@ -7,6 +7,7 @@ import {
   canCreatePurchaseOrder,
   formatPaise,
 } from "@/lib/procurement/purchase-order";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 interface PageProps {
   params: Promise<{ workspaceId: string }>;
@@ -15,6 +16,8 @@ interface PageProps {
 export default async function PurchaseOrdersPage({ params }: PageProps) {
   const { workspaceId } = await params;
   const user = await requireUser();
+
+  const permissions = await getWorkspacePermissions(workspaceId, user.id, true);
 
   const purchaseOrders = await prisma.purchaseOrder.findMany({
     where: { workspaceId },
@@ -26,7 +29,7 @@ export default async function PurchaseOrdersPage({ params }: PageProps) {
     <div className="flex flex-col gap-4 overflow-y-auto p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Purchase Orders</h1>
-        {canCreatePurchaseOrder(user.email) && (
+        {canCreatePurchaseOrder(user.email, permissions.workspaceRole) && (
           <Button asChild size="sm">
             <Link href={`/w/${workspaceId}/procurement/pos/new`}>New PO</Link>
           </Button>

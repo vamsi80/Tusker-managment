@@ -1070,6 +1070,12 @@ model PurchaseOrder {
   /// Same state as the buying entity: tax splits CGST + SGST, otherwise IGST.
   intraState      Boolean      @default(true)
   subtotal        Int
+  /// Extras carried over from the indent and printed under the subtotal.
+  /// Percentages are a share of the subtotal; transport and labour are paise.
+  exciseDutyPercent Decimal?   @db.Decimal(5, 2)
+  vatPercent        Decimal?   @db.Decimal(5, 2)
+  transportCharge   Int        @default(0)
+  labourCharge      Int        @default(0)
   cgst            Int
   sgst            Int
   igst            Int

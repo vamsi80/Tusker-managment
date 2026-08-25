@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   canCreatePurchaseOrder,
+  isBuyerConfigured,
   financialYear,
   formatPoNumber,
   initialSequenceNumber,
@@ -96,11 +97,80 @@ describe("amount in words", () => {
   });
 });
 
+describe("indent charges under the subtotal", () => {
+  const items = [{ quantity: 10, rate: 100_00, taxPercent: 18 }];
+
+  test("no charges leaves the totals exactly as before", () => {
+    const plain = poTotals(items, true);
+    const empty = poTotals(items, true, {});
+    expect(empty.grandTotal).toBe(plain.grandTotal);
+    expect(empty.chargeRows).toEqual([]);
+  });
+
+  test("percentages are a share of the subtotal, flats are added as-is", () => {
+    const totals = poTotals(items, true, {
+      exciseDutyPercent: 10,
+      vatPercent: 5,
+      transportCharge: 500_00,
+      labourCharge: 250_00,
+    });
+
+    expect(totals.subtotal).toBe(1000_00);
+    expect(totals.exciseDuty).toBe(100_00);
+    expect(totals.vat).toBe(50_00);
+    expect(totals.transportCharge).toBe(500_00);
+    expect(totals.labourCharge).toBe(250_00);
+    expect(totals.chargeTotal).toBe(900_00);
+  });
+
+  test("charges reach the grand total and print in indent order", () => {
+    const totals = poTotals(items, true, { vatPercent: 5, transportCharge: 500_00 });
+    // 1000 subtotal + 50 VAT + 500 transport + 180 GST
+    expect(totals.grandTotal).toBe(1730_00);
+    expect(totals.chargeRows.map((row) => row.label)).toEqual([
+      "VAT @ 5%",
+      "Transportation",
+    ]);
+  });
+
+  test("zero and negative charges are dropped rather than printed", () => {
+    const totals = poTotals(items, true, {
+      exciseDutyPercent: 0,
+      vatPercent: null,
+      transportCharge: -100,
+      labourCharge: undefined,
+    });
+    expect(totals.chargeRows).toEqual([]);
+    expect(totals.chargeTotal).toBe(0);
+  });
+});
+
 describe("who may raise a PO", () => {
-  test("only the accounts login", () => {
+  test("the accounts login, whatever their role", () => {
     expect(canCreatePurchaseOrder("accounts@thewhitetusker.com")).toBe(true);
     expect(canCreatePurchaseOrder("Accounts@TheWhiteTusker.com ")).toBe(true);
+  });
+
+  test("a workspace owner, whatever their email", () => {
+    expect(canCreatePurchaseOrder("suman@thewhitetusker.com", "OWNER")).toBe(true);
+    expect(canCreatePurchaseOrder(null, "OWNER")).toBe(true);
+  });
+
+  test("nobody else", () => {
     expect(canCreatePurchaseOrder("suman@thewhitetusker.com")).toBe(false);
     expect(canCreatePurchaseOrder(null)).toBe(false);
+    expect(canCreatePurchaseOrder("someone@else.com", "ADMIN")).toBe(false);
+    expect(canCreatePurchaseOrder("someone@else.com", "MANAGER")).toBe(false);
+    expect(canCreatePurchaseOrder("someone@else.com", "MEMBER")).toBe(false);
+  });
+});
+
+describe("buying entity readiness", () => {
+  test("White Tusker is ready to print", () => {
+    expect(isBuyerConfigured("WT")).toBe(true);
+  });
+
+  test("Palm Length is refused until its address and GSTIN are filled in", () => {
+    expect(isBuyerConfigured("PL")).toBe(false);
   });
 });

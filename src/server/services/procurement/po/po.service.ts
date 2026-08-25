@@ -6,6 +6,7 @@ import {
   financialYear,
   formatPoNumber,
   initialSequenceNumber,
+  isBuyerConfigured,
   isIntraState,
   poTotals,
   PO_TERMS,
@@ -20,6 +21,11 @@ export type CreatePurchaseOrderInput = {
   referenceNo?: string | null;
   poDate?: Date;
   deliveryAddress: string;
+  // Extras carried over from the indent, printed under the subtotal.
+  exciseDutyPercent?: number | null;
+  vatPercent?: number | null;
+  transportCharge?: number | null;
+  labourCharge?: number | null;
   // One line per term. Empty falls back to the standard set.
   terms?: string[];
   notes?: string | null;
@@ -45,9 +51,24 @@ export class PurchaseOrderService {
    * accounts login. Checked here rather than only in the UI - the API is the
    * trust boundary.
    */
-  static assertCanCreate(email?: string | null) {
-    if (!canCreatePurchaseOrder(email)) {
-      throw AppError.Forbidden("Only the accounts login may raise purchase orders");
+  static assertCanCreate(email?: string | null, workspaceRole?: string | null) {
+    if (!canCreatePurchaseOrder(email, workspaceRole)) {
+      throw AppError.Forbidden(
+        "Only the accounts login or a workspace owner may raise purchase orders"
+      );
+    }
+  }
+
+  /**
+   * Refuse to issue a PO for an entity whose printed details are still blank -
+   * it would go out with no address and no GSTIN, which is not a valid tax
+   * document. Fill the entity in at BUYER_COMPANIES to enable it.
+   */
+  static assertBuyerConfigured(company: CompanyCode) {
+    if (!isBuyerConfigured(company)) {
+      throw AppError.ValidationError(
+        `${BUYER_COMPANIES[company].name} has no registered address or GSTIN configured yet, so a purchase order cannot be raised for it.`
+      );
     }
   }
 
@@ -107,7 +128,12 @@ export class PurchaseOrderService {
     // Totals are recomputed from quantity and rate here; whatever the browser
     // showed is only a preview.
     const intraState = isIntraState(buyer.gstNumber, vendor.gstNumber);
-    const totals = poTotals(input.items, intraState);
+    const totals = poTotals(input.items, intraState, {
+      exciseDutyPercent: input.exciseDutyPercent,
+      vatPercent: input.vatPercent,
+      transportCharge: input.transportCharge,
+      labourCharge: input.labourCharge,
+    });
     const poDate = input.poDate ?? new Date();
     const fy = financialYear(poDate);
 
@@ -141,6 +167,10 @@ export class PurchaseOrderService {
           notes: input.notes ?? null,
           intraState,
           subtotal: totals.subtotal,
+          exciseDutyPercent: input.exciseDutyPercent ?? null,
+          vatPercent: input.vatPercent ?? null,
+          transportCharge: totals.transportCharge,
+          labourCharge: totals.labourCharge,
           cgst: totals.cgst,
           sgst: totals.sgst,
           igst: totals.igst,

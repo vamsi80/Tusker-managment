@@ -38,6 +38,13 @@ const addressLines = (vendor: {
 
 const TOTAL_CELL = "border border-neutral-400 px-1 py-1 text-right";
 
+/**
+ * The printed PO pads its item table with blank rows so the totals always sit at
+ * the foot of the page rather than floating under a short list. Tune this if the
+ * document starts spilling onto a second sheet.
+ */
+const MIN_ITEM_ROWS = 27;
+
 export default async function PurchaseOrderPage({ params }: PageProps) {
   const { workspaceId, poId } = await params;
   await requireUser();
@@ -51,7 +58,12 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
 
   const buyer = BUYER_COMPANIES[po.company];
   // Grouping only - the money below comes from the stored columns.
-  const { taxRows } = poTotals(po.items, po.intraState);
+  const { taxRows, chargeRows } = poTotals(po.items, po.intraState, {
+    exciseDutyPercent: po.exciseDutyPercent ? Number(po.exciseDutyPercent) : null,
+    vatPercent: po.vatPercent ? Number(po.vatPercent) : null,
+    transportCharge: po.transportCharge,
+    labourCharge: po.labourCharge,
+  });
 
   return (
     <div className="overflow-y-auto p-4">
@@ -139,8 +151,25 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
                 <td className="text-right">{formatPaise(item.amount)}</td>
               </tr>
             ))}
+            {Array.from({ length: Math.max(0, MIN_ITEM_ROWS - po.items.length) }).map(
+              (_, index) => (
+                <tr
+                  key={`filler-${index}`}
+                  className="[&>td]:border [&>td]:border-neutral-400 [&>td]:px-1 [&>td]:py-1"
+                >
+                  <td>&nbsp;</td>
+                  <td />
+                  <td />
+                  <td />
+                  <td />
+                  <td />
+                </tr>
+              )
+            )}
             {[
               { label: "SUB TOTAL", value: po.subtotal, bold: true },
+              // Excise duty, VAT, transport and labour as approved on the indent.
+              ...chargeRows.map((row) => ({ ...row, bold: false })),
               ...taxRows.flatMap((row) =>
                 po.intraState
                   ? [

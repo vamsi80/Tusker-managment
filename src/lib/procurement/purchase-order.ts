@@ -50,11 +50,27 @@ export const BUYER_COMPANIES: Record<CompanyCode, BuyerCompany> = {
   },
 };
 
-/** Only this account may raise purchase orders. */
+/**
+ * A buying entity is only usable once its printed details exist. Palm Length is
+ * still a stub, and a PO with no address or GSTIN is not a valid tax document -
+ * better to refuse it than to send a vendor a blank buyer block.
+ */
+export const isBuyerConfigured = (code: CompanyCode) => {
+  const buyer = BUYER_COMPANIES[code];
+  return buyer.addressLines.length > 0 && buyer.gstNumber.trim() !== "";
+};
+
+/** The accounts login raises purchase orders day to day. */
 export const PO_CREATOR_EMAIL = "accounts@thewhitetusker.com";
 
-export const canCreatePurchaseOrder = (email?: string | null) =>
-  email?.trim().toLowerCase() === PO_CREATOR_EMAIL;
+/**
+ * Workspace owners can raise one too, so the flow can be exercised without
+ * borrowing the accounts login. Everyone else is refused.
+ */
+export const canCreatePurchaseOrder = (
+  email?: string | null,
+  workspaceRole?: string | null,
+) => workspaceRole === "OWNER" || email?.trim().toLowerCase() === PO_CREATOR_EMAIL;
 
 /** Financial year of a date in IST (April - March), as "26-27". */
 export function financialYear(date: Date) {
@@ -84,13 +100,49 @@ export const initialSequenceNumber = (company: CompanyCode, fy: string) => {
 export type PoItemInput = { quantity: number; rate: number; taxPercent: number };
 
 /**
+ * Extras carried over from the indent and printed under the subtotal.
+ *
+ * Percentages are a share of the subtotal and flat charges are paise, matching
+ * how the indent itself totals them - the two documents have to agree or the
+ * approved figure and the ordered figure drift apart.
+ */
+export type PoCharges = {
+  transportCharge?: number | null;
+  labourCharge?: number | null;
+  exciseDutyPercent?: number | null;
+  vatPercent?: number | null;
+};
+
+/**
  * Line amounts, GST grouped by rate, and a grand total rounded to the rupee.
  * Intra-state splits the rate into equal CGST and SGST halves; inter-state
  * charges the whole thing as IGST.
  */
-export function poTotals<T extends PoItemInput>(items: T[], intraState: boolean) {
+export function poTotals<T extends PoItemInput>(
+  items: T[],
+  intraState: boolean,
+  charges: PoCharges = {},
+) {
   const lines = items.map((item) => ({ ...item, amount: item.quantity * item.rate }));
   const subtotal = lines.reduce((total, line) => total + line.amount, 0);
+
+  const pct = (value?: number | null) => (Number(value) > 0 ? Number(value) : 0);
+  const flat = (value?: number | null) => (Number(value) > 0 ? Math.round(Number(value)) : 0);
+
+  const exciseDuty = Math.round((subtotal * pct(charges.exciseDutyPercent)) / 100);
+  const vat = Math.round((subtotal * pct(charges.vatPercent)) / 100);
+  const transportCharge = flat(charges.transportCharge);
+  const labourCharge = flat(charges.labourCharge);
+
+  // Printed in this order under SUB TOTAL, matching the indent's own breakdown.
+  const chargeRows = [
+    { label: `Excise Duty @ ${pct(charges.exciseDutyPercent)}%`, value: exciseDuty },
+    { label: `VAT @ ${pct(charges.vatPercent)}%`, value: vat },
+    { label: "Transportation", value: transportCharge },
+    { label: "Labour", value: labourCharge },
+  ].filter((row) => row.value > 0);
+
+  const chargeTotal = exciseDuty + vat + transportCharge + labourCharge;
 
   const baseByRate = new Map<number, number>();
   for (const line of lines) {
@@ -109,12 +161,18 @@ export function poTotals<T extends PoItemInput>(items: T[], intraState: boolean)
 
   const cgst = intraState ? taxRows.reduce((total, row) => total + row.half, 0) : 0;
   const igst = intraState ? 0 : taxRows.reduce((total, row) => total + row.amount, 0);
-  const exact = subtotal + cgst * 2 + igst;
+  const exact = subtotal + chargeTotal + cgst * 2 + igst;
   const grandTotal = Math.round(exact / 100) * 100;
 
   return {
     lines,
     subtotal,
+    exciseDuty,
+    vat,
+    transportCharge,
+    labourCharge,
+    chargeRows,
+    chargeTotal,
     taxRows,
     cgst,
     sgst: cgst,
