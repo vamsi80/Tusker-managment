@@ -23,6 +23,7 @@ import { LayoutDashboard, Users, CheckSquare, Truck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
+import { can } from "@/lib/constants/capabilities";
 
 /**
  * Main application sidebar component (Client Side).
@@ -35,13 +36,15 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const router = useSafeNavigation();
   const { workspaces, permissions } = data;
 
+  const capabilities = permissions?.capabilities;
+
   const mainNavItems = [
     { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
     { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
     { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
-    { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck },
-    { id: "vendors", title: "Suppliers / Contractors", url: `/w/${workspaceId}/vendors`, icon: Users },
-  ];
+    { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck, capability: "procurement:view" as const },
+    { id: "vendors", title: "Suppliers / Contractors", url: `/w/${workspaceId}/vendors`, icon: Users, capability: "vendors:view" as const },
+  ].filter((item) => !item.capability || can(capabilities, item.capability));
 
   const footerNavItems: Array<{
     title: string;

@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder, ShoppingCart, Package } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { can } from "@/lib/constants/capabilities";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
 
@@ -28,6 +30,7 @@ export function ProjectNav({
     canPerformBulkOperations 
 }: ProjectNavProps) {
     const pathname = usePathname();
+    const capabilities = useWorkspaceLayout().data?.permissions?.capabilities;
     const router = useSafeNavigation();
     const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
@@ -66,7 +69,8 @@ export function ProjectNav({
             name: "Procurement",
             href: `${baseUrl}/procurement`,
             icon: ShoppingCart,
-            value: "procurement"
+            value: "procurement",
+            capability: "procurement:view" as const
         },
         {
             name: "Materials",
@@ -74,7 +78,7 @@ export function ProjectNav({
             icon: Package,
             value: "materials"
         },
-    ];
+    ].filter((tab) => !tab.capability || can(capabilities, tab.capability));
 
     const handleViewChange = (href: string, e: React.MouseEvent) => {
         e.preventDefault();

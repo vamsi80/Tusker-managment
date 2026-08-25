@@ -11,7 +11,7 @@ import { ProjectRepository } from "./project.repository";
 import { ProjectEvents } from "./project.events";
 import { ProjectMapper } from "./project.mapper";
 import { projectSchema, editProjectSchema, ProjectSchemaType, EditProjectSchemaType } from "@/lib/zodSchemas";
-import { hasWorkspacePermission } from "@/lib/constants/workspace-access";
+import { resolveCapabilities } from "@/lib/constants/capabilities";
 import { isProjectAdmin } from "@/lib/constants/project-access";
 import { getUniqueRandomColor } from "@/lib/colors/project-colors";
 import prisma from "@/lib/db";
@@ -168,8 +168,15 @@ export class ProjectService {
     const currentMember = workspace.members.find(m => m.userId === userId);
     if (!currentMember) throw AppError.Forbidden("Not a workspace member");
 
-    if (!hasWorkspacePermission(currentMember.workspaceRole, "project:create")) {
-      throw AppError.Forbidden("Insufficient permissions");
+    // Settings -> Permissions can revoke this per role or per member; the static
+    // role matrix is the floor it resolves from.
+    const capabilities = resolveCapabilities(
+      currentMember.workspaceRole,
+      workspace.permissionOverrides,
+      currentMember.permissionOverrides
+    );
+    if (!capabilities["project:create"]) {
+      throw AppError.Forbidden("You don't have permission to create projects.");
     }
 
     const isOwnerOrAdmin = currentMember.workspaceRole === "OWNER" || currentMember.workspaceRole === "ADMIN";
@@ -598,7 +605,10 @@ export class ProjectService {
     const [workspaceMember, projectMember] = await Promise.all([
       prisma.workspaceMember.findFirst({
         where: { workspaceId, userId },
-        include: { user: { select: { surname: true } } }
+        include: {
+          user: { select: { surname: true } },
+          workspace: { select: { permissionOverrides: true } },
+        }
       }),
       prisma.projectMember.findFirst({
         where: { projectId, workspaceMember: { userId } },
@@ -608,10 +618,24 @@ export class ProjectService {
     if (!workspaceMember) return {
       isWorkspaceAdmin: false, isProjectLead: false, isProjectCoordinator: false, isProjectManager: false, isMember: false,
       canCreateSubTask: false, canPerformBulkOperations: false, workspaceMemberId: null,
-      workspaceRole: null, userId: null, userSurname: null, projectMember: null
+      workspaceRole: null, userId: null, userSurname: null, projectMember: null,
+      capabilities: resolveCapabilities(null)
     };
 
-    return ProjectMapper.toPermissions(workspaceMember, projectMember);
+    const mapped = ProjectMapper.toPermissions(workspaceMember, projectMember);
+    const capabilities = resolveCapabilities(
+      workspaceMember.workspaceRole,
+      workspaceMember.workspace?.permissionOverrides,
+      workspaceMember.permissionOverrides
+    );
+
+    // Settings -> Permissions is a ceiling on the project role, never a grant.
+    return {
+      ...mapped,
+      capabilities,
+      canCreateSubTask: mapped.canCreateSubTask && capabilities["task:create"],
+      canPerformBulkOperations: mapped.canPerformBulkOperations && capabilities["task:edit"],
+    };
   }
 
   static async getProjectLayoutData(workspaceId: string, projectId: string, userId: string) {

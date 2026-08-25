@@ -3,6 +3,11 @@
 import { createContext, useContext, ReactNode, useEffect, useCallback, useTransition } from "react";
 import { WorkspaceLayoutData } from "@/types/workspace";
 import { useWorkspaceLayoutStore, useRealtimeLayoutSync } from "@/lib/store/workspace-layout-store";
+import { resolveCapabilities } from "@/lib/constants/capabilities";
+
+// Deny-by-default while layout data is still in flight, so a slow fetch never
+// flashes UI the user may not be allowed to see.
+const NO_CAPABILITIES = resolveCapabilities(null);
 
 interface WorkspaceLayoutContextType {
   data: WorkspaceLayoutData;
@@ -78,6 +83,7 @@ export function WorkspaceLayoutProvider({
         workspaceRole: null,
         userId: null,
         reportingManagerName: null,
+        capabilities: NO_CAPABILITIES,
         leadProjectIds: [],
         managedProjectIds: [],
         coordinatorProjectIds: [],

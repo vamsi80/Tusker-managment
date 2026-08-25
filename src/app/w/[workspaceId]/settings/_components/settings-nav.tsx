@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Settings2, History, RefreshCw } from "lucide-react";
+import { Settings2, History, RefreshCw, ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { useState, useEffect } from "react";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 interface SettingsNavProps {
     workspaceId: string;
@@ -14,8 +15,14 @@ interface SettingsNavProps {
 export function SettingsNav({ workspaceId }: SettingsNavProps) {
     const pathname = usePathname();
     const router = useSafeNavigation();
+    const { data } = useWorkspaceLayout();
     const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/settings`;
+
+    // Permissions is OWNER/ADMIN only. Hiding the tab is cosmetic — the page and
+    // the save action re-check server-side, so a typed URL gets nothing.
+    const role = data?.permissions?.workspaceRole;
+    const canManagePermissions = role === "OWNER" || role === "ADMIN";
 
     const navTabs = [
         {
@@ -24,6 +31,12 @@ export function SettingsNav({ workspaceId }: SettingsNavProps) {
             icon: Settings2,
             activeMatch: (path: string) => path === baseUrl
         },
+        ...(canManagePermissions ? [{
+            name: "Permissions",
+            href: `${baseUrl}/permissions`,
+            icon: ShieldCheck,
+            activeMatch: (path: string) => path === `${baseUrl}/permissions`
+        }] : []),
         {
             name: "Activity Log",
             href: `${baseUrl}/activity`,

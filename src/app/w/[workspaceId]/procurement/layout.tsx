@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/require-user";
 import db from "@/lib/db";
 import { redirect } from "next/navigation";
+import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProcurementTabs } from "./_components/procurement-tabs";
 
 interface LayoutProps {
@@ -25,6 +26,13 @@ export default async function ProcurementLayout({ children, params }: LayoutProp
 
   if (!workspace) {
     redirect("/dashboard");
+  }
+
+  // Settings -> Permissions can revoke Procurement per role or per member.
+  // Guarding the layout covers every page nested under /procurement in one place.
+  const permissions = await getWorkspacePermissions(workspaceId, user.id, true);
+  if (!permissions.capabilities?.["procurement:view"]) {
+    redirect(`/w/${workspaceId}`);
   }
 
   return (

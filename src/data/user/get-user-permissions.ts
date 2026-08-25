@@ -2,6 +2,9 @@
 
 import prisma from "@/lib/db";
 import { requireUser, getSession } from "@/lib/auth/require-user";
+import { resolveCapabilities, type CapabilityMap } from "@/lib/constants/capabilities";
+
+const NO_CAPABILITIES = resolveCapabilities(null);
 
 /**
  * Get workspace-level permissions for the current user
@@ -15,6 +18,11 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
         const workspaceMember = await prisma.workspaceMember.findFirst({
             where: { workspaceId: workspaceId, userId: userId },
             include: {
+                workspace: {
+                    select: {
+                        permissionOverrides: true,
+                    }
+                },
                 user: {
                     select: {
                         id: true,
@@ -46,6 +54,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                 workspaceRole: null,
                 userId: null,
                 reportingManagerName: null,
+                capabilities: NO_CAPABILITIES,
                 ...(lean ? {} : {
                     leadProjectIds: [],
                     managedProjectIds: [],
@@ -56,7 +65,12 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
         }
 
         const isWorkspaceAdmin = workspaceMember.workspaceRole === "OWNER" || workspaceMember.workspaceRole === "ADMIN";
-        const canCreateProject = isWorkspaceAdmin || workspaceMember.workspaceRole === "MANAGER";
+        const capabilities = resolveCapabilities(
+            workspaceMember.workspaceRole,
+            workspaceMember.workspace?.permissionOverrides,
+            workspaceMember.permissionOverrides
+        );
+        const canCreateProject = capabilities["project:create"];
 
         let leadProjectIds: string[] = [];
         let managedProjectIds: string[] = [];
@@ -80,6 +94,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
                     userId: workspaceMember.userId,
                     userSurname: workspaceMember.user?.surname,
                     reportingManagerName,
+                    capabilities,
                 } as any;
             }
 
@@ -131,6 +146,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             userId: workspaceMember.userId,
             userSurname: workspaceMember.user?.surname,
             reportingManagerName,
+            capabilities,
             ...(lean ? {} : {
                 leadProjectIds,
                 managedProjectIds,
@@ -152,6 +168,7 @@ async function _fetchWorkspacePermissionsInternal(workspaceId: string, userId: s
             userId: null,
             userSurname: null,
             reportingManagerName: null,
+            capabilities: NO_CAPABILITIES,
             leadProjectIds: [],
             managedProjectIds: [],
         };
@@ -185,6 +202,11 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             prisma.workspaceMember.findFirst({
                 where: { workspaceId, userId },
                 include: {
+                    workspace: {
+                        select: {
+                            permissionOverrides: true,
+                        }
+                    },
                     user: {
                         select: {
                             id: true,
@@ -215,6 +237,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
                 userId: null,
                 userSurname: null,
                 projectMember: null,
+                capabilities: NO_CAPABILITIES,
             };
         }
 
@@ -228,9 +251,17 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
         const isProjectLead = projectMember?.projectRole === "LEAD";
         const isMember = projectMember?.projectRole === "MEMBER";
 
+        const capabilities = resolveCapabilities(
+            workspaceMember.workspaceRole,
+            workspaceMember.workspace?.permissionOverrides,
+            workspaceMember.permissionOverrides
+        );
+
         // Only PM, Coordinator and Lead can create subtasks or perform bulk operations.
-        const canCreateSubTask = isProjectManager || isProjectLead || isProjectCoordinator;
-        const canPerformBulkOperations = isProjectManager || isProjectLead || isProjectCoordinator;
+        // The workspace capability grid is a ceiling on top of that, never a grant.
+        const hasExecutionRole = isProjectManager || isProjectLead || isProjectCoordinator;
+        const canCreateSubTask = hasExecutionRole && capabilities["task:create"];
+        const canPerformBulkOperations = hasExecutionRole && capabilities["task:edit"];
 
         return {
             isWorkspaceAdmin,
@@ -244,6 +275,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             workspaceRole: workspaceMember.workspaceRole,
             userId: workspaceMember.userId,
             userSurname: workspaceMember.user?.surname || workspaceMember.user?.name || null,
+            capabilities,
             projectMember: projectMember ? {
                 id: projectMember.id,
                 projectRole: projectMember.projectRole,
@@ -264,6 +296,7 @@ async function _getUserPermissionsInternal(workspaceId: string, projectId: strin
             userId: null,
             userSurname: null,
             projectMember: null,
+            capabilities: NO_CAPABILITIES,
         };
     }
 }

@@ -23,6 +23,7 @@ import projectMaterials from "./routes/project-materials";
 import materials from "./routes/materials";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
+import { requireCapability } from "./middleware/capability";
 import { AppError } from "../lib/errors/app-error";
 
 /**
@@ -154,6 +155,14 @@ app.route("/conversations", conversations);
 app.route("/presence", presence);
 
 // Procurement APIs
+// Settings -> Permissions gate. Mounted on the routers so a handler that resolves
+// its workspace id in an unusual shape cannot slip past an inline check.
+app.use("/procurement/vendors/*", requireCapability("vendors:view", "You don't have access to Suppliers / Contractors."));
+app.use("/procurement/indents/*", requireCapability("procurement:view", "You don't have access to Procurement."));
+app.use("/procurement/rfq/*", requireCapability("procurement:view", "You don't have access to Procurement."));
+app.use("/procurement/purchase-orders/*", requireCapability("procurement:view", "You don't have access to Procurement."));
+app.use("/materials/*", requireCapability("procurement:view", "You don't have access to Procurement."));
+
 app.route("/procurement/vendors", procurementVendors);
 app.route("/procurement/indents", procurementIndents);
 app.route("/procurement/rfq", procurementRfq);

@@ -7,8 +7,24 @@ import { TasksService } from "@/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@/lib/zodSchemas";
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { can, type Capability, type CapabilityMap } from "@/lib/constants/capabilities";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
+
+/**
+ * Workspace capability grid check (Settings -> Permissions).
+ * Runs alongside the project-role checks the services already do. This layer can
+ * only take access away, never grant it, so both must pass.
+ */
+function requireCapability(
+  permissions: { capabilities?: CapabilityMap },
+  capability: Capability,
+  message: string,
+) {
+  if (!can(permissions.capabilities, capability)) {
+    throw AppError.Forbidden(message);
+  }
+}
 
 // Skip direct data layer import, use TasksService instead.
 
@@ -189,6 +205,8 @@ tasks.post("/", async (c) => {
     user.id,
   );
 
+  requireCapability(permissions, "task:create", "You don't have permission to create tasks.");
+
   const newTask = await TasksService.createTask({
     name,
     projectId,
@@ -239,6 +257,8 @@ tasks.post("/subtask", async (c) => {
     user.id,
   );
 
+  requireCapability(permissions, "task:create", "You don't have permission to create tasks.");
+
   const newSubTask = await TasksService.createSubTask({
     name: data.name,
     description: data.description,
@@ -282,6 +302,18 @@ tasks.post("/bulk", async (c) => {
   if (!projectId || !taskData) {
     throw AppError.ValidationError("Missing projectId or tasks");
   }
+
+  const bulkProject = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspaceId: true },
+  });
+  if (!bulkProject) throw AppError.NotFound("Project not found");
+
+  requireCapability(
+    await getUserPermissions(bulkProject.workspaceId, projectId, user.id),
+    "task:create",
+    "You don't have permission to create tasks.",
+  );
 
   const result = await TasksService.bulkUploadTasksAndSubtasks({
     projectId,
@@ -358,6 +390,12 @@ tasks.patch("/:taskId/assignee", async (c) => {
     );
   }
 
+  requireCapability(
+    await getUserPermissions(workspaceId, projectId, user.id),
+    "task:edit",
+    "You don't have permission to edit tasks.",
+  );
+
   const result = await TasksService.updateTaskAssignee({
     taskId,
     assigneeUserId,
@@ -393,6 +431,8 @@ tasks.patch("/:taskId/status", async (c) => {
   }
 
   const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  requireCapability(permissions, "task:status", "You don't have permission to change task status.");
+
   const result = await TasksService.updateSubTaskStatus({
     subTaskId: taskId,
     newStatus,
@@ -428,6 +468,8 @@ tasks.post("/:taskId/kanban/move", async (c) => {
   }
 
   const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  requireCapability(permissions, "task:status", "You don't have permission to change task status.");
+
   const result = await TasksService.updateSubTaskStatus({
     subTaskId: taskId,
     newStatus,
@@ -489,6 +531,8 @@ tasks.patch("/:taskId/dates", async (c) => {
   }
 
   const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
+
   const updated = await TasksService.updateTaskDates({
     taskId,
     startDate,
@@ -535,6 +579,8 @@ tasks.patch("/:taskId/fields", async (c) => {
 
   const permissions = await getUserPermissions(workspaceId, projectId, user.id);
 
+  requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
+
   const updated = await TasksService.patchTaskFields({
     taskId,
     workspaceId,
@@ -576,6 +622,8 @@ tasks.patch("/:taskId", async (c) => {
   }
 
   const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+
+  requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
 
   const updated = await TasksService.updateTask({
     taskId,

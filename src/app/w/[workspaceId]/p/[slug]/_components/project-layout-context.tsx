@@ -9,6 +9,10 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 import { ProjectLayoutContext, type ProjectLayoutContextType } from "./project-layout-context-object";
 
 import { useProjectTags } from "@/hooks/use-project-tags";
+import { resolveCapabilities } from "@/lib/constants/capabilities";
+
+// Deny-by-default until the real permissions land.
+const NO_CAPABILITIES = resolveCapabilities(null);
 
 export function ProjectLayoutProvider({
     children,
@@ -57,6 +61,7 @@ export function ProjectLayoutProvider({
         projectPermissions: projectPermissions || {
             isWorkspaceAdmin: false,
             isProjectManager: false,
+            isProjectCoordinator: false,
             isProjectLead: false,
             isMember: false,
             canCreateSubTask: false,
@@ -66,6 +71,7 @@ export function ProjectLayoutProvider({
             userId: null,
             userSurname: null,
             projectMember: null,
+            capabilities: NO_CAPABILITIES,
         },
         workspaceTags: projectTags || [],
         workspaceId,

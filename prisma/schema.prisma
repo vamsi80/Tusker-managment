@@ -122,6 +122,7 @@ model Workspace {
   casualLeaveAccrualDays Int                        @default(20)
   nextVendorNumber       Int                        @default(1)
   nextMaterialNumber     Int                        @default(1)
+  permissionOverrides    Json?
   clints                 Clints[]
   projects               Project[]
   tags                   Tag[]
@@ -159,6 +160,7 @@ model WorkspaceMember {
   position                    Int                   @default(0)
   dateOfBirth                 DateTime?
   employeeId                  String?
+  permissionOverrides         Json?
   managedProjects             Project[]             @relation("ProjectManager")
   projectMembers              ProjectMember[]
   reportTo                    WorkspaceMember?      @relation("ReportTo", fields: [reportToId], references: [id])

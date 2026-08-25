@@ -2,6 +2,7 @@
 /**
  * Types for workspace data
  */
+import type { CapabilityMap } from "@/lib/constants/capabilities";
 export type WorkspaceRole = "ADMIN" | "OWNER" | "MANAGER" | "PROCUREMENT" | "ACCOUNTS" | "MEMBER" | "VIEWER";
 export type WorkspaceData = {
   id: string;
@@ -93,6 +94,7 @@ export interface WorkspaceLayoutData {
     workspaceRole: WorkspaceRole | null;
     userId: string | null;
     reportingManagerName: string | null;
+    capabilities: CapabilityMap;
     leadProjectIds: string[];
     managedProjectIds: string[];
     coordinatorProjectIds?: string[];
