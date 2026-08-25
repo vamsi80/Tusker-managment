@@ -2,6 +2,7 @@ import db from "@/lib/db";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { CreateRfqClient } from "./_components/create-rfq-client";
+import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
 
 interface PageProps {
   params: Promise<{
@@ -51,8 +52,12 @@ export default async function WorkspaceProcurementCreateRfq({ params }: PageProp
     orderBy: { name: "asc" },
   });
 
-  // Format indents to filter out any that have no pending line items left
-  const filteredIndents = indents.filter(ind => ind.lineItems.length > 0);
+  // Format indents to filter out any that have no pending line items left.
+  // Serialize before handing to the client: taxPercent/exciseDutyPercent/vatPercent
+  // are Prisma Decimals, which cannot cross the Server/Client boundary.
+  const filteredIndents = indents
+    .filter(ind => ind.lineItems.length > 0)
+    .map(serializeIndentForClient);
 
   return (
     <CreateRfqClient
