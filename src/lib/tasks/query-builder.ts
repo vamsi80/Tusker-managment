@@ -73,7 +73,11 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         assigneeId: !isKanban // Redundant with assignee object
     };
 
-    if (extraFields && extraFields.includes("description")) {
+    // The list and subtask views render a Description column, so select it for
+    // them directly. Relying on callers to opt in via extraFields left the column
+    // showing "-" on every row: no client ever sends it, and the single-parent
+    // expand route does not even accept it.
+    if (isList || isSubtask || extraFields?.includes("description")) {
         select.description = true;
     }
 
