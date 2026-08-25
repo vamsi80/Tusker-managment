@@ -72,3 +72,6 @@ next-env.d.ts
 # Generated OCR/PDF worker assets (scripts/fetch-ocr-assets.mjs)
 public/tesseract/
 public/pdf/
+
+# database backups (contain live data)
+/backups
