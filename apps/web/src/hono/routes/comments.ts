@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { CommentService } from "@/server/services/comment";
-import { AppError } from "@/lib/errors/app-error";
+import { CommentService } from "@tusker/core/server/services/comment/index";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 
 const comments = new Hono<{ Variables: HonoVariables }>();
 

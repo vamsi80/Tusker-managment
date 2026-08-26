@@ -6,7 +6,7 @@ import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
-import { formatDateOnly, toDateOnly, toDateOnlyString } from "@/lib/date-utils";
+import { formatDateOnly, toDateOnly, toDateOnlyString } from "@tusker/core/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";

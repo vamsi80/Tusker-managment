@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { VendorGstDetails } from "@/lib/procurement/gstin";
+import type { VendorGstDetails } from "@tusker/core/lib/procurement/gstin";
 
 /**
  * Filled by the GSTIN lookup. Anything the registry answered is read-only — it

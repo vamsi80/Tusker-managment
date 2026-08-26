@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { WorkspaceLayoutData } from '@/types/workspace';
+import { WorkspaceLayoutData } from '@tusker/core/types/workspace';
 import { workspacesClient } from '@/lib/api-client/workspaces';
 import { pubsub, EVENTS } from '@/lib/pubsub';
 

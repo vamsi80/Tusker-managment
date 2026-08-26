@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@/hono/validator";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
-import { PurchaseOrderService } from "@/server/services/procurement";
+import { AppError } from "@tusker/core/lib/errors/app-error";
+import { PurchaseOrderService } from "@tusker/core/server/services/procurement/index";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 const procurementPurchaseOrders = new Hono<{ Variables: HonoVariables }>();

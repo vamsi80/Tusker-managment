@@ -1,5 +1,5 @@
 import { zValidator as baseZValidator } from "@hono/zod-validator";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 
 /**
  * zValidator that routes failures through AppError, so a bad body answers with

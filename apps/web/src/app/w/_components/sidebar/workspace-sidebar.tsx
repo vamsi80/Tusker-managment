@@ -23,7 +23,7 @@ import { LayoutDashboard, Users, CheckSquare, Truck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
-import { can } from "@/lib/constants/capabilities";
+import { can } from "@tusker/core/lib/constants/capabilities";
 
 /**
  * Main application sidebar component (Client Side).

@@ -4,14 +4,14 @@ import { z } from "zod";
 import prisma from "@tusker/db";
 import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { invalidateWorkspace, invalidateWorkspaceMembers } from "@/lib/cache/invalidation";
+import { invalidateWorkspace, invalidateWorkspaceMembers } from "@tusker/core/lib/cache/invalidation";
 import {
     CAPABILITIES,
     WORKSPACE_ROLES,
     coerceRoleOverrides,
     coerceMemberOverrides,
     type Capability,
-} from "@/lib/constants/capabilities";
+} from "@tusker/core/lib/constants/capabilities";
 
 const capabilityId = z.enum(
     CAPABILITIES.map((c) => c.id) as [Capability, ...Capability[]]

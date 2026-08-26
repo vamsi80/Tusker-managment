@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { inviteUserSchema, acceptInvitationSchema } from "@/lib/zodSchemas";
-import { WorkspaceService } from "@/server/services/workspace.service";
-import { AppError } from "@/lib/errors/app-error";
+import { inviteUserSchema, acceptInvitationSchema } from "@tusker/core/lib/zodSchemas";
+import { WorkspaceService } from "@tusker/core/server/services/workspace.service";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 import { HonoVariables } from "../types";
 
 const auth = new Hono<{ Variables: HonoVariables }>();

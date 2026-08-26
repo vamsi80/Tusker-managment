@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@tusker/db";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { AppLoader } from "@/components/shared/app-loader";
-import { coerceRoleOverrides, coerceMemberOverrides } from "@/lib/constants/capabilities";
+import { coerceRoleOverrides, coerceMemberOverrides } from "@tusker/core/lib/constants/capabilities";
 import { PermissionsManager } from "../_components/permissions/permissions-manager";
 
 interface PermissionsPageProps {

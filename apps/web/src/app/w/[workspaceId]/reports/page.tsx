@@ -1,4 +1,4 @@
-import { ReportService } from "@/server/services/report.service";
+import { ReportService } from "@tusker/core/server/services/report.service";
 import { notFound } from "next/navigation";
 import { ReportsTable } from "./_components/report-table";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";

@@ -8,7 +8,7 @@ import {
   formatPaise,
   poTotals,
   rupeesInWords,
-} from "@/lib/procurement/purchase-order";
+} from "@tusker/core/lib/procurement/purchase-order";
 import { PrintButton } from "../_components/print-button";
 
 interface PageProps {

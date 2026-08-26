@@ -49,7 +49,7 @@ vi.mock("@tusker/db", async (importOriginal) => {
 });
 
 // Mock Better Auth
-vi.mock("@/lib/auth", () => ({
+vi.mock("@tusker/core/lib/auth", () => ({
     auth: {
         api: {
             getSession: vi.fn(),
@@ -66,7 +66,7 @@ vi.mock("next/cache", () => ({
 }));
 
 // Mock Realtime
-vi.mock("@/lib/realtime", () => ({
+vi.mock("@tusker/core/lib/realtime", () => ({
     broadcastTeamUpdate: vi.fn(),
     TEAM_UPDATE: "TEAM_UPDATE",
     teamEvents: {
@@ -76,7 +76,7 @@ vi.mock("@/lib/realtime", () => ({
 }));
 
 // Mock Cache Invalidation
-vi.mock("@/lib/cache/invalidation", () => ({
+vi.mock("@tusker/core/lib/cache/invalidation", () => ({
     invalidateWorkspace: vi.fn(),
     invalidateUserWorkspaces: vi.fn(),
     invalidateWorkspaceMembers: vi.fn(),
@@ -89,17 +89,24 @@ vi.mock("@/lib/cache/invalidation", () => ({
     invalidateTaskComments: vi.fn(),
 }));
 
+// Core services resolve permissions through the pure resolver, not the
+// session-aware web wrapper below.
+vi.mock("@tusker/core/permissions", () => ({
+    fetchWorkspacePermissions: vi.fn(),
+    fetchUserPermissions: vi.fn(),
+}));
+
 // Mock Data Fetches
 vi.mock("@/data/user/get-user-permissions", () => ({
     getWorkspacePermissions: vi.fn(),
     getUserPermissions: vi.fn(),
 }));
 
-vi.mock("@/lib/constants/workspace-access", () => ({
+vi.mock("@tusker/core/lib/constants/workspace-access", () => ({
     hasWorkspacePermission: vi.fn(),
 }));
 
-vi.mock("@/lib/colors/project-colors", () => ({
+vi.mock("@tusker/core/lib/colors/project-colors", () => ({
     getUniqueRandomColor: vi.fn(() => "#000000"),
 }));
 
@@ -115,11 +122,11 @@ vi.mock("@/data/workspace/get-workspaces", () => ({
     invalidateWorkspacesCache: vi.fn(),
 }));
 
-vi.mock("@/utils/get-invite-code", () => ({
+vi.mock("@tusker/core/utils/get-invite-code", () => ({
     generateInviteCode: vi.fn(() => "mock-invite-code"),
 }));
 
-vi.mock("@/lib/slug-generator", () => ({
+vi.mock("@tusker/core/lib/slug-generator", () => ({
     generateUniqueSlugs: vi.fn(async (names: string[]) => names.map((n: string) => n.toLowerCase().replace(/ /g, "-"))),
 }));
 

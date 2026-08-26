@@ -6,9 +6,9 @@ import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
-import { pusherClient } from "@/lib/pusher";
-import { TEAM_UPDATE } from "@/lib/realtime";
-import { WorkspaceMembersResult } from "@/types/workspace";
+import { pusherClient } from "@tusker/core/lib/pusher";
+import { TEAM_UPDATE } from "@tusker/core/lib/realtime";
+import { WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import { useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
 interface TeamManagementClientProps {

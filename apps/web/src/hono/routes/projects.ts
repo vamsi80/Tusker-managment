@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
-import { ProjectService } from "@/server/services/project";
+import { AppError } from "@tusker/core/lib/errors/app-error";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import { zValidator } from "@/hono/validator";
-import { projectSchema, editProjectSchema } from "@/lib/zodSchemas";
+import { projectSchema, editProjectSchema } from "@tusker/core/lib/zodSchemas";
 
 const projects = new Hono<{ Variables: HonoVariables }>();
 

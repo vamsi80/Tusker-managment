@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import { requireUser } from "@/lib/auth/require-user";
-import { TasksService } from "@/server/services/task/tasks.service";
+import { TasksService } from "@tusker/core/server/services/task/tasks.service";
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 
 const TaskTable = dynamic(() => import("@/components/task/list/task-table"), {

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";

@@ -4,12 +4,12 @@ import { useState, useTransition, useEffect, useRef, useMemo, useCallback } from
 import { Loader2 } from "lucide-react";
 import { GanttTask } from "../../../../../../../components/task/gantt/types";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import type { WorkspaceTaskType } from "@/types/task";
+import type { WorkspaceTaskType } from "@tusker/core/types/task";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
-import { ProjectMembersType } from "@/types/project";
+import { ProjectMembersType } from "@tusker/core/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";

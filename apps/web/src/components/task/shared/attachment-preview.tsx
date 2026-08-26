@@ -11,7 +11,7 @@ import {
     formatBytes,
     isAttachmentExpired,
     type AttachedFile,
-} from "@/lib/attachments";
+} from "@tusker/core/lib/attachments";
 
 /**
  * Attachments live in a private bucket; this route authorizes the viewer and then

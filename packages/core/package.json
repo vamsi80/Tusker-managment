@@ -1,0 +1,39 @@
+{
+  "name": "@tusker/core",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
+    "./*": "./src/*.ts",
+    "./*/": "./src/*/"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.908.0",
+    "@aws-sdk/s3-request-presigner": "^3.908.0",
+    "@t3-oss/env-nextjs": "^0.13.8",
+    "@tusker/db": "workspace:*",
+    "better-auth": "^1.6.9",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
+    "fflate": "^0.8.3",
+    "nodemailer": "^7.0.7",
+    "pdfjs-dist": "^6.2.108",
+    "pusher": "^5.3.3",
+    "pusher-js": "^8.5.0",
+    "slugify": "^1.6.6",
+    "tailwind-merge": "^3.3.1",
+    "tesseract.js": "^7.0.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "@types/nodemailer": "^7.0.3",
+    "typescript": "^5",
+    "vitest": "^4.0.15"
+  }
+}

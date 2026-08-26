@@ -1,6 +1,6 @@
 import db from "@tusker/db";
 import { ProjectProcurementClient } from "./project-procurement-client";
-import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
+import { serializeIndentForClient } from "@tusker/core/lib/procurement/serialize-indent";
 
 export async function ProjectProcurementView({
   workspaceId,

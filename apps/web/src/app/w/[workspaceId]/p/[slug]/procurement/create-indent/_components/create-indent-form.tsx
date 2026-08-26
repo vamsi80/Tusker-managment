@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FALLBACK_UNITS } from "@/lib/procurement/units";
+import { FALLBACK_UNITS } from "@tusker/core/lib/procurement/units";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import {

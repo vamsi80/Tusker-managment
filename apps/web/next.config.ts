@@ -72,7 +72,7 @@ const nextConfig: NextConfig = {
       protocol: "https",
     }]
   },
-  transpilePackages: ['better-auth', '@tusker/db'],
+  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core'],
 };
 
 export default withBundleAnalyzer(nextConfig);

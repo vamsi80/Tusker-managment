@@ -2,7 +2,7 @@ import db from "@tusker/db";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { CreateRfqClient } from "./_components/create-rfq-client";
-import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
+import { serializeIndentForClient } from "@tusker/core/lib/procurement/serialize-indent";
 
 interface PageProps {
   params: Promise<{

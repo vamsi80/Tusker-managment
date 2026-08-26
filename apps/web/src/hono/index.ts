@@ -24,7 +24,7 @@ import materials from "./routes/materials";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { requireCapability } from "./middleware/capability";
-import { AppError } from "../lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 
 /**
  * Main Hono Application

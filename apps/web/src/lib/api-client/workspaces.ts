@@ -1,4 +1,4 @@
-import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@/lib/zodSchemas";
+import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@tusker/core/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
 import {
@@ -6,7 +6,7 @@ import {
     type WorkspaceData,
     type WorkspaceMembersResult,
     type WorkspacesResult
-} from "@/types/workspace";
+} from "@tusker/core/types/workspace";
 
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;

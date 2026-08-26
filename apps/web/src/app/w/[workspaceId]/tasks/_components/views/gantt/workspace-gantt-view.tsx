@@ -1,7 +1,7 @@
-import { TasksService } from "@/server/services/task/tasks.service";
+import { TasksService } from "@tusker/core/server/services/task/tasks.service";
 
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import dynamic from "next/dynamic";
 import { transformToGanttTasks } from "@/components/task/gantt/transform-tasks";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";

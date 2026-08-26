@@ -1,13 +1,13 @@
 "use client";
 
-import type { TaskByIdType } from "@/server/services/task/tasks.service";
+import type { TaskByIdType } from "@tusker/core/server/services/task/tasks.service";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/core/lib/colors/status-colors";
 import { memo, useState, useEffect } from "react";
 
 import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";

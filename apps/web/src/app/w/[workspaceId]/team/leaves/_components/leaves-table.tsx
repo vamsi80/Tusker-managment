@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
-import { countDateOnlyDays, formatDateOnly, toDateOnly } from "@/lib/date-utils";
+import { countDateOnlyDays, formatDateOnly, toDateOnly } from "@tusker/core/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";

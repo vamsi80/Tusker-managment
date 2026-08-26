@@ -7,4 +7,4 @@ export {
     CommentService,
     type TaskCommentsType,
     type ActivitiesType
-} from "@/server/services/comment";
+} from "@tusker/core/server/services/comment/index";

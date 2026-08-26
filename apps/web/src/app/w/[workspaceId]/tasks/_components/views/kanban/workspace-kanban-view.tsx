@@ -1,6 +1,6 @@
 
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
 import dynamic from "next/dynamic";

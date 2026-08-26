@@ -17,7 +17,7 @@ import {
   areStatusFiltersEqual,
   parseProcurementStatusParam,
   RFQ_STATUS_OPTIONS,
-} from "@/lib/procurement/status-filters";
+} from "@tusker/core/lib/procurement/status-filters";
 
 interface RfqsClientProps {
   workspaceId: string;

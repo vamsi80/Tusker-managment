@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import prisma from "@tusker/db";
-import { AttendanceService } from "@/server/services/attendance";
+import { AttendanceService } from "@tusker/core/server/services/attendance/index";
 
 /**
  * Kiosk Attendance API

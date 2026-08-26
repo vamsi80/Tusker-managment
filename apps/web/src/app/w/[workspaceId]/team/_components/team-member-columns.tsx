@@ -8,7 +8,7 @@ import {
 } from "@/components/data-table/column-helpers";
 import { Eye, Edit, Trash, Mail, CalendarDays, Hash } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { type WorkspaceMemberRow } from "@/types/workspace";
+import { type WorkspaceMemberRow } from "@tusker/core/types/workspace";
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";

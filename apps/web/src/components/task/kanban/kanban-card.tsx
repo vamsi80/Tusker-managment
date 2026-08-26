@@ -19,9 +19,9 @@ import {
   MessageSquare,
   Tag,
 } from "lucide-react";
-import type { KanbanSubTaskType } from "@/types/task";
+import type { KanbanSubTaskType } from "@tusker/core/types/task";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
-import { getColorFromString } from "@/lib/colors/project-colors";
+import { getColorFromString } from "@tusker/core/lib/colors/project-colors";
 import { UserPermissionsType } from "@/data/user/get-user-permissions";
 import {
   DropdownMenu,
@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/drawer";
 import { COLUMNS, TaskStatus } from "./kanban-constants";
 import { useRemainingDays } from "@/hooks/use-due-date";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
+import { getDelayColors, getDelayText } from "@tusker/core/lib/colors/delay-colors";
 
 
 interface KanbanCardProps {

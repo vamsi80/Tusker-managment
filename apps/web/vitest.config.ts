@@ -23,6 +23,7 @@ export default defineConfig({
             // source instead of externalising the symlink (which yields an
             // empty module and drops the re-exported Prisma enums).
             "@tusker/db": path.resolve(__dirname, "../../packages/db/src/index.ts"),
+            "@tusker/core": path.resolve(__dirname, "../../packages/core/src"),
         },
     },
 });

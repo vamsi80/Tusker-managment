@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
-import { canCreatePurchaseOrder } from "@/lib/procurement/purchase-order";
+import { canCreatePurchaseOrder } from "@tusker/core/lib/procurement/purchase-order";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { CreatePurchaseOrderForm } from "./_form";
 

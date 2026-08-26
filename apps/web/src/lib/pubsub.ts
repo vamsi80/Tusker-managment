@@ -1,4 +1,4 @@
-import { pusherClient } from "./pusher";
+import { pusherClient } from "@tusker/core/lib/pusher";
 
 /**
  * Enhanced Real-Time Service (Pusher + PubSub)

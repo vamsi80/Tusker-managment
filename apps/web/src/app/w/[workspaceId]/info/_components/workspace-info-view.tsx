@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api-client";
 import { AppLoader } from "@/components/shared/app-loader";
-import { WorkspaceData } from "@/types/workspace";
+import { WorkspaceData } from "@tusker/core/types/workspace";
 import { WorkspaceInfoForm } from "./workspace-info-form";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Building2, MapPin, Phone, Mail, Globe, IdCard } from "lucide-react";

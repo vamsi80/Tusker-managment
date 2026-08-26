@@ -18,14 +18,14 @@ import {
   type QuotationCandidate,
   type QuotationField,
   type QuotationItem,
-} from "@/lib/procurement/quotation";
+} from "@tusker/core/lib/procurement/quotation/index";
 import {
   applySavedMapping,
   identifyVendor,
   readSavedMapping,
   toSavedMapping,
   type VendorLike,
-} from "@/lib/procurement/quotation/vendor";
+} from "@tusker/core/lib/procurement/quotation/vendor";
 
 export type ImportedItem = {
   itemName: string;

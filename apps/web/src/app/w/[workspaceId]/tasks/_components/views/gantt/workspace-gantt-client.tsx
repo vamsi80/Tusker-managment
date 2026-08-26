@@ -15,7 +15,7 @@ import {
 import { toast } from "@/lib/toast";
 
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import { ProjectMembersType } from "@/types/project";
+import { ProjectMembersType } from "@tusker/core/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useWorkspaceLayout } from "../../../../_components/workspace-layout-context";
 import { useProjectTags } from "@/hooks/use-project-tags";

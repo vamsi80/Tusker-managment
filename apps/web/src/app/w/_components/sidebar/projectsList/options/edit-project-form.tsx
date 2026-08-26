@@ -24,10 +24,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
+import { editProjectSchema, EditProjectSchemaType } from "@tusker/core/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "@/lib/toast";
-import { FullProjectData } from "@/types/project";
+import { FullProjectData } from "@tusker/core/types/project";
 import slugify from "slugify";
 import {
     Popover,
@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/command";
 import { cn, toTitleCase } from "@/lib/utils";
 import { projectsClient } from "@/lib/api-client/projects";
-import { type WorkspaceMembersResult } from "@/types/workspace";
+import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 

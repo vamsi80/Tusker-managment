@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
 import db from "@tusker/db";

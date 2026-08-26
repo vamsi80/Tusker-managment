@@ -4,9 +4,9 @@ import { getWorkspaceTags } from "@/data/tag/get-tags";
 import { createTag } from "@/actions/tag/create-tag";
 import { updateTag } from "@/actions/tag/update-tag";
 import { deleteTag } from "@/actions/tag/delete-tag";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 
-import { ProjectService } from "@/server/services/project/project.service";
+import { ProjectService } from "@tusker/core/server/services/project/project.service";
 
 const tags = new Hono<{ Variables: HonoVariables }>();
 

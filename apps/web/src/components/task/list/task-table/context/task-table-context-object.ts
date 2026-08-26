@@ -1,5 +1,5 @@
 import React, { createContext } from "react";
-import type { ProjectMembersType } from "@/types/project";
+import type { ProjectMembersType } from "@tusker/core/types/project";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { ColumnVisibility } from "../../../shared/column-visibility";
 

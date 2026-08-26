@@ -4,14 +4,14 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { projectsClient } from "@/lib/api-client/projects";
-import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
+import { projectSchema, ProjectSchemaType } from "@tusker/core/lib/zodSchemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, Resolver } from "react-hook-form";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "@/lib/toast";
 import { useConfetti } from "@/hooks/use-confetti";
 import slugify from "slugify";
-import { getColorFromString, generateRandomColor } from "@/lib/colors/project-colors";
+import { getColorFromString, generateRandomColor } from "@tusker/core/lib/colors/project-colors";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ import {
     Info,
 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
-import { type WorkspaceMembersResult } from "@/types/workspace";
+import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import Link from "next/link";
 
 export default function CreateProjectPage() {

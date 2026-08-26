@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { QuotationImportDialog, type ImportedItem } from "@/app/w/[workspaceId]/_components/procurement/quotation-import-dialog";
-import { matchByMaterialName } from "@/lib/procurement/quote-match";
+import { matchByMaterialName } from "@tusker/core/lib/procurement/quote-match";
 import {
   Table,
   TableBody,
@@ -44,8 +44,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { FALLBACK_UNITS } from "@/lib/procurement/units";
-import { approveActionLabel } from "@/lib/procurement/status-filters";
+import { FALLBACK_UNITS } from "@tusker/core/lib/procurement/units";
+import { approveActionLabel } from "@tusker/core/lib/procurement/status-filters";
 
 interface IndentDetailClientProps {
   workspaceId: string;

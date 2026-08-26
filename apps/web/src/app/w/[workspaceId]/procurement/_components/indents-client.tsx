@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { approveActionLabel } from "@/lib/procurement/status-filters";
+import { approveActionLabel } from "@tusker/core/lib/procurement/status-filters";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   addWeeks,
@@ -32,7 +32,7 @@ import {
   areStatusFiltersEqual,
   INDENT_STATUS_OPTIONS,
   parseProcurementStatusParam,
-} from "@/lib/procurement/status-filters";
+} from "@tusker/core/lib/procurement/status-filters";
 
 interface IndentsClientProps {
   workspaceId: string;

@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { acceptInvitationSchema } from "@/lib/zodSchemas";
+import { acceptInvitationSchema } from "@tusker/core/lib/zodSchemas";
 import { apiClient } from "@/lib/api-client";
 import { tryCatch } from "@/hooks/try-catch";
 import { cn } from "@/lib/utils";

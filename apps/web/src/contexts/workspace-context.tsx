@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { WorkspaceData } from "@/types/workspace";
+import type { WorkspaceData } from "@tusker/core/types/workspace";
 
 interface WorkspaceContextType {
     workspaceId: string;

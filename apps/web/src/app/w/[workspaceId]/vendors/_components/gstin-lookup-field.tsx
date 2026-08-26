@@ -10,7 +10,7 @@ import {
   type GstinLookupData,
   normalizeGstin,
   validateGstin,
-} from "@/lib/procurement/gstin";
+} from "@tusker/core/lib/procurement/gstin";
 
 interface GstinLookupFieldProps {
   workspaceId: string;

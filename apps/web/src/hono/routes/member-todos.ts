@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { MemberTodoService } from "@/server/services/member-todo/member-todo.service";
+import { MemberTodoService } from "@tusker/core/server/services/member-todo/member-todo.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 
 const memberTodos = new Hono<{ Variables: HonoVariables }>();
 

@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { taskSchema, TaskSchemaType } from "@/lib/zodSchemas";
+import { taskSchema, TaskSchemaType } from "@tusker/core/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
 import { apiClient } from "@/lib/api-client";
-import { getColorFromString } from "@/lib/colors/project-colors";
+import { getColorFromString } from "@tusker/core/lib/colors/project-colors";
 
 interface iAppProps {
     workspaceId: string;

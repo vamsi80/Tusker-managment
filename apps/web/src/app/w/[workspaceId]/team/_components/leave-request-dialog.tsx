@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { differenceInCalendarDays, format } from "date-fns";
 import { APP_DATE_FORMAT, cn } from "@/lib/utils";
-import { toDateOnlyString } from "@/lib/date-utils";
+import { toDateOnlyString } from "@tusker/core/lib/date-utils";
 import { CalendarIcon, Loader2, Send, UserCheck } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { leaveRequestSchema, LeaveRequestFormType } from "@/lib/zodSchemas";
+import { leaveRequestSchema, LeaveRequestFormType } from "@tusker/core/lib/zodSchemas";
 
 interface LeaveRequestDialogProps {
     workspaceId: string;

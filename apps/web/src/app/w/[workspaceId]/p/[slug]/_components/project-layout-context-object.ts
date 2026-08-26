@@ -1,6 +1,6 @@
 import { createContext } from "react";
-import type { ProjectMembersType } from "@/types/project";
-import type { UserPermissionsType } from "@/types/workspace";
+import type { ProjectMembersType } from "@tusker/core/types/project";
+import type { UserPermissionsType } from "@tusker/core/types/workspace";
 
 export interface ProjectLayoutContextType {
     projectMembers: ProjectMembersType;

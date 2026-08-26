@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import { WorkspaceMemberRow, SlimMember } from '@/types/workspace';
+import { WorkspaceMemberRow, SlimMember } from '@tusker/core/types/workspace';
 import { apiClient } from '@/lib/api-client';
 import { useEffect } from 'react';
-import { pusherClient } from '@/lib/pusher';
-import { TEAM_UPDATE } from '@/lib/realtime';
+import { pusherClient } from '@tusker/core/lib/pusher';
+import { TEAM_UPDATE } from '@tusker/core/lib/realtime';
 
 interface WorkspaceMemberState {
     membersByWorkspace: Record<string, WorkspaceMemberRow[]>;

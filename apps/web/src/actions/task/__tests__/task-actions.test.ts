@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TasksService } from "@/server/services/task/tasks.service";
+import { TasksService } from "@tusker/core/server/services/task/tasks.service";
 import { requireUser } from "@/lib/auth/require-user";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { fetchUserPermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 
 describe("Task Actions", () => {
@@ -34,7 +34,7 @@ describe("Task Actions", () => {
         it("should successfully bulk upload if user has permission", async () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
-            (getUserPermissions as any).mockResolvedValue({
+            (fetchUserPermissions as any).mockResolvedValue({
                 workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
@@ -68,7 +68,7 @@ describe("Task Actions", () => {
         it("should fail if assignee email is not in project", async () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
-            (getUserPermissions as any).mockResolvedValue({
+            (fetchUserPermissions as any).mockResolvedValue({
                 workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
@@ -86,7 +86,7 @@ describe("Task Actions", () => {
         it("should fail if date format is invalid", async () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
-            (getUserPermissions as any).mockResolvedValue({
+            (fetchUserPermissions as any).mockResolvedValue({
                 workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },
@@ -107,7 +107,7 @@ describe("Task Actions", () => {
         it("should fail if days value is negative", async () => {
             (requireUser as any).mockResolvedValue({ id: "user_admin", email: "admin@example.com" });
             (prisma.project.findUnique as any).mockResolvedValue({ workspaceId: validWorkspaceId });
-            (getUserPermissions as any).mockResolvedValue({
+            (fetchUserPermissions as any).mockResolvedValue({
                 workspaceMemberId: "wm_admin",
                 workspaceMember: { id: "wm_admin" },
                 projectMember: { id: "pm_admin" },

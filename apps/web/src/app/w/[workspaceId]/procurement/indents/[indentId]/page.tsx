@@ -2,8 +2,8 @@ import { requireUser } from "@/lib/auth/require-user";
 import db from "@tusker/db";
 import { redirect, notFound } from "next/navigation";
 import { IndentDetailClient } from "./_components/indent-detail-client";
-import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
-import { canCreatePurchaseOrder } from "@/lib/procurement/purchase-order";
+import { serializeIndentForClient } from "@tusker/core/lib/procurement/serialize-indent";
+import { canCreatePurchaseOrder } from "@tusker/core/lib/procurement/purchase-order";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 interface PageProps {

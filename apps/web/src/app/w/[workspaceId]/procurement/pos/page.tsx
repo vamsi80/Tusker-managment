@@ -6,7 +6,7 @@ import {
   BUYER_COMPANIES,
   canCreatePurchaseOrder,
   formatPaise,
-} from "@/lib/procurement/purchase-order";
+} from "@tusker/core/lib/procurement/purchase-order";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 interface PageProps {

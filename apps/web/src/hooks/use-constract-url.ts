@@ -1,4 +1,4 @@
-import { env } from "@/lib/env";
+import { env } from "@tusker/core/lib/env";
 
 export function useConstructUrl(key : string): string {
 return `https://${env.NEXT_PUBLIC_S3_BUCKET_NAME}.t3.storage.dev/${key}`;

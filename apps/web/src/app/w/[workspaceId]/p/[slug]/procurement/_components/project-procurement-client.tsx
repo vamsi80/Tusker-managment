@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
 import { toast } from "@/lib/toast";
-import { approveActionLabel } from "@/lib/procurement/status-filters";
+import { approveActionLabel } from "@tusker/core/lib/procurement/status-filters";
 
 interface LineItemData {
   id: string;

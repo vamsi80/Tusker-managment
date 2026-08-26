@@ -2,12 +2,12 @@ import { Hono } from "hono";
 import { z } from "zod";
 import prisma from "@tusker/db";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
-import { TasksService } from "@/server/services/task/tasks.service";
-import { taskSchema, subTaskSchema } from "@/lib/zodSchemas";
-import { invalidateTaskMutation } from "@/lib/cache/invalidation";
+import { AppError } from "@tusker/core/lib/errors/app-error";
+import { TasksService } from "@tusker/core/server/services/task/tasks.service";
+import { taskSchema, subTaskSchema } from "@tusker/core/lib/zodSchemas";
+import { invalidateTaskMutation } from "@tusker/core/lib/cache/invalidation";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { can, type Capability, type CapabilityMap } from "@/lib/constants/capabilities";
+import { can, type Capability, type CapabilityMap } from "@tusker/core/lib/constants/capabilities";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
 
@@ -361,7 +361,7 @@ tasks.patch("/reorder", async (c) => {
   await TasksService.updateSubtasksOrder(subtaskIds);
 
   const { invalidateProjectSubTasks } =
-    await import("@/lib/cache/invalidation");
+    await import("@tusker/core/lib/cache/invalidation");
   await invalidateProjectSubTasks(projectId);
 
   return c.json({ success: true, message: "Reordered successfully" });

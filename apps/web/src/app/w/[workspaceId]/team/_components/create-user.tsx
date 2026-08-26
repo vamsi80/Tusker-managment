@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
-import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
+import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@tusker/core/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 

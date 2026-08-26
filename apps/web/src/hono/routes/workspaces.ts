@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { WorkspaceService } from "@/server/services/workspace.service";
-import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@/lib/zodSchemas";
-import { AppError } from "@/lib/errors/app-error";
+import { WorkspaceService } from "@tusker/core/server/services/workspace.service";
+import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@tusker/core/lib/zodSchemas";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@tusker/db";
 

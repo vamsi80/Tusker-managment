@@ -3,7 +3,7 @@ import {
   ProjectListItem, 
   MinimalProjectData, 
   FullProjectData 
-} from "@/types/project";
+} from "@tusker/core/types/project";
 
 /**
  * Projects API Client

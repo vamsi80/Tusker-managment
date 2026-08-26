@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Paperclip, X, AlertCircle } from "lucide-react";
 import { toast } from "@/lib/toast";
-import { activitySchema } from "@/lib/zodSchemas";
+import { activitySchema } from "@tusker/core/lib/zodSchemas";
 import {
     ATTACHMENT_ACCEPT,
     ATTACHMENT_RETENTION_DAYS,
@@ -16,7 +16,7 @@ import {
     formatBytes,
     validateAttachment,
     type ActivityAttachment,
-} from "@/lib/attachments";
+} from "@tusker/core/lib/attachments";
 import { AttachmentIcon } from "@/components/task/shared/attachment-preview";
 
 interface ActivityDialogProps {

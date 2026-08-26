@@ -2,10 +2,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@/hono/validator";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import prisma from "@tusker/db";
-import { ensureMaterialCatalog } from "@/server/services/procurement/material-catalog.service";
+import { ensureMaterialCatalog } from "@tusker/core/server/services/procurement/material-catalog.service";
 
 const materials = new Hono<{ Variables: HonoVariables }>();
 

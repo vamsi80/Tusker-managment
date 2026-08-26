@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
 import { Check, Send, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { approveActionLabel } from "@/lib/procurement/status-filters";
+import { approveActionLabel } from "@tusker/core/lib/procurement/status-filters";
 
 interface IndentHeaderProps {
   indent: any;

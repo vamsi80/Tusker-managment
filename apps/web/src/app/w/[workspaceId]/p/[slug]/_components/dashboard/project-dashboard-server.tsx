@@ -1,4 +1,5 @@
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
+import { requireUser } from "@/lib/auth/require-user";
 import { ProjectDashboard } from "./project-dashboard";
 
 interface ProjectDashboardServerProps {
@@ -7,7 +8,8 @@ interface ProjectDashboardServerProps {
 }
 
 export async function ProjectDashboardServer({ workspaceId, slug }: ProjectDashboardServerProps) {
-  const data = await ProjectService.getProjectDashboardData(workspaceId, slug);
+  const currentUser = await requireUser();
+  const data = await ProjectService.getProjectDashboardData(workspaceId, slug, currentUser.id);
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">

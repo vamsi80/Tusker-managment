@@ -12,7 +12,7 @@ import { useTaskTableLogic } from "./task-table/hooks/use-task-table-logic";
 import { TaskTableHeader } from "./task-table/components/task-header";
 import { TaskTableBody } from "./task-table/components/task-table-body";
 import type { TaskStatus, TaskWithSubTasks } from "@/components/task/shared/types";
-import type { ProjectMembersType } from "@/types/project";
+import type { ProjectMembersType } from "@tusker/core/types/project";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface TaskTableProps {

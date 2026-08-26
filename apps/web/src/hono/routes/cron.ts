@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import prisma from "@tusker/db";
-import { CRON_JOBS } from "../../server/crons/registry";
+import { CRON_JOBS } from "@tusker/core/server/crons/registry";
 
 const cron = new Hono();
 

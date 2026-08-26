@@ -12,7 +12,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
-import type { WorkspacesType } from "@/types/workspace";
+import type { WorkspacesType } from "@tusker/core/types/workspace";
 import { apiClient } from "@/lib/api-client";
 
 interface Props {

@@ -18,7 +18,7 @@ import {
   gstDetailsPayload,
   type GstinLookupData,
   type VendorGstDetails,
-} from "@/lib/procurement/gstin";
+} from "@tusker/core/lib/procurement/gstin";
 
 import { countryDialCodes } from "@/lib/country-codes";
 

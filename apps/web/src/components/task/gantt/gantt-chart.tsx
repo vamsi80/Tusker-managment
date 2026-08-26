@@ -12,7 +12,7 @@ import { TimelineHeader, TimelineGrid } from "./timeline-grid";
 import { calculateTimelineRange, getDaysBetween } from "./utils";
 import { useLoadMoreSentinel } from "@/hooks/use-load-more-sentinel";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { ProjectMembersType } from "@/types/project";
+import { ProjectMembersType } from "@tusker/core/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
 
 interface GanttChartProps {

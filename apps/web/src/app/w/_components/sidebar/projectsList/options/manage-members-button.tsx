@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ProjectRole } from "@tusker/db";
-import { type WorkspaceMembersResult } from "@/types/workspace";
+import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 
 import { ManageProjectMembersDialog } from "./manage-members-dialog";
 

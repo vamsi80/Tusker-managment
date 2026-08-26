@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
-import { STATUS_OPTIONS } from "@/lib/zodSchemas";
+import { STATUS_OPTIONS } from "@tusker/core/lib/zodSchemas";
 import { X, Filter, Calendar } from "lucide-react";
-import { getColorFromString } from "@/lib/colors/project-colors";
+import { getColorFromString } from "@tusker/core/lib/colors/project-colors";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn, toTitleCase } from "@/lib/utils";
 import { type TaskFilters, type ViewLevel, type ViewType, type ProjectOption, type MemberOption, type TagOption, getFilterConfig, getActiveFilters } from "./types";

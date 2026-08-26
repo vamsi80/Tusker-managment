@@ -1,8 +1,8 @@
 import { createMiddleware } from "hono/factory";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import type { Capability } from "@/lib/constants/capabilities";
+import type { Capability } from "@tusker/core/lib/constants/capabilities";
 
 /**
  * Enforces a Settings -> Permissions capability across a whole router.

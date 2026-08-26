@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@/hono/validator";
-import { pusherServer } from "@/lib/pusher";
+import { pusherServer } from "@tusker/core/lib/pusher";
 import prisma from "@tusker/db";
 import { HonoVariables } from "../types";
 

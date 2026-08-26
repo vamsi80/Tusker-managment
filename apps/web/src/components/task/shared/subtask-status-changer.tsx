@@ -11,12 +11,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskTableContext } from "../list/task-table/context/task-table-context-object";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/core/lib/colors/status-colors";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
 import { cn } from "@/lib/utils";
-import type { SubTaskType } from "@/types/task";
+import type { SubTaskType } from "@tusker/core/types/task";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
-import type { ActivityAttachment } from "@/lib/attachments";
+import type { ActivityAttachment } from "@tusker/core/lib/attachments";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 

@@ -1,10 +1,10 @@
 ﻿import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { auth } from "@tusker/core/lib/auth";
 import { AcceptInvitationForm } from "../../w/_components/auth/accept-invitation-form";
 import { AppLoader } from "@/components/shared/app-loader";
-import { WorkspaceService } from "@/server/services/workspace.service";
+import { WorkspaceService } from "@tusker/core/server/services/workspace.service";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";

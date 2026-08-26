@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { WorkspaceData } from "@/types/workspace";
+import { WorkspaceData } from "@tusker/core/types/workspace";
 import { apiClient } from "@/lib/api-client";
-import { updateWorkspaceInfoSchema, UpdateWorkspaceInfoType } from "@/lib/zodSchemas";
+import { updateWorkspaceInfoSchema, UpdateWorkspaceInfoType } from "@tusker/core/lib/zodSchemas";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {

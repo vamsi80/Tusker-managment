@@ -1,8 +1,11 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format, parse, formatDistanceToNow } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
+import { APP_DATE_FORMAT, parseIST } from "@tusker/core/lib/date-utils"
+
+// Re-exported so the many UI call sites can keep importing them from here.
+export { APP_DATE_FORMAT, parseIST }
  
-export const APP_DATE_FORMAT = "d MMM yyyy";
 
 /**
  * Formats a date as a relative time string (e.g., "5 mins ago", "2 days ago")
@@ -33,45 +36,6 @@ export function toTitleCase(str: string | null | undefined): string {
  * Formats a date string or object as d MMM yyyy using UTC components.
  * This prevents 1-day shifts caused by local timezone offsets.
  */
-/**
- * Parses a date string as Indian Standard Time (IST)
- * Supports multiple formats: d MMM yyyy (priority), YYYY-MM-DD, and ISO strings
- */
-export function parseIST(dateStr: string | null | undefined): Date | null {
-  if (!dateStr) return null;
-  const trimmed = dateStr.trim();
-  if (!trimmed) return null;
-
-  // 1. Try native Date parsing for ISO strings
-  if (trimmed.includes('Z') || (trimmed.includes('+') && trimmed.includes('T'))) {
-    const d = new Date(trimmed);
-    return isNaN(d.getTime()) ? null : d;
-  }
-
-  // 2. Try "d MMM yyyy" (e.g., 15 Apr 2026)
-  try {
-    const d = parse(trimmed, 'd MMM yyyy', new Date());
-    if (!isNaN(d.getTime())) {
-      // Set to 05:30 offset (IST)
-      const year = d.getFullYear();
-      const month = d.getMonth();
-      const day = d.getDate();
-      return new Date(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00+05:30`);
-    }
-  } catch (e) {}
-
-  // 3. Try "yyyy-MM-dd"
-  try {
-    const d = parse(trimmed, 'yyyy-MM-dd', new Date());
-    if (!isNaN(d.getTime())) {
-      return new Date(`${trimmed}T00:00:00+05:30`);
-    }
-  } catch (e) {}
-
-  // 4. Final attempt with native Date
-  const finalD = new Date(trimmed);
-  return isNaN(finalD.getTime()) ? null : finalD;
-}
 
 /**
  * Formats a date string or object as d MMM yyyy HH:mm in IST.

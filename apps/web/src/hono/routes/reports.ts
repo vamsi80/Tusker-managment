@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
-import { ReportService } from "@/server/services/report.service";
+import { ReportService } from "@tusker/core/server/services/report.service";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 
 const reports = new Hono<{ Variables: HonoVariables }>();
 

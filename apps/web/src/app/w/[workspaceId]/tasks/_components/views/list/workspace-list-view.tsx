@@ -1,9 +1,9 @@
 import dynamic from "next/dynamic";
 import { getWorkspaceTags } from "@/data/tag/get-tags";
-import { ProjectService } from "@/server/services/project";
+import { ProjectService } from "@tusker/core/server/services/project/index";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { requireUser } from "@/lib/auth/require-user";
-import { TasksService } from "@/server/services/task/tasks.service";
+import { TasksService } from "@tusker/core/server/services/task/tasks.service";
 
 import type { TaskWithSubTasks } from "@/components/task/shared/types";
 

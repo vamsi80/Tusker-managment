@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { AttendanceService } from "@/server/services/attendance";
-import { LeaveService } from "@/server/services/leave";
+import { AttendanceService } from "@tusker/core/server/services/attendance/index";
+import { LeaveService } from "@tusker/core/server/services/leave/index";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { invalidateWorkspaceAttendance } from "@/lib/cache/invalidation";
-import { toDateOnly } from "@/lib/date-utils";
+import { invalidateWorkspaceAttendance } from "@tusker/core/lib/cache/invalidation";
+import { toDateOnly } from "@tusker/core/lib/date-utils";
 import { HonoVariables } from "../types";
 
 const parseMultiQuery = (value?: string): string[] | undefined => {

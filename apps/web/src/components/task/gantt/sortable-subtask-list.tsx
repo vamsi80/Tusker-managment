@@ -13,17 +13,17 @@ import { InlineDateRangePicker } from "./inline-date-range-picker";
 import { InlineDaysPicker } from "./inline-days-picker";
 import { ganttDateToISO } from "./utils";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
-import { ProjectMembersType } from "@/types/project";
+import { ProjectMembersType } from "@tusker/core/types/project";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { DependencyPicker } from "./dependency-picker";
-import { getStatusColors, getStatusLabel } from "@/lib/colors/status-colors";
+import { getStatusColors, getStatusLabel } from "@tusker/core/lib/colors/status-colors";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
-import type { ActivityAttachment } from "@/lib/attachments";
+import type { ActivityAttachment } from "@tusker/core/lib/attachments";
 
 interface SortableSubtaskRowProps {
     subtask: GanttSubtask;

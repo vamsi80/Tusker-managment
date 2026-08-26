@@ -1,5 +1,5 @@
 import { apiFetch } from "./fetch-wrapper";
-import { TaskSchemaType, SubTaskSchemaType } from "@/lib/zodSchemas";
+import { TaskSchemaType, SubTaskSchemaType } from "@tusker/core/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 
 /**

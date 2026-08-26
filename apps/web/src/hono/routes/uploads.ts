@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { randomUUID } from "crypto";
 import { HonoVariables } from "../types";
-import { AppError } from "@/lib/errors/app-error";
+import { AppError } from "@tusker/core/lib/errors/app-error";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import { TaskRepository } from "@/server/services/task/task.repository";
-import { presignUpload, presignDownload, isStorageConfigured } from "@/lib/storage/s3";
-import { presignUploadSchema } from "@/lib/zodSchemas";
-import { validateAttachment, extensionOf, attachmentKeyPrefix, parseAttachmentKey } from "@/lib/attachments";
+import { TaskRepository } from "@tusker/core/server/services/task/task.repository";
+import { presignUpload, presignDownload, isStorageConfigured } from "@tusker/core/lib/storage/s3";
+import { presignUploadSchema } from "@tusker/core/lib/zodSchemas";
+import { validateAttachment, extensionOf, attachmentKeyPrefix, parseAttachmentKey } from "@tusker/core/lib/attachments";
 
 const uploads = new Hono<{ Variables: HonoVariables }>();
 

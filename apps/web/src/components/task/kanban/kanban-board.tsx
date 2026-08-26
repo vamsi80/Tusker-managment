@@ -1,22 +1,22 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@/types/task";
-import type { ProjectMembersType } from "@/types/project";
+import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@tusker/core/types/task";
+import type { ProjectMembersType } from "@tusker/core/types/project";
 import { cn } from "@/lib/utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { toast } from "@/lib/toast";
 import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption } from "../shared/types";
-import { STATUS_COLORS, STATUS_LABELS } from "@/lib/colors/status-colors";
+import { STATUS_COLORS, STATUS_LABELS } from "@tusker/core/lib/colors/status-colors";
 import { apiClient } from "@/lib/api-client";
 import {
   GlobalFilterToolbar,
   ParentTaskOption,
 } from "../shared/global-filter-toolbar";
 import { ActivityDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/activity-form";
-import type { ActivityAttachment } from "@/lib/attachments";
+import type { ActivityAttachment } from "@tusker/core/lib/attachments";
 import {
   DndContext,
   DragEndEvent,

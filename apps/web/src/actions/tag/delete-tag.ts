@@ -4,7 +4,7 @@ import prisma from "@tusker/db";
 
 import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
+import { invalidateWorkspaceTags } from "@tusker/core/lib/cache/invalidation";
 import { getSession } from "@/lib/auth/require-user";
 
 const deleteTagSchema = z.object({

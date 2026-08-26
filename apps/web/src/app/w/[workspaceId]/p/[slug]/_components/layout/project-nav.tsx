@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder, ShoppingCart, Package } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { can } from "@/lib/constants/capabilities";
+import { can } from "@tusker/core/lib/constants/capabilities";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
 

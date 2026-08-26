@@ -34,12 +34,12 @@ import { Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { apiClient, type ApiResponse } from "@/lib/api-client";
-import { type WorkspaceMemberRow } from "@/types/workspace";
+import { type WorkspaceMemberRow } from "@tusker/core/types/workspace";
 import { format } from "date-fns";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
+import { updateMemberSchema, UpdateMemberSchemaType, workspaceMemberRole } from "@tusker/core/lib/zodSchemas";
 import {
     Form,
     FormControl,

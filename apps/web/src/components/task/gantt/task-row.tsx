@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { GanttTask } from "./types";
 import { ProjectOption } from "../shared/types";
-import { ProjectMembersType } from "@/types/project";
+import { ProjectMembersType } from "@tusker/core/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState, useRef, useEffect } from "react";
@@ -15,9 +15,9 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, formatDate } from "./utils";
-import { getStatusColors } from "@/lib/colors/status-colors";
+import { getStatusColors } from "@tusker/core/lib/colors/status-colors";
 import { useRemainingDays } from "@/hooks/use-due-date";
-import { getDelayColors, getDelayText } from "@/lib/colors/delay-colors";
+import { getDelayColors, getDelayText } from "@tusker/core/lib/colors/delay-colors";
 
 // ...
 // ... (imports)

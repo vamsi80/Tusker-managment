@@ -1,4 +1,4 @@
-import { TasksService } from '../src/server/services/task/tasks.service';
+import { TasksService } from '@tusker/core/server/services/task/tasks.service';
 
 // Mock userId since we can't easily run with real auth in a script
 const MOCK_USER_ID = "cm70w5x2c0000uxm3f9g6u4z5"; 

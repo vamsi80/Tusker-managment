@@ -18,7 +18,7 @@ import {
   AWAITING_APPROVAL_STATUSES,
   CLOSED_PROCUREMENT_STATUSES,
   INDENT_STATUS_OPTIONS,
-} from "@/lib/procurement/status-filters";
+} from "@tusker/core/lib/procurement/status-filters";
 
 interface DashboardClientProps {
   workspaceId: string;

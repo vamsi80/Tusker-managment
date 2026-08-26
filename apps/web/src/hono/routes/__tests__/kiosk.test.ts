@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
 
-vi.mock("@/server/services/attendance", () => ({
+vi.mock("@tusker/core/server/services/attendance/index", () => ({
     AttendanceService: {
         checkIn: vi.fn(async () => ({ id: "att-1", status: "PRESENT" })),
         checkOut: vi.fn(async () => ({ id: "att-1", checkOut: new Date() })),
@@ -8,7 +8,7 @@ vi.mock("@/server/services/attendance", () => ({
 }));
 
 import prisma from "@tusker/db";
-import { AttendanceService } from "@/server/services/attendance";
+import { AttendanceService } from "@tusker/core/server/services/attendance/index";
 import kiosk from "../kiosk";
 
 const SECRET = "test-device-secret";

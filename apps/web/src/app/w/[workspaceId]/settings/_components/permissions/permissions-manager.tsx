@@ -17,8 +17,8 @@ import {
     type Capability,
     type CapabilityOverrides,
     type RoleOverrides,
-} from "@/lib/constants/capabilities";
-import type { WorkspaceRole } from "@/types/workspace";
+} from "@tusker/core/lib/constants/capabilities";
+import type { WorkspaceRole } from "@tusker/core/types/workspace";
 import { updateRolePermission, updateMemberPermission } from "@/actions/permissions/update-permissions";
 
 const ROLE_LABEL: Record<WorkspaceRole, string> = {

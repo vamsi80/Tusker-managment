@@ -25,7 +25,7 @@ import {
   PO_TERMS,
   rupeesInWords,
   type CompanyCode,
-} from "@/lib/procurement/purchase-order";
+} from "@tusker/core/lib/procurement/purchase-order";
 
 type Row = { description: string; unit: string; quantity: string; rate: string; taxPercent: string };
 

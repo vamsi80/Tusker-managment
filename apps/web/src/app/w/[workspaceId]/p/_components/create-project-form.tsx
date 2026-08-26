@@ -13,14 +13,14 @@ import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 import { Resolver, useForm, useWatch } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type WorkspaceMembersResult } from "@/types/workspace";
+import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 
 import { projectsClient } from "@/lib/api-client/projects";
-import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
+import { projectSchema, ProjectSchemaType } from "@tusker/core/lib/zodSchemas";
 import { Badge } from "@/components/ui/badge";
 import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { generateRandomColor, getColorFromString } from "@/lib/colors/project-colors";
+import { generateRandomColor, getColorFromString } from "@tusker/core/lib/colors/project-colors";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";

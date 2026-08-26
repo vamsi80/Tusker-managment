@@ -5,7 +5,7 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { LeavesTable } from "./_components/leaves-table";
 import { LeaveRequestDialog } from "../_components/leave-request-dialog";
 import { requireUser } from "@/lib/auth/require-user";
-import { LeaveService } from "@/server/services/leave";
+import { LeaveService } from "@tusker/core/server/services/leave/index";
 import { Coffee, Thermometer, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";

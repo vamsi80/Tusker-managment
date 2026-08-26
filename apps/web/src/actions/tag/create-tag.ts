@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@tusker/db";
-import { invalidateWorkspaceTags } from "@/lib/cache/invalidation";
+import { invalidateWorkspaceTags } from "@tusker/core/lib/cache/invalidation";
 import { z } from "zod";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { tagNameExists } from "@/data/tag/get-tags";

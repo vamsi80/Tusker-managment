@@ -32,7 +32,7 @@ import {
   areStatusFiltersEqual,
   MATERIAL_STATUS_OPTIONS,
   parseProcurementStatusParam,
-} from "@/lib/procurement/status-filters";
+} from "@tusker/core/lib/procurement/status-filters";
 
 interface Project {
   id: string;

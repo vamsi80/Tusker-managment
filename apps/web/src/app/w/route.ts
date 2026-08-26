@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireUser } from "../../lib/auth/require-user";
-import { AuthError } from "@/lib/errors/auth-errors";
-import { WorkspaceService } from "@/server/services/workspace.service";
+import { AuthError } from "@tusker/core/lib/errors/auth-errors";
+import { WorkspaceService } from "@tusker/core/server/services/workspace.service";
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;

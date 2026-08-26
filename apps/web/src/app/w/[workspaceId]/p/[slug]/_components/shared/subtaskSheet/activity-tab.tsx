@@ -6,7 +6,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, ArrowRight, Link as LinkIcon } from "lucide-react";
 import { AttachmentList } from "@/components/task/shared/attachment-preview";
-import type { AttachedFile } from "@/lib/attachments";
+import type { AttachedFile } from "@tusker/core/lib/attachments";
 
 interface Activity {
     id: string;

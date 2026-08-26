@@ -2,14 +2,14 @@
 
 import { useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import { projectsClient } from "@/lib/api-client/projects";
-import { ProjectMembersType } from "@/types/project";
-import type { UserPermissionsType } from "@/types/workspace";
+import { ProjectMembersType } from "@tusker/core/types/project";
+import type { UserPermissionsType } from "@tusker/core/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 import { ProjectLayoutContext, type ProjectLayoutContextType } from "./project-layout-context-object";
 
 import { useProjectTags } from "@/hooks/use-project-tags";
-import { resolveCapabilities } from "@/lib/constants/capabilities";
+import { resolveCapabilities } from "@tusker/core/lib/constants/capabilities";
 
 // Deny-by-default until the real permissions land.
 const NO_CAPABILITIES = resolveCapabilities(null);
