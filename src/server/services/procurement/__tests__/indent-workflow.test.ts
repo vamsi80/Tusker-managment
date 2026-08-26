@@ -680,6 +680,153 @@ describe("Manager approval routing", () => {
   });
 });
 
+describe("Owners override the manager gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    repositoryMocks.updateStatus.mockImplementation(async (_id: any, status: any, extra: any) => ({ status, ...extra }));
+    dbMocks.workspaceMember.findMany.mockResolvedValue([]);
+    dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
+    pusherTrigger.mockResolvedValue(undefined);
+  });
+
+  const assignedElsewhere = (status: string) =>
+    baseIndent({
+      status,
+      raisedInProject: true,
+      project: { id: "project-1", name: "Tower A", projectManagerId: "project-manager" },
+    });
+
+  const approveAs = async (member: { id: string; workspaceRole: string }, indent: any) => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue(member);
+    repositoryMocks.findById.mockResolvedValue(indent);
+    return IndentService.approveIndent("indent-1", "some-user", "workspace-1");
+  };
+
+  test("an owner clearing approximate rates authorizes comparatives in one step", async () => {
+    const updated = await approveAs(
+      { id: "owner-member", workspaceRole: "OWNER" },
+      assignedElsewhere("SUBMITTED")
+    );
+    // The only selected owner just signed, so there is nothing left to ask them.
+    expect(updated.status).toBe("COMPARATIVES_IN_PROGRESS");
+    expect(updated.approvedByIds).toEqual(["owner-member"]);
+    expect(updated.ownerAuthorizedAt).toBeInstanceOf(Date);
+  });
+
+  test("co-approvers are still waited on", async () => {
+    const indent = assignedElsewhere("SUBMITTED");
+    indent.approverIds = ["owner-member", "second-owner"];
+    const updated = await approveAs({ id: "owner-member", workspaceRole: "OWNER" }, indent);
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+    expect(updated.approvedByIds).toEqual(["owner-member"]);
+  });
+
+  test("an owner who is not a selected approver does not clear the owner stage", async () => {
+    const updated = await approveAs(
+      { id: "uninvolved-owner", workspaceRole: "OWNER" },
+      assignedElsewhere("SUBMITTED")
+    );
+    expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
+    expect(updated.approvedByIds).toEqual([]);
+  });
+
+  test("the override records the owner, not the assigned manager", async () => {
+    const updated = await approveAs(
+      { id: "owner-member", workspaceRole: "OWNER" },
+      assignedElsewhere("SUBMITTED")
+    );
+    expect(updated.managerApprovedById).toBe("owner-member");
+  });
+
+  test("an owner clearing final rates approves the indent outright", async () => {
+    const updated = await approveAs(
+      { id: "owner-member", workspaceRole: "OWNER" },
+      assignedElsewhere("PENDING_MANAGER_FINAL_RATE_APPROVAL")
+    );
+    expect(updated.status).toBe("APPROVED");
+    expect(updated.finalManagerApprovedById).toBe("owner-member");
+    expect(updated.finalOwnerApprovedByIds).toEqual(["owner-member"]);
+  });
+
+  test("a manager clearing final rates still needs the owner", async () => {
+    const updated = await approveAs(
+      { id: "project-manager", workspaceRole: "MANAGER" },
+      assignedElsewhere("PENDING_MANAGER_FINAL_RATE_APPROVAL")
+    );
+    expect(updated.status).toBe("PENDING_OWNER_FINAL_APPROVAL");
+    expect(updated.finalOwnerApprovedByIds).toEqual([]);
+  });
+
+  test("an admin still cannot stand in for the assigned manager", async () => {
+    await expect(
+      approveAs({ id: "admin-member", workspaceRole: "ADMIN" }, assignedElsewhere("SUBMITTED"))
+    ).rejects.toThrow("Only the requester's manager can approve approximate rates");
+  });
+
+  test("a different manager still cannot", async () => {
+    await expect(
+      approveAs({ id: "manager-member", workspaceRole: "MANAGER" }, assignedElsewhere("SUBMITTED"))
+    ).rejects.toThrow("Only the requester's manager can approve approximate rates");
+  });
+});
+
+describe("Standing in for the requester on final rates", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.workspaceMember.findMany.mockResolvedValue([]);
+    dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
+    pusherTrigger.mockResolvedValue(undefined);
+    dbMocks.indent.update.mockImplementation(async ({ data }: any) => ({ ...data }));
+    dbMocks.indentLineItem.update.mockResolvedValue({});
+  });
+
+  const readyForFinalRates = () =>
+    baseIndent({
+      status: "COMPARATIVES_IN_PROGRESS",
+      requestedById: "requester-member",
+      approverIds: ["owner-member"],
+      approvedByIds: ["owner-member"],
+      raisedInProject: true,
+      project: { id: "project-1", name: "Tower A", projectManagerId: "project-manager" },
+      lineItems: [{ id: "item-1", materialName: "Cement", quantity: 10 }],
+    });
+
+  const submitAs = async (member: { id: string; workspaceRole: string }) => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue(member);
+    repositoryMocks.findById.mockResolvedValue(readyForFinalRates());
+    return IndentService.submitFinalRates(
+      "indent-1",
+      [{ itemId: "item-1", finalUnitPrice: 45000 }],
+      undefined,
+      "some-user",
+      "workspace-1"
+    );
+  };
+
+  test("the requester enters them as before", async () => {
+    const updated = await submitAs({ id: "requester-member", workspaceRole: "MEMBER" });
+    expect(updated.status).toBe("PENDING_MANAGER_FINAL_RATE_APPROVAL");
+    expect(updated.finalRatesSubmittedById).toBe("requester-member");
+  });
+
+  test("the assigned manager can stand in", async () => {
+    const updated = await submitAs({ id: "project-manager", workspaceRole: "MANAGER" });
+    expect(updated.status).toBe("PENDING_MANAGER_FINAL_RATE_APPROVAL");
+    expect(updated.finalRatesSubmittedById).toBe("project-manager");
+  });
+
+  test("an owner can stand in", async () => {
+    const updated = await submitAs({ id: "owner-member", workspaceRole: "OWNER" });
+    expect(updated.finalRatesSubmittedById).toBe("owner-member");
+  });
+
+  test("anyone else is still refused", async () => {
+    await expect(submitAs({ id: "someone-else", workspaceRole: "MEMBER" })).rejects.toThrow(
+      "Only the requester, their manager or an owner can enter final rates"
+    );
+  });
+});
+
 describe("General indents", () => {
   beforeEach(() => {
     vi.clearAllMocks();

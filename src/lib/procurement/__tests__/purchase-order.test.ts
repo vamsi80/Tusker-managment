@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import {
+  BUYER_COMPANIES,
+  buyerLabel,
   canCreatePurchaseOrder,
   isBuyerConfigured,
   financialYear,
@@ -22,14 +26,14 @@ describe("financial year", () => {
 });
 
 describe("PO numbering", () => {
-  test("formats as entity / financial year / four digits", () => {
+  test("each entity pads its sequence the way it does on paper", () => {
     expect(formatPoNumber("WT", "26-27", 63)).toBe("WT/26-27/0063");
-    expect(formatPoNumber("PL", "26-27", 1)).toBe("PL/26-27/0001");
+    expect(formatPoNumber("PL", "26-27", 1)).toBe("PL/26-27/01");
   });
 
   test("each entity keeps its own series, seeded then restarting each year", () => {
     expect(initialSequenceNumber("WT", "26-27")).toBe(64);
-    expect(initialSequenceNumber("PL", "26-27")).toBe(1);
+    expect(initialSequenceNumber("PL", "26-27")).toBe(2);
     expect(initialSequenceNumber("WT", "27-28")).toBe(1);
   });
 });
@@ -170,7 +174,27 @@ describe("buying entity readiness", () => {
     expect(isBuyerConfigured("WT")).toBe(true);
   });
 
-  test("Palm Length is refused until its address and GSTIN are filled in", () => {
-    expect(isBuyerConfigured("PL")).toBe(false);
+  test("Palm Length is ready to print too", () => {
+    expect(isBuyerConfigured("PL")).toBe(true);
+  });
+
+  test("the document carries the legal name, the picker the trading name", () => {
+    expect(BUYER_COMPANIES.PL.name).toBe("Palm Length LLP");
+    expect(buyerLabel("PL")).toBe("Lattice Lane");
+    // White Tusker trades under its own name, so both are the same.
+    expect(buyerLabel("WT")).toBe("White Tusker Private Limited");
+  });
+
+  test("each entity prints its own mark", () => {
+    expect(BUYER_COMPANIES.WT.logo).not.toBe(BUYER_COMPANIES.PL.logo);
+  });
+
+  // A missing file is a broken image on a tax document, and nothing else in the
+  // stack would catch it - the page just renders an empty box.
+  test("every entity's logo file actually exists in /public", () => {
+    for (const entity of Object.values(BUYER_COMPANIES)) {
+      const file = path.join(process.cwd(), "public", entity.logo);
+      expect(existsSync(file), `${entity.name}: missing ${entity.logo}`).toBe(true);
+    }
   });
 });

@@ -82,11 +82,14 @@ export function IndentDetailClient({
 
   // The manager / selected owners can revise the numbers while the indent sits in
   // their review stage - approximate rates in the first round, final rates in the second.
+  // Mirrors IndentService.isManagerForIndent - an owner always clears the
+  // manager gate, whoever the indent is assigned to.
   const isManagerForIndent = Boolean(
-    workspaceMemberId &&
-    (indent.requestedBy?.reportToId
-      ? workspaceMemberId === indent.requestedBy.reportToId
-      : ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || ""))
+    workspaceRole === "OWNER" ||
+    (workspaceMemberId &&
+      (indent.requestedBy?.reportToId
+        ? workspaceMemberId === indent.requestedBy.reportToId
+        : ["MANAGER", "ADMIN"].includes(workspaceRole || "")))
   );
   const isSelectedOwner = Boolean(
     workspaceMemberId &&
@@ -104,7 +107,10 @@ export function IndentDetailClient({
         : "ESTIMATE";
   const canRevise = revisionStage !== null;
   const canEnterFinalRates =
-    !isAccounts && isRequester && isFinalRateEntry && allSelectedOwnersAuthorized;
+    !isAccounts &&
+    (isRequester || isManagerForIndent) &&
+    isFinalRateEntry &&
+    allSelectedOwnersAuthorized;
 
   // Owners / admins / managers run the indent itself; the requester keeps it while it is still theirs.
   const isIndentManager = !isAccounts && ["OWNER", "ADMIN", "MANAGER"].includes(workspaceRole || "");

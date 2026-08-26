@@ -1123,7 +1123,7 @@ model POLineItem {
   @@map("po_line_item")
 }
 
-/// Per-entity, per-financial-year PO counter, so White Tusker and Palm Length
+/// Per-entity, per-financial-year PO counter, so White Tusker and Lattice Lane
 /// number their orders independently.
 model PoSequence {
   workspaceId   String

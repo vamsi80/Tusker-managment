@@ -81,9 +81,16 @@ export class IndentService {
   }
 
   private static isManagerForIndent(member: { id: string; workspaceRole: string }, indent: any) {
+    // An owner always clears the manager gate: they may need to move an indent
+    // on when the assigned manager is away, or to overrule them outright. The
+    // approval still records who actually signed it, so an override is visible.
+    // This is also what lets an owner's own indent skip the manager stage, as
+    // resolveSubmitStage describes.
+    if (member.workspaceRole === "OWNER") return true;
+
     const approverId = this.approverMemberId(indent);
     if (approverId) return member.id === approverId;
-    return ["MANAGER", "ADMIN", "OWNER"].includes(member.workspaceRole);
+    return ["MANAGER", "ADMIN"].includes(member.workspaceRole);
   }
 
   private static isOwnerApprover(member: { id: string; workspaceRole: string }, indent: any) {
@@ -581,11 +588,37 @@ export class IndentService {
         throw AppError.Forbidden("Only the requester's manager can approve approximate rates");
       }
       this.ensureOwnerApprovers(indent);
-      const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_COMPARATIVE_APPROVAL", {
-        managerApprovedAt: new Date(),
-        managerApprovedById: member.id,
-        approvedByIds: [],
-      });
+
+      // A selected owner clearing the manager gate has, in doing so, given their
+      // owner authorization too - asking them to approve the same rates twice is
+      // just a second click. Co-approvers they picked are still waited on.
+      const approvedByIds = this.isOwnerApprover(member, indent) ? [member.id] : [];
+      const ownerCleared = this.haveAllSelectedOwnersApproved(indent, approvedByIds);
+
+      const updated = await IndentRepository.updateStatus(
+        indentId,
+        ownerCleared ? "COMPARATIVES_IN_PROGRESS" : "PENDING_OWNER_COMPARATIVE_APPROVAL",
+        {
+          managerApprovedAt: new Date(),
+          managerApprovedById: member.id,
+          approvedByIds,
+          ...(ownerCleared ? { ownerAuthorizedAt: new Date() } : {}),
+        }
+      );
+
+      if (ownerCleared) {
+        await this.notify(
+          [indent.requestedBy.user.id],
+          workspaceId,
+          indent.id,
+          "Start getting comparatives",
+          `Approximate rates for "${indent.name}" are authorized. Get comparative prices and enter the least final rates.`,
+          userId
+        );
+        await this.broadcast(indent, workspaceId);
+        return updated;
+      }
+
       await this.notify(
         await this.getOwnerUserIds(indent, workspaceId),
         workspaceId,
@@ -643,11 +676,35 @@ export class IndentService {
       if (!this.isManagerForIndent(member, indent)) {
         throw AppError.Forbidden("Only the requester's manager can approve final rates");
       }
-      const updated = await IndentRepository.updateStatus(indentId, "PENDING_OWNER_FINAL_APPROVAL", {
-        finalManagerApprovedAt: new Date(),
-        finalManagerApprovedById: member.id,
-        finalOwnerApprovedByIds: [],
-      });
+      // Same rule at the final gate: an owner signing off the manager stage has
+      // given their final approval with it.
+      const finalOwnerApprovedByIds = this.isOwnerApprover(member, indent) ? [member.id] : [];
+      const finallyApproved = this.haveAllSelectedOwnersApproved(indent, finalOwnerApprovedByIds);
+
+      const updated = await IndentRepository.updateStatus(
+        indentId,
+        finallyApproved ? "APPROVED" : "PENDING_OWNER_FINAL_APPROVAL",
+        {
+          finalManagerApprovedAt: new Date(),
+          finalManagerApprovedById: member.id,
+          finalOwnerApprovedByIds,
+          ...(finallyApproved ? { finalApprovedAt: new Date(), finalApprovedById: member.id } : {}),
+        }
+      );
+
+      if (finallyApproved) {
+        await this.notify(
+          [indent.requestedBy.user.id],
+          workspaceId,
+          indent.id,
+          "Indent finally approved",
+          `The final rates for "${indent.name}" have been approved.`,
+          userId
+        );
+        await this.broadcast(indent, workspaceId);
+        return updated;
+      }
+
       await this.notify(
         await this.getOwnerUserIds(indent, workspaceId),
         workspaceId,
@@ -721,8 +778,13 @@ export class IndentService {
     if (!this.haveAllSelectedOwnersApproved(indent, indent.approvedByIds || [])) {
       throw AppError.Conflict("Every selected owner must get comparitives before final rates can be entered");
     }
-    if (member.id !== indent.requestedById) {
-      throw AppError.Forbidden("Only the original requester can enter final rates");
+    // Normally the requester enters these, but their manager or an owner can
+    // stand in when they are unavailable, rather than the indent stalling.
+    // finalRatesSubmittedById records who actually entered them.
+    if (member.id !== indent.requestedById && !this.isManagerForIndent(member, indent)) {
+      throw AppError.Forbidden(
+        "Only the requester, their manager or an owner can enter final rates"
+      );
     }
 
     if (vendorId) {

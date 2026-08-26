@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import {
   BUYER_COMPANIES,
+  buyerLabel,
   isBuyerConfigured,
   formatPaise,
   isIntraState,
@@ -259,7 +260,7 @@ export function CreatePurchaseOrderForm() {
                     value={entity.code}
                     disabled={!isBuyerConfigured(entity.code)}
                   >
-                    {entity.name} ({entity.code})
+                    {buyerLabel(entity.code)} ({entity.code})
                     {!isBuyerConfigured(entity.code) && " - not set up yet"}
                   </SelectItem>
                 ))}
@@ -270,8 +271,13 @@ export function CreatePurchaseOrderForm() {
             </p>
             {!isBuyerConfigured(company) && (
               <p className="text-xs text-destructive">
-                {buyer.name} has no registered address or GSTIN on file, so its
-                purchase orders would print an empty buyer block.
+                {buyerLabel(company)} has no registered address or GSTIN on file,
+                so its purchase orders would print an empty buyer block.
+              </p>
+            )}
+            {isBuyerConfigured(company) && buyer.brand && (
+              <p className="text-xs text-muted-foreground">
+                Invoices as {buyer.name}.
               </p>
             )}
           </div>

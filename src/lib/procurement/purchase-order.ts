@@ -10,22 +10,36 @@ export type CompanyCode = "WT" | "PL";
 
 export type BuyerCompany = {
   code: CompanyCode;
+  /** Legal name, printed in the Invoice To block. This is the GST registrant. */
   name: string;
+  /** Trading name, shown when picking the entity. Falls back to the legal name. */
+  brand?: string;
+  /**
+   * Logo printed on this entity's purchase orders, served from /public.
+   * Supplied as black artwork - the document greyscales it anyway, so a
+   * colour variant would print flat.
+   */
+  logo: string;
   addressLines: string[];
   phone: string;
   email: string;
   gstNumber: string;
+  /** Printed under the GST number when the entity has one. */
+  msmeNumber?: string;
   /**
    * Where this entity's numbering picks up, so generated POs continue the
    * series issued by hand. Any other financial year starts at 1.
    */
   seed: { financialYear: string; nextNumber: number };
+  /** Digits in the sequence: WT runs 0063, Palm Length runs 01. */
+  numberPad: number;
 };
 
 export const BUYER_COMPANIES: Record<CompanyCode, BuyerCompany> = {
   WT: {
     code: "WT",
     name: "White Tusker Private Limited",
+    logo: "/logo-white-tusker.png",
     addressLines: [
       "#1331, 10th Main, 13th Cross,",
       "Eshwara Layout, Indiranagar,",
@@ -36,24 +50,37 @@ export const BUYER_COMPANIES: Record<CompanyCode, BuyerCompany> = {
     gstNumber: "29AAECW4792Q1Z8",
     // WT/26-27/0063 was the last one raised by hand.
     seed: { financialYear: "26-27", nextNumber: 64 },
+    numberPad: 4,
   },
   PL: {
     code: "PL",
+    // Lattice Lane is the trading name; Palm Length LLP is the GST registrant,
+    // which is what has to print in the Invoice To block.
     name: "Palm Length LLP",
-    // TODO: fill in Palm Length's registered address, phone, email and GSTIN -
-    // they print on every PO this entity issues.
-    addressLines: [],
-    phone: "",
-    email: "",
-    gstNumber: "",
-    seed: { financialYear: "26-27", nextNumber: 1 },
+    brand: "Lattice Lane",
+    logo: "/logo-lattice-lane.png",
+    addressLines: [
+      "#1331, 10th Main, 13th Cross,",
+      "Eshwara Layout, Indiranagar,",
+      "Bangalore - 560038",
+    ],
+    phone: "+91 81975 44505",
+    email: "info@latticelane.com",
+    gstNumber: "29ABBFP2006K1ZB",
+    msmeNumber: "KR-03-0133083",
+    // PL/26-27/01 was the last one raised by hand.
+    seed: { financialYear: "26-27", nextNumber: 2 },
+    numberPad: 2,
   },
 };
 
+/** Name to pick the entity by: the trading name where it has one. */
+export const buyerLabel = (code: CompanyCode) =>
+  BUYER_COMPANIES[code].brand ?? BUYER_COMPANIES[code].name;
+
 /**
- * A buying entity is only usable once its printed details exist. Palm Length is
- * still a stub, and a PO with no address or GSTIN is not a valid tax document -
- * better to refuse it than to send a vendor a blank buyer block.
+ * A buying entity is only usable once its printed details exist - a PO with no
+ * address or GSTIN is not a valid tax document.
  */
 export const isBuyerConfigured = (code: CompanyCode) => {
   const buyer = BUYER_COMPANIES[code];
@@ -89,7 +116,7 @@ export function financialYear(date: Date) {
 }
 
 export const formatPoNumber = (company: CompanyCode, fy: string, sequence: number) =>
-  `${company}/${fy}/${String(sequence).padStart(4, "0")}`;
+  `${company}/${fy}/${String(sequence).padStart(BUYER_COMPANIES[company].numberPad, "0")}`;
 
 /** First number a fresh (company, financial year) counter hands out. */
 export const initialSequenceNumber = (company: CompanyCode, fy: string) => {
