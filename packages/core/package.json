@@ -22,6 +22,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
+    "expo-server-sdk": "^6.1.0",
     "fflate": "^0.8.3",
     "nodemailer": "^7.0.7",
     "pdfjs-dist": "^6.2.108",

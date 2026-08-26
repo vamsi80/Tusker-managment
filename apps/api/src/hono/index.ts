@@ -21,6 +21,13 @@ import procurementRfq from "./routes/procurement-rfq";
 import procurementPurchaseOrders from "./routes/procurement-purchase-orders";
 import projectMaterials from "./routes/project-materials";
 import materials from "./routes/materials";
+import { aiRouter } from "./routes/ai";
+import notifications from "./routes/notifications";
+import userRouter from "./routes/user";
+import myspace from "./routes/myspace";
+import activities from "./routes/activities";
+import { leavesRouter } from "./routes/leaves";
+import board from "./routes/board";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { requireCapability } from "./middleware/capability";
@@ -124,6 +131,15 @@ app.use("*", authMiddleware);
 // Attendance API
 app.route("/attendance", attendanceRouter);
 
+// Ported from the Trava backend for the mobile app
+app.route("/ai", aiRouter);
+app.route("/notifications", notifications);
+app.route("/user", userRouter);
+app.route("/myspace", myspace);
+app.route("/activities", activities);
+app.route("/leaves", leavesRouter);
+app.route("/board", board);
+
 // Tasks API
 app.route("/tasks", tasks);
 
@@ -135,6 +151,7 @@ app.route("/projects", projects);
 
 // Workspace Tags API (renamed from /tags to prevent ad-blocker interference)
 app.route("/workspace-tags", tags);
+app.route("/tags", tags);
 
 // Workspaces API
 app.route("/workspaces", workspaces);

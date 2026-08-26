@@ -3,6 +3,8 @@ import { inviteUserSchema, acceptInvitationSchema } from "@tusker/core/lib/zodSc
 import { WorkspaceService } from "@tusker/core/server/services/workspace.service";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { HonoVariables } from "../types";
+import { auth as betterAuth } from "@tusker/core/lib/auth";
+import prisma from "@tusker/db";
 
 const auth = new Hono<{ Variables: HonoVariables }>();
 
@@ -57,6 +59,48 @@ auth.post("/accept-invitation", async (c) => {
             message: err.message || "Failed to accept invitation"
         }, 500);
     }
+});
+
+/**
+ * Better Auth fallback.
+ *
+ * Registered last so the explicit invitation routes above still win. Serving
+ * Better Auth here lets native clients use one origin for auth and data; the
+ * web app keeps serving it at /api/auth/* against the same secret and
+ * database, so either origin issues an equivalent session.
+ *
+ * Better Auth resolves routes against its own basePath (/api/auth), while this
+ * API is mounted under /api/v1, so the path is rewritten before handing over.
+ */
+auth.all("/*", async (c) => {
+    const url = new URL(c.req.raw.url);
+    url.pathname = url.pathname.replace("/api/v1/auth", "/api/auth");
+
+    const res = await betterAuth.handler(new Request(url, c.req.raw));
+
+    // The mobile UI renders user.surname, which Better Auth does not return.
+    const isSessionShaped = url.pathname.includes("/get-session") || url.pathname.includes("/sign-in");
+    if (isSessionShaped && res.status === 200) {
+        try {
+            const data: any = await res.clone().json();
+            if (data?.user?.id) {
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: data.user.id },
+                    select: { surname: true },
+                });
+                if (dbUser?.surname) {
+                    data.user.surname = dbUser.surname;
+                    data.user.name = dbUser.surname;
+                }
+                const headers: Record<string, string> = {};
+                res.headers.forEach((value, key) => { headers[key] = value; });
+                return c.json(data, 200, headers);
+            }
+        } catch (e) {
+            console.error("[AUTH INTERCEPT] Failed to enrich auth response:", e);
+        }
+    }
+    return res;
 });
 
 export default auth;
