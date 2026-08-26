@@ -25,7 +25,7 @@ const dbMocks = vi.hoisted(() => {
 const broadcastProjectUpdate = vi.hoisted(() => vi.fn());
 const pusherTrigger = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/db", () => ({ default: dbMocks }));
+vi.mock("@tusker/db", () => ({ default: dbMocks }));
 vi.mock("@/lib/realtime", () => ({ broadcastProjectUpdate }));
 vi.mock("@/lib/pusher", () => ({ pusherServer: { trigger: pusherTrigger } }));
 vi.mock("../indent/indent.repository", () => ({ IndentRepository: repositoryMocks }));

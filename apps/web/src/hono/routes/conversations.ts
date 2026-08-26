@@ -5,7 +5,7 @@ import { ConversationService } from "@/server/services/conversation/conversation
 import { HonoVariables } from "../types";
 
 import { pusherServer } from "@/lib/pusher";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 const app = new Hono<{ Variables: HonoVariables }>()
   .get("/:workspaceId", async (c) => {

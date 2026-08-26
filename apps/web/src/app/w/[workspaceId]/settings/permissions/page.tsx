@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { AppLoader } from "@/components/shared/app-loader";
 import { coerceRoleOverrides, coerceMemberOverrides } from "@/lib/constants/capabilities";

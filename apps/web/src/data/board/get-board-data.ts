@@ -1,5 +1,5 @@
 import { cache } from "react";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 

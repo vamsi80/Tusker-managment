@@ -10,7 +10,7 @@ services:
       - "3000:3000"
     # Load all environment variables directly from your local .env file (including Supabase URLs!)
     env_file:
-      - apps/web/.env
+      - .env
     environment:
       - NODE_ENV=production
     # Directly starts your optimized production server

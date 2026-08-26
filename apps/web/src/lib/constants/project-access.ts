@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ProjectRole, WorkspaceRole } from "@/generated/prisma";
+import { ProjectRole, WorkspaceRole } from "@tusker/db";
 import { isWorkspaceAdmin } from "./workspace-access";
 
 /**

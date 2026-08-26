@@ -1,4 +1,4 @@
-import { TaskStatus } from "@/generated/prisma";
+import { TaskStatus } from "@tusker/db";
 
 /**
  * Comprehensive filter interface for Tasks

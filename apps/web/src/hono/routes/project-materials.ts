@@ -4,7 +4,7 @@ import { zValidator } from "@/hono/validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 const projectMaterials = new Hono<{ Variables: HonoVariables }>();
 

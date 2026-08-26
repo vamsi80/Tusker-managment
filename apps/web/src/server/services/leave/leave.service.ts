@@ -1,8 +1,8 @@
 import "server-only";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AppError } from "@/lib/errors/app-error";
 import { randomUUID } from "crypto";
-import { AttendanceStatus } from "@/generated/prisma/client";
+import { AttendanceStatus } from "@tusker/db";
 import { addDateOnlyDays, countDateOnlyDays, toDateOnly } from "@/lib/date-utils";
 import { LeaveRepository } from "./leave.repository";
 import { LeaveEvents } from "./leave.events";

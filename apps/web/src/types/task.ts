@@ -1,4 +1,4 @@
-import { TaskStatus as PrismaTaskStatus } from "@/generated/prisma";
+import { TaskStatus as PrismaTaskStatus } from "@tusker/db";
 
 /**
  * TaskStatus — Unified status type

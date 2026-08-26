@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@/hono/validator";
 import { pusherServer } from "@/lib/pusher";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { HonoVariables } from "../types";
 
 const app = new Hono<{ Variables: HonoVariables }>()

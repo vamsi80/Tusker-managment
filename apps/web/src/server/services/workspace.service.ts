@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { generateInviteCode } from "@/utils/get-invite-code";
 import {
   invalidateWorkspace,

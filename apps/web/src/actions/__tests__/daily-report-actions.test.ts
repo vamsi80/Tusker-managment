@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { submitDailyReport } from "../daily-report-actions";
 import { getSession } from "@/lib/auth/require-user";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 describe("Daily Report Actions", () => {
     beforeEach(() => {

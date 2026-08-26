@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { TasksService } from "@/server/services/task/tasks.service";

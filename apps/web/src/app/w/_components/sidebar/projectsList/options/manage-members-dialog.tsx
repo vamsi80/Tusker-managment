@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { tryCatch } from "@/hooks/try-catch";
 import { projectsClient } from "@/lib/api-client/projects";
-import type { ProjectRole } from "@/generated/prisma/client";
+import type { ProjectRole } from "@tusker/db";
 import { type WorkspaceMembersResult } from "@/types/workspace";
 
 

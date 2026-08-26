@@ -1,13 +1,13 @@
 import "server-only";
 import ExcelJS from "exceljs";
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AppError } from "@/lib/errors/app-error";
 import { recordActivity } from "@/lib/audit";
 import { randomUUID } from "crypto";
 import { unstable_cache } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
-import { AttendanceStatus, WorkspaceRole } from "@/generated/prisma/client";
+import { AttendanceStatus, WorkspaceRole } from "@tusker/db";
 import { addDateOnlyDays, floorToUTCDay, getISTDateOnly, toDateOnly } from "@/lib/date-utils";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendanceEvents } from "./attendance.events";

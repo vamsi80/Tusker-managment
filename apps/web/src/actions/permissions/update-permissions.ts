@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { invalidateWorkspace, invalidateWorkspaceMembers } from "@/lib/cache/invalidation";

@@ -1,6 +1,6 @@
 import "server-only";
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AppError } from "@/lib/errors/app-error";
 import { attachmentKeyPrefix } from "@/lib/attachments";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";

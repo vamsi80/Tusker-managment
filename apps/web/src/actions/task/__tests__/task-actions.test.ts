@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TasksService } from "@/server/services/task/tasks.service";
 import { requireUser } from "@/lib/auth/require-user";
 import { getUserPermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 describe("Task Actions", () => {
     beforeEach(() => {

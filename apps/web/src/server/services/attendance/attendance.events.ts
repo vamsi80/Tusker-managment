@@ -1,7 +1,7 @@
 import { recordActivity } from "@/lib/audit";
 import { broadcastAttendanceUpdate } from "@/lib/realtime";
 import { invalidateWorkspaceAttendance } from "@/lib/cache/invalidation";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 export class AttendanceEvents {
     private static async getInvolvedUsers(workspaceId: string, memberUserId: string) {

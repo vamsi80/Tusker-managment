@@ -3,7 +3,7 @@
  * Run this to check if you're hitting Neon's connection limits
  */
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 async function runDiagnostics() {
     console.log("🔍 Running Database Connection Diagnostics...\n");

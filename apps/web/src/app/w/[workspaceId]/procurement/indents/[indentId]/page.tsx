@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { redirect, notFound } from "next/navigation";
 import { IndentDetailClient } from "./_components/indent-detail-client";
 import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";

@@ -13,7 +13,7 @@
  *   // Use chain.projectMemberId for task createdById, assigneeId, reviewerId
  */
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { requireUser } from "@/lib/auth/require-user";
 
 export interface MemberChain {

@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import path from "path";
+import dotenv from "dotenv";
+
+// The monorepo keeps a single .env at the repo root, shared by every app and
+// package. Next only looks inside this app's directory, so point it upward.
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
@@ -66,7 +72,7 @@ const nextConfig: NextConfig = {
       protocol: "https",
     }]
   },
-  transpilePackages: ['better-auth'],
+  transpilePackages: ['better-auth', '@tusker/db'],
 };
 
 export default withBundleAnalyzer(nextConfig);

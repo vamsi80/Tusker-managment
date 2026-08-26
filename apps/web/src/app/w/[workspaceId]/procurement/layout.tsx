@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { redirect } from "next/navigation";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProcurementTabs } from "./_components/procurement-tabs";

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AttendanceService } from "@/server/services/attendance";
 
 /**

@@ -1,4 +1,4 @@
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { ProjectProcurementClient } from "./project-procurement-client";
 import { serializeIndentForClient } from "@/lib/procurement/serialize-indent";
 

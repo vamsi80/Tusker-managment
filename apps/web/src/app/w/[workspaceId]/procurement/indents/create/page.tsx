@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { redirect } from "next/navigation";
 import { CreateWorkspaceIndentClient } from "./_components/create-workspace-indent-client";
 import { ArrowLeft } from "lucide-react";

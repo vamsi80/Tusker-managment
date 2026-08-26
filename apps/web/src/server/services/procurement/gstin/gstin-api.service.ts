@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors/app-error";
 import { type GstinLookupData, validateGstin } from "@/lib/procurement/gstin";

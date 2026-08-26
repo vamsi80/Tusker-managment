@@ -5,7 +5,7 @@ import { deleteTag } from "../delete-tag";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { tagNameExists } from "@/data/tag/get-tags";
 import { getSession } from "@/lib/auth/require-user";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 describe("Tag Actions", () => {
     beforeEach(() => {

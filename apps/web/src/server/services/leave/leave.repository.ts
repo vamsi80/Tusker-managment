@@ -1,4 +1,4 @@
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { CreateLeaveParams, LeaveStatus, LeaveType } from "@/types/leave";
 
 export class LeaveRepository {

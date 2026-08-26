@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ProjectService } from "@/server/services/project";
 import { requireUser } from "@/lib/auth/require-user";
 import { AppLoader } from "@/components/shared/app-loader";
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { CreateIndentPageClient } from "./_components/create-indent-page-client";
 import { redirect } from "next/navigation";
 

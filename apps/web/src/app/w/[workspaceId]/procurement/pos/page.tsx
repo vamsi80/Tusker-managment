@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { Button } from "@/components/ui/button";
 import {
   BUYER_COMPANIES,

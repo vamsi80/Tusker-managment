@@ -6,8 +6,8 @@ import { AppError } from "@/lib/errors/app-error";
 import { lookupGstin, VendorService } from "@/server/services/procurement";
 import { validateGstin } from "@/lib/procurement/gstin";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
-import { Prisma } from "@/generated/prisma";
+import prisma from "@tusker/db";
+import { Prisma } from "@tusker/db";
 
 const procurementVendors = new Hono<{ Variables: HonoVariables }>();
 

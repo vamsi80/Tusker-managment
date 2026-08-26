@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 
 // Ensure this test runs against the real DB since it tests pg_trgm logic
-vi.unmock("@/lib/db");
+vi.unmock("@tusker/db");
 
-import { PrismaClient } from "@/generated/prisma";
+import { PrismaClient } from "@tusker/db";
 import { VendorService } from "../vendor/vendor.service";
 import { VendorRepository } from "../vendor/vendor.repository";
 

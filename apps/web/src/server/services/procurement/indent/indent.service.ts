@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AppError } from "@/lib/errors/app-error";
 import { broadcastProjectUpdate } from "@/lib/realtime";
 import { pusherServer } from "@/lib/pusher";

@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const gstinLookupUsage = { findUnique: vi.fn(), upsert: vi.fn() };
 
-vi.mock("@/lib/db", () => ({ default: { gstinLookupUsage } }));
+vi.mock("@tusker/db", () => ({ default: { gstinLookupUsage } }));
 vi.mock("@/lib/env", () => ({ env: { GSTIN_API_KEY: "gak_test" } }));
 
 const { lookupGstin } = await import("../gstin/gstin-api.service");

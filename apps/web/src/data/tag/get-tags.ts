@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { CacheTags } from "@/data/cache-tags";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 /**
  * Get all tags for a workspace

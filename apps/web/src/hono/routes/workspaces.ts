@@ -4,7 +4,7 @@ import { WorkspaceService } from "@/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@/lib/zodSchemas";
 import { AppError } from "@/lib/errors/app-error";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 const workspaces = new Hono<{ Variables: HonoVariables }>();
 

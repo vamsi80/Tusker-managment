@@ -7,7 +7,7 @@ vi.mock("@/server/services/attendance", () => ({
     },
 }));
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AttendanceService } from "@/server/services/attendance";
 import kiosk from "../kiosk";
 

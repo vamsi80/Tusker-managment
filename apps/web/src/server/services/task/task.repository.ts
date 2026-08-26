@@ -1,7 +1,7 @@
 import "server-only";
 
-import prisma from "@/lib/db";
-import { WorkspaceRole, ProjectRole } from "@/generated/prisma";
+import prisma from "@tusker/db";
+import { WorkspaceRole, ProjectRole } from "@tusker/db";
 import {
   getTaskSelect,
   buildOrderBy,

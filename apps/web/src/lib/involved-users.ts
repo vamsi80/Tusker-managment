@@ -1,4 +1,4 @@
-import prisma from "./db";
+import prisma from "@tusker/db";
 
 /**
  * Fetches all unique User IDs involved in a task.

@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { getSession } from "@/lib/auth/require-user";
 
 /**

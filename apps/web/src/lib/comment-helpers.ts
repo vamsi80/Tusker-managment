@@ -1,4 +1,4 @@
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 /**
  * Check if a user is authorized to comment on a task

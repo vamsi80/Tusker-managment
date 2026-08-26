@@ -5,7 +5,7 @@ import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { VendorRepository, IndentService, IndentRepository } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
 

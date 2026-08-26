@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { requireUser, getSession } from "@/lib/auth/require-user";
 import { resolveCapabilities, type CapabilityMap } from "@/lib/constants/capabilities";
 

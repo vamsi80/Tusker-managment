@@ -4,7 +4,7 @@ const vendor = { findFirst: vi.fn(), delete: vi.fn() };
 const vendorQuote = { count: vi.fn() };
 const indent = { count: vi.fn() };
 
-vi.mock("@/lib/db", () => ({ default: { vendor, vendorQuote, indent } }));
+vi.mock("@tusker/db", () => ({ default: { vendor, vendorQuote, indent } }));
 
 const { VendorService } = await import("../vendor/vendor.service");
 

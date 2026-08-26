@@ -248,7 +248,7 @@ export class CommentService {
         createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
         subTask: perms.isWorkspaceAdmin ? {} : where.task
       }, limit, cursor),
-      import("@/lib/db").then(m => m.default.notification.findMany({
+      import("@tusker/db").then(m => m.default.notification.findMany({
         where: {
           userId,
           workspaceId,
@@ -271,7 +271,7 @@ export class CommentService {
 
     const taskMap = new Map<string, any>();
     if (taskIdsToFetch.size > 0) {
-      const db = await import("@/lib/db").then(m => m.default);
+      const db = await import("@tusker/db").then(m => m.default);
       const tasks = await db.task.findMany({
         where: { id: { in: Array.from(taskIdsToFetch) } },
         select: {

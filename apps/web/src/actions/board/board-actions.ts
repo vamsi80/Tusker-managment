@@ -1,10 +1,10 @@
 "use server";
 
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { revalidatePath } from "next/cache";
-import { BoardStatus } from "@/generated/prisma/client";
+import { BoardStatus } from "@tusker/db";
 import { ApiResponse } from "@/lib/types";
 
 export async function createBoardItem(workspaceId: string, memberId: string, note: string): Promise<ApiResponse> {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createBoardItem, toggleBoardItemStatus, deleteBoardItem } from "../board-actions";
 import { getSession } from "@/lib/auth/require-user";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 describe("Board Actions", () => {
     beforeEach(() => {

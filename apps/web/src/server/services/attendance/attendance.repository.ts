@@ -1,4 +1,4 @@
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 export class AttendanceRepository {
     static async findByMemberAndDate(workspaceMemberId: string, date: Date) {

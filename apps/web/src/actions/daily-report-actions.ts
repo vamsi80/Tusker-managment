@@ -1,7 +1,7 @@
 "use server";
 
 import { getSession } from "@/lib/auth/require-user";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { revalidateTag } from "next/cache";
 
 import { dailyReportSchema, DailyReportFormType } from "@/lib/zodSchemas";

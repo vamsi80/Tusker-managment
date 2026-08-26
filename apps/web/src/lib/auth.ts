@@ -4,7 +4,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { env } from "./env";
 import { emailOTP, admin, phoneNumber } from "better-auth/plugins"
-import prisma from "./db";
+import prisma from "@tusker/db";
 import { sendEmail } from "./email";
 import path from "path";
 

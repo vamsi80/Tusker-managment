@@ -2,8 +2,11 @@ import { vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-// Mock Prisma models explicitly within the factory to avoid hoisting issues
-vi.mock("@/lib/db", () => {
+// Mock Prisma models explicitly within the factory to avoid hoisting issues.
+// @tusker/db also re-exports the generated enums (AttendanceStatus, WorkspaceRole,
+// ...), so keep the real module's exports and swap out only the client instance.
+vi.mock("@tusker/db", async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>();
     const mockModel = (name: string) => ({
         count: vi.fn(),
         findUnique: vi.fn(),
@@ -40,6 +43,7 @@ vi.mock("@/lib/db", () => {
     };
 
     return {
+        ...actual,
         default: prismaMock,
     };
 });

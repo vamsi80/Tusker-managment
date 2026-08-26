@@ -1,4 +1,4 @@
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { AppError } from "@/lib/errors/app-error";
 import {
   BUYER_COMPANIES,

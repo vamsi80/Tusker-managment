@@ -1,4 +1,4 @@
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { CreateRfqClient } from "./_components/create-rfq-client";

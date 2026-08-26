@@ -5,7 +5,7 @@ import { HonoVariables } from "../types";
 import { AppError } from "@/lib/errors/app-error";
 import { RFQService } from "@/server/services/procurement";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 const procurementRfq = new Hono<{ Variables: HonoVariables }>();
 

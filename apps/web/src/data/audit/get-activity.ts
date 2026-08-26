@@ -1,5 +1,5 @@
 import "server-only";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 
 /**

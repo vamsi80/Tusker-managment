@@ -1,7 +1,7 @@
 import { invalidateTaskMutation } from "@/lib/cache/invalidation";
 import { recordActivity } from "@/lib/audit";
 import { getTaskInvolvedUserIds } from "@/lib/involved-users";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 async function getMemberName(memberId: string | null): Promise<string | null> {
   if (!memberId) return null;

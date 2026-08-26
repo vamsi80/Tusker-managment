@@ -13,7 +13,7 @@ const dbMocks = vi.hoisted(() => {
 
 const nextVendorId = vi.hoisted(() => vi.fn().mockResolvedValue("VEN-0001"));
 
-vi.mock("@/lib/db", () => ({ default: dbMocks }));
+vi.mock("@tusker/db", () => ({ default: dbMocks }));
 vi.mock("../procurement-entity-id", () => ({ nextVendorId }));
 
 import { VendorService } from "../vendor/vendor.service";

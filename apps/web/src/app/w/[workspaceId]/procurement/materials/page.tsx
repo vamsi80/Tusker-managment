@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import db from "@/lib/db";
+import db from "@tusker/db";
 import { MaterialsHubClient } from "../_components/materials-hub-client";
 import { redirect } from "next/navigation";
 

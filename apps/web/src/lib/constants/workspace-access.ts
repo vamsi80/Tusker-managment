@@ -1,6 +1,6 @@
 import "server-only";
 
-import { WorkspaceRole } from "@/generated/prisma";
+import { WorkspaceRole } from "@tusker/db";
 
 /**
  * Workspace Access Control System

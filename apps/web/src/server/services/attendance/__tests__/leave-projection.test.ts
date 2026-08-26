@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 
-import { AttendanceStatus } from "@/generated/prisma/client";
+import { AttendanceStatus } from "@tusker/db";
 import { getVisibleThrough } from "../attendance.service";
 
 // 2026-08-14 12:00 UTC → the IST day is still 2026-08-14

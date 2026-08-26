@@ -1,5 +1,5 @@
 import { recordActivity } from "@/lib/audit";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 export class LeaveEvents {
     private static async getInvolvedUsers(workspaceId: string, requesterMemberId: string) {

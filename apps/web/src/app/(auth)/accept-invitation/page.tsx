@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import prisma from "@/lib/db";
+import prisma from "@tusker/db";
 
 interface PageProps {
     searchParams: Promise<{
