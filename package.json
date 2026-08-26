@@ -3,11 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter web dev",
+    "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
     "build": "pnpm -r build",
-    "start": "pnpm --filter web start",
+    "start": "pnpm -r --parallel start",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test -- --run",
+    "test:watch": "pnpm -r --parallel test",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @tusker/db db:migrate",
+    "db:push": "pnpm --filter @tusker/db db:push",
+    "db:studio": "pnpm --filter @tusker/db db:studio",
+    "db:seed": "pnpm --filter @tusker/db db:seed",
+    "db:generate": "pnpm --filter @tusker/db exec prisma generate"
   },
   "packageManager": "pnpm@10.18.1+sha512.77a884a165cbba2d8d1c19e3b4880eee6d2fcabd0d879121e282196b80042351d5eb3ca0935fa599da1dc51265cc68816ad2bddd2a2de5ea9fdf92adbec7cd34"
 }
