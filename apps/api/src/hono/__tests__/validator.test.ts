@@ -27,7 +27,7 @@ describe("zValidator", () => {
 
   it("reports a rejected body as a string", async () => {
     const res = await post({ name: "x" });
-    const json = await res.json();
+    const json = (await res.json()) as { error?: string };
 
     expect(res.status).toBe(400);
     expect(typeof json.error).toBe("string");

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Prisma's generated client is gitignored, and every package imports it
+      # through @tusker/db, so it has to exist before typecheck or tests run.
+      # The postinstall in packages/db handles it.
+      - run: pnpm install --frozen-lockfile
+
+      # apps/web is typechecked by `next build`; the other packages have no
+      # build step, so check them explicitly.
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test
+        run: pnpm -r test -- --run
+        env:
+          # Enough to satisfy env validation; no live services are contacted.
+          SKIP_ENV_VALIDATION: "1"
+          DATABASE_URL: postgresql://user:password@localhost:5432/postgres
+          DIRECT_URL: postgresql://user:password@localhost:5432/postgres
+          BETTER_AUTH_SECRET: ci_dummy_secret_at_least_32_characters_long
+          BETTER_AUTH_URL: http://localhost:3000
+
+      - name: Build
+        run: pnpm -r build
+        env:
+          SKIP_ENV_VALIDATION: "1"
+          DATABASE_URL: postgresql://user:password@localhost:5432/postgres
+          DIRECT_URL: postgresql://user:password@localhost:5432/postgres
+          BETTER_AUTH_SECRET: ci_dummy_secret_at_least_32_characters_long
+          BETTER_AUTH_URL: http://localhost:3000

@@ -10,9 +10,12 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(1),
     BETTER_AUTH_URL: z.string().url(),
 
-    // OAuth Providers (Required per user instructions)
-    AUTH_GITHUB_CLIENT_ID: z.string().min(1),
-    AUTH_GITHUB_SECRET: z.string().min(1),
+    // OAuth Providers. GitHub is optional: the provider is declared in the auth
+    // config but has no credentials configured, and marking it required makes
+    // every process (web AND api) refuse to boot in production over a sign-in
+    // method nobody uses.
+    AUTH_GITHUB_CLIENT_ID: z.string().min(1).optional(),
+    AUTH_GITHUB_SECRET: z.string().min(1).optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
 
