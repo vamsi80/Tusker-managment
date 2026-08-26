@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules
 /.pnpm
 /.pnpm-store
 .pnp.*
@@ -15,7 +15,7 @@
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 /build
 /dist
@@ -46,7 +46,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Prisma & DB
-/src/generated/prisma
+**/src/generated/prisma
 *.db
 *.db-journal
 
@@ -73,8 +73,8 @@ next-env.d.ts
 *.sw?
 
 # Generated OCR/PDF worker assets (scripts/fetch-ocr-assets.mjs)
-public/tesseract/
-public/pdf/
+**/public/tesseract/
+**/public/pdf/
 
 # database backups (contain live data)
 /backups

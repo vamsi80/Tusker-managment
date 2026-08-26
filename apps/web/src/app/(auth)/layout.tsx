@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import Image from 'next/image'
-import logo from '@/assets/logo.png'
+import logo from '@/assets/logo-white-tusker.png'
 
 const AuthLayout = ({ children }: { children:ReactNode}) => {
   return (
