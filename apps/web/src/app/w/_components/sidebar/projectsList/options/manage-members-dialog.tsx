@@ -22,7 +22,7 @@ import { Check, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { tryCatch } from "@/hooks/try-catch";
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import type { ProjectRole } from "@tusker/db";
 import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 

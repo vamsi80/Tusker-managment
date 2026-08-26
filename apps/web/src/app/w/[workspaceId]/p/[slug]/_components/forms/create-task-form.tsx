@@ -15,7 +15,7 @@ import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { getColorFromString } from "@tusker/core/lib/colors/project-colors";
 
 interface iAppProps {

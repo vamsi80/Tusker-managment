@@ -15,8 +15,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { workspacesClient } from "@/lib/api-client/workspaces";
-import { apiFetch } from "@/lib/api-client/fetch-wrapper";
+import { workspacesClient } from "@tusker/api-client/workspaces";
+import { apiFetch } from "@tusker/api-client/fetch-wrapper";
 import { toast } from "@/lib/toast";
 
 export type Option = {

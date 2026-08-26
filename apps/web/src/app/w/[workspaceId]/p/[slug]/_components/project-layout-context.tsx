@@ -1,7 +1,7 @@
 "use client";
 
 import { useContext, ReactNode, useState, useEffect, useCallback } from "react";
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import { ProjectMembersType } from "@tusker/core/types/project";
 import type { UserPermissionsType } from "@tusker/core/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";

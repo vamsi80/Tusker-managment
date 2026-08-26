@@ -14,7 +14,7 @@ import { taskSchema, TaskSchemaType } from "@tusker/core/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "@/lib/toast";
 import slugify from "slugify";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { ProjectReviewer } from "@tusker/core/types/project";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";

@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FullProjectData } from "@tusker/core/types/project";
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import type { WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";

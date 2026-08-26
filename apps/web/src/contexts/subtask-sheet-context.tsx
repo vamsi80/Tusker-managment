@@ -103,7 +103,7 @@ export function SubTaskSheetProvider({ children }: { children: React.ReactNode }
             setIsLoading(true);
             setSubTask(null); 
 
-            import("@/lib/api-client").then(({ apiClient }) => {
+            import("@tusker/api-client").then(({ apiClient }) => {
                 apiClient.tasks.getTaskBySlug(workspaceId, subtaskSlug).then(result => {
                     if (result.success && result.data) {
                         console.log("DEBUG [SubTaskSheet] Data fetched successfully for:", subtaskSlug);

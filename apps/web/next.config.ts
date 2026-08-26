@@ -72,7 +72,7 @@ const nextConfig: NextConfig = {
       protocol: "https",
     }]
   },
-  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core'],
+  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core', '@tusker/api-client'],
 
   // /api/v1/* is served by the standalone API (apps/api). Proxying through Next
   // keeps it same-origin for the browser: no CORS preflight, no SameSite=None,

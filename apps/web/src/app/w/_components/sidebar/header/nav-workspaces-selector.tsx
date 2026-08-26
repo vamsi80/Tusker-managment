@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMounted } from "@/hooks/use-mounted";
 import type { WorkspacesType } from "@tusker/core/types/workspace";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 
 interface Props {
   data: WorkspacesType;

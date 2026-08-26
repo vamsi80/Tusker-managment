@@ -7,7 +7,7 @@ import { SubtaskSheetNavBar } from "./subtask-sheet-navbar";
 import { MessagesTab } from "./messages-tab";
 import { ActivityTab } from "./activity-tab";
 import { Tabs } from "@/components/ui/tabs";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import type { SubTaskType } from "@tusker/core/types/task";
 import { toast } from "@/lib/toast";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";

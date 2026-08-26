@@ -10,7 +10,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { DailyReportFormType } from "@tusker/core/lib/zodSchemas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import { projectSchema, ProjectSchemaType } from "@tusker/core/lib/zodSchemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, Resolver } from "react-hook-form";

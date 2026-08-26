@@ -14,7 +14,7 @@ import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { cn } from "@/lib/utils";
 import { ReportDetailModal } from "./report-detail-sheet";
 import { Loader2, CalendarIcon, X, ChevronDown, Clock, Search, ChevronRight, ChevronsUpDown, ChevronsDownUp } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { useWorkspaceMemberStore, useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
 interface Props {

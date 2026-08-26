@@ -29,7 +29,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { toast } from "@/lib/toast";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 
 interface SubTaskListProps {
     task: TaskWithSubTasks;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { workspacesClient } from "@/lib/api-client/workspaces";
+import { workspacesClient } from "@tusker/api-client/workspaces";
 import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";

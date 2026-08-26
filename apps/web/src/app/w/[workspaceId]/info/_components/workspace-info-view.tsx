@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { AppLoader } from "@/components/shared/app-loader";
 import { WorkspaceData } from "@tusker/core/types/workspace";
 import { WorkspaceInfoForm } from "./workspace-info-form";

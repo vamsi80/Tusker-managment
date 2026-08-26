@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, CheckCircle2 } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import dynamic from "next/dynamic";
 
 const DailyReportModal = dynamic(() => import("./DailyReportModal").then(mod => mod.DailyReportModal), {

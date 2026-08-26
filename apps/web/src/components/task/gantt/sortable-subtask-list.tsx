@@ -4,7 +4,7 @@ import { toast } from "@/lib/toast";
 import { format } from "date-fns";
 import { GanttSubtask } from "./types";
 import { useEffect, useState } from "react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { Badge } from "@/components/ui/badge";
 import { CornerDownRight, GripVertical, Link2 } from "lucide-react";
 import { DraggableSubtaskBar } from "./draggable-subtask-bar";

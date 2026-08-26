@@ -1,0 +1,15 @@
+{
+  "name": "@tusker/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@tusker/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

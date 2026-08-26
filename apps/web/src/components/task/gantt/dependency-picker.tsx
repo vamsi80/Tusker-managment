@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 
 interface DependencyPickerProps {
   open: boolean;

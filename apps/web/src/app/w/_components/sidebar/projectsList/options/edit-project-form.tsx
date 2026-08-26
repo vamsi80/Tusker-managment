@@ -42,7 +42,7 @@ import {
     CommandItem,
 } from "@/components/ui/command";
 import { cn, toTitleCase } from "@/lib/utils";
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 

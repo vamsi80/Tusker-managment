@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { workspacesClient } from "@/lib/api-client/workspaces";
+import { workspacesClient } from "@tusker/api-client/workspaces";
 
 export interface TagOption {
   id: string;

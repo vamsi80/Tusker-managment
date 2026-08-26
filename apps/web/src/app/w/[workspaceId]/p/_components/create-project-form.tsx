@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type WorkspaceMembersResult } from "@tusker/core/types/workspace";
 
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import { projectSchema, ProjectSchemaType } from "@tusker/core/lib/zodSchemas";
 import { Badge } from "@/components/ui/badge";
 import { Check, Loader2, Plus, PlusIcon, SparkleIcon } from "lucide-react";

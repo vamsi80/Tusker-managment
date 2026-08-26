@@ -15,7 +15,7 @@ import { useConfetti } from '@/hooks/use-confetti'
 import { tryCatch } from '@/hooks/try-catch'
 import { Textarea } from '@/components/ui/textarea'
 import slugify from "slugify";
-import { apiClient } from '@/lib/api-client'
+import { apiClient } from '@tusker/api-client'
 
 import { AppLoader } from '@/components/shared/app-loader'
 

@@ -11,7 +11,7 @@ import {
     TooltipContent,
     TooltipTrigger
 } from "@/components/ui/tooltip";
-import { workspacesClient } from "@/lib/api-client/workspaces";
+import { workspacesClient } from "@tusker/api-client/workspaces";
 import { authClient } from "@/lib/auth-client";
 
 export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { workspaceId: string, initialUnread?: any[], initialRead?: any[], initialPeopleCount?: number }) {

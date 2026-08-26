@@ -7,7 +7,7 @@ import { Send, Loader2, ChevronDown, MessageSquare } from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { toast } from "@/lib/toast";
 
 interface MessagesTabProps {

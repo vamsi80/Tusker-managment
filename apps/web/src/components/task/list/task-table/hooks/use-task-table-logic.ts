@@ -11,7 +11,7 @@ import {
 } from "@/components/task/shared/types";
 import type { SubTaskType } from "@tusker/core/types/task";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { ProjectLayoutContext } from "@/app/w/[workspaceId]/p/[slug]/_components/project-layout-context-object";
 import { useContext } from "react";
 import { useProjectTags } from "@/hooks/use-project-tags";

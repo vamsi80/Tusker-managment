@@ -131,6 +131,9 @@ importers:
       '@tesseract.js-data/eng':
         specifier: ^1.0.0
         version: 1.0.0
+      '@tusker/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@tusker/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -312,6 +315,16 @@ importers:
       vitest:
         specifier: ^4.0.15
         version: 4.0.15(@types/node@20.19.25)(happy-dom@20.0.8)(jiti@2.6.1)(lightningcss@1.30.1)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0)
+
+  packages/api-client:
+    dependencies:
+      '@tusker/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
   packages/core:
     dependencies:

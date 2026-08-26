@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Check, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";

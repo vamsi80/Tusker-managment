@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { WorkspaceMemberRow, SlimMember } from '@tusker/core/types/workspace';
-import { apiClient } from '@/lib/api-client';
+import { apiClient } from '@tusker/api-client';
 import { useEffect } from 'react';
 import { pusherClient } from '@tusker/core/lib/pusher';
 import { TEAM_UPDATE } from '@tusker/core/lib/realtime';

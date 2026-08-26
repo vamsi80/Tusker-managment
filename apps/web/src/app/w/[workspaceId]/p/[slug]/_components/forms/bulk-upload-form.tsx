@@ -14,7 +14,7 @@ import { ApiResponse } from "@/lib/types";
 
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { useProjectLayout } from "../project-layout-context";
 
 import { useEffect } from "react";

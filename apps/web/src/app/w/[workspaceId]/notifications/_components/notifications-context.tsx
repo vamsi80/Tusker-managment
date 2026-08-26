@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import { authClient } from "@/lib/auth-client";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import { toast } from "@/lib/toast";

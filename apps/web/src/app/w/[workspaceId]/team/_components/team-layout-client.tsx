@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { workspacesClient } from "@/lib/api-client/workspaces";
+import { workspacesClient } from "@tusker/api-client/workspaces";
 
 interface TeamLayoutClientProps {
     workspaceId: string;

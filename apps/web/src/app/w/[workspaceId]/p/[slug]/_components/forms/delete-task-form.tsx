@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { tryCatch } from "@/hooks/try-catch";
-import { apiClient, type ApiResponse } from "@/lib/api-client";
+import { apiClient, type ApiResponse } from "@tusker/api-client";
 import { TaskWithSubTasks } from "../list/types";
 import { useReloadView } from "@/hooks/use-reload-view";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";

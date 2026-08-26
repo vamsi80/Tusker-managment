@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { WorkspaceLayoutData } from '@tusker/core/types/workspace';
-import { workspacesClient } from '@/lib/api-client/workspaces';
+import { workspacesClient } from '@tusker/api-client/workspaces';
 import { pubsub, EVENTS } from '@/lib/pubsub';
 
 interface WorkspaceLayoutState {

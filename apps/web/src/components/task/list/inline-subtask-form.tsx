@@ -8,13 +8,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Check, Loader2 } from "lucide-react";
-import { apiClient, type ApiResponse } from "@/lib/api-client";
+import { apiClient, type ApiResponse } from "@tusker/api-client";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "@/lib/toast";
 import slugify from "slugify";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { ProjectMembersType } from "@tusker/core/types/project";
-import { projectsClient } from "@/lib/api-client/projects";
+import { projectsClient } from "@tusker/api-client/projects";
 import { SubTaskStatus, STATUS_OPTIONS, subTaskSchema } from "@tusker/core/lib/zodSchemas";
 import { getStatusColors } from "@tusker/core/lib/colors/status-colors";
 import { ColumnVisibility } from "../shared/column-visibility";

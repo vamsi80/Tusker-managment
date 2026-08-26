@@ -10,7 +10,7 @@ import { KanbanCard } from "./kanban-card";
 import { KanbanColumn } from "./kanban-column";
 import type { TaskFilters, ProjectOption } from "../shared/types";
 import { STATUS_COLORS, STATUS_LABELS } from "@tusker/core/lib/colors/status-colors";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@tusker/api-client";
 import {
   GlobalFilterToolbar,
   ParentTaskOption,

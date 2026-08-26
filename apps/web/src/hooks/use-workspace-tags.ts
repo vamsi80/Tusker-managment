@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useFilterStore } from "@/lib/store/filter-store";
-import { workspacesClient } from "@/lib/api-client/workspaces";
+import { workspacesClient } from "@tusker/api-client/workspaces";
 
 export function useWorkspaceTags(workspaceId: string) {
   const { tags, setTags, tagsFetched } = useFilterStore();
