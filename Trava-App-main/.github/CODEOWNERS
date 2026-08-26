@@ -1,0 +1,21 @@
+# CODEOWNERS — default review ownership for the Trava-App monorepo.
+# https://docs.github.com/en/repositories/managing-your-repositories-permissions-and-collaborations/about-code-owners
+
+# Everything is owned by the repository maintainer by default.
+*                               @mohammedsufiyandeveloper
+
+# Backend
+/apps/backend/                  @mohammedsufiyandeveloper
+
+# Mobile
+/apps/mobile/                   @mohammedsufiyandeveloper
+
+# CI / repo configuration (extra scrutiny)
+/.github/                       @mohammedsufiyandeveloper
+
+# Legacy procurement/inventory code pending rewrite (see docs/TECH_DEBT.md)
+/apps/backend/src/actions/procurement/   @mohammedsufiyandeveloper
+/apps/backend/src/actions/inventory/     @mohammedsufiyandeveloper
+/apps/backend/src/data/procurement/      @mohammedsufiyandeveloper
+/apps/backend/src/data/inventory/        @mohammedsufiyandeveloper
+/apps/backend/src/lib/procurement/       @mohammedsufiyandeveloper

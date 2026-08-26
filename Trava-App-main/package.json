@@ -1,0 +1,29 @@
+{
+  "name": "trava-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trava-App monorepo: Hono/Prisma backend and Expo React Native mobile app.",
+  "engines": {
+    "node": ">=20 <25",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev:backend": "pnpm --filter @trava/backend dev",
+    "dev:mobile": "pnpm --filter @trava/mobile start",
+    "build": "pnpm --filter @trava/backend build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm --filter @trava/backend test",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "better-sqlite3",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}
