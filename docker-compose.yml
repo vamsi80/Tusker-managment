@@ -1,17 +1,33 @@
 services:
-  # Tusker Next.js Application
-  app:
+  # Standalone Hono API. Also the origin the mobile app talks to directly.
+  api:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: tusker-app
+      dockerfile: apps/api/Dockerfile
+    container_name: tusker-api
     restart: always
     ports:
-      - "3000:3000"
-    # Load all environment variables directly from your local .env file (including Supabase URLs!)
+      - "4000:4000"
     env_file:
       - .env
     environment:
       - NODE_ENV=production
-    # Directly starts your optimized production server
-    command: ["npx", "next", "start"]
+      - API_PORT=4000
+
+  # Next.js web app. Proxies /api/v1/* to the api service, so the browser
+  # stays same-origin and the session cookie is forwarded untouched.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: tusker-web
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://api:4000
+    depends_on:
+      - api
