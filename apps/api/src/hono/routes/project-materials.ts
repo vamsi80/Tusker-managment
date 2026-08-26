@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 
 const projectMaterials = new Hono<{ Variables: HonoVariables }>();
@@ -36,7 +36,7 @@ projectMaterials.get("/:projectId/materials", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -102,7 +102,7 @@ projectMaterials.post("/:projectId/materials", zValidator("json", CreateMaterial
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -150,7 +150,7 @@ projectMaterials.patch("/:projectId/materials/:itemId", zValidator("json", Updat
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -195,7 +195,7 @@ projectMaterials.delete("/:projectId/materials/:itemId", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess) {
     throw AppError.Forbidden("Access denied to this workspace");
   }

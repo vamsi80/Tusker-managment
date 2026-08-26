@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { lookupGstin, VendorService } from "@tusker/core/server/services/procurement/index";
 import { validateGstin } from "@tusker/core/lib/procurement/gstin";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 import { Prisma } from "@tusker/db";
 
@@ -72,7 +72,7 @@ const GstinLookupSchema = z.object({
 
 // Permission middleware helper
 const checkProcurementPerms = async (workspaceId: string, userId: string) => {
-  const perms = await getWorkspacePermissions(workspaceId, userId);
+  const perms = await fetchWorkspacePermissions(workspaceId, userId);
   if (perms.workspaceRole !== "PROCUREMENT" && !perms.isWorkspaceAdmin) {
     throw AppError.Forbidden("Insufficient permissions. Requires ADMIN or PROCUREMENT role.");
   }
@@ -120,7 +120,7 @@ procurementVendors.get("/materials/coverage", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -214,7 +214,7 @@ procurementVendors.get("/", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   // Any member can read vendors
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -244,7 +244,7 @@ procurementVendors.get("/:id", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -270,7 +270,7 @@ procurementVendors.patch("/:id", zValidator("json", UpdateVendorSchema), async (
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.isWorkspaceAdmin) {
     throw AppError.Forbidden("Only Workspace Admins can edit supplier / contractor details");
   }
@@ -319,7 +319,7 @@ procurementVendors.delete("/:id", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (perms.workspaceRole !== "OWNER" && !perms.isWorkspaceAdmin) {
     throw AppError.Forbidden("Only Workspace Admins or Owners can delete suppliers / contractors");
   }
@@ -347,7 +347,7 @@ procurementVendors.get("/:id/capabilities", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole) && !perms.isWorkspaceAdmin) {
     throw AppError.Forbidden("Insufficient permissions");
   }

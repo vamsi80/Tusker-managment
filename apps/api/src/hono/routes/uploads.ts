@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { randomUUID } from "crypto";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { fetchUserPermissions } from "@tusker/core/permissions";
 import { TaskRepository } from "@tusker/core/server/services/task/task.repository";
 import { presignUpload, presignDownload, isStorageConfigured } from "@tusker/core/lib/storage/s3";
 import { presignUploadSchema } from "@tusker/core/lib/zodSchemas";
@@ -19,7 +19,7 @@ async function authorizeTask(workspaceId: string, taskId: string, userId: string
         throw AppError.Forbidden("Task does not belong to this project");
     }
 
-    const permissions = await getUserPermissions(workspaceId, task.projectId, userId);
+    const permissions = await fetchUserPermissions(workspaceId, task.projectId, userId);
     if (!permissions.workspaceMemberId) throw AppError.Forbidden("You do not have access to this workspace");
     return { task, permissions };
 }

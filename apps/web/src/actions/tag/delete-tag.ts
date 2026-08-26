@@ -1,54 +1,11 @@
 "use server";
 
-import prisma from "@tusker/db";
-
-import { z } from "zod";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
-import { invalidateWorkspaceTags } from "@tusker/core/lib/cache/invalidation";
+import { TagService, deleteTagSchema } from "@tusker/core/server/services/tag/tag.service";
 import { getSession } from "@/lib/auth/require-user";
+import { z } from "zod";
 
-const deleteTagSchema = z.object({
-    tagId: z.string(),
-    workspaceId: z.string(),
-});
-
-export async function deleteTag(data: z.infer<typeof deleteTagSchema>) {
-    try {
-        const session = await getSession();
-        if (!session) throw new Error("Unauthorized");
-        // Validate input
-        const validatedData = deleteTagSchema.parse(data);
-
-        const permissions = await getWorkspacePermissions(validatedData.workspaceId);
-        if (!permissions.isWorkspaceAdmin) {
-            return {
-                success: false,
-                error: "You don't have permission to delete tags",
-            };
-        }
-
-        await prisma.tag.delete({
-            where: {
-                id: validatedData.tagId,
-            },
-        });
-
-        await invalidateWorkspaceTags(validatedData.workspaceId);
-
-        return {
-            success: true,
-        };
-    } catch (error) {
-        console.error("Error deleting tag:", error);
-        if (error instanceof z.ZodError) {
-            return {
-                success: false,
-                error: error.issues[0].message,
-            };
-        }
-        return {
-            success: false,
-            error: "Failed to delete tag",
-        };
-    }
+export async function deleteTag(data: z.input<typeof deleteTagSchema>) {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+    return TagService.deleteTag(session.user.id, data);
 }

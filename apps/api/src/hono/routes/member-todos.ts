@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { MemberTodoService } from "@tusker/core/server/services/member-todo/member-todo.service";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 
 const memberTodos = new Hono<{ Variables: HonoVariables }>();
@@ -14,7 +14,7 @@ memberTodos.get("/:workspaceId", async (c) => {
   const user = c.get("user");
   const workspaceId = c.req.param("workspaceId");
 
-  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  const { workspaceMemberId } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
@@ -32,7 +32,7 @@ memberTodos.post("/:workspaceId", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   const { text } = await c.req.json();
 
-  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  const { workspaceMemberId } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
@@ -51,7 +51,7 @@ memberTodos.put("/:workspaceId/:id", async (c) => {
   const id = c.req.param("id");
   const { text } = await c.req.json();
 
-  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  const { workspaceMemberId } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
@@ -73,7 +73,7 @@ memberTodos.patch("/:workspaceId/reorder", async (c) => {
     throw AppError.ValidationError("todoIds must be an array of IDs");
   }
 
-  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  const { workspaceMemberId } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
@@ -91,7 +91,7 @@ memberTodos.patch("/:workspaceId/:id", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   const id = c.req.param("id");
 
-  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  const { workspaceMemberId } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
@@ -109,7 +109,7 @@ memberTodos.delete("/:workspaceId/:id", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   const id = c.req.param("id");
 
-  const { workspaceMemberId } = await getWorkspacePermissions(workspaceId, user.id);
+  const { workspaceMemberId } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!workspaceMemberId) {
     throw AppError.Forbidden("You are not a member of this workspace");
   }

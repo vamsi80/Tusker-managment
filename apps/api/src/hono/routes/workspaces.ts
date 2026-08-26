@@ -3,7 +3,7 @@ import { HonoVariables } from "../types";
 import { WorkspaceService } from "@tusker/core/server/services/workspace.service";
 import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "@tusker/core/lib/zodSchemas";
 import { AppError } from "@tusker/core/lib/errors/app-error";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 
 const workspaces = new Hono<{ Variables: HonoVariables }>();
@@ -69,7 +69,7 @@ workspaces.patch("/:workspaceId", async (c) => {
   }
 
   // Check permissions
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden(
       "You don't have permission to update this workspace",
@@ -135,7 +135,7 @@ workspaces.post("/:workspaceId/invite", async (c) => {
   const body = await c.req.json();
 
   // 1. Permission Check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden("Only workspace admins can invite members.");
   }
@@ -191,7 +191,7 @@ workspaces.post("/:workspaceId/members/:memberId/resend-invite", async (c) => {
   const memberId = c.req.param("memberId");
 
   // 1. Permission Check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden("Only workspace admins can resend invitations.");
   }
@@ -215,7 +215,7 @@ workspaces.post("/:workspaceId/members/:memberId/reset-password", async (c) => {
   const memberId = c.req.param("memberId");
 
   // 1. Permission Check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden("Only workspace admins can reset passwords.");
   }
@@ -245,7 +245,7 @@ workspaces.patch("/:workspaceId/members/:memberId", async (c) => {
   }
 
   // Permission check
-  const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!isWorkspaceAdmin) {
     throw AppError.Forbidden("Only admins can change member information");
   }

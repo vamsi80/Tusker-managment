@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { PurchaseOrderService } from "@tusker/core/server/services/procurement/index";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 
 const procurementPurchaseOrders = new Hono<{ Variables: HonoVariables }>();
 
@@ -16,7 +16,7 @@ const canReadProcurement = (perms: any) =>
 
 const requireWorkspace = async (workspaceId: string | undefined, userId: string) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-  const perms = await getWorkspacePermissions(workspaceId, userId);
+  const perms = await fetchWorkspacePermissions(workspaceId, userId);
   if (!canReadProcurement(perms)) throw AppError.Forbidden("Access denied to procurement");
   // Hand back the permissions too - raising a PO needs the caller's role, and
   // refetching them would mean a second round trip for the same rows.

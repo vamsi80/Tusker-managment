@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { ConversationService } from "@tusker/core/server/services/conversation/conversation.service";
 import { HonoVariables } from "../types";
 

@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 import { ensureMaterialCatalog } from "@tusker/core/server/services/procurement/material-catalog.service";
 
@@ -19,7 +19,7 @@ materials.get("/", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -56,7 +56,7 @@ materials.post("/", zValidator("json", z.object({
   const user = c.get("user");
   const data = c.req.valid("json");
 
-  const perms = await getWorkspacePermissions(data.workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(data.workspaceId, user.id);
   if (!perms.hasAccess) {
     throw AppError.Forbidden("Access denied to this workspace");
   }

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { ReportService } from "@tusker/core/server/services/report.service";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 
 const reports = new Hono<{ Variables: HonoVariables }>();
@@ -32,7 +32,7 @@ reports.get("/:workspaceId", async (c) => {
   const skip = parseInt(c.req.query("skip") || "0");
   const take = parseInt(c.req.query("take") || "30");
 
-  const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin, workspaceMember } = await fetchWorkspacePermissions(workspaceId, user.id);
   
   if (!workspaceMember) {
     throw AppError.Forbidden("You are not a member of this workspace");
@@ -60,7 +60,7 @@ reports.get("/:workspaceId/entries/:reportId", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   const reportId = c.req.param("reportId");
 
-  const { isWorkspaceAdmin, workspaceMember } = await getWorkspacePermissions(workspaceId, user.id);
+  const { isWorkspaceAdmin, workspaceMember } = await fetchWorkspacePermissions(workspaceId, user.id);
   
   if (!workspaceMember) {
     throw AppError.Forbidden("You are not a member of this workspace");

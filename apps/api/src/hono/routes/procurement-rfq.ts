@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { RFQService } from "@tusker/core/server/services/procurement/index";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 
 const procurementRfq = new Hono<{ Variables: HonoVariables }>();
@@ -40,7 +40,7 @@ procurementRfq.get("/items/:lineItemId/quotes", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const user = c.get("user");
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms) throw AppError.Forbidden("Not a workspace member");
 
   const quotes = await prisma.vendorQuote.findMany({
@@ -81,7 +81,7 @@ procurementRfq.get("/items/:lineItemId/suggested-vendors", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const user = c.get("user");
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!perms) throw AppError.Forbidden("Not a workspace member");
 
   const lineItem = await prisma.indentLineItem.findUnique({
@@ -161,7 +161,7 @@ procurementRfq.post("/send", zValidator("json", SendRfqSchema), async (c) => {
   const workspaceId = c.req.query("w");
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"];
   if (!perms || !allowedRoles.includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Insufficient permissions to send RFQ");
@@ -193,7 +193,7 @@ procurementRfq.post("/quotes", zValidator("json", SubmitQuoteSchema), async (c) 
   const workspaceId = c.req.query("w");
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (perms.workspaceRole === "ACCOUNTS") {
     throw AppError.Forbidden("Accounts has view-only access to procurement");
   }

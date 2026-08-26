@@ -6,7 +6,7 @@ import { AppError } from "@tusker/core/lib/errors/app-error";
 import { TasksService } from "@tusker/core/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@tusker/core/lib/zodSchemas";
 import { invalidateTaskMutation } from "@tusker/core/lib/cache/invalidation";
-import { getUserPermissions } from "@/data/user/get-user-permissions";
+import { fetchUserPermissions } from "@tusker/core/permissions";
 import { can, type Capability, type CapabilityMap } from "@tusker/core/lib/constants/capabilities";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
@@ -199,7 +199,7 @@ tasks.post("/", async (c) => {
 
   if (!project) throw AppError.NotFound("Project not found");
 
-  const permissions = await getUserPermissions(
+  const permissions = await fetchUserPermissions(
     project.workspaceId,
     projectId,
     user.id,
@@ -251,7 +251,7 @@ tasks.post("/subtask", async (c) => {
 
   if (!project) throw AppError.NotFound("Project not found");
 
-  const permissions = await getUserPermissions(
+  const permissions = await fetchUserPermissions(
     project.workspaceId,
     data.projectId,
     user.id,
@@ -310,7 +310,7 @@ tasks.post("/bulk", async (c) => {
   if (!bulkProject) throw AppError.NotFound("Project not found");
 
   requireCapability(
-    await getUserPermissions(bulkProject.workspaceId, projectId, user.id),
+    await fetchUserPermissions(bulkProject.workspaceId, projectId, user.id),
     "task:create",
     "You don't have permission to create tasks.",
   );
@@ -351,7 +351,7 @@ tasks.patch("/reorder", async (c) => {
     );
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
   if (!permissions.isWorkspaceAdmin && !permissions.isProjectManager) {
     throw AppError.Forbidden(
       "You don't have permission to reorder tasks in this project.",
@@ -391,7 +391,7 @@ tasks.patch("/:taskId/assignee", async (c) => {
   }
 
   requireCapability(
-    await getUserPermissions(workspaceId, projectId, user.id),
+    await fetchUserPermissions(workspaceId, projectId, user.id),
     "task:edit",
     "You don't have permission to edit tasks.",
   );
@@ -430,7 +430,7 @@ tasks.patch("/:taskId/status", async (c) => {
     );
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
   requireCapability(permissions, "task:status", "You don't have permission to change task status.");
 
   const result = await TasksService.updateSubTaskStatus({
@@ -467,7 +467,7 @@ tasks.post("/:taskId/kanban/move", async (c) => {
     throw AppError.ValidationError("Missing required fields");
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
   requireCapability(permissions, "task:status", "You don't have permission to change task status.");
 
   const result = await TasksService.updateSubTaskStatus({
@@ -504,7 +504,7 @@ tasks.post("/:taskId/kanban/pin", async (c) => {
     throw AppError.ValidationError("Missing required fields");
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
   if (!permissions.isWorkspaceAdmin && !permissions.isProjectLead) {
     throw AppError.Forbidden("Only project admins and leads can pin cards.");
   }
@@ -530,7 +530,7 @@ tasks.patch("/:taskId/dates", async (c) => {
     throw AppError.ValidationError("Missing workspaceId or projectId");
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
   requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
 
   const updated = await TasksService.updateTaskDates({
@@ -577,7 +577,7 @@ tasks.patch("/:taskId/fields", async (c) => {
 
   const { workspaceId, projectId, startDate, dueDate, assigneeUserId, tagIds } = validation.data;
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
 
   requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
 
@@ -621,7 +621,7 @@ tasks.patch("/:taskId", async (c) => {
     throw AppError.ValidationError("Missing workspaceId or projectId");
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
 
   requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
 
@@ -661,7 +661,7 @@ tasks.delete("/:taskId", async (c) => {
     throw AppError.ValidationError("Missing workspaceId or projectId");
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
 
   await TasksService.deleteTask({
     taskId,
@@ -705,7 +705,7 @@ tasks.post("/:taskId/dependencies", async (c) => {
     );
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
 
   const result = await TasksService.addDependency({
     subtaskId: taskId,
@@ -742,7 +742,7 @@ tasks.delete("/:taskId/dependencies/:dependsOnId", async (c) => {
     throw AppError.ValidationError("Missing required fields");
   }
 
-  const permissions = await getUserPermissions(workspaceId, projectId, user.id);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
 
   const result = await TasksService.removeDependency({
     subtaskId: taskId,

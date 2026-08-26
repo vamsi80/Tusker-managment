@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import type { Capability } from "@tusker/core/lib/constants/capabilities";
 
 /**
@@ -41,7 +41,7 @@ export const requireCapability = (capability: Capability, message: string) =>
         const workspaceId = await workspaceIdFromRequest(c);
 
         if (workspaceId && user?.id) {
-            const permissions = await getWorkspacePermissions(workspaceId, user.id, true);
+            const permissions = await fetchWorkspacePermissions(workspaceId, user.id, true);
             if (!permissions.capabilities?.[capability]) {
                 throw AppError.Forbidden(message);
             }

@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "@/hono/validator";
+import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { VendorRepository, IndentService, IndentRepository } from "@tusker/core/server/services/procurement/index";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
 
 const procurementIndents = new Hono<{ Variables: HonoVariables }>();
@@ -110,7 +110,7 @@ procurementIndents.get("/units", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!canReadProcurement(perms)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -136,7 +136,7 @@ procurementIndents.get("/", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!canReadProcurement(perms)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }
@@ -206,7 +206,7 @@ procurementIndents.get("/line-items", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   const allowedRoles = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT", "ACCOUNTS"];
   if (!perms || !allowedRoles.includes(perms.workspaceRole)) {
     throw AppError.Forbidden("Insufficient permissions to view workspace procurement line items");
@@ -287,7 +287,7 @@ procurementIndents.get("/:id", async (c) => {
   const id = c.req.param("id");
   const workspaceId = c.req.query("w");
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!canReadProcurement(perms)) throw AppError.Forbidden("Access denied to procurement");
   const indent = await IndentRepository.findById(id);
   if (!indent || indent.workspaceId !== workspaceId) throw AppError.NotFound("Indent not found");
@@ -534,7 +534,7 @@ procurementIndents.get("/:id/items/:itemId/suggested-vendors", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   // Permission check
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (perms.workspaceRole !== "PROCUREMENT" && !perms.isWorkspaceAdmin) {
     throw AppError.Forbidden("Insufficient permissions. Requires ADMIN or PROCUREMENT role.");
   }
@@ -571,7 +571,7 @@ procurementIndents.get("/projects/:projectId/tasks", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
   if (!canReadProcurement(perms)) {
     throw AppError.Forbidden("Access denied to this workspace");
   }

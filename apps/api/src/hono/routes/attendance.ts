@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { AttendanceService } from "@tusker/core/server/services/attendance/index";
 import { LeaveService } from "@tusker/core/server/services/leave/index";
-import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { invalidateWorkspaceAttendance } from "@tusker/core/lib/cache/invalidation";
 import { toDateOnly } from "@tusker/core/lib/date-utils";
 import { HonoVariables } from "../types";
@@ -90,7 +90,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+            const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
             if (!isWorkspaceAdmin) {
                 return c.json({ success: false, error: "Only workspace admins can export attendance" }, 403);
             }
@@ -197,7 +197,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
-            const { isWorkspaceAdmin } = await getWorkspacePermissions(workspaceId, user.id);
+            const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
             if (!isWorkspaceAdmin) {
                 return c.json({ success: false, error: "Only workspace admins can update settings" }, 403);
             }

@@ -1,36 +1,19 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { CacheTags } from "@tusker/core/data/cache-tags";
-import prisma from "@tusker/db";
+import { TagService } from "@tusker/core/server/services/tag/tag.service";
+
+/**
+ * Next-side caching for tag reads. The queries themselves live in TagService so
+ * the API serves the same data; only the request/render memoisation is here.
+ */
 
 /**
  * Get all tags for a workspace
  */
 export const getWorkspaceTags = cache(async (workspaceId: string) => {
     return unstable_cache(
-        async () => {
-            try {
-                const tags = await prisma.tag.findMany({
-                    where: {
-                        workspaceId,
-                    },
-                    select: {
-                        id: true,
-                        name: true,
-                        workspaceId: true,
-                        requirePurchase: true,
-                    },
-                    orderBy: {
-                        name: "asc",
-                    },
-                });
-
-                return tags;
-            } catch (error) {
-                console.error("Error fetching workspace tags:", error);
-                throw new Error("Failed to fetch workspace tags");
-            }
-        },
+        async () => TagService.listWorkspaceTags(workspaceId),
         [`workspace-tags-${workspaceId}`],
         {
             tags: CacheTags.workspaceTags(workspaceId),
@@ -44,34 +27,7 @@ export const getWorkspaceTags = cache(async (workspaceId: string) => {
  */
 export const getWorkspaceTagsWithCount = cache(async (workspaceId: string) => {
     return unstable_cache(
-        async () => {
-            try {
-                const tags = await prisma.tag.findMany({
-                    where: {
-                        workspaceId,
-                    },
-                    select: {
-                        id: true,
-                        name: true,
-                        workspaceId: true,
-                        requirePurchase: true,
-                        _count: {
-                            select: {
-                                tasks: true,
-                            },
-                        },
-                    },
-                    orderBy: {
-                        name: "asc",
-                    },
-                });
-
-                return tags;
-            } catch (error) {
-                console.error("Error fetching workspace tags with count:", error);
-                throw new Error("Failed to fetch workspace tags with count");
-            }
-        },
+        async () => TagService.listWorkspaceTagsWithCount(workspaceId),
         [`workspace-tags-count-${workspaceId}`],
         {
             tags: CacheTags.workspaceTags(workspaceId),
@@ -84,39 +40,12 @@ export const getWorkspaceTagsWithCount = cache(async (workspaceId: string) => {
  * Get a single tag by ID
  */
 export async function getTagById(tagId: string) {
-    try {
-        const tag = await prisma.tag.findUnique({
-            where: {
-                id: tagId,
-            },
-        });
-
-        return tag;
-    } catch (error) {
-        console.error("Error fetching tag:", error);
-        throw new Error("Failed to fetch tag");
-    }
+    return TagService.getTagById(tagId);
 }
 
 /**
  * Check if a tag name already exists in the workspace
  */
 export async function tagNameExists(workspaceId: string, name: string, excludeTagId?: string) {
-    try {
-        const tag = await prisma.tag.findFirst({
-            where: {
-                workspaceId,
-                name: {
-                    equals: name,
-                    mode: "insensitive",
-                },
-                ...(excludeTagId && { id: { not: excludeTagId } }),
-            },
-        });
-
-        return !!tag;
-    } catch (error) {
-        console.error("Error checking tag name:", error);
-        throw new Error("Failed to check tag name");
-    }
+    return TagService.nameExists(workspaceId, name, excludeTagId);
 }
