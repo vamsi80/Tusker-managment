@@ -5,8 +5,76 @@ import { workSpaceSchema, updateWorkspaceInfoSchema, updateMemberSchema } from "
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import prisma from "@tusker/db";
+import { ProjectService } from "@tusker/core/server/services/project/project.service";
+import { TagService } from "@tusker/core/server/services/tag/tag.service";
+import { AttendanceService } from "@tusker/core/server/services/attendance/index";
 
 const workspaces = new Hono<{ Variables: HonoVariables }>();
+
+/**
+ * GET /api/v1/workspaces/bootstrap
+ *
+ * One round trip for a cold mobile start: the user's workspaces, the active
+ * one, and its projects, tags and attendance. Registered before /:workspaceId
+ * so "bootstrap" is not read as an id.
+ */
+workspaces.get("/bootstrap", async (c) => {
+    const user = c.get("user");
+    const preferredWorkspaceId = c.req.query("workspaceId") || undefined;
+    const clientDateString = c.req.query("clientDateString");
+    const requestedDate = clientDateString ? new Date(clientDateString) : new Date();
+    const registerDate = Number.isNaN(requestedDate.getTime()) ? new Date() : requestedDate;
+
+    try {
+        const workspaceResult = await WorkspaceService.getWorkspaces(user.id);
+        const list = (workspaceResult as any).workspaces ?? workspaceResult ?? [];
+        const selectedWorkspace =
+            list.find((w: any) => w.id === preferredWorkspaceId) ?? list[0] ?? null;
+
+        if (!selectedWorkspace) {
+            return c.json({
+                success: true,
+                workspaces: list,
+                activeWorkspace: null,
+                projects: [],
+                tags: [],
+                todayAttendance: null,
+                teamAttendance: [],
+            });
+        }
+
+        const isAdmin =
+            selectedWorkspace.workspaceRole === "OWNER" ||
+            selectedWorkspace.workspaceRole === "ADMIN";
+
+        const [projects, tags, todayAttendance, teamAttendance] = await Promise.all([
+            ProjectService.getWorkspaceProjects(selectedWorkspace.id, user.id),
+            TagService.listWorkspaceTags(selectedWorkspace.id),
+            AttendanceService.getTodayAttendance(selectedWorkspace.id, user.id),
+            isAdmin
+                ? AttendanceService.getWorkspaceAttendance(
+                    selectedWorkspace.id,
+                    user.id,
+                    registerDate,
+                    registerDate
+                )
+                : Promise.resolve([]),
+        ]);
+
+        return c.json({
+            success: true,
+            workspaces: list,
+            activeWorkspace: selectedWorkspace,
+            projects,
+            tags,
+            todayAttendance,
+            teamAttendance,
+        });
+    } catch (error: any) {
+        console.error("API Error [workspaces/bootstrap]:", error);
+        return c.json({ success: false, error: error.message || "Internal Server Error" }, 500);
+    }
+});
 
 /**
  * POST /api/v1/workspaces

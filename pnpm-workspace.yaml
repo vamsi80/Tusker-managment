@@ -1,3 +1,6 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # The Expo app keeps its own install: its React Native dependency graph
+  # pulls a second @types/react, which breaks type resolution in apps/web.
+  - "!apps/mobile"

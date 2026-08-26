@@ -40,6 +40,11 @@ jobs:
           BETTER_AUTH_SECRET: ci_dummy_secret_at_least_32_characters_long
           BETTER_AUTH_URL: http://localhost:3000
 
+      # apps/mobile is outside the pnpm workspace (see pnpm-workspace.yaml),
+      # so it installs and checks separately.
+      - name: Mobile typecheck
+        run: pnpm --dir apps/mobile --ignore-workspace install --frozen-lockfile && pnpm --dir apps/mobile --ignore-workspace typecheck
+
       - name: Build
         run: pnpm -r build
         env:
