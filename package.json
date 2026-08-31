@@ -18,6 +18,7 @@
     "db:seed": "pnpm --filter @tusker/db db:seed",
     "db:generate": "pnpm --filter @tusker/db exec prisma generate",
     "mobile": "pnpm --dir apps/mobile --ignore-workspace start",
+    "mobile:go": "pnpm --dir apps/mobile --ignore-workspace start:go",
     "mobile:install": "pnpm --dir apps/mobile --ignore-workspace install",
     "mobile:typecheck": "pnpm --dir apps/mobile --ignore-workspace typecheck"
   },

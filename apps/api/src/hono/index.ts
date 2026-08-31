@@ -19,6 +19,7 @@ import procurementVendors from "./routes/procurement-vendors";
 import procurementIndents from "./routes/procurement-indents";
 import procurementRfq from "./routes/procurement-rfq";
 import procurementPurchaseOrders from "./routes/procurement-purchase-orders";
+import procurementItems, { procurementLookups } from "./routes/procurement-items";
 import projectMaterials from "./routes/project-materials";
 import materials from "./routes/materials";
 import { aiRouter } from "./routes/ai";
@@ -52,11 +53,19 @@ app.use(
     "*",
     cors({
         origin: (origin) => {
-            if (process.env.NODE_ENV === "development") return origin;
+            // Locked down only in production. Checking for "development" instead
+            // meant an unset NODE_ENV (tsx doesn't set one) fell through to an
+            // allowlist that is empty unless NEXT_PUBLIC_APP_URL is configured —
+            // allowed[0] is then undefined, so no allow-origin header is sent and
+            // every browser request fails as an opaque "Failed to fetch".
+            if (process.env.NODE_ENV !== "production") return origin;
             const allowed = [process.env.NEXT_PUBLIC_APP_URL].filter(Boolean);
             return allowed.includes(origin) ? origin : allowed[0];
         },
         credentials: true,
+        // Cross-origin JS can only read a response header that is named here.
+        // Without this the browser silently hides the sign-in token.
+        exposeHeaders: ["set-auth-token"],
     })
 );
 
@@ -155,6 +164,8 @@ app.route("/tags", tags);
 
 // Workspaces API
 app.route("/workspaces", workspaces);
+// The mobile client calls the singular /workspace/settings.
+app.route("/workspace", workspaces);
 
 // Comments API
 app.route("/comments", comments);
@@ -178,12 +189,16 @@ app.use("/procurement/vendors/*", requireCapability("vendors:view", "You don't h
 app.use("/procurement/indents/*", requireCapability("procurement:view", "You don't have access to Procurement."));
 app.use("/procurement/rfq/*", requireCapability("procurement:view", "You don't have access to Procurement."));
 app.use("/procurement/purchase-orders/*", requireCapability("procurement:view", "You don't have access to Procurement."));
+app.use("/procurement/items/*", requireCapability("procurement:view", "You don't have access to Procurement."));
 app.use("/materials/*", requireCapability("procurement:view", "You don't have access to Procurement."));
 
 app.route("/procurement/vendors", procurementVendors);
 app.route("/procurement/indents", procurementIndents);
 app.route("/procurement/rfq", procurementRfq);
 app.route("/procurement/purchase-orders", procurementPurchaseOrders);
+// Line-item actions addressed directly, used by the mobile procurement screens.
+app.route("/procurement/items", procurementItems);
+app.route("/procurement", procurementLookups);
 
 // Project Materials API (Planning BOM)
 app.route("/projects", projectMaterials);

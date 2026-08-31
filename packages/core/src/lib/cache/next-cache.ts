@@ -66,9 +66,28 @@ export async function unstableCache<T extends (...args: never[]) => Promise<unkn
 ): Promise<T> {
     const mod = await loadNextCache();
     if (!mod?.unstable_cache) return fn;
+
+    let cached: T;
     try {
-        return mod.unstable_cache(fn, keys, opts);
+        cached = mod.unstable_cache(fn, keys, opts);
     } catch {
         return fn;
     }
+
+    // Resolving "next/cache" is not the same as running inside Next. The web
+    // app is in this workspace, so the import succeeds for the standalone API
+    // too and wrapping never throws — the invariant fires only when the cached
+    // function is *called*, past the try above. Guard the call as well, and run
+    // uncached. Safe to retry: unstable_cache checks for the incremental cache
+    // before invoking fn, so the original has not run when this throws.
+    return (async (...args: never[]) => {
+        try {
+            return await cached(...args);
+        } catch (err) {
+            if (err instanceof Error && err.message.includes("incrementalCache")) {
+                return await fn(...args);
+            }
+            throw err;
+        }
+    }) as T;
 }

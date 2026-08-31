@@ -256,4 +256,41 @@ projects.get("/:projectId/permissions", async (c) => {
   return c.json({ success: true, data: permissions });
 });
 
+/**
+ * Mobile-shaped variants.
+ *
+ * The mobile client addresses a project with ?projectId= rather than a path
+ * segment, and updates a member's role by PATCHing the members collection with
+ * the user id in the body. Both delegate to the same services as the path forms
+ * above, which stay the canonical routes for the web client.
+ */
+projects.patch("/", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.query("projectId");
+  if (!projectId) throw AppError.ValidationError("Missing projectId");
+
+  const body = await c.req.json();
+  await ProjectService.updateProject(user.id, { ...body, projectId, id: projectId });
+  return c.json({ success: true, message: "Project updated successfully" });
+});
+
+projects.delete("/", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.query("projectId");
+  if (!projectId) throw AppError.ValidationError("Missing projectId");
+
+  await ProjectService.deleteProject(user.id, projectId);
+  return c.json({ success: true, message: "Project deleted successfully" });
+});
+
+projects.patch("/:projectId/members", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const { userId, role } = await c.req.json();
+  if (!userId || !role) throw AppError.ValidationError("Missing userId or role");
+
+  await ProjectService.updateMemberRole(user.id, projectId, userId, role);
+  return c.json({ success: true, message: "Member role updated successfully" });
+});
+
 export default projects;

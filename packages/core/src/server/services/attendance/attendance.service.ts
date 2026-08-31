@@ -815,4 +815,49 @@ export class AttendanceService {
         const buffer = await workbook.xlsx.writeBuffer();
         return buffer;
     }
+
+    /**
+     * One row per workspace member for a single day: their attendance record if
+     * they have one, an ON_LEAVE stand-in if an approved leave covers the date,
+     * otherwise null. Ported from the Trava backend, whose shape the mobile
+     * home screen reads directly (`row.attendance?.checkIn`).
+     *
+     * Distinct from getWorkspaceAttendance, which is a paginated record query
+     * returning { data, totalCount } and omits members with nothing to show.
+     */
+    static async getTeamRegister(workspaceId: string, date: Date) {
+        const dateOnly = new Date(date);
+        dateOnly.setUTCHours(0, 0, 0, 0);
+
+        const [members, attendanceRecords, leaveRequests] = await Promise.all([
+            prisma.workspaceMember.findMany({
+                where: { workspaceId },
+                include: {
+                    user: {
+                        select: { id: true, name: true, surname: true, email: true, image: true },
+                    },
+                },
+            }),
+            prisma.attendance.findMany({ where: { workspaceId, date: dateOnly } }),
+            prisma.leave_request.findMany({
+                where: {
+                    workspaceId,
+                    status: "APPROVED",
+                    startDate: { lte: dateOnly },
+                    endDate: { gte: dateOnly },
+                },
+            }),
+        ]);
+
+        return members.map((member) => {
+            const attendance = attendanceRecords.find((a) => a.workspaceMemberId === member.id);
+            const leave = leaveRequests.find((l) => l.workspaceMemberId === member.id);
+            return {
+                member,
+                attendance:
+                    attendance ??
+                    (leave ? { status: AttendanceStatus.ON_LEAVE, date: dateOnly } : null),
+            };
+        });
+    }
 }

@@ -3,6 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "skipLibCheck": true,
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
     "jsx": "react-native",
     "paths": {
       "@/*": [

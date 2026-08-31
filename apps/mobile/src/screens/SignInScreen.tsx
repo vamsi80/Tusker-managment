@@ -132,6 +132,8 @@ export default function SignInScreen({ navigation }: Props) {
                                     textContentType="password"
                                     value={password}
                                     onChangeText={(t) => { setPassword(t); setFieldError(null); }}
+                                    returnKeyType="go"
+                                    onSubmitEditing={handleSignIn}
                                     accessibilityLabel="Password"
                                 />
                                 <PressableScale

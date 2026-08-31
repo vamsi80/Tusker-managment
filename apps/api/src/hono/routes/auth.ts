@@ -92,8 +92,17 @@ auth.all("/*", async (c) => {
                     data.user.surname = dbUser.surname;
                     data.user.name = dbUser.surname;
                 }
+                // Forward Better Auth's headers — set-auth-token in particular,
+                // which is how a native client receives its bearer token. Skip
+                // the ones that describe the original body: it is re-serialized
+                // here with surname added, so a copied content-length is short
+                // and truncates the JSON the client tries to parse.
                 const headers: Record<string, string> = {};
-                res.headers.forEach((value, key) => { headers[key] = value; });
+                res.headers.forEach((value, key) => {
+                    const k = key.toLowerCase();
+                    if (k === "content-length" || k === "content-encoding") return;
+                    headers[key] = value;
+                });
                 return c.json(data, 200, headers);
             }
         } catch (e) {

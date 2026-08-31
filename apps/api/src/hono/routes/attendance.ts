@@ -82,6 +82,26 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         }
     })
 
+    // The mobile home screen's team register. Accepts the workspace id from the
+    // header or the query string, because the app sends it either way.
+    .get("/register", async (c) => {
+        const user = c.get("user");
+        const workspaceId = c.req.header("x-workspace-id") || c.req.query("workspaceId");
+        const dateStr = c.req.query("clientDateString");
+        const parsed = dateStr ? new Date(dateStr) : new Date();
+        const date = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+
+        if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+        if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
+
+        try {
+            const register = await AttendanceService.getTeamRegister(workspaceId, date);
+            return c.json({ success: true, register });
+        } catch (error: any) {
+            return c.json({ success: false, error: error.message }, 400);
+        }
+    })
+
     .get("/export", async (c) => {
         const user = c.get("user");
         const workspaceId = c.req.header("x-workspace-id");

@@ -2,7 +2,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { env } from "./env";
-import { emailOTP, admin, phoneNumber } from "better-auth/plugins"
+import { emailOTP, admin, phoneNumber, bearer } from "better-auth/plugins"
 import prisma from "@tusker/db";
 import { sendEmail } from "./email";
 import path from "path";
@@ -142,6 +142,12 @@ export const auth = betterAuth({
       },
     }),
     admin(),
+    // Native clients have no cookie jar shared with the API origin, so they send
+    // the session as `Authorization: Bearer <token>`. This plugin is what makes
+    // getSession() read that header, and what emits the `set-auth-token` response
+    // header the mobile app stores at sign-in. Cookie auth for the web is
+    // unaffected — this only adds a second accepted credential form.
+    bearer(),
   ],
   databaseHooks: {
     session: {

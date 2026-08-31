@@ -1,3 +1,4 @@
+import { AppError } from "../../lib/errors/app-error";
 import crypto from "crypto";
 import prisma from "@tusker/db";
 import { generateInviteCode } from "../../utils/get-invite-code";
@@ -1336,4 +1337,82 @@ export class WorkspaceService {
 
     return workspace;
   }
+
+    /**
+     * Attendance/shift settings for a workspace, plus whether the caller may
+     * change them. Ported from the Trava backend for the mobile settings screen;
+     * every field already exists on our Workspace model.
+     */
+    static async getSettings(workspaceId: string, userId: string) {
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: {
+                members: { where: { userId }, select: { workspaceRole: true } },
+            },
+        });
+
+        if (!workspace) throw AppError.NotFound("Workspace not found.");
+
+        const member = workspace.members[0];
+        if (!member) throw AppError.Forbidden("You are not a member of this workspace.");
+
+        return {
+            id: workspace.id,
+            name: workspace.name,
+            lateThreshold: workspace.lateThreshold,
+            overtimeThreshold: workspace.overtimeThreshold,
+            halfDayThreshold: workspace.halfDayThreshold,
+            shiftStartTime: workspace.shiftStartTime,
+            shiftEndTime: workspace.shiftEndTime,
+            sickLeaveLimit: workspace.sickLeaveLimit,
+            casualLeaveAccrualDays: workspace.casualLeaveAccrualDays,
+            isAdmin: member.workspaceRole === "ADMIN" || member.workspaceRole === "OWNER",
+        };
+    }
+
+    static async updateSettings(workspaceId: string, userId: string, data: any) {
+        const member = await prisma.workspaceMember.findFirst({ where: { workspaceId, userId } });
+        if (!member || (member.workspaceRole !== "ADMIN" && member.workspaceRole !== "OWNER")) {
+            throw AppError.Forbidden("Only admins can update workspace settings.");
+        }
+
+        // Allow-list, so a client cannot write arbitrary Workspace columns.
+        const allowedFields = [
+            "name",
+            "lateThreshold",
+            "overtimeThreshold",
+            "halfDayThreshold",
+            "shiftStartTime",
+            "shiftEndTime",
+            "sickLeaveLimit",
+            "casualLeaveAccrualDays",
+        ];
+
+        const updateData: any = {};
+        for (const f of allowedFields) {
+            if (data?.[f] !== undefined) updateData[f] = data[f];
+        }
+
+        const updatedWorkspace = await prisma.workspace.update({
+            where: { id: workspaceId },
+            data: updateData,
+        });
+
+        const actor = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, surname: true },
+        });
+        await recordActivity({
+            userId,
+            userName: actor?.surname || actor?.name || "Admin",
+            workspaceId,
+            action: "WORKSPACE_UPDATED",
+            entityType: "WORKSPACE",
+            entityId: workspaceId,
+            newData: updateData,
+            broadcastEvent: "team_update",
+        });
+
+        return updatedWorkspace;
+    }
 }

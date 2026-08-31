@@ -99,10 +99,80 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
             }
         }
 
+        // Every caller parses this as JSON. A non-JSON body means the request
+        // never reached the API — a dev-server error page, a proxy, or a captive
+        // portal answered instead. Say so, rather than letting the caller fail
+        // with `Unexpected token '<', "<!DOCTYPE"... is not valid JSON`.
+        const contentType = response.headers.get("content-type") ?? "";
+        if (response.status !== 204 && contentType && !contentType.includes("json")) {
+            const body = (await response.text()).slice(0, 200).replace(/\s+/g, " ");
+            throw new Error(
+                `Expected JSON from ${url} but got ${response.status} (${contentType}). ` +
+                `Check the API is running and EXPO_PUBLIC_API_BASE is right. Body: ${body}`
+            );
+        }
+
         return response;
     } finally {
         clearTimeout(timeoutId);
     }
+}
+
+/**
+ * Reads a payload field regardless of envelope.
+ *
+ * The Tusker API answers `{ success, data }`, where `data` is either the value
+ * itself or an object containing the named field. The Trava backend this app
+ * was written against returned those fields flat. Rather than edit every call
+ * site for one shape and break the other, every reader goes through here.
+ *
+ *   unwrap(json, "tasks")  <-  { success, data: { tasks: [...] } }
+ *   unwrap(json, "members")<-  { success, data: [...] }
+ *   unwrap(json, "tags")   <-  { success, tags: [...] }
+ */
+export function unwrap<T = any>(json: any, key?: string): T | undefined {
+    if (json == null || typeof json !== "object") return undefined;
+    if (key && json[key] !== undefined) return json[key] as T;
+    const inner = json.data;
+    if (inner === undefined) return undefined;
+    if (key && inner !== null && !Array.isArray(inner) && typeof inner === "object") {
+        if (inner[key] !== undefined) return inner[key] as T;
+    }
+    return inner as T;
+}
+
+/**
+ * Reads a scalar/metadata field off either envelope.
+ *
+ * Unlike `unwrap`, this never falls back to the payload itself — asking for
+ * "hasMore" on `{ data: [...] }` must yield undefined, not the array.
+ */
+export function field<T = any>(json: any, key: string): T | undefined {
+    if (json == null || typeof json !== "object") return undefined;
+    if (json[key] !== undefined) return json[key] as T;
+    const inner = json.data;
+    if (inner !== null && !Array.isArray(inner) && typeof inner === "object" && inner?.[key] !== undefined) {
+        return inner[key] as T;
+    }
+    return undefined;
+}
+
+/**
+ * Normalises a project row for the screens.
+ *
+ * The API returns a single `projectManager` and omits `workspaceId`, while the
+ * screens read `projectManagers[]` (e.g. MyBoardScreen filters "my projects" by
+ * it) and the Project type requires `workspaceId`. Both are additive: an API
+ * that already sends the plural form or the id is passed through untouched.
+ */
+function mapProject(p: any, workspaceId?: string): Project {
+    if (!p || typeof p !== "object") return p;
+    return {
+        ...p,
+        workspaceId: p.workspaceId ?? workspaceId,
+        projectManagers:
+            p.projectManagers ?? (p.projectManager ? [p.projectManager] : []),
+    };
 }
 
 // ─── Auth API ─────────────────────────────────────────────────────────────────
@@ -274,7 +344,7 @@ export async function getWorkspaces(): Promise<Workspace[]> {
         const res = await apiFetch("/api/workspaces");
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.workspaces ?? (Array.isArray(data) ? data : []);
+        return unwrap<Workspace[]>(data, "workspaces") ?? [];
     } catch {
         return [];
     }
@@ -310,7 +380,7 @@ export async function getWorkspaceBootstrap(
     return {
         workspaces: data.workspaces ?? [],
         activeWorkspace: data.activeWorkspace ?? null,
-        projects: data.projects ?? [],
+        projects: (data.projects ?? []).map((p: any) => mapProject(p, data.activeWorkspace?.id)),
         tags: data.tags ?? [],
         todayAttendance: data.todayAttendance ?? null,
         teamAttendance: data.teamAttendance ?? [],
@@ -325,7 +395,7 @@ export async function getProjects(workspaceId: string, lite = false): Promise<Pr
         const res = await apiFetch(`/api/projects?workspaceId=${workspaceId}${lite ? "&lite=true" : ""}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.projects ?? (Array.isArray(data) ? data : []);
+        return (unwrap<any[]>(data, "projects") ?? []).map((p) => mapProject(p, workspaceId));
     } catch {
         return [];
     }
@@ -343,7 +413,7 @@ export async function getWorkspaceMembers(workspaceId: string, role?: string): P
         const res = await apiFetch(url);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.members ?? [];
+        return unwrap<any[]>(data, "members") ?? [];
     } catch {
         return [];
     }
@@ -357,7 +427,7 @@ export async function getProject(projectId: string): Promise<any | null> {
         const res = await apiFetch(`/api/projects?projectId=${projectId}`);
         if (!res.ok) return null;
         const data = await res.json();
-        return data?.project ?? null;
+        return unwrap<any>(data, "project") ?? null;
     } catch {
         return null;
     }
@@ -524,7 +594,10 @@ export async function getTasks(
 
         const res = await apiFetch(url);
         if (!res.ok) return { tasks: [], hasMore: false, nextCursor: null };
-        const data = await res.json();
+        const json = await res.json();
+        // The API returns list results as { success, data: { tasks, ... } };
+        // the Trava backend returned those fields flat. Accept either.
+        const data = json?.data ?? json;
         const rawTasks: any[] = data?.tasks ?? (Array.isArray(data) ? data : []);
         return {
             tasks: flattenTasks(rawTasks),
@@ -570,7 +643,7 @@ export async function getKanbanBoard(
     }
 
     const data = await res.json();
-    const columns = data?.columns ?? {};
+    const columns = unwrap<any>(data, "columns") ?? {};
     return Object.fromEntries(
         Object.entries(columns).map(([status, column]: [string, any]) => [
             status,
@@ -630,7 +703,7 @@ export async function getTasksCount(
         const res = await apiFetch(url);
         if (!res.ok) return 0;
         const data = await res.json();
-        return data?.totalCount ?? 0;
+        return unwrap<number>(data, "totalCount") ?? 0;
     } catch {
         return 0;
     }
@@ -654,7 +727,7 @@ export async function getSubTasks(
             return [];
         }
         const data = await res.json();
-        const subTasks: any[] = data?.subTasks ?? [];
+        const subTasks: any[] = unwrap<any[]>(data, "subTasks") ?? [];
         return subTasks.map(mapTask);
     } catch (e) {
         console.error(`[getSubTasks] Exception:`, e);
@@ -669,9 +742,9 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     try {
         const res = await apiFetch(`/api/tasks/${taskId}?includeTag=true&includeTags=true&include=tag&include=Tag`);
         if (!res.ok) return null;
-        const data = await res.json();
-        if (!data?.task) return null;
-        return mapTask(data.task);
+        const task = unwrap<any>(await res.json(), "task");
+        if (!task) return null;
+        return mapTask(task);
     } catch {
         return null;
     }
@@ -707,9 +780,13 @@ export async function getTaskDetail(taskId: string): Promise<TaskDetailResponse>
         activityLimit: "20",
     });
     const res = await apiFetch(`/api/tasks/${taskId}/detail?${query.toString()}`);
-    const data = await res.json();
+    const json = await res.json();
+    // Detail is a composite payload; unwrap the envelope once, then read fields.
+    const data = (json?.data && typeof json.data === "object" && !Array.isArray(json.data))
+        ? { ...json, ...json.data }
+        : json;
     if (!res.ok || !data?.task) {
-        throw new Error(data?.error || "Failed to load task details");
+        throw new Error(json?.error || "Failed to load task details");
     }
 
     return {
@@ -736,7 +813,7 @@ export async function getTaskComments(
         const res = await apiFetch(`/api/tasks/${taskId}/comments?${query.toString()}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.comments ?? [];
+        return unwrap<any[]>(data, "comments") ?? [];
     } catch {
         return [];
     }
@@ -755,7 +832,7 @@ export async function getTaskActivities(
         const res = await apiFetch(`/api/tasks/${taskId}/activities?${query.toString()}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.activities ?? [];
+        return unwrap<any[]>(data, "activities") ?? [];
     } catch {
         return [];
     }
@@ -882,7 +959,7 @@ export async function getTags(workspaceId: string): Promise<any[]> {
         const res = await apiFetch(`/api/tags?workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.tags ?? [];
+        return unwrap<any[]>(data, "tags") ?? [];
     } catch {
         return [];
     }
@@ -984,7 +1061,7 @@ export async function getProjectMembers(projectId: string): Promise<any[]> {
         const res = await apiFetch(`/api/projects/${projectId}/members`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.members ?? [];
+        return unwrap<any[]>(data, "members") ?? [];
     } catch {
         return [];
     }
@@ -1079,7 +1156,7 @@ export async function getTeamAttendance(workspaceId: string, clientDateString?: 
         }
         const res = await apiFetch(url);
         const data = await res.json();
-        return data?.register ?? [];
+        return unwrap<any[]>(data, "register") ?? [];
     } catch {
         return [];
     }
@@ -1093,7 +1170,7 @@ export async function getMemberAttendanceStats(workspaceId: string, memberId: st
         const res = await apiFetch(`/api/attendance/stats?workspaceId=${workspaceId}&memberId=${memberId}`);
         if (!res.ok) return null;
         const data = await res.json();
-        return data?.stats ?? null;
+        return unwrap<any>(data, "stats") ?? null;
     } catch {
         return null;
     }
@@ -1165,9 +1242,9 @@ export async function getLeaveRequestsPage(
         }
         const data = await res.json();
         return {
-            requests: data?.data ?? [],
-            hasMore: data?.hasMore ?? false,
-            nextCursor: data?.nextCursor ?? null,
+            requests: unwrap<any[]>(data, "requests") ?? [],
+            hasMore: field<boolean>(data, "hasMore") ?? false,
+            nextCursor: field<any>(data, "nextCursor") ?? null,
         };
     } catch (error) {
         console.error("[api] getLeaveRequests error:", error);
@@ -1376,7 +1453,7 @@ export async function getConversations(workspaceId: string): Promise<any[]> {
         const res = await apiFetch(`/api/conversations?workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.conversations ?? [];
+        return unwrap<any[]>(data, "conversations") ?? [];
     } catch {
         return [];
     }
@@ -1393,7 +1470,7 @@ export async function getOrCreateConversation(workspaceId: string, otherUserId: 
         });
         if (!res.ok) return null;
         const data = await res.json();
-        return data?.conversation ?? null;
+        return unwrap<any>(data, "conversation") ?? null;
     } catch {
         return null;
     }
@@ -1415,9 +1492,9 @@ export async function getDirectMessagesPage(
         if (!res.ok) return { messages: [], hasMore: false, nextCursor: null };
         const data = await res.json();
         return {
-            messages: data?.messages ?? [],
-            hasMore: data?.hasMore ?? false,
-            nextCursor: data?.nextCursor ?? null,
+            messages: unwrap<any[]>(data, "messages") ?? [],
+            hasMore: field<boolean>(data, "hasMore") ?? false,
+            nextCursor: field<any>(data, "nextCursor") ?? null,
         };
     } catch {
         return { messages: [], hasMore: false, nextCursor: null };
@@ -1440,7 +1517,7 @@ export async function sendDirectMessage(conversationId: string, content: string)
         });
         if (!res.ok) return null;
         const data = await res.json();
-        return data?.message ?? null;
+        return unwrap<any>(data, "message") ?? null;
     } catch {
         return null;
     }
@@ -1476,7 +1553,7 @@ export async function getActivities(workspaceId: string, projectId?: string, onl
         const res = await apiFetch(`/api/activities?${query.toString()}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.activities ?? [];
+        return unwrap<any[]>(data, "activities") ?? [];
     } catch (e) {
         console.error("[api] getActivities error:", e);
         return [];
@@ -1491,7 +1568,7 @@ export async function getMySpaceTodos(workspaceId: string): Promise<any[]> {
         const res = await apiFetch(`/api/myspace?workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.todos ?? [];
+        return unwrap<any[]>(data, "todos") ?? [];
     } catch (e) {
         console.error("[api] getMySpaceTodos error:", e);
         return [];
@@ -1509,7 +1586,7 @@ export async function syncMySpaceTodos(workspaceId: string, todos: any[]): Promi
         });
         if (!res.ok) return todos; // fallback to local on fail
         const data = await res.json();
-        return data?.todos ?? todos;
+        return unwrap<any[]>(data, "todos") ?? todos;
     } catch (e) {
         console.error("[api] syncMySpaceTodos error:", e);
         return todos;
@@ -1531,7 +1608,7 @@ export async function createMySpaceTodo(workspaceId: string, text: string): Prom
             throw new Error(`Failed to create todo (Status ${res.status}): ${errText}`);
         }
         const data = await res.json();
-        return data?.todos ?? [];
+        return unwrap<any[]>(data, "todos") ?? [];
     } catch (e) {
         console.error("[api] createMySpaceTodo error:", e);
         throw e;
@@ -1553,7 +1630,7 @@ export async function toggleMySpaceTodo(workspaceId: string, todoId: string, com
             throw new Error(`Failed to toggle todo (Status ${res.status}): ${errText}`);
         }
         const data = await res.json();
-        return data?.todos ?? [];
+        return unwrap<any[]>(data, "todos") ?? [];
     } catch (e) {
         console.error("[api] toggleMySpaceTodo error:", e);
         throw e;
@@ -1575,7 +1652,7 @@ export async function deleteMySpaceTodo(workspaceId: string, deleteTodoId: strin
             throw new Error(`Failed to delete todo (Status ${res.status}): ${errText}`);
         }
         const data = await res.json();
-        return data?.todos ?? [];
+        return unwrap<any[]>(data, "todos") ?? [];
     } catch (e) {
         console.error("[api] deleteMySpaceTodo error:", e);
         throw e;
@@ -1602,9 +1679,9 @@ export async function getIndentRequestsPage(
         }
         const data = await res.json();
         return {
-            indents: data?.indents ?? [],
-            hasMore: data?.hasMore ?? false,
-            nextCursor: data?.nextCursor ?? null,
+            indents: unwrap<any[]>(data, "indents") ?? [],
+            hasMore: field<boolean>(data, "hasMore") ?? false,
+            nextCursor: field<any>(data, "nextCursor") ?? null,
         };
     } catch (e) {
         console.error("[api] getIndentRequests error:", e);
@@ -1626,7 +1703,7 @@ export async function getIndentRequest(
         const res = await apiFetch(`/api/procurement/indents?${query.toString()}`);
         if (!res.ok) return null;
         const data = await res.json();
-        return data?.indent ?? null;
+        return unwrap<any>(data, "indent") ?? null;
     } catch (error) {
         console.error("[api] getIndentRequest error:", error);
         return null;
@@ -1640,7 +1717,7 @@ export async function getProcurableProjects(workspaceId: string): Promise<any[]>
         const res = await apiFetch(`/api/procurement/procurable-projects?workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.projects ?? [];
+        return unwrap<any[]>(data, "projects") ?? [];
     } catch (e) {
         console.error("[api] getProcurableProjects error:", e);
         return [];
@@ -1655,7 +1732,7 @@ export async function getVendors(workspaceId: string): Promise<any[]> {
         const res = await apiFetch(`/api/procurement/vendors?workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.vendors ?? [];
+        return unwrap<any[]>(data, "vendors") ?? [];
     } catch (e) {
         console.error("[api] getVendors error:", e);
         return [];
@@ -1670,7 +1747,7 @@ export async function getMaterialsCatalog(workspaceId: string): Promise<any[]> {
         const res = await apiFetch(`/api/procurement/materials?workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
-        return data?.materials ?? [];
+        return unwrap<any[]>(data, "materials") ?? [];
     } catch (e) {
         console.error("[api] getMaterialsCatalog error:", e);
         return [];

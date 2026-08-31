@@ -17,6 +17,7 @@ import { NotificationProvider } from './src/context/NotificationContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { initHaptics } from './src/services/haptics';
 import AppNavigator from './src/navigation/AppNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 // Hold the splash screen until Plus Jakarta Sans is ready, so the UI never
 // flashes in the system font first.
@@ -51,6 +52,7 @@ export default function App() {
 
   return (
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <ErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
           <ToastProvider>
@@ -62,6 +64,7 @@ export default function App() {
           </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>
+      </ErrorBoundary>
     </View>
   );
 }

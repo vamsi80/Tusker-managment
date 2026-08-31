@@ -6,7 +6,16 @@ import { AppError } from "@tusker/core/lib/errors/app-error";
 import { TasksService } from "@tusker/core/server/services/task/tasks.service";
 import { taskSchema, subTaskSchema } from "@tusker/core/lib/zodSchemas";
 import { invalidateTaskMutation } from "@tusker/core/lib/cache/invalidation";
+import { getKanbanBoard } from "@tusker/core/lib/tasks/get-kanban";
+import {
+  getTaskDetail,
+  getTaskCommentsPage,
+  getTaskActivitiesPage,
+  normalizeDetailPageSize,
+  getAccessibleTask,
+} from "@tusker/core/lib/tasks/get-task-detail";
 import { fetchUserPermissions } from "@tusker/core/permissions";
+import { CommentService } from "@tusker/core/server/services/comment/comment.service";
 import { can, type Capability, type CapabilityMap } from "@tusker/core/lib/constants/capabilities";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
@@ -163,6 +172,40 @@ tasks.get("/", async (c) => {
  * GET /api/v1/tasks/slug/:slug/comment-context
  * Fetch core members involved in a task (Admins, PMs, Assignee).
  */
+/**
+ * GET /api/v1/tasks/kanban
+ *
+ * One page per status column. Ported for the mobile board, which fetches all
+ * columns in a single round trip rather than one list call per status.
+ * Registered ahead of any /:taskId route so "kanban" is not read as an id.
+ */
+tasks.get("/kanban", async (c) => {
+  const user = c.get("user");
+  const q = c.req.queries();
+  const workspaceId = c.req.query("workspaceId") || c.req.query("w");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId");
+
+  const dueAfter = c.req.query("dueAfter");
+  const dueBefore = c.req.query("dueBefore");
+  const pageSize = parseInt(c.req.query("pageSize") || "10", 10);
+
+  const result = await getKanbanBoard(
+    {
+      workspaceId,
+      projectIds: q.projectId,
+      assigneeIds: q.assigneeId,
+      tagIds: q.tagId,
+      search: c.req.query("search"),
+      dueAfter: dueAfter ? new Date(dueAfter) : undefined,
+      dueBefore: dueBefore ? new Date(dueBefore) : undefined,
+      pageSize,
+    },
+    user.id
+  );
+
+  return c.json({ success: true, ...result });
+});
+
 tasks.get("/slug/:slug/comment-context", async (c) => {
   const workspaceId = c.req.query("w");
   const slug = c.req.param("slug");
@@ -232,9 +275,13 @@ tasks.post("/", async (c) => {
  * POST /api/v1/tasks/subtask
  * Create a subtask
  */
-tasks.post("/subtask", async (c) => {
+// Both spellings: the web posts /subtask with parentTaskId in the body, the
+// mobile client posts /:taskId/subtasks with the parent in the path.
+tasks.on("POST", ["/subtask", "/:taskId/subtasks"], async (c) => {
   const user = c.get("user");
-  const body = await c.req.json();
+  const raw = await c.req.json();
+  const parentFromPath = c.req.param("taskId");
+  const body = parentFromPath ? { ...raw, parentTaskId: parentFromPath } : raw;
 
   const validation = subTaskSchema.safeParse(body);
   if (!validation.success) {
@@ -766,7 +813,10 @@ tasks.delete("/:taskId/dependencies/:dependsOnId", async (c) => {
  *
  * Expands a parent task to fetch its subtasks with filtering and pagination.
  */
-tasks.get("/:parentId/expand", async (c) => {
+// Same handler on both paths: the web client calls /expand, the mobile client
+// calls /subtasks (the Trava backend's name). expandSubtasks already returns
+// exactly { subTasks, totalCount, hasMore, nextCursor } that both expect.
+tasks.on("GET", ["/:parentId/expand", "/:parentId/subtasks"], async (c) => {
   const user = c.get("user");
   const parentId = c.req.param("parentId");
   const q = c.req.query();
@@ -942,6 +992,170 @@ tasks.post("/expansion/batch", async (c) => {
   });
 
   return c.json({ success: true, data: results });
+});
+
+/**
+ * Task detail, comments and activities.
+ *
+ * Ported for the mobile client, which opens a task with one composite request
+ * instead of the web's several. Registered at the end of this file so the more
+ * specific paths above (/kanban, /slug/..., /expansion/...) still win.
+ */
+const detailLimit = (c: any, name: string, fallback: number) => {
+  const raw = c.req.query(name);
+  return normalizeDetailPageSize(raw === undefined ? undefined : parseInt(raw, 10), fallback);
+};
+
+const detailStatus = (status: string) =>
+  status === "not_found" ? 404 : 403;
+
+/**
+ * Collection-level mutations addressed by ?taskId=.
+ *
+ * The mobile client sends PATCH/DELETE /tasks?taskId=… with only the changed
+ * fields, where the web sends /tasks/:taskId with workspaceId and projectId in
+ * the body. Rather than require the client to know its own context, resolve it
+ * from the task row and delegate to the same service the path form uses.
+ */
+const resolveTaskContext = async (taskId: string) => {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { projectId: true, project: { select: { workspaceId: true } } },
+  });
+  if (!task) throw AppError.NotFound("Task not found");
+  return { projectId: task.projectId, workspaceId: task.project.workspaceId };
+};
+
+tasks.patch("/", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.query("taskId");
+  if (!taskId) throw AppError.ValidationError("Missing taskId");
+
+  const body = await c.req.json();
+  const { taskId: _ignored, workspaceId: bodyWs, projectId: bodyPr, ...data } = body;
+  const ctx = await resolveTaskContext(taskId);
+  const workspaceId = bodyWs || ctx.workspaceId;
+  const projectId = bodyPr || ctx.projectId;
+
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
+  requireCapability(permissions, "task:edit", "You don't have permission to edit tasks.");
+
+  const updated = await TasksService.updateTask({
+    taskId,
+    workspaceId,
+    projectId,
+    userId: user.id,
+    permissions,
+    data: {
+      ...data,
+      assigneeUserId: (data as any).assignee,
+      reviewerUserId: (data as any).reviewerId,
+      tagIds: (data as any).tagIds,
+    },
+  });
+
+  invalidateTaskMutation({ projectId, workspaceId, userId: user.id, taskId })
+    .catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
+
+  return c.json({ success: true, data: TasksService.mapToFlatMetadata(updated) });
+});
+
+tasks.delete("/", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.query("taskId");
+  if (!taskId) throw AppError.ValidationError("Missing taskId");
+
+  const { workspaceId, projectId } = await resolveTaskContext(taskId);
+  const permissions = await fetchUserPermissions(workspaceId, projectId, user.id);
+
+  await TasksService.deleteTask({ taskId, workspaceId, projectId, userId: user.id, permissions });
+
+  invalidateTaskMutation({ projectId, workspaceId, userId: user.id, taskId })
+    .catch((err) => console.error("[CACHE_ERROR] Invalidation failed:", err));
+
+  return c.json({ success: true, message: "Task deleted" });
+});
+
+tasks.get("/:taskId/detail", async (c) => {
+  const user = c.get("user");
+  const result: any = await getTaskDetail(c.req.param("taskId"), user.id, {
+    subtaskLimit: detailLimit(c, "subtaskLimit", 30),
+    commentLimit: detailLimit(c, "commentLimit", 20),
+    activityLimit: detailLimit(c, "activityLimit", 20),
+  });
+
+  if (result.status !== "ok") {
+    return c.json({ success: false, error: result.status }, detailStatus(result.status));
+  }
+  return c.json({ success: true, ...result, status: undefined });
+});
+
+tasks.get("/:taskId/comments", async (c) => {
+  const user = c.get("user");
+  const result: any = await getTaskCommentsPage(c.req.param("taskId"), user.id, {
+    limit: detailLimit(c, "limit", 20),
+    cursor: c.req.query("cursor"),
+  });
+
+  if (result.status !== "ok") {
+    return c.json({ success: false, error: result.status }, detailStatus(result.status));
+  }
+  return c.json({ success: true, ...result, status: undefined });
+});
+
+tasks.get("/:taskId/activities", async (c) => {
+  const user = c.get("user");
+  const result: any = await getTaskActivitiesPage(c.req.param("taskId"), user.id, {
+    limit: detailLimit(c, "limit", 20),
+    cursor: c.req.query("cursor"),
+  });
+
+  if (result.status !== "ok") {
+    return c.json({ success: false, error: result.status }, detailStatus(result.status));
+  }
+  return c.json({ success: true, ...result, status: undefined });
+});
+
+/**
+ * POST /api/v1/tasks/:taskId/comments
+ *
+ * The mobile client posts a comment with only its text; workspace and project
+ * come from the task, the same way the collection-level mutations above work.
+ */
+tasks.post("/:taskId/comments", async (c) => {
+  const user = c.get("user");
+  const taskId = c.req.param("taskId");
+  const body = await c.req.json();
+  const content = body.content ?? body.text;
+  if (!content) throw AppError.ValidationError("Missing content");
+
+  const ctx = await resolveTaskContext(taskId);
+  const comment = await CommentService.createComment({
+    taskId,
+    content,
+    userId: user.id,
+    workspaceId: body.workspaceId || ctx.workspaceId,
+    projectId: body.projectId || ctx.projectId,
+    parentCommentId: body.parentCommentId,
+  });
+
+  return c.json({ success: true, data: comment, comment });
+});
+
+/**
+ * GET /api/v1/tasks/:taskId — a single task with its access check.
+ *
+ * Last of the GET routes so /kanban, /slug/... and /expansion/... are matched
+ * first rather than being read as an id.
+ */
+tasks.get("/:taskId", async (c) => {
+  const user = c.get("user");
+  const access: any = await getAccessibleTask(c.req.param("taskId"), user.id);
+
+  if (access.status !== "ok") {
+    return c.json({ success: false, error: access.status }, detailStatus(access.status));
+  }
+  return c.json({ success: true, task: access.task, permissions: access.permissions });
 });
 
 export default tasks;

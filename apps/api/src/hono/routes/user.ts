@@ -140,4 +140,25 @@ user.post("/push-token", async (c) => {
     }
 });
 
+/**
+ * DELETE /api/v1/user/push-token
+ *
+ * Called on sign-out so a shared device stops receiving the previous user's
+ * notifications. Clearing an already-null token is a no-op, so this is safe to
+ * call unconditionally — which is what the client does.
+ */
+user.delete("/push-token", async (c) => {
+    const authUser = c.get("user");
+
+    try {
+        await prisma.user.update({
+            where: { id: authUser.id },
+            data: { pushToken: null } as any,
+        });
+        return c.json({ success: true });
+    } catch (error: any) {
+        return c.json({ success: false, error: error.message }, 500);
+    }
+});
+
 export default user;

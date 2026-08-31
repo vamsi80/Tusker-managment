@@ -1316,13 +1316,13 @@ export default function AttendanceScreen() {
                       statusConfig.PRESENT;
 
                     return (
-                      <View
-                        key={log.id}
-                        style={[
-                          styles.logRow,
-                          { borderBottomColor: colors.border + "40" },
-                        ]}
-                      >
+                      <React.Fragment key={log.id}>
+                        <View
+                          style={[
+                            styles.logRow,
+                            { borderBottomColor: colors.border + "40" },
+                          ]}
+                        >
                         <View style={styles.logMain}>
                           <Image
                             source={{ uri: u?.image || undefined }}
@@ -1413,7 +1413,8 @@ export default function AttendanceScreen() {
                             </View>
                           </View>
                         </View>
-                      </View>
+                        </View>
+                      </React.Fragment>
                     );
                   })}
                 </View>
@@ -1474,13 +1475,13 @@ export default function AttendanceScreen() {
                   </Text>
                 ) : (
                   modalList.map((u, i) => (
-                    <View
-                      key={u.id + i}
-                      style={[
-                        styles.modalItem,
-                        { borderBottomColor: colors.border },
-                      ]}
-                    >
+                    <React.Fragment key={u.id + i}>
+                      <View
+                        style={[
+                          styles.modalItem,
+                          { borderBottomColor: colors.border },
+                        ]}
+                      >
                       {u.image ? (
                         <Image
                           source={{ uri: u.image }}
@@ -1515,7 +1516,8 @@ export default function AttendanceScreen() {
                           {u.email}
                         </Text>
                       </View>
-                    </View>
+                      </View>
+                    </React.Fragment>
                   ))
                 )}
               </ScrollView>

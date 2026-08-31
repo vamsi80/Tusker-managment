@@ -51,13 +51,12 @@ workspaces.get("/bootstrap", async (c) => {
             ProjectService.getWorkspaceProjects(selectedWorkspace.id, user.id),
             TagService.listWorkspaceTags(selectedWorkspace.id),
             AttendanceService.getTodayAttendance(selectedWorkspace.id, user.id),
+            // getTeamRegister, not getWorkspaceAttendance: the client filters
+            // this array directly, while getWorkspaceAttendance returns a
+            // paginated { data, totalCount } object and skips members who have
+            // no record for the day.
             isAdmin
-                ? AttendanceService.getWorkspaceAttendance(
-                    selectedWorkspace.id,
-                    user.id,
-                    registerDate,
-                    registerDate
-                )
+                ? AttendanceService.getTeamRegister(selectedWorkspace.id, registerDate)
                 : Promise.resolve([]),
         ]);
 
@@ -448,6 +447,32 @@ workspaces.get("/:workspaceId/notifications/:id/read", async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+/**
+ * Attendance/shift settings, addressed by ?workspaceId=.
+ *
+ * Registered after the /:workspaceId routes above so "settings" is not read as
+ * an id. Also reachable at /api/v1/workspace/settings, the singular path the
+ * mobile client uses — see the alias mount in hono/index.ts.
+ */
+workspaces.get("/settings", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("workspaceId");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId");
+
+  const settings = await WorkspaceService.getSettings(workspaceId, user.id);
+  return c.json({ success: true, data: settings });
+});
+
+workspaces.patch("/settings", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("workspaceId");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId");
+
+  const body = await c.req.json();
+  const updated = await WorkspaceService.updateSettings(workspaceId, user.id, body);
+  return c.json({ success: true, data: updated });
 });
 
 export default workspaces;
