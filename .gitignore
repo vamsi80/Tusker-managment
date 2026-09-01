@@ -1,9 +1,9 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnpm
-/.pnpm-store
+node_modules/
+.pnpm/
+.pnpm-store/
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -12,13 +12,15 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage/
 
-# next.js
-/.next/
-/out/
-/build
-/dist
+# next.js & builds
+.next/
+out/
+build/
+dist/
+.turbo/
+.cache/
 
 # misc
 .DS_Store
@@ -30,11 +32,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Environment Variables
+.env
+.env.*
+.env*.local
 !.env.example
 !.env.local.example
+!.env.*.example
 
 # vercel
 .vercel
@@ -43,8 +49,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Prisma & DB
-/src/generated/prisma
+# Prisma & Database
+**/generated/prisma/
 *.db
 *.db-journal
 
@@ -68,10 +74,17 @@ next-env.d.ts
 *.njsproj
 *.sln
 *.sw?
+*.swo
+*.swp
+
+# Expo / React Native
+.expo/
+.expo-shared/
 
 # Generated OCR/PDF worker assets (scripts/fetch-ocr-assets.mjs)
-public/tesseract/
-public/pdf/
+**/public/tesseract/
+**/public/pdf/
 
 # database backups (contain live data)
-/backups
+backups/
+
