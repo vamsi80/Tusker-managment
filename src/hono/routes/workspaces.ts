@@ -113,6 +113,17 @@ workspaces.get("/:workspaceId/members/slim", async (c) => {
   return c.json({ success: true, data: members });
 });
 
+/**
+ * GET /api/v1/workspaces/:workspaceId/birthdays
+ * Members with a birthday in the current month
+ */
+workspaces.get("/:workspaceId/birthdays", async (c) => {
+  const workspaceId = c.req.param("workspaceId");
+  const user = c.get("user");
+  const members = await WorkspaceService.getBirthdaysThisMonth(workspaceId, user.id);
+  return c.json({ success: true, data: members });
+});
+
 workspaces.get("/:workspaceId/members", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   console.log(`[HONO_WORKSPACES] GET /members workspaceId: ${workspaceId}`);

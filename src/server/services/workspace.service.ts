@@ -13,6 +13,7 @@ import { recordActivity } from "@/lib/audit";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "@/lib/involved-users";
+import { getISTDateOnly } from "@/lib/date-utils";
 
 export class WorkspaceService {
   /**
@@ -215,6 +216,39 @@ export class WorkspaceService {
       surname: m.user?.surname || "Member",
       email: m.user?.email,
     }));
+  }
+
+  /**
+   * Members whose birthday falls in the current month, sorted by day.
+   * dateOfBirth is a UTC-midnight calendar day, and "today" is the IST calendar
+   * day - a plain UTC read shows last month's list until 05:30 IST on the 1st.
+   */
+  static async getBirthdaysThisMonth(workspaceId: string, viewerUserId?: string) {
+    const today = getISTDateOnly(new Date());
+    const month = today.getUTCMonth();
+
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId, dateOfBirth: { not: null } },
+      select: {
+        id: true,
+        userId: true,
+        designation: true,
+        dateOfBirth: true,
+        user: { select: { surname: true } },
+      },
+    });
+
+    return members
+      .filter((m) => m.dateOfBirth!.getUTCMonth() === month)
+      .map((m) => ({
+        id: m.id,
+        surname: m.user?.surname || "Member",
+        designation: m.designation,
+        day: m.dateOfBirth!.getUTCDate(),
+        isToday: m.dateOfBirth!.getUTCDate() === today.getUTCDate(),
+        isSelf: m.userId === viewerUserId,
+      }))
+      .sort((a, b) => a.day - b.day);
   }
 
   /**

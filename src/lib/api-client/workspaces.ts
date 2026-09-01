@@ -8,11 +8,21 @@ import {
     type WorkspacesResult
 } from "@/types/workspace";
 
+export interface BirthdayMember {
+    id: string;
+    surname: string;
+    designation: string | null;
+    day: number;
+    isToday: boolean;
+    isSelf: boolean;
+}
+
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
     getMembers(workspaceId: string, page?: number, limit?: number, search?: string): Promise<WorkspaceMembersResult>;
     getMembersSlim(workspaceId: string): Promise<any[]>;
+    getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
@@ -91,6 +101,10 @@ export const workspacesClient: WorkspacesClient = {
     },
     getMembersSlim: async (workspaceId: string): Promise<any[]> => {
         const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/members/slim`);
+        return response.data;
+    },
+    getBirthdays: async (workspaceId: string): Promise<BirthdayMember[]> => {
+        const response = await apiFetch<{ success: boolean; data: BirthdayMember[] }>(`/workspaces/${workspaceId}/birthdays`);
         return response.data;
     },
 
