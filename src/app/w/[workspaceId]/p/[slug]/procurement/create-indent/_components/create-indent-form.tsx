@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Trash2, Check, ChevronsUpDown, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,6 +44,8 @@ function AutoCompleteInput({
   onFocusTrigger?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [anchor, setAnchor] = useState<{ left: number; top: number; width: number } | null>(null);
   const query = value.trim().toLowerCase();
   const suggestions = catalog
     .filter((item) => !query || item.name.toLowerCase().includes(query))
@@ -51,7 +54,25 @@ function AutoCompleteInput({
       const bStarts = b.name.toLowerCase().startsWith(query) ? 0 : 1;
       return aStarts - bStarts || a.name.localeCompare(b.name);
     })
-    .slice(0, 8);
+    .slice(0, 20);
+
+  // The rows table scrolls, and an absolutely placed menu inside it gets
+  // clipped to the row. Rendered against the body instead, and re-anchored
+  // while it is open.
+  const placeMenu = useCallback(() => {
+    const box = inputRef.current?.getBoundingClientRect();
+    if (box) setAnchor({ left: box.left, top: box.bottom + 4, width: box.width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", placeMenu, true);
+    window.addEventListener("resize", placeMenu);
+    return () => {
+      window.removeEventListener("scroll", placeMenu, true);
+      window.removeEventListener("resize", placeMenu);
+    };
+  }, [open, placeMenu]);
 
   // Auto-fill unit if the user types or enters the exact name of an existing material
   useEffect(() => {
@@ -69,25 +90,31 @@ function AutoCompleteInput({
   return (
     <div className="relative w-full">
       <Input
+        ref={inputRef}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
+          placeMenu();
           setOpen(true);
         }}
         onFocus={() => {
            if (onFocusTrigger) onFocusTrigger();
+           placeMenu();
            setOpen(true);
         }}
         onBlur={() => window.setTimeout(() => setOpen(false), 100)}
-        disabled={disabled || isLoading}
-        placeholder={isLoading ? "Loading..." : "Enter material..."}
+        // Never disabled while the catalog loads: that dropped the focus the
+        // click had just given, and the field had to be clicked a second time.
+        disabled={disabled}
+        placeholder={isLoading ? "Enter material... (loading suggestions)" : "Enter material..."}
         className="h-8 text-xs bg-background font-medium px-2"
         autoComplete="off"
       />
-      {open && !isLoading && value.trim() && suggestions.length > 0 && (
+      {open && !isLoading && value.trim() && suggestions.length > 0 && anchor && createPortal(
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
+          style={{ position: "fixed", left: anchor.left, top: anchor.top, width: Math.max(anchor.width, 260) }}
+          className="z-[100] max-h-[320px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
         >
           <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Use a remembered material
@@ -115,7 +142,8 @@ function AutoCompleteInput({
           <div className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
             Keep typing to use a new material name.
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
