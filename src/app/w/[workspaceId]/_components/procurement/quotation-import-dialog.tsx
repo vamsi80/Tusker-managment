@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, FileUp, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { vendorDisplayName } from "@/lib/procurement/vendor-name";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -373,7 +374,7 @@ export function QuotationImportDialog({
                     >
                       <option value="">select supplier / contractor…</option>
                       {vendors.map((vendor) => (
-                        <option key={vendor.id} value={vendor.id}>{vendor.companyName || vendor.name}</option>
+                        <option key={vendor.id} value={vendor.id}>{vendorDisplayName(vendor)}</option>
                       ))}
                     </select>
                   </label>

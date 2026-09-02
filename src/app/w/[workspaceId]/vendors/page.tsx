@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
+import { vendorDisplayName } from "@/lib/procurement/vendor-name";
 import { Plus, Truck, MoreVertical, Ban, CheckCircle, ExternalLink, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,9 +119,16 @@ export default function VendorsPage() {
 
   const columns: ColumnDef<any>[] = [
     {
-      accessorKey: "name",
-      header: "Supplier / Contractor",
-      cell: ({ row }) => <span className="font-medium text-foreground">{row.getValue("name") || "-"}</span>,
+      id: "name",
+      // `name` is the GST trade name — the company, "K B IT WORLD".
+      // `companyName` is the legal name, which for a proprietorship is the
+      // owner, "RUKMANI SINGH"; that belongs on the supplier's own page. Both
+      // stay in the accessor so search still finds either one.
+      accessorFn: (row: any) => [row.name, row.companyName].filter(Boolean).join(" "),
+      header: "Company Name",
+      cell: ({ row }) => (
+        <span className="font-medium text-foreground">{vendorDisplayName(row.original)}</span>
+      ),
     },
     {
       accessorKey: "vendorType",
@@ -130,11 +138,6 @@ export default function VendorsPage() {
           {((row.getValue("vendorType") as string) || "SUPPLIER").toLowerCase()}
         </span>
       ),
-    },
-    {
-      accessorKey: "companyName",
-      header: "Company Name",
-      cell: ({ row }) => row.getValue("companyName") || "-",
     },
     {
       accessorKey: "email",

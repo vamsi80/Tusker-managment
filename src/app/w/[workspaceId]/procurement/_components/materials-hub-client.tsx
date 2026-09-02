@@ -28,6 +28,7 @@ import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Pencil, Check, X, Send, FolderKanban, Truck } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { vendorDisplayName } from "@/lib/procurement/vendor-name";
 import {
   areStatusFiltersEqual,
   MATERIAL_STATUS_OPTIONS,
@@ -411,7 +412,8 @@ export function MaterialsHubClient({
       cell: ({ row }) => {
         const price = row.original.latestPrice;
         const vendor = row.original.vendor;
-        const vendorName = vendor?.companyName || vendor?.name;
+        // The company we bought from, not the proprietor behind it.
+        const vendorName = vendor ? vendorDisplayName(vendor, "") : "";
 
         if (price == null) {
           return (
@@ -589,13 +591,13 @@ export function MaterialsHubClient({
                           {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(selectedGroup.latestPrice / 100)}
                           {selectedGroup.unit ? ` / ${selectedGroup.unit}` : ""}
                         </span>
-                        {(selectedGroup.vendor?.companyName || selectedGroup.vendor?.name) && (
+                        {vendorDisplayName(selectedGroup.vendor, "") && (
                           <>
                             <span className="text-muted-foreground/40">•</span>
                             <span className="text-muted-foreground text-[11px]">Offered by:</span>
                             <span className="font-medium text-foreground text-xs flex items-center gap-1">
                               <Truck className="size-3 text-primary shrink-0" />
-                              {selectedGroup.vendor.companyName || selectedGroup.vendor.name}
+                              {vendorDisplayName(selectedGroup.vendor)}
                             </span>
                           </>
                         )}
