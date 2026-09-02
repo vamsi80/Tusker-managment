@@ -51,6 +51,11 @@ interface LineItemRow {
   specifications?: string;
   status: string;
   rfqDeadline?: string | null;
+  vendor?: {
+    id: string;
+    name: string;
+    companyName?: string | null;
+  } | null;
   indent: {
     id: string;
     indentId: string | null;
@@ -58,6 +63,11 @@ interface LineItemRow {
     status: string;
     rejectedStage?: string | null;
     project: Project;
+    selectedVendor?: {
+      id: string;
+      name: string;
+      companyName?: string | null;
+    } | null;
     expectedDelivery?: string | null;
     requestedBy?: {
       id: string;
@@ -86,6 +96,12 @@ interface GroupedMaterialRow {
   items: LineItemRow[];
   projectsCount?: number;
   vendorCount?: number;
+  latestPrice?: number | null;
+  vendor?: {
+    id: string;
+    name: string;
+    companyName?: string | null;
+  } | null;
 }
 
 const MATERIAL_STATUSES = MATERIAL_STATUS_OPTIONS.map((option) => option.value);
@@ -272,6 +288,8 @@ export function MaterialsHubClient({
       combinedQuantity: 0,
       statuses: [],
       items: [],
+      latestPrice: cat.lastPrice ?? null,
+      vendor: cat.vendor ?? null,
     };
   });
 
@@ -286,6 +304,8 @@ export function MaterialsHubClient({
         combinedQuantity: 0,
         statuses: [],
         items: [],
+        latestPrice: null,
+        vendor: null,
       };
     }
     groupedItemsMap[key].combinedQuantity += item.quantity;
@@ -294,6 +314,7 @@ export function MaterialsHubClient({
       groupedItemsMap[key].statuses.push(item.status);
     }
   });
+
   const groupedMaterials: GroupedMaterialRow[] = Object.values(groupedItemsMap).map((group) => {
     const distinctProjects = new Set(
       group.items
@@ -307,49 +328,52 @@ export function MaterialsHubClient({
     );
     const vendorCount = coverage ? coverage.vendorCount : 0;
 
+    // Resolve latest price and offering vendor
+    let latestPrice = group.latestPrice ?? null;
+    let vendor = group.vendor ?? null;
+
+    if (latestPrice == null) {
+      const itemWithFinal = group.items.find((i) => i.finalUnitPrice != null);
+      if (itemWithFinal && itemWithFinal.finalUnitPrice != null) {
+        latestPrice = itemWithFinal.finalUnitPrice;
+        vendor = itemWithFinal.vendor ?? null;
+      } else {
+        const itemWithEst = group.items.find((i) => i.estimatedUnitPrice != null);
+        if (itemWithEst && itemWithEst.estimatedUnitPrice != null) {
+          latestPrice = itemWithEst.estimatedUnitPrice;
+          vendor = itemWithEst.vendor ?? null;
+        }
+      }
+    }
+
     return {
       ...group,
       projectsCount,
       vendorCount,
+      latestPrice,
+      vendor,
     };
   });
 
   const selectedGroup = selectedGroupKey ? groupedItemsMap[selectedGroupKey] : null;
-
-  // const getStatusBadge = (status: string) => {
-  //   switch (status) {
-  //     case "PENDING":
-  //       return <Badge variant="outline" className="bg-neutral-100 text-neutral-800 border-neutral-300 font-medium">Pending RFQ</Badge>;
-  //     case "RFQ_SENT":
-  //       return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-300 font-medium">RFQ Sent</Badge>;
-  //     case "QUOTES_RECEIVED":
-  //       return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-medium">Quotes Recv</Badge>;
-  //     case "APPROVED":
-  //       return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-medium">Approved</Badge>;
-  //     case "PO_CREATED":
-  //       return <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-300 font-medium">PO Created</Badge>;
-  //     default:
-  //       return <Badge variant="outline">{status}</Badge>;
-  //   }
-  // };
 
   const getIndentStatusBadge = (status: string) => {
     switch (status) {
       case "DRAFT":
         return <Badge variant="outline" className="bg-neutral-100 text-neutral-800 border-neutral-300 font-medium">Draft</Badge>;
       case "SUBMITTED":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">Submitted</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">Manager Request Review</Badge>;
       case "ASSIGNED":
         return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 font-medium">Assigned</Badge>;
       case "PENDING_OWNER_APPROVAL":
       case "PENDING_OWNER_COMPARATIVE_APPROVAL":
-        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-medium">Owner Review</Badge>;
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-medium">Owner Request Review</Badge>;
       case "COMPARATIVES_IN_PROGRESS":
         return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 font-medium">Comparatives</Badge>;
       case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">Manager Rate Review</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">Manager Price Review</Badge>;
       case "PENDING_OWNER_FINAL_APPROVAL":
-        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 font-medium">Owner Final Review</Badge>;
+        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 font-medium">Awaiting Price Approval</Badge>;
       case "REJECTED":
         return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 font-medium">Rejected</Badge>;
       case "APPROVED":
@@ -360,7 +384,6 @@ export function MaterialsHubClient({
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-
 
   // Columns for the grouped materials table
   const materialColumns: ColumnDef<GroupedMaterialRow>[] = [
@@ -381,6 +404,53 @@ export function MaterialsHubClient({
           {row.original.materialName}
         </span>
       ),
+    },
+    {
+      id: "latestPrice",
+      header: "Latest Price & Vendor",
+      cell: ({ row }) => {
+        const price = row.original.latestPrice;
+        const vendor = row.original.vendor;
+        const vendorName = vendor?.companyName || vendor?.name;
+
+        if (price == null) {
+          return (
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground/60 font-mono">—</span>
+              {vendorName && (
+                <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                  {vendorName}
+                </span>
+              )}
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs font-mono font-bold text-foreground">
+                {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(price / 100)}
+              </span>
+              {row.original.unit && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  /{row.original.unit}
+                </span>
+              )}
+            </div>
+            {vendorName ? (
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Truck className="size-3 text-muted-foreground/70 shrink-0" />
+                <span className="truncate max-w-[160px] font-medium" title={vendorName}>
+                  {vendorName}
+                </span>
+              </div>
+            ) : (
+              <span className="text-[10px] text-muted-foreground/50">No vendor recorded</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "combinedQuantity",
@@ -512,6 +582,25 @@ export function MaterialsHubClient({
                     <SheetDescription className="text-xs text-muted-foreground mt-1">
                       Required in <strong className="text-foreground">{selectedGroup.items.length} {selectedGroup.items.length === 1 ? 'project' : 'projects'}</strong> | Combined total: <strong className="text-foreground">{selectedGroup.combinedQuantity} {selectedGroup.unit}</strong>
                     </SheetDescription>
+                    {selectedGroup.latestPrice != null && (
+                      <div className="flex flex-wrap items-center gap-2 mt-2.5 px-2.5 py-1.5 rounded-md bg-muted/50 border border-border/70 text-xs w-fit">
+                        <span className="text-muted-foreground text-[11px] font-medium">Latest Price:</span>
+                        <span className="font-mono font-bold text-foreground text-xs">
+                          {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(selectedGroup.latestPrice / 100)}
+                          {selectedGroup.unit ? ` / ${selectedGroup.unit}` : ""}
+                        </span>
+                        {(selectedGroup.vendor?.companyName || selectedGroup.vendor?.name) && (
+                          <>
+                            <span className="text-muted-foreground/40">•</span>
+                            <span className="text-muted-foreground text-[11px]">Offered by:</span>
+                            <span className="font-medium text-foreground text-xs flex items-center gap-1">
+                              <Truck className="size-3 text-primary shrink-0" />
+                              {selectedGroup.vendor.companyName || selectedGroup.vendor.name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </SheetHeader>

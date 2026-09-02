@@ -39,7 +39,7 @@ export class ProjectMapper {
       userId: m.userId,
       workspaceRole: m.workspaceRole,
       designation: m.designation,
-      name: m.user?.name,
+      name: m.user?.surname || m.user?.name,
       surname: m.user?.surname,
       email: m.user?.email,
     };

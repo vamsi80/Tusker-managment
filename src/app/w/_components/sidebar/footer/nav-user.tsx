@@ -10,6 +10,7 @@ import { useSignout } from "@/hooks/use-signout"
 import { useMounted } from "@/hooks/use-mounted"
 import { useSafeNavigation } from "@/hooks/use-safe-navigation"
 import { usePathname, useSearchParams } from "next/navigation"
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name"
 
 export function NavUser({ workspaceId }: { workspaceId?: string }) {
   const { isMobile, setOpenMobile } = useSidebar()
@@ -31,6 +32,13 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
     return null;
   }
 
+  const displayUser = session?.user as {
+    surname?: string | null;
+    name?: string | null;
+    email?: string | null;
+  } | undefined;
+  const displayName = getUserDisplayName(displayUser);
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -42,16 +50,14 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
                 <Avatar className="size-8 rounded-lg">
-                  <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
+                  <AvatarImage src={session?.user?.image || ""} alt={displayName} />
                   <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                    {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() ||
-                      session?.user.name?.charAt(0).toLocaleUpperCase() ||
-                      session?.user.email.charAt(0).toLocaleUpperCase()}
+                    {getUserDisplayInitial(displayUser)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">
-                    {(session?.user as any)?.surname || session?.user.name || session?.user.email.split("@")[0]}
+                    {displayName}
                   </span>
                   <span className="text-muted-foreground truncate text-xs">
                     {session?.user?.email}
@@ -69,16 +75,14 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                   <Avatar className="size-8 rounded-lg">
-                    <AvatarImage src={session?.user?.image || ""} alt={session?.user?.name} />
+                    <AvatarImage src={session?.user?.image || ""} alt={displayName} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                      {(session?.user as any)?.surname?.charAt(0).toLocaleUpperCase() ||
-                        session?.user.name?.charAt(0).toLocaleUpperCase() ||
-                        session?.user.email.charAt(0).toLocaleUpperCase()}
+                      {getUserDisplayInitial(displayUser)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">
-                      {(session?.user as any)?.surname || session?.user.name || session?.user.email.split("@")[0]}
+                      {displayName}
                     </span>
                     <span className="text-muted-foreground truncate text-xs">
                       {session?.user.email}

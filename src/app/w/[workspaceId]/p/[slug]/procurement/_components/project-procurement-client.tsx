@@ -195,14 +195,14 @@ export function ProjectProcurementClient({
       case "SUBMITTED":
         return (
           <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] py-0 px-2 font-medium">
-            Manager Review
+            Manager Request Review
           </Badge>
         );
       case "PENDING_OWNER_APPROVAL":
       case "PENDING_OWNER_COMPARATIVE_APPROVAL":
         return (
           <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200 text-[10px] py-0 px-2 font-medium">
-            Owner Review
+            Owner Request Review
           </Badge>
         );
       case "COMPARATIVES_IN_PROGRESS":
@@ -212,9 +212,9 @@ export function ProjectProcurementClient({
           </Badge>
         );
       case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] py-0 px-2">Manager Rate Review</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 text-[10px] py-0 px-2">Manager Price Review</Badge>;
       case "PENDING_OWNER_FINAL_APPROVAL":
-        return <Badge variant="outline" className="bg-violet-50 text-violet-600 border-violet-200 text-[10px] py-0 px-2">Owner Final Review</Badge>;
+        return <Badge variant="outline" className="bg-violet-50 text-violet-600 border-violet-200 text-[10px] py-0 px-2">Awaiting Price Approval</Badge>;
       case "APPROVED":
         return (
           <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 text-[10px] py-0 px-2 font-medium">
@@ -389,7 +389,7 @@ export function ProjectProcurementClient({
                         className="h-7 text-xs px-2.5 bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1 shrink-0"
                       >
                         <Send className="size-3" />
-                        {isSubmitting ? "Submitting..." : "Submit for Approval"}
+                        {isSubmitting ? "Submitting..." : "Raise Request"}
                       </Button>
                     )}
                     {/* Stage 1: Manager Approval */}
@@ -451,7 +451,7 @@ export function ProjectProcurementClient({
                         onClick={() => router.push(`/w/${workspaceId}/procurement/indents/${selectedIndent.id}`)}
                         className="h-7 text-xs px-2.5 bg-amber-600 hover:bg-amber-700 text-white"
                       >
-                        Enter Final Rates
+                        Submit Price
                       </Button>
                     )}
 

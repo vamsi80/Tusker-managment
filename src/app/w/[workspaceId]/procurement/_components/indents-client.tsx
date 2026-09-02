@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { pubsub, EVENTS } from "@/lib/pubsub";
+import { vendorDisplayName } from "@/lib/procurement/vendor-name";
 import { approveActionLabel } from "@/lib/procurement/status-filters";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -33,6 +35,7 @@ import {
   INDENT_STATUS_OPTIONS,
   parseProcurementStatusParam,
 } from "@/lib/procurement/status-filters";
+import { getUserDisplayName } from "@/lib/user-display-name";
 
 interface IndentsClientProps {
   workspaceId: string;
@@ -72,9 +75,7 @@ const MATERIAL_COUNT_FILTER_OPTIONS = [
 ];
 
 const getPersonName = (member: any) => {
-  const name = member?.user?.name || "";
-  const surname = member?.user?.surname || "";
-  return `${name} ${surname}`.trim() || "Unknown user";
+  return getUserDisplayName(member?.user, "Unknown user");
 };
 
 const collectSearchValues = (value: unknown): string[] => {
@@ -230,6 +231,14 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     fetchIndents();
   }, [fetchIndents]);
 
+  // An indent moves through several people's hands. Anyone watching this list
+  // sees the new status without reloading.
+  useEffect(() => {
+    return pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
+      if (data?.action === "PROJECT_INDENT_UPDATED") fetchIndents();
+    });
+  }, [fetchIndents]);
+
   useEffect(() => {
     const nextStatuses = parseProcurementStatusParam(statusParam, INDENT_STATUSES);
     setStatusFilter((currentStatuses) =>
@@ -282,7 +291,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       if (indent.selectedVendor?.id) {
         options.set(indent.selectedVendor.id, {
           value: indent.selectedVendor.id,
-          label: indent.selectedVendor.companyName || indent.selectedVendor.name,
+          label: vendorDisplayName(indent.selectedVendor),
         });
       }
     });
@@ -310,16 +319,16 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       case "DRAFT":
         return <Badge variant="outline" className="bg-muted text-muted-foreground border-neutral-300">Draft</Badge>;
       case "SUBMITTED":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Review</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Request Review</Badge>;
       case "PENDING_OWNER_APPROVAL":
       case "PENDING_OWNER_COMPARATIVE_APPROVAL":
-        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Owner Review</Badge>;
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Owner Request Review</Badge>;
       case "COMPARATIVES_IN_PROGRESS":
         return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Getting Comparatives</Badge>;
       case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Rate Review</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Price Review</Badge>;
       case "PENDING_OWNER_FINAL_APPROVAL":
-        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">Owner Final Review</Badge>;
+        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">Awaiting Price Approval</Badge>;
       case "APPROVED":
         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>;
       case "CANCELLED":
@@ -358,8 +367,8 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     },
     {
       id: "itemsCount",
-      header: "Materials Count",
-      cell: ({ row }) => <span className="text-xs">{row.original._count?.lineItems || 0} Materials</span>,
+      header: "Materials",
+      cell: ({ row }) => <span className="text-xs font-mono">{row.original._count?.lineItems || 0}</span>,
     },
     {
       id: "estimatedTotal",
@@ -386,7 +395,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       header: "Supplier / Contractor",
       cell: ({ row }) => (
         <span className="text-xs">
-          {row.original.selectedVendor?.companyName || row.original.selectedVendor?.name || "-"}
+          {vendorDisplayName(row.original.selectedVendor)}
         </span>
       ),
     },
@@ -395,7 +404,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       header: "Requested By",
       cell: ({ row }) => (
         <span className="text-xs">
-          {row.original.requestedBy?.user?.name} {row.original.requestedBy?.user?.surname}
+          {getUserDisplayName(row.original.requestedBy?.user, "Unknown user")}
         </span>
       ),
     },
@@ -423,10 +432,27 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
         if (workspaceRole === "ACCOUNTS") return null;
         const managerStage = ["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(ind.status);
         const ownerStage = ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL", "PENDING_OWNER_FINAL_APPROVAL"].includes(ind.status);
+        const managerApproverId = ind.raisedInProject
+          ? ind.project?.projectManagerId ?? ind.requestedBy?.reportToId
+          : ind.requestedBy?.reportToId ?? ind.project?.projectManagerId;
+        const canManageIndent = managerApproverId
+          ? managerApproverId === workspaceMemberId
+          : ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "");
+        const ownerApprovalIds = ind.status === "PENDING_OWNER_FINAL_APPROVAL"
+          ? ind.finalOwnerApprovedByIds
+          : ind.approvedByIds;
+        const canApproveAsOwner = Boolean(
+          workspaceMemberId &&
+            ind.approverIds?.includes(workspaceMemberId) &&
+            !ownerApprovalIds?.includes(workspaceMemberId) &&
+            ["OWNER", "ADMIN"].includes(workspaceRole || ""),
+        );
         const canAct =
-          (managerStage && ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "")) ||
-          (ownerStage && Boolean(workspaceMemberId && ind.approverIds?.includes(workspaceMemberId)));
-        const canDelete = ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "");
+          (managerStage && canManageIndent) ||
+          (ownerStage && canApproveAsOwner);
+        const canDelete =
+          ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "") &&
+          !(ind._count?.purchaseOrders > 0);
         if (!canAct && !canDelete) return null;
         const approveLabel = approveActionLabel(ind.status);
         return (

@@ -6,7 +6,11 @@ const vendorMaterialCapability = { findMany: vi.fn() };
 
 vi.mock("@/lib/db", () => ({ default: { indentLineItem, vendorMaterialCapability } }));
 const addManualCapability = vi.fn(async () => ({ id: "cap-1" }));
-vi.mock("@/server/services/procurement", () => ({ VendorService: { addManualCapability }, lookupGstin: vi.fn() }));
+const updateCapability = vi.fn(async () => ({ id: "cap-1" }));
+vi.mock("@/server/services/procurement", () => ({
+  VendorService: { addManualCapability, updateCapability },
+  lookupGstin: vi.fn(),
+}));
 vi.mock("@/data/user/get-user-permissions", () => ({
   getWorkspacePermissions: vi.fn(async () => ({ hasAccess: true, workspaceRole: "PROCUREMENT" })),
 }));
@@ -133,5 +137,27 @@ describe("GET /vendors/:id/materials", () => {
     expect((await addMaterial({ link: "javascript:alert(1)" })).status).toBe(400);
     expect((await addMaterial({ link: "not a url" })).status).toBe(400);
     expect(addManualCapability).not.toHaveBeenCalled();
+  });
+
+  it("updates a manual supplier material and permits clearing optional values", async () => {
+    const res = await app.request("/ven-1/capabilities/cap-1?w=ws-1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        materialName: "M Sand",
+        unit: "ton",
+        rate: null,
+        quantity: null,
+        link: null,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(updateCapability).toHaveBeenCalledWith(
+      "cap-1",
+      "ven-1",
+      "ws-1",
+      expect.objectContaining({ materialName: "M Sand", rate: null, link: null })
+    );
   });
 });

@@ -13,6 +13,13 @@ export const auth = betterAuth({
     provider: "postgresql",
   }),
   user: {
+    additionalFields: {
+      surname: {
+        type: "string",
+        required: false,
+        input: false,
+      },
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,
@@ -82,7 +89,7 @@ export const auth = betterAuth({
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Welcome to Tusker Management!</h2>
-            <p>Hi ${user.name || user.email},</p>
+            <p>Hi ${(user as typeof user & { surname?: string | null }).surname || user.name || user.email},</p>
             <p>Please verify your email address by clicking the button below:</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${url}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">

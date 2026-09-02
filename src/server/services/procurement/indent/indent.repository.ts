@@ -1,5 +1,8 @@
 import prisma from "@/lib/db";
+import { AppError } from "@/lib/errors/app-error";
 import { ensureMaterialCatalog } from "../material-catalog.service";
+
+type OwnerApprovalRound = "COMPARATIVE" | "FINAL";
 
 export class IndentRepository {
   static async findById(id: string) {
@@ -58,13 +61,16 @@ export class IndentRepository {
             taskSlug: true,
           },
         },
+        purchaseOrders: {
+          select: { id: true },
+        },
       },
     });
   }
 
-  static async findByTaskId(taskId: string) {
-    return prisma.indent.findUnique({
-      where: { taskId },
+  static async findByTaskId(taskId: string, workspaceId: string) {
+    return prisma.indent.findFirst({
+      where: { taskId, workspaceId },
       include: {
         lineItems: true,
       },
@@ -214,6 +220,98 @@ export class IndentRepository {
       where: { id },
       data: { status, ...extra },
     });
+  }
+
+  /**
+   * Append an owner's approval with compare-and-swap semantics. Two owners may
+   * click approve at the same time; matching the previous approval array makes
+   * one writer retry instead of silently overwriting the other writer's ID.
+   */
+  static async recordOwnerApproval(
+    id: string,
+    memberId: string,
+    round: OwnerApprovalRound
+  ) {
+    const isFinal = round === "FINAL";
+    const expectedStatus = isFinal
+      ? "PENDING_OWNER_FINAL_APPROVAL"
+      : "PENDING_OWNER_COMPARATIVE_APPROVAL";
+    const acceptedStatuses = isFinal
+      ? [expectedStatus]
+      : [expectedStatus, "PENDING_OWNER_APPROVAL"];
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const current = await prisma.indent.findUnique({
+        where: { id },
+        select: {
+          status: true,
+          approverIds: true,
+          approvedByIds: true,
+          finalOwnerApprovedByIds: true,
+        },
+      });
+      if (!current) throw AppError.NotFound("Indent not found");
+      if (!acceptedStatuses.includes(current.status)) {
+        throw AppError.Conflict("Indent is no longer awaiting this approval");
+      }
+      if (!current.approverIds.includes(memberId)) {
+        throw AppError.Forbidden("You are no longer a selected owner approver");
+      }
+
+      const previousIds = isFinal
+        ? current.finalOwnerApprovedByIds
+        : current.approvedByIds;
+      if (previousIds.includes(memberId)) {
+        throw AppError.Conflict(
+          isFinal ? "You have already given final approval" : "You have already authorized this indent"
+        );
+      }
+
+      const nextIds = [...previousIds, memberId];
+      const allApproved = current.approverIds.every((approverId) =>
+        nextIds.includes(approverId)
+      );
+      const nextStatus = isFinal
+        ? allApproved
+          ? "APPROVED"
+          : expectedStatus
+        : allApproved
+          ? "COMPARATIVES_IN_PROGRESS"
+          : expectedStatus;
+
+      const result = await prisma.indent.updateMany({
+        where: {
+          id,
+          status: current.status,
+          approverIds: { equals: current.approverIds },
+          ...(isFinal
+            ? { finalOwnerApprovedByIds: { equals: previousIds } }
+            : { approvedByIds: { equals: previousIds } }),
+        },
+        data: {
+          status: nextStatus,
+          ...(isFinal
+            ? {
+                finalOwnerApprovedByIds: nextIds,
+                ...(allApproved
+                  ? { finalApprovedAt: new Date(), finalApprovedById: memberId }
+                  : {}),
+              }
+            : {
+                approvedByIds: nextIds,
+                ...(allApproved ? { ownerAuthorizedAt: new Date() } : {}),
+              }),
+        },
+      });
+
+      if (result.count === 1) {
+        const updated = await prisma.indent.findUnique({ where: { id } });
+        if (!updated) throw AppError.NotFound("Indent not found");
+        return { updated, allApproved };
+      }
+    }
+
+    throw AppError.Conflict("Indent approvals changed concurrently; please try again");
   }
 
   static async findWorkspaceMember(userId: string, workspaceId: string) {

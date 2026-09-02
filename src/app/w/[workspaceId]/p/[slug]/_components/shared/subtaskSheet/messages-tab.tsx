@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name";
 
 interface MessagesTabProps {
     taskId: string;
@@ -231,7 +232,7 @@ export function MessagesTab({
                                             <Avatar className="size-7 mt-0.5 shrink-0 border border-border/30">
                                                 <AvatarImage src={author?.image} />
                                                 <AvatarFallback className="bg-muted text-[9px] font-bold">
-                                                    {author?.name?.[0]}{author?.surname?.[0]}
+                                                    {getUserDisplayInitial(author)}
                                                 </AvatarFallback>
                                             </Avatar>
                                         )}
@@ -246,7 +247,7 @@ export function MessagesTab({
                                         )}>
                                             {!isMe && isFirstGrp && (
                                                 <span className={cn("block text-[10px] font-bold mb-0.5", TEXT_GREEN)}>
-                                                    {author?.name} {author?.surname}
+                                                    {getUserDisplayName(author)}
                                                 </span>
                                             )}
                                             <div className="flex flex-wrap items-end gap-x-4 gap-y-0.5">

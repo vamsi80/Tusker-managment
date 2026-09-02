@@ -70,6 +70,23 @@ const GstinLookupSchema = z.object({
   gstin: z.string().min(1),
 });
 
+const CapabilityLinkSchema = z
+  .string()
+  .trim()
+  .url()
+  .regex(/^https?:\/\//i, "Link must start with http:// or https://")
+  .nullable()
+  .optional();
+
+const UpdateCapabilitySchema = z.object({
+  materialName: z.string().trim().min(1).max(255).optional(),
+  unit: z.string().trim().max(50).nullable().optional(),
+  serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional(),
+  rate: z.number().int().positive().nullable().optional(),
+  quantity: z.number().int().positive().nullable().optional(),
+  link: CapabilityLinkSchema,
+}).refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
+
 // Permission middleware helper
 const checkProcurementPerms = async (workspaceId: string, userId: string) => {
   const perms = await getWorkspacePermissions(workspaceId, userId);
@@ -472,13 +489,7 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   quantity: z.number().int().positive().nullable().optional(),
   // Reference link — a photo, a quotation, a catalogue page. Restricted to
   // http(s) so nothing script-bearing can reach an anchor href.
-  link: z
-    .string()
-    .trim()
-    .url()
-    .regex(/^https?:\/\//i, "Link must start with http:// or https://")
-    .nullable()
-    .optional(),
+  link: CapabilityLinkSchema,
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -500,6 +511,33 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
 
   return c.json({ success: true, data: capability }, 201);
 });
+
+/**
+ * PATCH /api/v1/procurement/vendors/:id/capabilities/:capId
+ * Edit a manually maintained supplier / contractor material.
+ */
+procurementVendors.patch(
+  "/:id/capabilities/:capId",
+  zValidator("json", UpdateCapabilitySchema),
+  async (c) => {
+    const user = c.get("user");
+    const vendorId = c.req.param("id");
+    const capabilityId = c.req.param("capId");
+    const workspaceId = c.req.query("w");
+
+    if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+    await checkProcurementPerms(workspaceId, user.id);
+
+    const capability = await VendorService.updateCapability(
+      capabilityId,
+      vendorId,
+      workspaceId,
+      c.req.valid("json")
+    );
+
+    return c.json({ success: true, data: capability });
+  }
+);
 
 /**
  * DELETE /api/v1/procurement/vendors/:id/capabilities/:capId

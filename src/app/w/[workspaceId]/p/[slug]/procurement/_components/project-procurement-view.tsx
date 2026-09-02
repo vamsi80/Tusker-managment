@@ -15,7 +15,14 @@ export async function ProjectProcurementView({
     db.indent.findMany({
       where: { projectId },
       include: {
-        requestedBy: { select: { user: { select: { name: true, surname: true } } } },
+        project: { select: { projectManagerId: true } },
+        requestedBy: {
+          select: {
+            id: true,
+            reportToId: true,
+            user: { select: { name: true, surname: true } },
+          },
+        },
         task: { select: { name: true, taskSlug: true } },
         lineItems: {
           select: {

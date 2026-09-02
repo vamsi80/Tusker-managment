@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name";
 
 interface ConversationListProps {
   conversations: any[];
@@ -44,7 +45,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
       otherUser: conv.otherUser,
       lastMessageAt: conv.lastMessageAt,
       lastMessage: conv.lastMessage,
-      name: (conv.otherUser?.surname || "").toLowerCase(),
+      name: getUserDisplayName(conv.otherUser).toLowerCase(),
     }));
 
     // 2. Add members who don't have a conversation yet
@@ -57,7 +58,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
           otherUser: member.user,
           lastMessageAt: null,
           lastMessage: null,
-          name: (member.user.surname || "").toLowerCase(),
+          name: getUserDisplayName(member.user).toLowerCase(),
         });
       }
     });
@@ -144,7 +145,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                           "rounded-full font-medium text-xs uppercase transition-colors",
                           isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary"
                         )}>
-                          {otherUser?.surname?.[0]}
+                          {getUserDisplayInitial(otherUser)}
                         </AvatarFallback>
                       </Avatar>
                       {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
@@ -155,7 +156,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-sm font-semibold truncate">
-                          {otherUser?.surname}
+                          {getUserDisplayName(otherUser)}
                         </span>
                         {item.lastMessageAt && (
                           <span className={cn(

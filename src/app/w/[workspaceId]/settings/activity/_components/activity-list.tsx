@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { pusherClient } from "@/lib/pusher";
 import { useRouter } from "next/navigation";
 import { APP_DATE_FORMAT } from "@/lib/utils";
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name";
 
 interface ActivityLog {
     id: string;
@@ -21,6 +22,7 @@ interface ActivityLog {
     createdAt: Date;
     user: {
         name: string;
+        surname: string | null;
         email: string;
         image: string | null;
     };
@@ -37,16 +39,16 @@ const columns: ColumnDef<ActivityLog>[] = [
         )
     },
     {
-        accessorKey: "user.name",
+        accessorKey: "user.surname",
         header: "User",
         cell: ({ row }) => (
             <div className="flex items-center gap-2">
                 <Avatar className="size-6">
                     <AvatarImage src={row.original.user?.image || ""} />
-                    <AvatarFallback className="text-[10px]">{row.original.user?.name?.charAt(0) || "?"}</AvatarFallback>
+                    <AvatarFallback className="text-[10px]">{getUserDisplayInitial(row.original.user)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                    <span className="text-xs font-medium">{row.original.user?.name || "Unknown User"}</span>
+                    <span className="text-xs font-medium">{getUserDisplayName(row.original.user, "Unknown User")}</span>
                     <span className="text-[10px] text-muted-foreground">{row.original.user?.email || "No email"}</span>
                 </div>
             </div>

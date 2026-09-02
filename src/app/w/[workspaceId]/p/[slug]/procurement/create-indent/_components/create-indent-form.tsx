@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FALLBACK_UNITS } from "@/lib/procurement/units";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -28,6 +29,7 @@ function AutoCompleteInput({
   value,
   onChange,
   onUnitAutoFill,
+  onPriceAutoFill,
   disabled,
   catalog,
   isLoading,
@@ -37,6 +39,7 @@ function AutoCompleteInput({
   value: string;
   onChange: (val: string) => void;
   onUnitAutoFill?: (unit: string) => void;
+  onPriceAutoFill?: (rupees: number) => void;
   disabled: boolean;
   catalog: any[];
   isLoading: boolean;
@@ -130,13 +133,23 @@ function AutoCompleteInput({
                 if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
                   onUnitAutoFill(item.defaultUnit.abbreviation);
                 }
+                // The last rate we agreed for it, in paise on the wire.
+                if (item.lastPrice && onPriceAutoFill) {
+                  onPriceAutoFill(item.lastPrice / 100);
+                }
                 setOpen(false);
               }}
             >
               <span className="font-medium">{item.name}</span>
-              {item.defaultUnit?.abbreviation && (
-                <span className="text-[10px] text-muted-foreground">{item.defaultUnit.abbreviation}</span>
-              )}
+              <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                {item.lastPrice ? (
+                  <span className="font-mono font-semibold text-foreground">
+                    ₹{(item.lastPrice / 100).toLocaleString("en-IN")}
+                    {item.defaultUnit?.abbreviation ? ` / ${item.defaultUnit.abbreviation}` : ""}
+                  </span>
+                ) : null}
+                {item.defaultUnit?.abbreviation && !item.lastPrice ? item.defaultUnit.abbreviation : null}
+              </span>
             </button>
           ))}
           <div className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
@@ -815,9 +828,16 @@ export function CreateIndentForm({
                 clearValue: () => setLabourCharge(""),
               },
             ].map((charge) => (
-              <div
+              // The whole box is the label, so anywhere inside it toggles the
+              // charge rather than only the box itself.
+              <Label
                 key={charge.id}
-                className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2"
+                htmlFor={charge.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-xs font-medium transition-colors",
+                  isSubmitting ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-accent",
+                  charge.checked && "border-primary/60 bg-primary/5"
+                )}
               >
                 <Checkbox
                   id={charge.id}
@@ -829,10 +849,8 @@ export function CreateIndentForm({
                   }}
                   disabled={isSubmitting}
                 />
-                <Label htmlFor={charge.id} className="cursor-pointer text-xs font-medium">
-                  {charge.label}
-                </Label>
-              </div>
+                {charge.label}
+              </Label>
             ))}
           </div>
         </div>
@@ -891,6 +909,7 @@ export function CreateIndentForm({
                         currentUnit={item.unit}
                         onChange={(val) => handleRowChange(index, "materialName", val)}
                         onUnitAutoFill={(unit) => handleRowChange(index, "unit", unit)}
+                        onPriceAutoFill={(rupees) => handleRowChange(index, "unitPrice", String(rupees))}
                         onFocusTrigger={() => setShouldLoadCatalog(true)}
                         disabled={isSubmitting}
                         catalog={catalog}

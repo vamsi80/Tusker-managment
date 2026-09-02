@@ -6,11 +6,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { getUserDisplayName } from "@/lib/user-display-name";
 
 interface Member {
   userId: string;
   user: {
     name: string | null;
+    surname?: string | null;
+    email?: string | null;
     image?: string | null;
   } | null;
   role?: string | null;
@@ -66,7 +69,7 @@ export function WorkspaceMemberSelector({
 
             <CommandGroup>
               {members.map((m) => {
-                const username = m.user?.name ?? "Unknown";
+                const username = getUserDisplayName(m.user, "Unknown");
                 const role = (m.role ?? "member").toLowerCase();
 
                 return (

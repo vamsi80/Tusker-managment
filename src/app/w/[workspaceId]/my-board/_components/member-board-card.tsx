@@ -10,6 +10,7 @@ import { toggleBoardItemStatus, deleteBoardItem } from "@/actions/board/board-ac
 import { toast } from "@/lib/toast"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { getUserDisplayName } from "@/lib/user-display-name"
 
 type Member = BoardData["members"][0];
 
@@ -91,7 +92,9 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                     <div className="space-y-2.5">
                         {member.boardItems.map((item) => {
                             const isDone = item.status === "DONE";
-                            const assignerName = item.assignedById === member.id ? "Self" : item.assignedBy?.user?.name;
+                            const assignerName = item.assignedById === member.id
+                                ? "Self"
+                                : getUserDisplayName(item.assignedBy?.user);
 
                             const assignerRole = item.assignedBy?.workspaceRole;
                             const isAdminNote = assignerRole === "OWNER" || assignerRole === "ADMIN";

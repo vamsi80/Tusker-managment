@@ -24,7 +24,7 @@ export default async function IndentDetailPage({ params }: PageProps) {
   const indent = await db.indent.findUnique({
     where: { id: indentId },
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, projectManagerId: true } },
       requestedBy: {
         include: {
           user: { select: { name: true, surname: true, email: true } },
@@ -36,6 +36,7 @@ export default async function IndentDetailPage({ params }: PageProps) {
         },
       },
       lineItems: true,
+      purchaseOrders: { select: { id: true } },
       selectedVendor: { select: { id: true, name: true, companyName: true } },
     },
   });

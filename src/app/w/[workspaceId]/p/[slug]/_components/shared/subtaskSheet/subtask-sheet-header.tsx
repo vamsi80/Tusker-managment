@@ -139,7 +139,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                         onAssigned={(_userId, member) => {
                                             onSubTaskAssigned?.({
                                                 id: member.userId,
-                                                name: member.user.name,
+                                                name: member.user.surname || member.user.name,
                                                 surname: member.user.surname,
                                             });
                                         }}

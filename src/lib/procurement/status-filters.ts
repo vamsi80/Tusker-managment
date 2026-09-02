@@ -1,16 +1,21 @@
 export const INDENT_STATUS_OPTIONS = [
   { value: "DRAFT", label: "Draft" },
-  { value: "SUBMITTED", label: "Manager Review" },
+  { value: "SUBMITTED", label: "Manager Request Review" },
   { value: "ASSIGNED", label: "Assigned" },
-  { value: "PENDING_OWNER_APPROVAL", label: "Owner Review" },
-  { value: "PENDING_OWNER_COMPARATIVE_APPROVAL", label: "Owner Comparative Review" },
+  { value: "PENDING_OWNER_APPROVAL", label: "Owner Request Review" },
+  { value: "PENDING_OWNER_COMPARATIVE_APPROVAL", label: "Owner Request Review" },
   { value: "COMPARATIVES_IN_PROGRESS", label: "Getting Comparatives" },
-  { value: "PENDING_MANAGER_FINAL_RATE_APPROVAL", label: "Manager Rate Review" },
-  { value: "PENDING_OWNER_FINAL_APPROVAL", label: "Owner Final Review" },
+  { value: "PENDING_MANAGER_FINAL_RATE_APPROVAL", label: "Manager Price Review" },
+  { value: "PENDING_OWNER_FINAL_APPROVAL", label: "Awaiting Price Approval" },
   { value: "APPROVED", label: "Approved" },
   { value: "REJECTED", label: "Rejected" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
+
+/** Status -> the wording the UI already uses, for messages raised server-side. */
+export const INDENT_STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  INDENT_STATUS_OPTIONS.map((option) => [option.value, option.label]),
+);
 
 export const AWAITING_APPROVAL_STATUSES = [
   "SUBMITTED",
@@ -64,5 +69,5 @@ export const FINAL_RATE_APPROVAL_STATUSES = [
  */
 export const approveActionLabel = (status: string) =>
   FINAL_RATE_APPROVAL_STATUSES.includes(status)
-    ? "Approve Final Rates"
-    : "Proceed for Gathering Estimates";
+    ? "Approve Price"
+    : "Start Getting Quotations";

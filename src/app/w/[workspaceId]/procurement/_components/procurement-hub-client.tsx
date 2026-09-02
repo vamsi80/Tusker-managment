@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
+import { getUserDisplayName } from "@/lib/user-display-name";
 
 interface Project {
   id: string;
@@ -442,7 +443,7 @@ export function ProcurementHubClient({
       case "DRAFT":
         return <Badge variant="outline" className="bg-muted text-muted-foreground border-neutral-300">Draft</Badge>;
       case "SUBMITTED":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Submitted</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Request Review</Badge>;
       case "APPROVED":
         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>;
       case "CANCELLED":
@@ -687,7 +688,7 @@ export function ProcurementHubClient({
                           {ind._count.lineItems} items
                         </TableCell>
                         <TableCell className="py-2.5 text-xs">
-                          {ind.requestedBy?.user?.name} {ind.requestedBy?.user?.surname}
+                          {getUserDisplayName(ind.requestedBy?.user)}
                         </TableCell>
                         <TableCell className="py-2.5 text-xs">
                           {ind.expectedDelivery ? format(new Date(ind.expectedDelivery), "MMM d, yyyy") : "—"}

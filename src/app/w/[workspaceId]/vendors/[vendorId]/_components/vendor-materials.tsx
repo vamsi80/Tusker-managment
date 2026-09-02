@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Trash2, Check, ChevronsUpDown, Plus, ExternalLink } from "lucide-react";
+import { Loader2, Trash2, Check, ChevronsUpDown, Plus, ExternalLink, Pencil } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/data-table";
+import { FALLBACK_UNITS } from "@/lib/procurement/units";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 type ServiceType = "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL";
 
@@ -60,6 +62,10 @@ const SERVICE_CLASS: Record<ServiceType, string> = {
 };
 
 export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; workspaceId: string }) {
+  const { data: workspaceData } = useWorkspaceLayout();
+  const canManageMaterials = Boolean(
+    workspaceData.permissions.isWorkspaceAdmin || workspaceData.permissions.workspaceRole === "PROCUREMENT"
+  );
   const [rows, setRows] = useState<MaterialRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [existingItems, setExistingItems] = useState<{ id: string; name: string; type: "material" | "tag"; unit?: string }[]>([]);
@@ -68,11 +74,12 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
   const [customMaterialName, setCustomMaterialName] = useState("");
   const [newUnit, setNewUnit] = useState("");
   const [newRate, setNewRate] = useState("");
-  const [newQuantity, setNewQuantity] = useState("");
+  const [units, setUnits] = useState<{ abbreviation: string; name: string }[]>(FALLBACK_UNITS);
   const [newLink, setNewLink] = useState("");
   const [newServiceType, setNewServiceType] = useState<ServiceType>("SUPPLY");
   const [adding, setAdding] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<MaterialRow | null>(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -122,15 +129,50 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
     load();
   }, [workspaceId]);
 
-  // Paise, so the dialog total and the stored one agree to the rupee.
+  useEffect(() => {
+    fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.success && body.data?.length) setUnits(body.data);
+      })
+      .catch((error) => console.error("Failed to load units", error));
+  }, [workspaceId]);
+
+  // Paise on the wire, like every other price in procurement.
   const newRatePaise = newRate ? Math.round(Number(newRate) * 100) : null;
-  const newQuantityValue = newQuantity ? Math.round(Number(newQuantity)) : null;
-  const newTotal = newRatePaise && newQuantityValue ? newRatePaise * newQuantityValue : null;
 
   const newMaterialName =
     selectedMaterialId === "CUSTOM"
       ? customMaterialName.trim()
       : existingItems.find((i) => i.id === selectedMaterialId)?.name || "";
+
+  const resetMaterialForm = () => {
+    setSelectedMaterialId("");
+    setCustomMaterialName("");
+    setNewUnit("");
+    setNewRate("");
+    setNewLink("");
+    setNewServiceType("SUPPLY");
+    setSearchQuery("");
+  };
+
+  const openAddDialog = () => {
+    setEditingRow(null);
+    resetMaterialForm();
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (row: MaterialRow) => {
+    setEditingRow(row);
+    setSelectedMaterialId("CUSTOM");
+    setCustomMaterialName(row.materialName);
+    setNewUnit(row.unit || "");
+    setNewRate(row.rate == null ? "" : String(row.rate / 100));
+    setNewLink(row.link || "");
+    setNewServiceType(row.serviceType || "SUPPLY");
+    setSearchQuery("");
+    setDialogOpen(true);
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,36 +183,33 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
 
     setAdding(true);
     try {
-      const res = await fetch(`/api/v1/procurement/vendors/${vendorId}/capabilities?w=${workspaceId}`, {
-        method: "POST",
+      const url = editingRow
+        ? `/api/v1/procurement/vendors/${vendorId}/capabilities/${editingRow.id}?w=${workspaceId}`
+        : `/api/v1/procurement/vendors/${vendorId}/capabilities?w=${workspaceId}`;
+      const res = await fetch(url, {
+        method: editingRow ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           materialName: newMaterialName,
-          unit: newUnit || undefined,
+          unit: newUnit || (editingRow ? null : undefined),
           serviceType: newServiceType,
           // Rupees in the form, paise on the wire, like every other price.
-          rate: newRatePaise ?? undefined,
-          quantity: newQuantityValue ?? undefined,
-          link: newLink.trim() || undefined,
+          rate: newRatePaise ?? (editingRow ? null : undefined),
+          link: newLink.trim() || (editingRow ? null : undefined),
         }),
       });
       const body = await res.json();
       if (body.success) {
-        toast.success("Material added");
-        setSelectedMaterialId("");
-        setCustomMaterialName("");
-        setNewUnit("");
-        setNewRate("");
-        setNewQuantity("");
-        setNewLink("");
-        setNewServiceType("SUPPLY");
+        toast.success(editingRow ? "Material updated" : "Material added");
+        resetMaterialForm();
+        setEditingRow(null);
         setDialogOpen(false);
         fetchMaterials();
       } else {
-        toast.error(body.error || "Failed to add material");
+        toast.error(body.error || `Failed to ${editingRow ? "update" : "add"} material`);
       }
     } catch {
-      toast.error("Failed to add material");
+      toast.error(`Failed to ${editingRow ? "update" : "add"} material`);
     } finally {
       setAdding(false);
     }
@@ -193,8 +232,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
     }
   };
 
-  const columns = useMemo<ColumnDef<MaterialRow>[]>(
-    () => [
+  const columns: ColumnDef<MaterialRow>[] = [
       {
         accessorKey: "materialName",
         header: "Material / Service",
@@ -258,16 +296,8 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         ),
       },
       {
-        accessorKey: "quantity",
-        header: "Quantity",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {row.original.quantity == null ? "—" : `${row.original.quantity} ${row.original.unit || ""}`}
-          </span>
-        ),
-      },
-      {
         accessorKey: "rate",
+        // A vendor rate is always per unit, so that is the only shape it takes.
         header: "Rate",
         cell: ({ row }) => (
           <span className="font-mono text-xs font-semibold">
@@ -279,24 +309,20 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         ),
       },
       {
-        id: "total",
-        header: "Total",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs">
-            {money(
-              row.original.rate == null || row.original.quantity == null
-                ? null
-                : row.original.rate * row.original.quantity
-            )}
-          </span>
-        ),
-      },
-      {
         id: "actions",
         header: " ",
         cell: ({ row }) =>
-          row.original.kind === "CAPABILITY" ? (
-            <div className="text-right">
+          row.original.kind === "CAPABILITY" && canManageMaterials ? (
+            <div className="flex justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openEditDialog(row.original)}
+                title="Edit material"
+                className="text-muted-foreground hover:text-foreground size-8"
+              >
+                <Pencil className="size-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -309,9 +335,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
           ) : null,
         meta: { className: "w-[80px] text-right" },
       },
-    ],
-    [workspaceId]
-  );
+    ];
 
   return (
     <div className="space-y-4">
@@ -322,17 +346,27 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         showPagination={true}
         searchKey="materialName"
         searchPlaceholder="Search materials..."
-        onAdd={() => setDialogOpen(true)}
+        onAdd={canManageMaterials ? openAddDialog : undefined}
         addButtonLabel="Add Material"
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingRow(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[520px] rounded-3xl border-none shadow-2xl p-0">
           <form onSubmit={handleAdd} className="p-8 space-y-6">
             <DialogHeader className="text-left">
-              <DialogTitle className="text-2xl font-medium">Add Material</DialogTitle>
+              <DialogTitle className="text-2xl font-medium">
+                {editingRow ? "Edit Material" : "Add Material"}
+              </DialogTitle>
               <DialogDescription>
-                What we buy from this supplier / contractor, and the rate agreed for it.
+                {editingRow
+                  ? "Update what this supplier / contractor provides and the agreed commercial details."
+                  : "What we buy from this supplier / contractor, and the rate agreed for it."}
               </DialogDescription>
             </DialogHeader>
 
@@ -404,20 +438,25 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
               </Popover>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 items-end">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Quantity{newUnit ? ` (${newUnit})` : ""}
-                </label>
-                <Input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={newQuantity}
-                  onChange={(e) => setNewQuantity(e.target.value)}
-                  placeholder="0"
-                  className="bg-background h-9"
-                />
+                <label className="text-xs font-semibold text-muted-foreground">Unit</label>
+                <select
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                >
+                  <option value="" className="bg-background text-foreground">Select unit...</option>
+                  {/* A unit already stored but missing from the list stays selectable. */}
+                  {newUnit && !units.some((unit) => unit.abbreviation === newUnit) && (
+                    <option value={newUnit} className="bg-background text-foreground">{newUnit}</option>
+                  )}
+                  {units.map((unit) => (
+                    <option key={unit.abbreviation} value={unit.abbreviation} className="bg-background text-foreground">
+                      {unit.abbreviation} ({unit.name})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-1">
@@ -431,13 +470,6 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
                   placeholder="0.00"
                   className="bg-background h-9"
                 />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground">Total</label>
-                <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 font-mono text-sm font-semibold">
-                  {money(newTotal)}
-                </div>
               </div>
             </div>
 
@@ -466,12 +498,35 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
               <p className="text-[11px] text-muted-foreground">Opens in a new tab from the list.</p>
             </div>
 
+            {/* A vendor rate is always per unit, so that is what gets saved. */}
+            <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 h-10">
+              <span className="text-xs font-semibold text-muted-foreground">Rate</span>
+              <span className="font-mono text-sm font-semibold">
+                {money(newRatePaise)}
+                {newUnit ? <span className="text-muted-foreground font-normal"> / {newUnit}</span> : null}
+              </span>
+            </div>
+
             <DialogFooter className="gap-2 sm:gap-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={adding}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  setEditingRow(null);
+                }}
+                disabled={adding}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={adding || !newMaterialName} className="min-w-[120px]">
-                {adding ? <Loader2 className="size-4 animate-spin" /> : "Add Material"}
+                {adding ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : editingRow ? (
+                  "Save Changes"
+                ) : (
+                  "Add Material"
+                )}
               </Button>
             </DialogFooter>
           </form>

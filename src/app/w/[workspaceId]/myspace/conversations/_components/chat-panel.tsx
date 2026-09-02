@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name";
 
 interface ChatPanelProps {
   conversationId: string;
@@ -31,6 +32,7 @@ export function ChatPanel({
   const [content, setContent] = useState("");
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const otherUserName = getUserDisplayName(otherUser);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     if (scrollRef.current) {
@@ -71,7 +73,7 @@ export function ChatPanel({
           <div className="relative">
             <Avatar className="size-10 rounded-full">
               <AvatarFallback className="rounded-full bg-primary/10 text-primary font-semibold uppercase">
-                {otherUser?.surname?.[0]}
+                {getUserDisplayInitial(otherUser)}
               </AvatarFallback>
             </Avatar>
             {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
@@ -81,7 +83,7 @@ export function ChatPanel({
 
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight">
-              {otherUser?.surname}
+              {otherUserName}
             </span>
             {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
               <span className="text-[10px] text-emerald-500 font-medium tracking-wide">
@@ -109,7 +111,7 @@ export function ChatPanel({
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
                 <MessageSquare className="size-12 mb-4" />
-                <p className="text-sm font-semibold">Wave to {otherUser?.name}!</p>
+                <p className="text-sm font-semibold">Wave to {otherUserName}!</p>
                 <p className="text-xs mt-1">Start your conversation now.</p>
               </div>
             ) : (

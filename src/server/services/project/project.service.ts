@@ -590,7 +590,7 @@ export class ProjectService {
           workspaceRole: wa.workspaceRole as any,
           user: {
             id: wa.user.id,
-            name: wa.user.name || "",
+            name: wa.user.surname || wa.user.name || "",
             surname: wa.user.surname || "",
             email: wa.user.email,
           }

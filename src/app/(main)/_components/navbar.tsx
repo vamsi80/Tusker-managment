@@ -10,6 +10,7 @@ import { UserDropdown } from "./userDropdown";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { getUserDisplayName } from "@/lib/user-display-name";
 
 interface iAppProps {
   session?: any; // Optional session from server
@@ -70,13 +71,13 @@ export function Navbar({ session: serverSession }: iAppProps) {
               Home
             </Link>
 
-            <a
+            <Link
               href="/w"
               onClick={handleWorkspaceClick}
               className="text-sm font-medium transition-colors hover:text-primary cursor-pointer"
             >
               Workspace
-            </a>
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -85,11 +86,7 @@ export function Navbar({ session: serverSession }: iAppProps) {
             {isPending ? null : session ? (
               <UserDropdown
                 email={session.user.email}
-                name={
-                  session?.user.name && session?.user.name.length > 0
-                    ? session?.user.name
-                    : session?.user.email.split("@")[0]
-                }
+                name={getUserDisplayName(session.user as typeof session.user & { surname?: string | null })}
               />
             ) : (
               <>
@@ -110,11 +107,7 @@ export function Navbar({ session: serverSession }: iAppProps) {
           {isPending ? null : session ? (
             <UserDropdown
               email={session.user.email}
-              name={
-                session?.user.name && session?.user.name.length > 0
-                  ? session?.user.name
-                  : session?.user.email.split("@")[0]
-              }
+              name={getUserDisplayName(session.user as typeof session.user & { surname?: string | null })}
             />
           ) : (
             <>

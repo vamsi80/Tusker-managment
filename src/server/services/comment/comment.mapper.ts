@@ -23,7 +23,7 @@ export class CommentMapper {
             content: comment.content,
             createdAt: comment.createdAt,
             user: {
-              name: comment.user.name,
+              name: comment.user.surname || comment.user.name,
               surname: comment.user.surname,
               image: (comment.user as any).image
             }
@@ -52,7 +52,7 @@ export class CommentMapper {
             content: rc.text,
             createdAt: rc.createdAt,
             user: {
-              name: rc.author.name,
+              name: rc.author.surname || rc.author.name,
               surname: rc.author.surname,
               image: (rc.author as any).image
             }
@@ -71,7 +71,7 @@ export class CommentMapper {
           content: rc.text,
           createdAt: rc.createdAt,
           user: {
-            name: rc.author.name,
+            name: rc.author.surname || rc.author.name,
             surname: rc.author.surname,
             image: (rc.author as any).image
           }
@@ -101,7 +101,7 @@ export class CommentMapper {
             content: dn.body, // John Doe created a task / updated status...
             createdAt: dn.createdAt,
             user: {
-              name: dn.user?.name || "System",
+              name: dn.user?.surname || dn.user?.name || "System",
               surname: dn.user?.surname || "",
               image: dn.user?.image || null
             }
@@ -122,7 +122,7 @@ export class CommentMapper {
             content: dn.body,
             createdAt: dn.createdAt,
             user: {
-              name: dn.user?.name || "System",
+              name: dn.user?.surname || dn.user?.name || "System",
               surname: dn.user?.surname || "",
               image: dn.user?.image || null
             }

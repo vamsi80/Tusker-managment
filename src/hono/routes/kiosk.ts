@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { getUserDisplayName } from "@/lib/user-display-name";
 import prisma from "@/lib/db";
 import { AttendanceService } from "@/server/services/attendance";
 
@@ -83,14 +84,14 @@ kiosk.get("/members", async (c) => {
     const members = await prisma.workspaceMember.findMany({
         where: { workspaceId, employeeId: { not: null } },
         select: { employeeId: true, user: { select: { name: true, surname: true } } },
-        orderBy: { user: { name: "asc" } },
+        orderBy: { user: { surname: "asc" } },
     });
 
     return c.json({
         success: true,
         data: members.map((m) => ({
             employeeId: m.employeeId,
-            name: [m.user.name, m.user.surname].filter(Boolean).join(" "),
+            name: getUserDisplayName(m.user),
         })),
     });
 });

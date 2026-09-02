@@ -190,6 +190,80 @@ export class VendorService {
     });
   }
 
+  static async updateCapability(
+    capabilityId: string,
+    vendorId: string,
+    workspaceId: string,
+    data: {
+      materialName?: string;
+      unit?: string | null;
+      serviceType?: "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL";
+      rate?: number | null;
+      quantity?: number | null;
+      link?: string | null;
+    }
+  ) {
+    const current = await prisma.vendorMaterialCapability.findFirst({
+      where: { id: capabilityId, vendorId, workspaceId },
+    });
+    if (!current) throw AppError.NotFound("Supplier material not found");
+
+    const materialName = (data.materialName ?? current.materialName).trim().toLowerCase();
+    if (!materialName) throw AppError.ValidationError("Material name is required");
+    const serviceType = data.serviceType ?? current.serviceType;
+    const unit = data.unit === undefined ? current.unit : data.unit?.trim() || null;
+
+    return prisma.$transaction(async (tx) => {
+      const duplicate = await tx.vendorMaterialCapability.findFirst({
+        where: {
+          vendorId,
+          workspaceId,
+          id: { not: capabilityId },
+          materialName: { equals: materialName, mode: "insensitive" },
+          serviceType,
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw AppError.Conflict("This supplier / contractor already has that material and service type");
+      }
+
+      // A vendor-specific unit/rate edit must not overwrite the master default
+      // unit. Reuse an existing master as-is; only create one when the name is new.
+      const existingMaterial = await tx.materialCatalog.findFirst({
+        where: {
+          workspaceId,
+          name: { equals: materialName, mode: "insensitive" },
+        },
+        select: { id: true },
+      });
+      const material = existingMaterial ?? await ensureMaterialCatalog(tx, {
+        workspaceId,
+        name: materialName,
+        unit,
+        source: "VENDOR",
+      });
+
+      return tx.vendorMaterialCapability.update({
+        where: { id: capabilityId },
+        data: {
+          materialName,
+          materialCatalogId: material.id,
+          unit,
+          serviceType,
+          ...(data.rate === undefined ? {} : { rate: data.rate }),
+          ...(data.quantity === undefined ? {} : { quantity: data.quantity }),
+          ...(data.link === undefined ? {} : { link: data.link }),
+        },
+        include: {
+          material: {
+            select: { id: true, materialId: true, name: true },
+          },
+        },
+      });
+    });
+  }
+
   static async removeCapability(capabilityId: string, workspaceId: string) {
     const cap = await prisma.vendorMaterialCapability.findFirst({
       where: { id: capabilityId, workspaceId },

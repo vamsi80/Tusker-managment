@@ -28,6 +28,7 @@ import {
   FileText,
   Search,
 } from "lucide-react";
+import { vendorDisplayName } from "@/lib/procurement/vendor-name";
 import { toast } from "@/lib/toast";
 
 interface CreateRfqClientProps {
@@ -348,10 +349,15 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                           <Building className="size-3 text-primary" /> Column {idx + 1}
                         </span>
                         <div className="flex flex-col pr-4">
-                          <span className="text-xs font-bold text-foreground truncate">{vendor.name}</span>
-                          <span className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                            {vendor.companyName || "-"}
-                          </span>
+                          <span className="text-xs font-bold text-foreground truncate">{vendorDisplayName(vendor)}</span>
+                          {/* The legal name only when it says something the
+                              trade name does not — for a proprietorship it is
+                              the owner's own name. */}
+                          {vendor.companyName && vendor.companyName !== vendor.name && (
+                            <span className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              {vendor.companyName}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -392,10 +398,12 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                                     className="w-full text-left p-2.5 text-xs transition-colors hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     <div className="font-semibold text-foreground flex items-center justify-between">
-                                      <span>{v.name}</span>
+                                      <span>{vendorDisplayName(v)}</span>
                                       {isAlreadyUsed && <Badge variant="secondary" className="text-[9px]">Added</Badge>}
                                     </div>
-                                    <div className="text-[10px] text-muted-foreground mt-0.5">{v.companyName || "—"}</div>
+                                    {v.companyName && v.companyName !== v.name && (
+                                      <div className="text-[10px] text-muted-foreground mt-0.5">{v.companyName}</div>
+                                    )}
                                   </button>
                                 );
                               })}

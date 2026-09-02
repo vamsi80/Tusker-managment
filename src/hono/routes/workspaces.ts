@@ -211,7 +211,7 @@ workspaces.post("/:workspaceId/members/:memberId/resend-invite", async (c) => {
   const result = await WorkspaceService.resendInvitation(
     workspaceId,
     memberId,
-    { id: user.id, name: user.name || "Admin" },
+    { id: user.id, name: (user as any).surname || user.name || "Admin" },
   );
 
   return c.json(result);
@@ -235,7 +235,7 @@ workspaces.post("/:workspaceId/members/:memberId/reset-password", async (c) => {
   const result = await WorkspaceService.resetMemberPassword(
     workspaceId,
     memberId,
-    { id: user.id, name: user.name || "Admin" },
+    { id: user.id, name: (user as any).surname || user.name || "Admin" },
   );
 
   return c.json(result);

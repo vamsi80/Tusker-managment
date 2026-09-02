@@ -23,6 +23,7 @@ export async function getWorkspaceActivity(workspaceId: string) {
             user: {
                 select: {
                     name: true,
+                    surname: true,
                     email: true,
                     image: true,
                 }

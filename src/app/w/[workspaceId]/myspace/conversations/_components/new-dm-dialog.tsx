@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Loader2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name";
 
 interface NewDMDialogProps {
   open: boolean;
@@ -91,12 +92,12 @@ export function NewDMDialog({
                   <Avatar className="size-10 rounded-lg border border-border/10 group-hover:border-primary/20 transition-colors">
                     <AvatarImage src={member.user.image} />
                     <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-bold uppercase">
-                      {member.user.surname?.[0] || member.user.name?.[0]}
+                      {getUserDisplayInitial(member.user)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-bold truncate">
-                      {member.user.surname}
+                      {getUserDisplayName(member.user)}
                     </span>
                     <span className="text-xs text-muted-foreground truncate">
                       {member.user.email}

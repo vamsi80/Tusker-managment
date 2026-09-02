@@ -122,7 +122,7 @@ export class TaskMapper {
       workspaceRole: m.workspaceRole,
       user: {
         id: m.user.id,
-        name: m.user.name,
+        name: m.user.surname || m.user.name,
         surname: m.user.surname,
         image: m.user.image,
       },

@@ -7,6 +7,7 @@ import { Mail, Shield, User as UserIcon, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { getUserDisplayInitial, getUserDisplayName } from "@/lib/user-display-name";
 
 export default function MySpaceInfoPage() {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
@@ -31,6 +32,8 @@ export default function MySpaceInfoPage() {
   if (!session) return null;
 
   const user = session.user;
+  const displayUser = user as typeof user & { surname?: string | null };
+  const displayName = getUserDisplayName(displayUser);
   const workspaceRole = layoutData?.permissions?.workspaceRole;
 
   return (
@@ -41,11 +44,11 @@ export default function MySpaceInfoPage() {
             <Avatar className="size-24 border-4 border-background shadow-xl shrink-0">
               <AvatarImage src={user.image || ""} />
               <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                {user.name?.charAt(0) || user.email.charAt(0)}
+                {getUserDisplayInitial(displayUser)}
               </AvatarFallback>
             </Avatar>
             <div>
-              <CardTitle className="text-3xl font-bold">{user.name}</CardTitle>
+              <CardTitle className="text-3xl font-bold">{displayName}</CardTitle>
               <p className="text-muted-foreground font-medium">{user.email}</p>
             </div>
           </div>

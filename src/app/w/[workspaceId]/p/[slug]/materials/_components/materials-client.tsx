@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "@/lib/toast";
 import { AppLoader } from "@/components/shared/app-loader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getUserDisplayName } from "@/lib/user-display-name";
 
 interface Material {
     id: string;
@@ -101,7 +102,7 @@ export function MaterialsClient({ workspaceId, projectId }: { workspaceId: strin
                 quantity: item.quantity,
                 specifications: item.notes || "",
                 status: "DRAFT", // Planning materials are always draft/planned by default
-                addedBy: `${item.addedBy?.user?.name || ""} ${item.addedBy?.user?.surname || ""}`.trim(),
+                addedBy: getUserDisplayName(item.addedBy?.user),
                 subtaskId: item.subtaskId,
                 subtaskNameSnapshot: item.subtaskNameSnapshot,
                 parentTaskNameSnapshot: item.parentTaskNameSnapshot,

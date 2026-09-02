@@ -85,7 +85,7 @@ export class WorkspaceService {
       });
       await recordActivity({
         userId: actorId,
-        userName: actor?.name || actor?.surname || "Admin",
+        userName: actor?.surname || actor?.name || "Admin",
         workspaceId,
         action: "WORKSPACE_UPDATED",
         entityType: "WORKSPACE",
@@ -386,7 +386,7 @@ export class WorkspaceService {
       const { sendWorkspaceInvitationEmail } = await import("@/lib/auth");
       await sendWorkspaceInvitationEmail({
         email,
-        name,
+        name: niceName || name,
         workspaceId,
         role,
         token, // PASSING THE TOKEN
@@ -499,7 +499,7 @@ export class WorkspaceService {
     const { sendWorkspaceInvitationEmail } = await import("@/lib/auth");
     await sendWorkspaceInvitationEmail({
       email: member.user.email,
-      name: member.user.name || "Team Member",
+      name: member.user.surname || member.user.name || "Team Member",
       workspaceId,
       role: member.workspaceRole,
       token,
@@ -552,7 +552,7 @@ export class WorkspaceService {
         action: "REQUESTED_PASSWORD_RESET",
         entityId: member.id,
         workspaceId,
-        newData: { memberName: member.user.name || member.user.email }
+        newData: { memberName: member.user.surname || member.user.name || member.user.email }
       });
 
       return { status: "success", message: "Password reset email sent successfully" };
@@ -750,7 +750,7 @@ export class WorkspaceService {
 
     const userIdToDelete = memberToDelete.userId;
     const userName =
-      memberToDelete.user?.name || memberToDelete.user?.surname || "User";
+      memberToDelete.user?.surname || memberToDelete.user?.name || "User";
 
     // Check if they own other workspaces
     const ownedWorkspaces = await prisma.workspace.count({
@@ -1396,7 +1396,7 @@ export class WorkspaceService {
 
     await recordActivity({
       userId: actorId,
-      userName: actor?.name || actor?.surname || "Admin",
+      userName: actor?.surname || actor?.name || "Admin",
       workspaceId,
       action: "ATTENDANCE_SETTINGS_UPDATED",
       entityType: "WORKSPACE",

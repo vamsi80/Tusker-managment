@@ -38,7 +38,7 @@ export function IndentHeader({
       case "DRAFT":
         return <Badge variant="secondary" className="bg-muted text-muted-foreground border-none font-bold text-[10px] tracking-wide uppercase px-2 py-0.5">Draft</Badge>;
       case "SUBMITTED":
-        return <Badge variant="outline" className="bg-blue-50/50 text-blue-600 border-blue-200/50 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5">Submitted</Badge>;
+        return <Badge variant="outline" className="bg-blue-50/50 text-blue-600 border-blue-200/50 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5">Manager Request Review</Badge>;
       case "ASSIGNED":
         return <Badge variant="outline" className="bg-purple-50/50 text-purple-600 border-purple-200/50 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5">Assigned</Badge>;
       case "APPROVED":
@@ -109,7 +109,7 @@ export function IndentHeader({
               disabled={isActionLoading}
               className="h-8 text-xs font-semibold gap-1.5"
             >
-              <Send className="size-3" /> Submit
+              <Send className="size-3" /> Raise Request
             </Button>
           )}
 

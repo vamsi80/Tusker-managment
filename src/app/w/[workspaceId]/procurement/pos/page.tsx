@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import prisma from "@/lib/db";
+import { vendorDisplayName } from "@/lib/procurement/vendor-name";
 import { Button } from "@/components/ui/button";
 import {
   BUYER_COMPANIES,
@@ -63,7 +64,7 @@ export default async function PurchaseOrdersPage({ params }: PageProps) {
                 </td>
                 <td>{po.poDate.toLocaleDateString("en-GB")}</td>
                 <td>{BUYER_COMPANIES[po.company].name}</td>
-                <td>{po.vendor.companyName || po.vendor.name}</td>
+                <td>{vendorDisplayName(po.vendor)}</td>
                 <td className="text-right tabular-nums">{formatPaise(po.grandTotal)}</td>
                 <td>{po.status}</td>
               </tr>
