@@ -185,12 +185,19 @@ procurementIndents.get("/", async (c) => {
  * Fetch indent details by taskId if one exists
  */
 procurementIndents.get("/task/:taskId", async (c) => {
+  const user = c.get("user");
   const taskId = c.req.param("taskId");
   const workspaceId = c.req.query("w");
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const indent = await IndentRepository.findByTaskId(taskId);
+  // Same read gate as every other indent fetch; this one had none.
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!canReadProcurement(perms)) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const indent = await IndentRepository.findByTaskId(taskId, workspaceId);
   return c.json({ success: true, data: indent });
 });
 
