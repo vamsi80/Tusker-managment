@@ -47,10 +47,33 @@ export default async function IndentDetailPage({ params }: PageProps) {
 
   const permissions = await getWorkspacePermissions(workspaceId, user.id, true);
 
+  // Who the workflow actually waits on, by name. The manager sign-off belongs
+  // to the project manager for an indent raised inside a project and to the
+  // raiser's reporting manager otherwise, with each falling back to the other.
+  const managerMemberId = indent.raisedInProject
+    ? indent.project?.projectManagerId ?? indent.requestedBy.reportToId
+    : indent.requestedBy.reportToId ?? indent.project?.projectManagerId;
+
+  const approverMemberIds = [
+    ...new Set([managerMemberId, ...indent.approverIds].filter(Boolean) as string[]),
+  ];
+  const approvers = approverMemberIds.length
+    ? await db.workspaceMember.findMany({
+        where: { id: { in: approverMemberIds }, workspaceId },
+        select: {
+          id: true,
+          workspaceRole: true,
+          user: { select: { name: true, surname: true, email: true } },
+        },
+      })
+    : [];
+
   return (
     <IndentDetailClient
       workspaceId={workspaceId}
       indent={serializeIndentForClient(indent)}
+      approvers={approvers}
+      managerMemberId={managerMemberId ?? null}
       canCreatePo={canCreatePurchaseOrder(user.email, permissions.workspaceRole)}
     />
   );

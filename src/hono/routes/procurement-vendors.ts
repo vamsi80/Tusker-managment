@@ -87,6 +87,22 @@ const UpdateCapabilitySchema = z.object({
   link: CapabilityLinkSchema,
 }).refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
 
+/**
+ * Suppliers are workspace-wide reference data, and the whole router already
+ * sits behind the `vendors:view` capability — the switch an admin uses to take
+ * the section away from someone. So a read only has to prove workspace
+ * membership. It used to demand `hasAccess`, which means "belongs to at least
+ * one project": a requester with no project rows got an empty supplier list
+ * while entering final rates, with no error to explain it.
+ */
+const ensureCanReadVendors = async (workspaceId: string, userId: string) => {
+  const perms = await getWorkspacePermissions(workspaceId, userId);
+  if (!perms.workspaceMemberId) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+  return perms;
+};
+
 // Permission middleware helper
 const checkProcurementPerms = async (workspaceId: string, userId: string) => {
   const perms = await getWorkspacePermissions(workspaceId, userId);
@@ -137,10 +153,7 @@ procurementVendors.get("/materials/coverage", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const catalog = await prisma.materialCatalog.findMany({
     where: { workspaceId },
@@ -231,10 +244,7 @@ procurementVendors.get("/", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   // Any member can read vendors
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const vendors = await prisma.vendor.findMany({
     where: {
@@ -261,10 +271,7 @@ procurementVendors.get("/:id", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const vendor = await prisma.vendor.findFirst({
     where: { id, workspaceId }
@@ -366,10 +373,7 @@ procurementVendors.get("/:id/materials", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await getWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const [capabilities, items] = await Promise.all([
     prisma.vendorMaterialCapability.findMany({

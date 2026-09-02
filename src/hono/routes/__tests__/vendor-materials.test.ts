@@ -12,7 +12,11 @@ vi.mock("@/server/services/procurement", () => ({
   lookupGstin: vi.fn(),
 }));
 vi.mock("@/data/user/get-user-permissions", () => ({
-  getWorkspacePermissions: vi.fn(async () => ({ hasAccess: true, workspaceRole: "PROCUREMENT" })),
+  getWorkspacePermissions: vi.fn(async () => ({
+    workspaceMemberId: "member-1",
+    hasAccess: true,
+    workspaceRole: "PROCUREMENT",
+  })),
 }));
 
 const procurementVendors = (await import("../procurement-vendors")).default;
@@ -101,6 +105,39 @@ describe("GET /vendors/:id/materials", () => {
       quantity: 12,
       indentRef: null,
     });
+  });
+
+  /**
+   * `hasAccess` means "belongs to at least one project", so gating supplier
+   * reads on it left a requester with no project rows staring at an empty
+   * supplier list while entering final rates.
+   */
+  it("lets a member with no project rows read the list", async () => {
+    const { getWorkspacePermissions } = await import("@/data/user/get-user-permissions");
+    (getWorkspacePermissions as any).mockResolvedValueOnce({
+      workspaceMemberId: "member-9",
+      hasAccess: false,
+      workspaceRole: "MEMBER",
+    });
+    indentLineItem.findMany.mockResolvedValue([]);
+
+    const res = await app.request("/ven-1/materials?w=ws-1");
+
+    expect(res.status).toBe(200);
+  });
+
+  it("refuses someone who is not in the workspace at all", async () => {
+    const { getWorkspacePermissions } = await import("@/data/user/get-user-permissions");
+    (getWorkspacePermissions as any).mockResolvedValueOnce({
+      workspaceMemberId: null,
+      hasAccess: false,
+      workspaceRole: null,
+    });
+
+    const res = await app.request("/ven-1/materials?w=ws-1");
+
+    expect(res.status).toBe(403);
+    expect(indentLineItem.findMany).not.toHaveBeenCalled();
   });
 
   it("only counts approved indents this vendor won, by award or by quote", async () => {
