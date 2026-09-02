@@ -82,6 +82,7 @@ describe("GET /vendors/:id/materials", () => {
         unit: "cft",
         serviceType: "SUPPLY",
         rate: 4500,
+        quantity: 12,
         createdAt: new Date("2026-08-05"),
       },
     ]);
@@ -93,7 +94,7 @@ describe("GET /vendors/:id/materials", () => {
       kind: "CAPABILITY",
       materialName: "river sand",
       rate: 4500,
-      quantity: null,
+      quantity: 12,
       indentRef: null,
     });
   });

@@ -10,6 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Trash2, Check, ChevronsUpDown, Plus, ExternalLink } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { DataTable } from "@/components/data-table";
 
@@ -60,9 +68,11 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
   const [customMaterialName, setCustomMaterialName] = useState("");
   const [newUnit, setNewUnit] = useState("");
   const [newRate, setNewRate] = useState("");
+  const [newQuantity, setNewQuantity] = useState("");
   const [newLink, setNewLink] = useState("");
   const [newServiceType, setNewServiceType] = useState<ServiceType>("SUPPLY");
   const [adding, setAdding] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -112,6 +122,11 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
     load();
   }, [workspaceId]);
 
+  // Paise, so the dialog total and the stored one agree to the rupee.
+  const newRatePaise = newRate ? Math.round(Number(newRate) * 100) : null;
+  const newQuantityValue = newQuantity ? Math.round(Number(newQuantity)) : null;
+  const newTotal = newRatePaise && newQuantityValue ? newRatePaise * newQuantityValue : null;
+
   const newMaterialName =
     selectedMaterialId === "CUSTOM"
       ? customMaterialName.trim()
@@ -134,7 +149,8 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
           unit: newUnit || undefined,
           serviceType: newServiceType,
           // Rupees in the form, paise on the wire, like every other price.
-          rate: newRate ? Math.round(Number(newRate) * 100) : undefined,
+          rate: newRatePaise ?? undefined,
+          quantity: newQuantityValue ?? undefined,
           link: newLink.trim() || undefined,
         }),
       });
@@ -145,8 +161,10 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         setCustomMaterialName("");
         setNewUnit("");
         setNewRate("");
+        setNewQuantity("");
         setNewLink("");
         setNewServiceType("SUPPLY");
+        setDialogOpen(false);
         fetchMaterials();
       } else {
         toast.error(body.error || "Failed to add material");
@@ -297,135 +315,6 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-        <div className="space-y-1 md:col-span-3">
-          <label className="text-xs font-semibold text-muted-foreground">Material / Service Name</label>
-          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={popoverOpen}
-                aria-controls="vendor-materials-list"
-                className="w-full justify-between h-9 bg-background font-normal text-left border border-input shadow-sm hover:bg-accent hover:text-accent-foreground"
-              >
-                <span className="truncate">{newMaterialName || "Select Material / Service..."}</span>
-                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
-              <Command loop>
-                <CommandInput
-                  placeholder="Search or enter new material..."
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                />
-                <CommandList id="vendor-materials-list" className="max-h-[200px] overflow-y-auto">
-                  <CommandEmpty className="py-2 text-center text-xs text-muted-foreground">
-                    No materials found. Type to create custom.
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {searchQuery.trim() &&
-                      !existingItems.some((item) => item.name.toLowerCase() === searchQuery.trim().toLowerCase()) && (
-                        <CommandItem
-                          value={searchQuery}
-                          onSelect={() => {
-                            setSelectedMaterialId("CUSTOM");
-                            setCustomMaterialName(searchQuery.trim());
-                            setPopoverOpen(false);
-                            setSearchQuery("");
-                          }}
-                          className="text-primary font-medium cursor-pointer"
-                        >
-                          <Plus className="mr-2 size-4 text-primary" /> Create new &quot;{searchQuery.trim()}&quot;
-                        </CommandItem>
-                      )}
-                    {existingItems.map((item) => (
-                      <CommandItem
-                        key={item.id}
-                        value={item.name}
-                        onSelect={() => {
-                          setSelectedMaterialId(item.id);
-                          if (item.unit) setNewUnit(item.unit);
-                          setPopoverOpen(false);
-                          setSearchQuery("");
-                        }}
-                        className="cursor-pointer flex items-center"
-                      >
-                        <Check
-                          className={cn("mr-2 size-4", selectedMaterialId === item.id ? "opacity-100" : "opacity-0")}
-                        />
-                        <span className="truncate">{item.name}</span>
-                        <span className="ml-auto text-xs text-muted-foreground capitalize">{item.type}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="space-y-1 md:col-span-1">
-          <label className="text-xs font-semibold text-muted-foreground">Unit</label>
-          <Input
-            value={newUnit}
-            onChange={(e) => setNewUnit(e.target.value)}
-            placeholder="e.g. ton, sqm"
-            className="bg-background h-9"
-          />
-        </div>
-
-        <div className="space-y-1 md:col-span-2">
-          <label className="text-xs font-semibold text-muted-foreground">Rate (₹)</label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={newRate}
-            onChange={(e) => setNewRate(e.target.value)}
-            placeholder="0.00"
-            className="bg-background h-9"
-          />
-        </div>
-
-        <div className="space-y-1 md:col-span-3">
-          <label className="text-xs font-semibold text-muted-foreground">Link (optional)</label>
-          <Input
-            type="url"
-            value={newLink}
-            onChange={(e) => setNewLink(e.target.value)}
-            placeholder="https://... photo, quote, catalogue"
-            className="bg-background h-9"
-          />
-        </div>
-
-        <div className="space-y-1 md:col-span-2">
-          <label className="text-xs font-semibold text-muted-foreground">Service Type</label>
-          <select
-            value={newServiceType}
-            onChange={(e) => setNewServiceType(e.target.value as ServiceType)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
-          >
-            <option value="SUPPLY" className="bg-background text-foreground">📦 Supply</option>
-            <option value="LABOUR" className="bg-background text-foreground">🔨 Labour</option>
-            <option value="LABOUR_WITH_MATERIAL" className="bg-background text-foreground">🔄 Labour + Material</option>
-          </select>
-        </div>
-
-        <div className="space-y-1 md:col-span-1">
-          <label className="text-xs font-semibold text-muted-foreground invisible">Add</label>
-          <Button
-            type="submit"
-            disabled={adding || !newMaterialName}
-            className="h-9 w-full p-0 flex items-center justify-center shrink-0"
-            title="Add material"
-          >
-            {adding ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-5" />}
-          </Button>
-        </div>
-      </form>
-
       <DataTable
         columns={columns}
         data={rows}
@@ -433,7 +322,161 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         showPagination={true}
         searchKey="materialName"
         searchPlaceholder="Search materials..."
+        onAdd={() => setDialogOpen(true)}
+        addButtonLabel="Add Material"
       />
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[520px] rounded-3xl border-none shadow-2xl p-0">
+          <form onSubmit={handleAdd} className="p-8 space-y-6">
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-2xl font-medium">Add Material</DialogTitle>
+              <DialogDescription>
+                What we buy from this supplier / contractor, and the rate agreed for it.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Material / Service Name</label>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={popoverOpen}
+                    aria-controls="vendor-materials-list"
+                    className="w-full justify-between h-9 bg-background font-normal text-left border border-input shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <span className="truncate">{newMaterialName || "Select Material / Service..."}</span>
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
+                  <Command loop>
+                    <CommandInput
+                      placeholder="Search or enter new material..."
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
+                    <CommandList id="vendor-materials-list" className="max-h-[200px] overflow-y-auto">
+                      <CommandEmpty className="py-2 text-center text-xs text-muted-foreground">
+                        No materials found. Type to create custom.
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {searchQuery.trim() &&
+                          !existingItems.some((item) => item.name.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+                            <CommandItem
+                              value={searchQuery}
+                              onSelect={() => {
+                                setSelectedMaterialId("CUSTOM");
+                                setCustomMaterialName(searchQuery.trim());
+                                setPopoverOpen(false);
+                                setSearchQuery("");
+                              }}
+                              className="text-primary font-medium cursor-pointer"
+                            >
+                              <Plus className="mr-2 size-4 text-primary" /> Create new &quot;{searchQuery.trim()}&quot;
+                            </CommandItem>
+                          )}
+                        {existingItems.map((item) => (
+                          <CommandItem
+                            key={item.id}
+                            value={item.name}
+                            onSelect={() => {
+                              setSelectedMaterialId(item.id);
+                              if (item.unit) setNewUnit(item.unit);
+                              setPopoverOpen(false);
+                              setSearchQuery("");
+                            }}
+                            className="cursor-pointer flex items-center"
+                          >
+                            <Check
+                              className={cn("mr-2 size-4", selectedMaterialId === item.id ? "opacity-100" : "opacity-0")}
+                            />
+                            <span className="truncate">{item.name}</span>
+                            <span className="ml-auto text-xs text-muted-foreground capitalize">{item.type}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 items-end">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">
+                  Quantity{newUnit ? ` (${newUnit})` : ""}
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={newQuantity}
+                  onChange={(e) => setNewQuantity(e.target.value)}
+                  placeholder="0"
+                  className="bg-background h-9"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Rate (₹)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newRate}
+                  onChange={(e) => setNewRate(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background h-9"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Total</label>
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 font-mono text-sm font-semibold">
+                  {money(newTotal)}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Service Type</label>
+              <select
+                value={newServiceType}
+                onChange={(e) => setNewServiceType(e.target.value as ServiceType)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+              >
+                <option value="SUPPLY" className="bg-background text-foreground">📦 Supply</option>
+                <option value="LABOUR" className="bg-background text-foreground">🔨 Labour</option>
+                <option value="LABOUR_WITH_MATERIAL" className="bg-background text-foreground">🔄 Labour + Material</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Link (optional)</label>
+              <Input
+                type="url"
+                value={newLink}
+                onChange={(e) => setNewLink(e.target.value)}
+                placeholder="https://... photo, quotation, catalogue page"
+                className="bg-background h-9"
+              />
+              <p className="text-[11px] text-muted-foreground">Opens in a new tab from the list.</p>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={adding}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={adding || !newMaterialName} className="min-w-[120px]">
+                {adding ? <Loader2 className="size-4 animate-spin" /> : "Add Material"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

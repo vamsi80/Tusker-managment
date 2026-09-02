@@ -415,7 +415,7 @@ procurementVendors.get("/:id/materials", async (c) => {
       materialName: cap.materialName,
       unit: cap.unit,
       serviceType: cap.serviceType as string | null,
-      quantity: null,
+      quantity: cap.quantity,
       rate: cap.rate,
       link: cap.link,
       indentId: null,
@@ -468,6 +468,8 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional().default("SUPPLY"),
   // Agreed rate in paise, matching every other price in procurement.
   rate: z.number().int().positive().nullable().optional(),
+  // Quantity the rate was agreed for; rate x quantity is the row total.
+  quantity: z.number().int().positive().nullable().optional(),
   // Reference link — a photo, a quotation, a catalogue page. Restricted to
   // http(s) so nothing script-bearing can reach an anchor href.
   link: z
@@ -493,7 +495,7 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     data.materialName,
     data.unit,
     data.serviceType,
-    { rate: data.rate, link: data.link }
+    { rate: data.rate, link: data.link, quantity: data.quantity }
   );
 
   return c.json({ success: true, data: capability }, 201);

@@ -689,6 +689,8 @@ model VendorMaterialCapability {
   /// http(s) link to whatever backs the entry — a photo of the material, a
   /// quotation PDF, a catalogue page. Opened in a new tab, never rendered.
   link              String?
+  /// Quantity the rate was agreed for. Multiplied by rate for the row total.
+  quantity          Int?
   createdAt         DateTime              @default(now())
   serviceType       CapabilityServiceType @default(SUPPLY)
   material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
