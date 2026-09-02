@@ -337,6 +337,97 @@ procurementVendors.delete("/:id", async (c) => {
 });
 
 /**
+ * GET /api/v1/procurement/vendors/:id/materials
+ * Everything we buy from this supplier / contractor in one list: line items of
+ * approved indents awarded to them, plus materials added by hand with an agreed
+ * rate, so a material with no indent behind it still carries a price.
+ */
+procurementVendors.get("/:id/materials", async (c) => {
+  const user = c.get("user");
+  const vendorId = c.req.param("id");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const [capabilities, items] = await Promise.all([
+    prisma.vendorMaterialCapability.findMany({
+      where: { vendorId, workspaceId },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.indentLineItem.findMany({
+      where: {
+        indent: { workspaceId, status: "APPROVED" },
+        // A vendor wins either the whole indent (selectedVendor) or a single line
+        // item through its approved quote. Both count as buying from them.
+        OR: [{ indent: { selectedVendorId: vendorId } }, { approvedQuote: { vendorId } }],
+      },
+      select: {
+        id: true,
+        materialName: true,
+        unit: true,
+        quantity: true,
+        finalUnitPrice: true,
+        estimatedUnitPrice: true,
+        approvedQuote: { select: { unitPrice: true } },
+        indent: {
+          select: {
+            id: true,
+            indentId: true,
+            name: true,
+            finalApprovedAt: true,
+            project: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { indent: { finalApprovedAt: "desc" } },
+    }),
+  ]);
+
+  // Every rate here is paise, so the fallback chain stays comparable.
+  const data = [
+    ...items.map((item) => ({
+      kind: "INDENT" as const,
+      id: item.id,
+      materialName: item.materialName,
+      unit: item.unit,
+      serviceType: null as string | null,
+      quantity: item.quantity,
+      rate:
+        item.finalUnitPrice ??
+        (item.approvedQuote ? Number(item.approvedQuote.unitPrice) : null) ??
+        item.estimatedUnitPrice ??
+        null,
+      indentId: item.indent.id,
+      indentRef: item.indent.indentId,
+      indentName: item.indent.name,
+      projectName: item.indent.project?.name ?? null,
+      date: item.indent.finalApprovedAt,
+    })),
+    ...capabilities.map((cap) => ({
+      kind: "CAPABILITY" as const,
+      id: cap.id,
+      materialName: cap.materialName,
+      unit: cap.unit,
+      serviceType: cap.serviceType as string | null,
+      quantity: null,
+      rate: cap.rate,
+      indentId: null,
+      indentRef: null,
+      indentName: null,
+      projectName: null,
+      date: cap.createdAt,
+    })),
+  ].sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+
+  return c.json({ success: true, data });
+});
+
+/**
  * GET /api/v1/procurement/vendors/:id/capabilities
  * List capabilities for a vendor
  */
@@ -373,6 +464,8 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   materialName: z.string().min(1),
   unit: z.string().optional(),
   serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional().default("SUPPLY"),
+  // Agreed rate in paise, matching every other price in procurement.
+  rate: z.number().int().positive().nullable().optional(),
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -388,7 +481,8 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     workspaceId,
     data.materialName,
     data.unit,
-    data.serviceType
+    data.serviceType,
+    data.rate
   );
 
   return c.json({ success: true, data: capability }, 201);

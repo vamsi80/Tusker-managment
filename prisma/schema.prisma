@@ -683,6 +683,9 @@ model VendorMaterialCapability {
   unit              String?
   workspaceId       String
   source            String                @default("MANUAL")
+  /// Rate agreed with this vendor, in paise. Set by hand so a material with no
+  /// approved indent behind it still carries a price to negotiate from.
+  rate              Int?
   createdAt         DateTime              @default(now())
   serviceType       CapabilityServiceType @default(SUPPLY)
   material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
