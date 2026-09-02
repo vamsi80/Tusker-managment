@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Settings2, History, RefreshCw, ShieldCheck } from "lucide-react";
+import { Settings2, History, RefreshCw, ShieldCheck, Building2 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { useState, useEffect } from "react";
@@ -32,6 +32,11 @@ export function SettingsNav({ workspaceId }: SettingsNavProps) {
             activeMatch: (path: string) => path === baseUrl
         },
         ...(canManagePermissions ? [{
+            name: "Departments",
+            href: `${baseUrl}/departments`,
+            icon: Building2,
+            activeMatch: (path: string) => path === `${baseUrl}/departments`
+        }, {
             name: "Permissions",
             href: `${baseUrl}/permissions`,
             icon: ShieldCheck,

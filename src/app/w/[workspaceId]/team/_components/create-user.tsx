@@ -32,9 +32,14 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
 import { apiClient } from "@/lib/api-client";
+import { listDepartments } from "@/actions/department/department-actions";
 import { inviteUserSchema, InviteUserSchemaType, workspaceMemberRole } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
+
+
+// Radix Select cannot hold an empty string, so "no department" needs a sentinel.
+const NO_DEPARTMENT = "__none__";
 
 interface InviteUserFormProps {
     workspaceId: string;
@@ -61,6 +66,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
     const [pending, startTransition] = useTransition();
     const { triggerConfetti } = useConfetti();
     const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
+    const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
 
     React.useEffect(() => {
         const fetchManagers = async () => {
@@ -71,6 +77,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
         };
         if (open) {
             fetchManagers();
+            listDepartments(workspaceId).then((res) => setDepartments(res.data));
         }
     }, [workspaceId, open]);
 
@@ -87,6 +94,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
             employeeId: "",
             dateOfBirth: "",
             reportToId: "",
+            departmentId: "",
         },
     });
     // async function onSubmit(values: InviteUserSchemaType) {
@@ -329,6 +337,34 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                             />
                         </div>
 
+                        <FormField
+                            control={form.control}
+                            name="departmentId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Department</FormLabel>
+                                    <Select
+                                        onValueChange={(value) => field.onChange(value === NO_DEPARTMENT ? "" : value)}
+                                        value={field.value || NO_DEPARTMENT}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select Department" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
+                                            {departments.map((department) => (
+                                                <SelectItem key={department.id} value={department.id}>
+                                                    {department.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <FormField
                             control={form.control}

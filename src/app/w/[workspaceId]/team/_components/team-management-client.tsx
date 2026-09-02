@@ -11,6 +11,7 @@ import { TEAM_UPDATE } from "@/lib/realtime";
 import { WorkspaceMembersResult } from "@/types/workspace";
 import { useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
+import { listDepartments } from "@/actions/department/department-actions";
 interface TeamManagementClientProps {
     workspaceId: string;
 }
@@ -28,6 +29,12 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     const [totalCount, setTotalCount] = useState(0);
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+    const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+
+    useEffect(() => {
+        listDepartments(workspaceId).then((res) => setDepartments(res.data));
+    }, [workspaceId]);
 
     // Debounce search
     useEffect(() => {
@@ -52,7 +59,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             if (!silent) {
                 if (members.length === 0) setIsLoadingMembers(true);
             }
-            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch);
+            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch, departmentIds.join(","));
             setMembers(membersRes.workspaceMembers || []);
             setTotalCount(membersRes.totalCount || 0);
         } catch (error) {
@@ -61,7 +68,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             setIsLoadingMembers(false);
             setIsQuerying(false);
         }
-    }, [workspaceId, debouncedSearch, members.length, setIsQuerying]);
+    }, [workspaceId, debouncedSearch, departmentIds, members.length, setIsQuerying]);
 
     useEffect(() => {
         const handler = (e: any) => {
@@ -143,6 +150,14 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
                     setLimit(newLimit);
                     setPage(1); // Reset to first page when limit changes
                 }
+            }}
+            departmentFilter={{
+                options: departments,
+                value: departmentIds,
+                onChange: (value) => {
+                    setDepartmentIds(value);
+                    setPage(1); // Reset to first page when the filter changes
+                },
             }}
         />
     );

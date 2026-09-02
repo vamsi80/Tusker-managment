@@ -32,6 +32,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         const endDateStr = c.req.query("endDate");
         const memberId = parseMultiQuery(c.req.query("memberId"));
         const status = parseMultiQuery(c.req.query("status")) as any;
+        const departmentId = parseMultiQuery(c.req.query("departmentId"));
 
         const refresh = c.req.query("refresh") === "true";
 
@@ -57,7 +58,7 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
                 user.id,
                 normalizedStart,
                 normalizedEnd,
-                { memberId, status, search },
+                { memberId, status, search, departmentId },
                 page,
                 pageSize
             );

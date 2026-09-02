@@ -143,6 +143,43 @@ model Workspace {
   vendors                Vendor[]
   vendorCapabilities     VendorMaterialCapability[]
   purchaseOrders         PurchaseOrder[]
+  departments            Department[]
+  shiftSchedules         ShiftSchedule[]
+}
+
+/// A set of check-in/check-out times shared by every department that points at it.
+/// Seeded as "Head Office" and "Factory"; a workspace can add more without a migration.
+model ShiftSchedule {
+  id                String       @id @default(uuid())
+  workspaceId       String
+  name              String
+  lateThreshold     String
+  halfDayThreshold  String
+  shiftStartTime    String
+  shiftEndTime      String
+  overtimeThreshold String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  workspace         Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  departments       Department[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model Department {
+  id              String            @id @default(uuid())
+  workspaceId     String
+  name            String
+  shiftScheduleId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  shiftSchedule   ShiftSchedule?    @relation(fields: [shiftScheduleId], references: [id], onDelete: SetNull)
+  members         WorkspaceMember[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
 }
 
 model WorkspaceMember {
@@ -161,6 +198,8 @@ model WorkspaceMember {
   dateOfBirth                 DateTime?
   employeeId                  String?
   permissionOverrides         Json?
+  departmentId                String?
+  department                  Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   managedProjects             Project[]             @relation("ProjectManager")
   projectMembers              ProjectMember[]
   reportTo                    WorkspaceMember?      @relation("ReportTo", fields: [reportToId], references: [id])
@@ -186,6 +225,7 @@ model WorkspaceMember {
   @@unique([userId, workspaceId])
   @@unique([workspaceId, employeeId])
   @@index([workspaceId, workspaceRole])
+  @@index([workspaceId, departmentId])
   @@index([userId, createdAt(sort: Desc)])
   @@index([workspaceId, userId])
   @@index([workspaceRole])

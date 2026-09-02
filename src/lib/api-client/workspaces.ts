@@ -20,7 +20,7 @@ export interface BirthdayMember {
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
-    getMembers(workspaceId: string, page?: number, limit?: number, search?: string): Promise<WorkspaceMembersResult>;
+    getMembers(workspaceId: string, page?: number, limit?: number, search?: string, departmentId?: string): Promise<WorkspaceMembersResult>;
     getMembersSlim(workspaceId: string): Promise<any[]>;
     getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
@@ -91,8 +91,11 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get workspace members (paginated)
      */
-    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string): Promise<WorkspaceMembersResult> => {
+    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string, departmentId?: string): Promise<WorkspaceMembersResult> => {
         let url = `/workspaces/${workspaceId}/members?page=${page}&limit=${limit}`;
+        if (departmentId) {
+            url += `&departmentId=${encodeURIComponent(departmentId)}`;
+        }
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
         }

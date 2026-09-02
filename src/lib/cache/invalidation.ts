@@ -73,6 +73,19 @@ export async function invalidateWorkspaceTags(workspaceId: string) {
     revalidatePath(`/w/${workspaceId}`, "layout");
 }
 
+/**
+ * Invalidate departments and shift schedules.
+ *
+ * Also drops the attendance cache: a schedule edit changes the times every
+ * member of those departments is scored against, so cached rows are stale.
+ */
+export async function invalidateWorkspaceDepartments(workspaceId: string) {
+    const tags = CacheTags.workspaceDepartments(workspaceId);
+    tags.forEach(tag => revalidateTag(tag, "layout" as any));
+    await invalidateWorkspaceAttendance(workspaceId);
+    revalidatePath(`/w/${workspaceId}`, "layout");
+}
+
 // ============================================
 // PROJECT CACHE INVALIDATION
 // ============================================

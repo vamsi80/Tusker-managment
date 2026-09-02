@@ -130,8 +130,9 @@ workspaces.get("/:workspaceId/members", async (c) => {
   const page = parseInt(c.req.query("page") || "1");
   const limit = parseInt(c.req.query("limit") || "10");
   const search = c.req.query("search");
+  const departmentId = c.req.query("departmentId");
 
-  const members = await WorkspaceService.getMembers(workspaceId, page, limit, search);
+  const members = await WorkspaceService.getMembers(workspaceId, page, limit, search, departmentId);
 
   return c.json({ success: true, data: members });
 });

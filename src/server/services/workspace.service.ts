@@ -36,6 +36,19 @@ export class WorkspaceService {
             workspaceRole: "OWNER",
           },
         },
+        // The two shift schedules a workspace starts with, seeded from its own
+        // default thresholds. Same pair the departments migration created for
+        // existing workspaces, so new ones are not left with an empty picker.
+        shiftSchedules: {
+          create: ["Head Office", "Factory"].map((name) => ({
+            name,
+            lateThreshold: "21:30",
+            halfDayThreshold: "23:00",
+            shiftStartTime: "21:30",
+            shiftEndTime: "07:00",
+            overtimeThreshold: "07:00",
+          })),
+        },
       },
     });
 
@@ -113,10 +126,21 @@ export class WorkspaceService {
   /**
    * Get workspace members (paginated)
    */
-  static async getMembers(workspaceId: string, page: number = 1, limit: number = 10, search?: string) {
+  static async getMembers(workspaceId: string, page: number = 1, limit: number = 10, search?: string, departmentId?: string) {
     const skip = (page - 1) * limit;
 
     const where: any = { workspaceId };
+
+    // Comma-separated department ids; the literal "none" selects people who are
+    // not in any department yet, which is everyone until they are assigned.
+    const departmentIds = departmentId?.split(",").map((id) => id.trim()).filter(Boolean) ?? [];
+    if (departmentIds.length > 0) {
+      const realIds = departmentIds.filter((id) => id !== "none");
+      const clauses: any[] = [];
+      if (realIds.length > 0) clauses.push({ departmentId: { in: realIds } });
+      if (departmentIds.includes("none")) clauses.push({ departmentId: null });
+      where.AND = [...(where.AND ?? []), { OR: clauses }];
+    }
     if (search && search.trim() !== "") {
       where.OR = [
         { user: { name: { contains: search, mode: 'insensitive' } } },
@@ -154,6 +178,12 @@ export class WorkspaceService {
               },
             },
           },
+          department: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       }),
       prisma.workspaceMember.count({
@@ -174,6 +204,8 @@ export class WorkspaceService {
         workspaceRole: m.workspaceRole,
         reportToName: m.reportTo?.user?.surname ?? null,
         reportToId: m.reportToId,
+        departmentId: m.departmentId ?? null,
+        departmentName: m.department?.name ?? null,
         workspaceId: m.workspaceId,
         userId: m.userId,
         status: m.user?.emailVerified || (m.user as any)?._count?.accounts > 0 ? "Verified" : "Pending",
@@ -263,7 +295,7 @@ export class WorkspaceService {
       throw new Error("Invalid input data");
     }
 
-    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId, employeeId, dateOfBirth } =
+    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId, departmentId, employeeId, dateOfBirth } =
       parsed.data;
 
     // 1. Pre-flight checks (Validation BEFORE any side effects)
@@ -338,6 +370,7 @@ export class WorkspaceService {
             workspaceRole: role,
             designation: designation || null,
             reportToId: reportToId || null,
+            departmentId: departmentId || null,
             employeeId: employeeId || null,
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
           },
@@ -794,6 +827,7 @@ export class WorkspaceService {
       employeeId?: string | null;
       dateOfBirth?: Date | string | null;
       reportToId?: string | null;
+      departmentId?: string | null;
     },
     actorId: string,
   ) {
@@ -807,6 +841,7 @@ export class WorkspaceService {
         workspaceRole: true,
         designation: true,
         reportToId: true,
+        departmentId: true,
         user: {
           select: {
             id: true,
@@ -872,7 +907,8 @@ export class WorkspaceService {
           designation: data.designation,
           employeeId: data.employeeId,
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-          reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null
+          reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null,
+          departmentId: data.departmentId && data.departmentId.trim() !== "" ? data.departmentId : null
         },
       });
 
@@ -950,7 +986,8 @@ export class WorkspaceService {
         phoneNumber: member.user?.phoneNumber,
         designation: member.designation,
         workspaceRole: member.workspaceRole,
-        reportToId: member.reportToId
+        reportToId: member.reportToId,
+        departmentId: member.departmentId
       },
       broadcastEvent: "team_update",
       targetUserIds

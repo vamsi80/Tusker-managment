@@ -52,6 +52,10 @@ import {
 import { Input } from "@/components/ui/input";
 
 
+import { listDepartments } from "@/actions/department/department-actions";
+
+// Radix Select cannot hold an empty string, so "no department" needs a sentinel.
+const NO_DEPARTMENT = "__none__";
 interface TeamMembersProps {
     data: WorkspaceMemberRow[];
     isAdmin: boolean;
@@ -65,9 +69,14 @@ interface TeamMembersProps {
         onPageChange: (page: number) => void;
         onLimitChange: (limit: number) => void;
     };
+    departmentFilter?: {
+        options: { id: string; name: string }[];
+        value: string[];
+        onChange: (value: string[]) => void;
+    };
 }
 
-export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMembersProps) {
+export function TeamMembers({ data, isAdmin, workspaceId, pagination, departmentFilter }: TeamMembersProps) {
     const router = useRouter();
 
 
@@ -85,6 +94,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
+    const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
 
     React.useEffect(() => {
         const fetchManagers = async () => {
@@ -95,6 +105,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
         };
         if (editDialogOpen) {
             fetchManagers();
+            listDepartments(workspaceId).then((res) => setDepartments(res.data));
         }
     }, [workspaceId, editDialogOpen]);
 
@@ -110,6 +121,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             employeeId: "",
             dateOfBirth: "",
             reportToId: "",
+            departmentId: "",
             workspaceId: workspaceId,
         },
     });
@@ -131,6 +143,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
             employeeId: member.employeeId || "",
             dateOfBirth: member.dateOfBirth ? (member.dateOfBirth instanceof Date ? member.dateOfBirth.toISOString().split('T')[0] : member.dateOfBirth.toString().split('T')[0]) : "",
             reportToId: member.reportToId || "",
+            departmentId: member.departmentId || "",
             workspaceId: workspaceId,
         });
         setEditDialogOpen(true);
@@ -222,6 +235,14 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                 data={data}
                 searchKey="memberName"
                 searchPlaceholder="Search members..."
+                filterFields={departmentFilter ? [{
+                    label: "Department",
+                    value: "department",
+                    options: [
+                        { label: "No department", value: "none" },
+                        ...departmentFilter.options.map((d) => ({ label: d.name, value: d.id })),
+                    ],
+                }] : []}
                 onRowClick={handleViewMember}
                 showPagination={true}
                 showColumnToggle={true}
@@ -244,6 +265,12 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                         const searchFilter = filters.find(f => f.id === "memberName");
                         const searchValue = searchFilter?.value as string || "";
                         pagination.onSearchChange(searchValue);
+                    }
+                    // Filtering is server-side (manualFiltering), so hand the
+                    // selection up instead of letting the table filter one page.
+                    if (departmentFilter) {
+                        const deptFilter = filters.find(f => f.id === "department");
+                        departmentFilter.onChange((deptFilter?.value as string[]) || []);
                     }
                 }}
             />
@@ -448,6 +475,35 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination }: TeamMemb
                                     )}
                                 />
                             </div>
+
+                            <FormField
+                                control={editForm.control}
+                                name="departmentId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Department</FormLabel>
+                                        <Select
+                                            onValueChange={(value) => field.onChange(value === NO_DEPARTMENT ? "" : value)}
+                                            value={field.value || NO_DEPARTMENT}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Department" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
+                                                {departments.map((department) => (
+                                                    <SelectItem key={department.id} value={department.id}>
+                                                        {department.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
                             <FormField
                                 control={editForm.control}

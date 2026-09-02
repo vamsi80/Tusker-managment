@@ -230,6 +230,11 @@ export const CacheTags = {
      */
     workspaceTags: (workspaceId: string) => [`workspace-tags-${workspaceId}`],
 
+    /**
+     * Tag for departments and their shift schedules
+     */
+    workspaceDepartments: (workspaceId: string) => [`workspace-departments-${workspaceId}`],
+
     // ============================================
     // PERMISSION TAGS
     // ============================================

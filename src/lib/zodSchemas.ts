@@ -38,6 +38,9 @@ export const STATUS_OPTIONS = SubTaskStatus.map(value => ({
 
 export const workspaceMemberRole = ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT", "ACCOUNTS", "MEMBER", "VIEWER"] as const
 
+/** 24-hour "HH:MM", the format every attendance threshold is stored in. */
+export const timeString = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: "Time must be in HH:MM format" });
+
 export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
 
 export const unitCategories = ["Weight", "Length", "Volume", "Area", "Quantity", "Time"] as const;
@@ -67,6 +70,7 @@ export const inviteUserSchema = z.object({
     employeeId: z.string().min(1, { message: "Employee ID is required" }),
     dateOfBirth: z.string().min(1, { message: "Date of Birth is required" }),
     reportToId: z.string().optional().nullable().or(z.literal("")),
+    departmentId: z.string().optional().nullable().or(z.literal("")),
     // role and workspaceId are required for the link
     role: z.enum(workspaceMemberRole, { message: "Role is required" }),
     workspaceId: z.string().uuid({ message: "Invalid workspace id" }),
@@ -96,6 +100,7 @@ export const updateMemberSchema = z.object({
     employeeId: z.string().min(1, { message: "Employee ID is required" }),
     dateOfBirth: z.string().or(z.date()).refine((val) => !!val, { message: "Date of Birth is required" }),
     reportToId: z.string().optional().nullable().or(z.literal("")),
+    departmentId: z.string().optional().nullable().or(z.literal("")),
     role: z.enum(workspaceMemberRole),
     workspaceId: z.string(),
 });

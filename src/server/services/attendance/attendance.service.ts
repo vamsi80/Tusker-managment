@@ -11,6 +11,7 @@ import { AttendanceStatus, WorkspaceRole } from "@/generated/prisma/client";
 import { addDateOnlyDays, floorToUTCDay, getISTDateOnly, toDateOnly } from "@/lib/date-utils";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendanceEvents } from "./attendance.events";
+import { resolveShiftTimes } from "./resolve-shift-times";
 import { 
     CheckInParams, 
     CheckOutParams, 
@@ -40,6 +41,23 @@ export function getVisibleThrough(
         || (startDate ? floorToUTCDay(startDate).getTime() > today : false);
 
     return wantsFuture ? rangeEnd : Math.min(rangeEnd, today);
+}
+
+/**
+ * Relation filter on WorkspaceMember for a department selection, or null when
+ * nothing is selected. "none" means members not assigned to any department.
+ */
+function buildDepartmentWhere(departmentId?: string | string[]) {
+    const ids = (Array.isArray(departmentId) ? departmentId : departmentId ? [departmentId] : [])
+        .map((id) => id.trim())
+        .filter(Boolean);
+    if (ids.length === 0) return null;
+
+    const realIds = ids.filter((id) => id !== "none");
+    const clauses: any[] = [];
+    if (realIds.length > 0) clauses.push({ departmentId: { in: realIds } });
+    if (ids.includes("none")) clauses.push({ departmentId: null });
+    return { OR: clauses };
 }
 
 export class AttendanceService {
@@ -137,15 +155,12 @@ export class AttendanceService {
             throw AppError.Conflict("You have already checked in today.");
         }
 
-        // Fetch workspace thresholds
-        const workspaceData = await prisma.$queryRawUnsafe<any[]>(
-            `SELECT "lateThreshold", "halfDayThreshold", "casualLeaveAccrualDays" FROM "public"."Workspace" WHERE "id" = $1 LIMIT 1`,
-            workspaceId
-        );
-        const workspace = workspaceData[0];
+        // Thresholds come from the member's department schedule, falling back to
+        // the workspace-wide settings when they have no department.
+        const shift = await resolveShiftTimes(member.id);
 
-        const parseTime = (t: string, def: string) => {
-            const [h, m] = (t || def).split(":").map(Number);
+        const parseTime = (t: string) => {
+            const [h, m] = t.split(":").map(Number);
             return h * 60 + m;
         };
 
@@ -153,11 +168,11 @@ export class AttendanceService {
         const istDate = new Date(now.getTime() + istOffset);
         const istTotalMinutes = istDate.getUTCHours() * 60 + istDate.getUTCMinutes();
 
-        const lateThresholdStr = workspace?.lateThreshold || "21:30";
-        const halfDayThresholdStr = workspace?.halfDayThreshold || "23:00";
+        const lateThresholdStr = shift.lateThreshold;
+        const halfDayThresholdStr = shift.halfDayThreshold;
 
-        const lateMinutes = parseTime(lateThresholdStr, "21:30");
-        const halfDayMinutes = parseTime(halfDayThresholdStr, "23:00");
+        const lateMinutes = parseTime(lateThresholdStr);
+        const halfDayMinutes = parseTime(halfDayThresholdStr);
 
         let status: AttendanceStatus = AttendanceStatus.PRESENT;
         if (istTotalMinutes >= halfDayMinutes) {
@@ -227,7 +242,7 @@ export class AttendanceService {
 
         // Casual Leave Accrual Logic
         if (status === AttendanceStatus.PRESENT || status === AttendanceStatus.LATE) {
-            const threshold = workspace?.casualLeaveAccrualDays || 20;
+            const threshold = shift.casualLeaveAccrualDays || 20;
             const updatedMember = await prisma.workspaceMember.update({
                 where: { id: member.id },
                 data: { accruedDaysCount: { increment: 1 } }
@@ -278,14 +293,10 @@ export class AttendanceService {
         if (!existing) throw AppError.NotFound("You must check in before checking out.");
         if (existing.checkOut) throw AppError.Conflict("You have already checked out today.");
 
-        const workspaceData = await prisma.$queryRawUnsafe<any[]>(
-            `SELECT "overtimeThreshold", "shiftStartTime" FROM "public"."Workspace" WHERE "id" = $1 LIMIT 1`,
-            workspaceId
-        );
-        const workspace = workspaceData[0];
+        const shift = await resolveShiftTimes(member.id);
 
-        const otThreshold = workspace?.overtimeThreshold || "07:30";
-        const shiftStartThreshold = workspace?.shiftStartTime || "21:30";
+        const otThreshold = shift.overtimeThreshold;
+        const shiftStartThreshold = shift.shiftStartTime;
         const [otH, otM] = otThreshold.split(":").map(Number);
         const [startH, startM] = shiftStartThreshold.split(":").map(Number);
 
@@ -449,15 +460,20 @@ export class AttendanceService {
                     ...(statusFilters.length > 0 ? { status: { in: statusFilters } } : {}),
                 };
 
-                if (filters?.search) {
+                const departmentWhere = buildDepartmentWhere(filters?.departmentId);
+
+                if (filters?.search || departmentWhere) {
                     where.WorkspaceMember = {
-                        user: {
-                            OR: [
-                                { name: { contains: filters.search, mode: 'insensitive' } },
-                                { surname: { contains: filters.search, mode: 'insensitive' } },
-                                { email: { contains: filters.search, mode: 'insensitive' } },
-                            ]
-                        }
+                        ...(filters?.search ? {
+                            user: {
+                                OR: [
+                                    { name: { contains: filters.search, mode: 'insensitive' } },
+                                    { surname: { contains: filters.search, mode: 'insensitive' } },
+                                    { email: { contains: filters.search, mode: 'insensitive' } },
+                                ]
+                            }
+                        } : {}),
+                        ...(departmentWhere ?? {}),
                     };
                 }
 
@@ -474,17 +490,9 @@ export class AttendanceService {
                             ...(Number.isFinite(visibleThrough) ? { startDate: { lte: new Date(visibleThrough) } } : {}),
                             ...(startDate ? { endDate: { gte: startDate } } : {}),
                             ...memberWhere,
-                            ...(filters?.search ? {
-                                WorkspaceMember: {
-                                    user: {
-                                        OR: [
-                                            { name: { contains: filters.search, mode: 'insensitive' } },
-                                            { surname: { contains: filters.search, mode: 'insensitive' } },
-                                            { email: { contains: filters.search, mode: 'insensitive' } },
-                                        ]
-                                    }
-                                }
-                            } : {})
+                            // Leave rows are synthesised here rather than read from
+                            // attendance, so they need the same member filters applied.
+                            ...(where.WorkspaceMember ? { WorkspaceMember: where.WorkspaceMember } : {})
                         },
                         include: {
                             WorkspaceMember: {
@@ -533,7 +541,7 @@ export class AttendanceService {
 
                 return { data: records, totalCount };
             },
-            [`attendance-${workspaceId}-${actorId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${page}-${pageSize}`],
+            [`attendance-${workspaceId}-${actorId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${filters?.departmentId}-${filters?.search}-${page}-${pageSize}`],
             {
                 tags: (CacheTags as any).attendance(workspaceId, filters?.memberId),
                 revalidate: 3
@@ -557,9 +565,13 @@ export class AttendanceService {
         const existing = await prisma.attendance.findUnique({ where: { id } });
         if (!existing) throw AppError.NotFound("Attendance record not found.");
 
+        // Re-derive against the same shift the member actually works, so an admin
+        // edit cannot silently score a Factory check-in against Head Office hours.
+        const shift = await resolveShiftTimes(existing.workspaceMemberId);
+
         const updateData: any = { ...data };
         const checkIn = data.checkIn ? new Date(data.checkIn) : existing.checkIn;
-        const lateThreshold = data.lateThreshold || existing.lateThreshold || "09:40";
+        const lateThreshold = data.lateThreshold || existing.lateThreshold || shift.lateThreshold;
 
         if (checkIn && lateThreshold) {
             const [lateH, lateM] = lateThreshold.split(":").map(Number);
@@ -569,7 +581,7 @@ export class AttendanceService {
         }
 
         const checkOut = data.checkOut ? new Date(data.checkOut) : existing.checkOut;
-        const overtimeThreshold = data.overtimeThreshold || existing.overtimeThreshold || "19:00";
+        const overtimeThreshold = data.overtimeThreshold || existing.overtimeThreshold || shift.overtimeThreshold;
 
         if (checkOut && overtimeThreshold) {
             const [otH, otM] = overtimeThreshold.split(":").map(Number);
@@ -686,7 +698,10 @@ export class AttendanceService {
     static async exportMonthlyAttendance(workspaceId: string, year: number, month: number) {
         const members = await prisma.workspaceMember.findMany({
             where: { workspaceId },
-            include: { user: { select: { name: true, surname: true } } }
+            include: {
+                user: { select: { name: true, surname: true } },
+                department: { select: { name: true } }
+            }
         });
 
         // Determine start and end of the month
@@ -718,6 +733,7 @@ export class AttendanceService {
         // Columns: Name, 1..daysInMonth, Total Present, Weekly Off, Total Absent, Late, Total Approved Leave, Payable Days
         const columns: Partial<ExcelJS.Column>[] = [
             { header: "Name", key: "name", width: 25 },
+            { header: "Department", key: "department", width: 20 },
         ];
         for (let i = 1; i <= daysInMonth; i++) {
             const dd = i.toString().padStart(2, '0');
@@ -736,8 +752,9 @@ export class AttendanceService {
         worksheet.columns = columns;
 
         // Freeze the first column (Name) and the first row (Headers)
+        // Name and Department both stay pinned while scrolling across the days.
         worksheet.views = [
-            { state: 'frozen', xSplit: 1, ySplit: 1 }
+            { state: 'frozen', xSplit: 2, ySplit: 1 }
         ];
 
         const today = new Date();
@@ -753,7 +770,7 @@ export class AttendanceService {
             const rawName = member.user.name || "";
             const cleanName = rawName.replace(/\s*\([^)]*\)/g, '').replace(/\s*"[^"]*"/g, '').trim();
             const memberName = cleanName || "Unknown";
-            const rowData: any = { name: memberName };
+            const rowData: any = { name: memberName, department: member.department?.name || "—" };
             
             let totalPresent = 0;
             let totalWeeklyOff = 0;
