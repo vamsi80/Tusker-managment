@@ -20,6 +20,7 @@ export class ProjectMapper {
       name: project.name,
       slug: project.slug,
       color: project.color,
+      description: project.description ?? null,
       canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
       projectRole: userProjectMember?.projectRole as ProjectRole,
       createdAt: project.createdAt.toISOString(),

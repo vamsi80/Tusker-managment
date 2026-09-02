@@ -765,7 +765,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                                                 {task.assignee ? (
                                                     <View style={styles.assigneeLine}>
                                                         <View style={styles.avatarFallback}>
-                                                            <Text style={styles.avatarInitial}>{(task.assignee.surname?.[0] || task.assignee.name.charAt(0)).toUpperCase()}</Text>
+                                                            <Text style={styles.avatarInitial}>{(task.assignee?.surname?.[0] || task.assignee?.name?.[0] || "?").toUpperCase()}</Text>
                                                         </View>
                                                         <Text style={[styles.detailValueText, { color: colors.text }]}>
                                                             {task.assignee.surname ? task.assignee.surname.split(" ")[0] : task.assignee.name}
@@ -1091,7 +1091,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                                                         {task.assignee ? (
                                                             <View style={styles.assigneeLine}>
                                                                 <View style={styles.avatarFallback}>
-                                                                    <Text style={styles.avatarInitial}>{(task.assignee.surname?.[0] || task.assignee.name.charAt(0)).toUpperCase()}</Text>
+                                                                    <Text style={styles.avatarInitial}>{(task.assignee?.surname?.[0] || task.assignee?.name?.[0] || "?").toUpperCase()}</Text>
                                                                 </View>
                                                                 <Text style={[styles.detailValueText, { color: colors.text }]}>
                                                                     {task.assignee.surname ? task.assignee.surname.split(" ")[0] : task.assignee.name}

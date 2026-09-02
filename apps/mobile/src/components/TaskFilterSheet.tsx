@@ -390,7 +390,7 @@ export default function TaskFilterSheet({
                                             >
                                                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                                                     <Text style={styles.avatarText}>
-                                                        {(member.user.surname?.[0] || member.user.name.charAt(0)).toUpperCase()}
+                                                        {(member.user?.surname?.[0] || member.user?.name?.[0] || member.user?.email?.[0] || "?").toUpperCase()}
                                                     </Text>
                                                 </View>
                                                 <Text style={[styles.chipText, { color: colors.textDim }, selected && [styles.chipTextSelected, { color: colors.primary }]]}>

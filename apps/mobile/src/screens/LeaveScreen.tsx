@@ -10,7 +10,6 @@ import {
     Modal,
     TextInput,
     Alert,
-    Image,
     Dimensions,
     Platform,
 } from "react-native";
@@ -202,7 +201,7 @@ export default function LeaveScreen({ navigation }: any) {
         if (!searchQuery) return requests;
         return requests.filter(r =>
             r.reason.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.WorkspaceMember.user.name.toLowerCase().includes(searchQuery.toLowerCase())
+            r.surname.toLowerCase().includes(searchQuery.toLowerCase())
         );
     }, [requests, searchQuery]);
 
@@ -352,15 +351,11 @@ export default function LeaveScreen({ navigation }: any) {
                                 <View style={styles.cardHeader}>
                                     <View style={styles.memberInfo}>
                                         <View style={[styles.avatarSmall, { backgroundColor: colors.border }]}>
-                                            {req.WorkspaceMember.user.image ? (
-                                                <Image source={{ uri: req.WorkspaceMember.user.image }} style={styles.avatarImg} />
-                                            ) : (
-                                                <Text style={[styles.avatarTxt, { color: colors.textDim }]}>{req.WorkspaceMember.user.name.charAt(0)}</Text>
-                                            )}
+                                            <Text style={[styles.avatarTxt, { color: colors.textDim }]}>{req.surname.charAt(0)}</Text>
                                         </View>
                                         <View style={{ marginLeft: 10, flex: 1 }}>
-                                            <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>{req.WorkspaceMember.user.name}</Text>
-                                            <Text style={[styles.memberBal, { color: colors.textDim }]} numberOfLines={1}>BAL: C:{req.WorkspaceMember.casualLeaveBalance} • S:{req.WorkspaceMember.sickLeaveBalance}</Text>
+                                            <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>{req.surname}</Text>
+                                            <Text style={[styles.memberBal, { color: colors.textDim }]} numberOfLines={1}>BAL: C:{req.casualLeaveBalance} • S:{req.sickLeaveBalance}</Text>
                                         </View>
                                     </View>
                                     <StatusChip label={req.status} kind={getStatusKind(req.status)} size="sm" />
@@ -393,7 +388,7 @@ export default function LeaveScreen({ navigation }: any) {
                                             style={[styles.approveActionBtn, { backgroundColor: "#dcfce7" }]}
                                             onPress={() => requestAction(req, "APPROVED")}
                                             accessibilityRole="button"
-                                            accessibilityLabel={`Approve leave request from ${req.WorkspaceMember.user.name}`}
+                                            accessibilityLabel={`Approve leave request from ${req.surname}`}
                                         >
                                             <Ionicons name="checkmark" size={18} color="#166534" />
                                             <Text style={styles.approveActionText}>Approve</Text>
@@ -402,7 +397,7 @@ export default function LeaveScreen({ navigation }: any) {
                                             style={[styles.approveActionBtn, { backgroundColor: "#fee2e2" }]}
                                             onPress={() => requestAction(req, "REJECTED")}
                                             accessibilityRole="button"
-                                            accessibilityLabel={`Reject leave request from ${req.WorkspaceMember.user.name}`}
+                                            accessibilityLabel={`Reject leave request from ${req.surname}`}
                                         >
                                             <Ionicons name="close" size={18} color="#991b1b" />
                                             <Text style={[styles.approveActionText, { color: "#991b1b" }]}>Reject</Text>
@@ -558,7 +553,7 @@ export default function LeaveScreen({ navigation }: any) {
                     title={actionSheet?.status === "APPROVED" ? "Approve this leave request?" : "Reject this leave request?"}
                     description={
                         actionSheet
-                            ? `${actionSheet.status === "APPROVED" ? "Approve" : "Reject"} the ${actionSheet.request.type.toLowerCase()} leave request from ${actionSheet.request.WorkspaceMember.user.name}.`
+                            ? `${actionSheet.status === "APPROVED" ? "Approve" : "Reject"} the ${actionSheet.request.type.toLowerCase()} leave request from ${actionSheet.request.surname}.`
                             : undefined
                     }
                     tone={actionSheet?.status === "REJECTED" ? "destructive" : "default"}

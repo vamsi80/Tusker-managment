@@ -249,9 +249,10 @@ export interface LeaveBalance {
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type LeaveType = "CASUAL" | "SICK";
 
+// Matches LeaveRequestWithMember (packages/core/src/types/leave.ts) — the API
+// flattens the WorkspaceMember/user relation onto the row instead of nesting it.
 export interface LeaveRequest {
     id: string;
-    workspaceId: string;
     workspaceMemberId: string;
     startDate: string;
     endDate: string;
@@ -259,15 +260,10 @@ export interface LeaveRequest {
     status: LeaveStatus;
     type: LeaveType;
     createdAt: string;
-    WorkspaceMember: {
-        id: string;
-        casualLeaveBalance: number;
-        sickLeaveBalance: number;
-        user: {
-            name: string;
-            surname?: string;
-            email: string;
-            image?: string;
-        };
-    };
+    surname: string;
+    email: string | null;
+    reportToId: string | null;
+    casualLeaveBalance: number;
+    sickLeaveBalance: number;
+    processedByName?: string | null;
 }

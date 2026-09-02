@@ -13,7 +13,7 @@ import ReviewCommentModal from "../components/ReviewCommentModal";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace, DEFAULT_FILTERS } from "../context/WorkspaceContext";
-import { getTasks, getTasksCount, getKanbanBoard, getCachedSession, updateTask } from "../services/api";
+import { getTasks, getTasksCount, getKanbanBoard, getCachedSession, updateTask, updateSubTaskStatus } from "../services/api";
 import { Task, User } from "../types";
 import { getStatusHex, getStatusBgColor } from "../utils/taskColors";
 import { useResponsive } from "../hooks/useResponsive";
@@ -460,14 +460,26 @@ export default function MyBoardScreen() {
         }
 
         try {
-            const updateData: any = { status: newStatus };
-            if (comment) updateData.comment = comment;
-            if (attachmentData) updateData.attachmentData = attachmentData;
-
             // Optimistic update local tasks
             setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t));
 
-            await updateTask(taskId, updateData);
+            const targetTask = selectedTask || tasks.find(t => t.id === taskId);
+            const pId = targetTask?.projectId || (targetTask as any)?.project?.id;
+
+            if (activeWorkspace?.id && pId) {
+                await updateSubTaskStatus(taskId, {
+                    newStatus,
+                    workspaceId: activeWorkspace.id,
+                    projectId: pId,
+                    comment,
+                    attachmentData,
+                });
+            } else {
+                const updateData: any = { status: newStatus };
+                if (comment) updateData.comment = comment;
+                if (attachmentData) updateData.attachmentData = attachmentData;
+                await updateTask(taskId, updateData);
+            }
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
             // Re-fetch active view data

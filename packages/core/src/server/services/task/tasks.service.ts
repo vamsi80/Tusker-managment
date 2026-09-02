@@ -1127,12 +1127,13 @@ export class TasksService {
 
     const primarySortField = opts.sorts?.[0]?.field;
     const dbField = primarySortField ? SORT_MAP[primarySortField]?.dbField : null;
+    const isMinimal = opts.hierarchyMode === "parents" && !opts.includeSubTasks;
 
     const [rawTasks] = await Promise.all([
       TaskRepository.findMany(
         where,
         // position is already selected for list/gantt; only inject dbField for custom sorts
-        getTaskSelect(opts.view_mode, true, dbField ? (opts.extraFields ? [...opts.extraFields, dbField] : [dbField]) : opts.extraFields, subtaskFilter),
+        getTaskSelect(opts.view_mode, isMinimal, dbField ? (opts.extraFields ? [...opts.extraFields, dbField] : [dbField]) : opts.extraFields, subtaskFilter),
         opts.sorts,
         limit,
         undefined,
@@ -1152,6 +1153,32 @@ export class TasksService {
         nextCursor: null,
         facets: { status: {}, assignee: {}, tags: {}, projects: {} },
       };
+    }
+
+    // Handle Subtask Expansion
+    if (opts.includeSubTasks && rawTasks.length > 0) {
+      const parentIds = (rawTasks as any[]).map((t) => t.id) as string[];
+      if (parentIds.length > 0) {
+        const subtasks = (await TaskRepository.findSubtasksExpansion(
+          buildSubtaskExpansionWhere(undefined, {
+            parentIds,
+            status: toArray(opts.status),
+            assigneeId: toArray(opts.assigneeId),
+            tagId: toArray(opts.tagId),
+            search: opts.search,
+            userId,
+            isAdmin,
+          }),
+          getTaskSelect(opts.view_mode, false, opts.extraFields, subtaskFilter),
+          buildOrderBy(opts.sorts, opts.view_mode, opts.projectId),
+          1000
+        )) as any[];
+        rawTasks.forEach((parent: any) => {
+          parent.subTasks = subtasks.filter(
+            (st) => st.parentTaskId === parent.id,
+          );
+        });
+      }
     }
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;

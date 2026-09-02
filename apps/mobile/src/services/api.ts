@@ -175,6 +175,27 @@ function mapProject(p: any, workspaceId?: string): Project {
     };
 }
 
+/**
+ * Normalises a workspace-member row for the screens.
+ *
+ * WorkspaceService.getMembers flattens `user` onto the row (`name`, `surname`,
+ * `email`, ...) instead of nesting it, while every screen reads `member.user.*`.
+ * Nest it back here, in this one place, rather than at each of the ~9 call sites.
+ */
+function mapWorkspaceMember(m: any): WorkspaceMember {
+    if (!m || typeof m !== "object" || m.user) return m;
+    return {
+        ...m,
+        user: {
+            id: m.userId,
+            name: m.name,
+            surname: m.surname,
+            email: m.email,
+            image: m.image,
+        },
+    };
+}
+
 // ─── Auth API ─────────────────────────────────────────────────────────────────
 
 /**
@@ -406,14 +427,45 @@ export async function getProjects(workspaceId: string, lite = false): Promise<Pr
  */
 export async function getWorkspaceMembers(workspaceId: string, role?: string): Promise<WorkspaceMember[]> {
     try {
-        let url = `/api/workspaces/${workspaceId}/members`;
+        // limit=1000: callers want the full roster (picker lists, filters), not
+        // the API's paginated default of 10.
+        let url = `/api/workspaces/${workspaceId}/members?limit=1000`;
         if (role) {
-            url += `?role=${role}`;
+            url += `&role=${role}`;
         }
         const res = await apiFetch(url);
         if (!res.ok) return [];
         const data = await res.json();
-        return unwrap<any[]>(data, "members") ?? [];
+        const raw = unwrap<any[]>(data, "workspaceMembers") ?? [];
+        return raw.map(mapWorkspaceMember);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Fetch workspace clients
+ */
+export async function getWorkspaceClients(workspaceId: string): Promise<any[]> {
+    try {
+        const res = await apiFetch(`/api/projects/workspace-clients?workspaceId=${workspaceId}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data?.data ?? unwrap<any[]>(data, "clients") ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Fetch workspace members formatted for project lead/manager selection (matches web projectsClient.getWorkspaceMembers)
+ */
+export async function getProjectWorkspaceMembers(workspaceId: string): Promise<any[]> {
+    try {
+        const res = await apiFetch(`/api/projects/workspace-members?workspaceId=${workspaceId}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data?.data ?? unwrap<any[]>(data, "members") ?? [];
     } catch {
         return [];
     }
@@ -424,10 +476,36 @@ export async function getWorkspaceMembers(workspaceId: string, role?: string): P
  */
 export async function getProject(projectId: string): Promise<any | null> {
     try {
-        const res = await apiFetch(`/api/projects?projectId=${projectId}`);
+        // Path param, not ?projectId= — GET /api/projects (query-only) is the
+        // workspace-listing route and silently ignores a projectId filter.
+        const res = await apiFetch(`/api/projects/${projectId}`);
         if (!res.ok) return null;
         const data = await res.json();
         return unwrap<any>(data, "project") ?? null;
+    } catch {
+        return null;
+    }
+}
+
+export interface ProjectDashboardData {
+    totalCount: number;
+    todoCount: number;
+    completedCount: number;
+    hasFullAccess: boolean;
+    allMembers: any[];
+    presentRecords: any[];
+    dueThisWeek: any[];
+}
+
+/**
+ * Fetch project dashboard summary data (exact same numbers and metrics as web).
+ */
+export async function getProjectDashboard(workspaceId: string, projectId: string): Promise<ProjectDashboardData | null> {
+    try {
+        const res = await apiFetch(`/api/projects/${projectId}/dashboard?workspaceId=${workspaceId}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return unwrap<ProjectDashboardData>(data, "dashboard") ?? data?.data ?? null;
     } catch {
         return null;
     }
@@ -598,7 +676,10 @@ export async function getTasks(
         // The API returns list results as { success, data: { tasks, ... } };
         // the Trava backend returned those fields flat. Accept either.
         const data = json?.data ?? json;
-        const rawTasks: any[] = data?.tasks ?? (Array.isArray(data) ? data : []);
+        let rawTasks: any[] = data?.tasks ?? (Array.isArray(data) ? data : []);
+        if (rawTasks.length === 0 && data?.tasksByStatus && typeof data.tasksByStatus === "object") {
+            rawTasks = Object.values(data.tasksByStatus).flatMap((col: any) => col?.tasks || []);
+        }
         return {
             tasks: flattenTasks(rawTasks),
             hasMore: data?.hasMore ?? false,
@@ -1009,6 +1090,28 @@ export async function updateTask(taskId: string, data: any): Promise<any> {
 }
 
 /**
+ * Update subtask / task status with transition comment and attachment support
+ */
+export async function updateSubTaskStatus(
+    taskId: string,
+    params: {
+        newStatus: string;
+        workspaceId: string;
+        projectId: string;
+        comment?: string;
+        attachmentData?: any;
+    }
+): Promise<any> {
+    const res = await apiFetch(`/api/tasks/${taskId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify(params),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to update task status");
+    return result;
+}
+
+/**
  * Delete a task directly
  */
 export async function deleteTask(taskId: string): Promise<any> {
@@ -1025,7 +1128,7 @@ export async function deleteTask(taskId: string): Promise<any> {
  * Update project details
  */
 export async function updateProject(projectId: string, data: any): Promise<any> {
-    const res = await apiFetch("/api/projects", {
+    const res = await apiFetch(`/api/projects/${projectId}`, {
         method: "PATCH",
         body: JSON.stringify({ projectId, ...data }),
     });
@@ -1044,7 +1147,7 @@ export async function updateProject(projectId: string, data: any): Promise<any> 
  * Delete a project
  */
 export async function deleteProject(projectId: string): Promise<any> {
-    const res = await apiFetch(`/api/projects?projectId=${projectId}`, {
+    const res = await apiFetch(`/api/projects/${projectId}`, {
         method: "DELETE",
     });
     const text = await res.text();
@@ -1060,8 +1163,8 @@ export async function getProjectMembers(projectId: string): Promise<any[]> {
     try {
         const res = await apiFetch(`/api/projects/${projectId}/members`);
         if (!res.ok) return [];
-        const data = await res.json();
-        return unwrap<any[]>(data, "members") ?? [];
+        const json = await res.json();
+        return json?.data ?? unwrap<any[]>(json, "members") ?? [];
     } catch {
         return [];
     }
@@ -1084,9 +1187,9 @@ export async function addProjectMembers(projectId: string, memberUserIds: string
  * Update project member role
  */
 export async function updateProjectMember(projectId: string, userId: string, role: string): Promise<any> {
-    const res = await apiFetch(`/api/projects/${projectId}/members`, {
+    const res = await apiFetch(`/api/projects/${projectId}/members/${userId}/role`, {
         method: "PATCH",
-        body: JSON.stringify({ userId, role }),
+        body: JSON.stringify({ role }),
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || "Failed to update member role");
@@ -1097,8 +1200,9 @@ export async function updateProjectMember(projectId: string, userId: string, rol
  * Remove member from project
  */
 export async function removeProjectMember(projectId: string, userId: string): Promise<any> {
-    const res = await apiFetch(`/api/projects/${projectId}/members?userId=${userId}`, {
+    const res = await apiFetch(`/api/projects/${projectId}/members`, {
         method: "DELETE",
+        body: JSON.stringify({ memberUserIds: [userId] }),
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || "Failed to remove member");

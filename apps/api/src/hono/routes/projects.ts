@@ -188,6 +188,26 @@ projects.get("/:projectId/layout-data", async (c) => {
 });
 
 /**
+ * GET /api/v1/projects/:projectId/dashboard
+ */
+projects.get("/:projectId/dashboard", async (c) => {
+  const projectId = c.req.param("projectId");
+  const workspaceId = c.req.query("workspaceId");
+  const user = c.get("user");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const data = await ProjectService.getProjectDashboardData(workspaceId, projectId, user.id);
+  if (!data) {
+    throw AppError.NotFound("Project not found or access denied");
+  }
+
+  return c.json({ success: true, data });
+});
+
+/**
  * GET /api/v1/projects/:projectId
  */
 projects.get("/:projectId", async (c) => {

@@ -8,7 +8,6 @@ import {
     ActivityIndicator,
     RefreshControl,
     Alert,
-    Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -177,16 +176,12 @@ export default function AdminLeaveScreen({ navigation }: any) {
                     requests.map((req) => (
                         <View key={req.id} style={[styles.requestCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <View style={styles.userRow}>
-                                {req.WorkspaceMember.user.image ? (
-                                    <Image source={{ uri: req.WorkspaceMember.user.image }} style={styles.avatar} />
-                                ) : (
-                                    <View style={[styles.avatarFallback, { backgroundColor: colors.border }]}>
-                                        <Text style={{ color: colors.textDim }}>{(req.WorkspaceMember.user.surname?.[0] || req.WorkspaceMember.user.name.charAt(0)).toUpperCase()}</Text>
-                                    </View>
-                                )}
+                                <View style={[styles.avatarFallback, { backgroundColor: colors.border }]}>
+                                    <Text style={{ color: colors.textDim }}>{req.surname.charAt(0).toUpperCase()}</Text>
+                                </View>
                                 <View style={{ flex: 1, marginLeft: 12 }}>
-                                    <Text style={[styles.userName, { color: colors.text }]}>{req.WorkspaceMember.user.surname || req.WorkspaceMember.user.name}</Text>
-                                    <Text style={[styles.userEmail, { color: colors.textDim }]}>{req.WorkspaceMember.user.email}</Text>
+                                    <Text style={[styles.userName, { color: colors.text }]}>{req.surname}</Text>
+                                    <Text style={[styles.userEmail, { color: colors.textDim }]}>{req.email}</Text>
                                 </View>
                                 <StatusChip label={req.status} kind={getStatusKind(req.status)} size="sm" />
                             </View>
@@ -208,7 +203,7 @@ export default function AdminLeaveScreen({ navigation }: any) {
                                         style={[styles.actionBtn, styles.rejectBtn]}
                                         onPress={() => requestAction(req, "REJECTED")}
                                         accessibilityRole="button"
-                                        accessibilityLabel={`Reject leave request from ${req.WorkspaceMember.user.surname || req.WorkspaceMember.user.name}`}
+                                        accessibilityLabel={`Reject leave request from ${req.surname}`}
                                     >
                                         <Text style={styles.rejectBtnText}>Reject</Text>
                                     </TouchableOpacity>
@@ -216,7 +211,7 @@ export default function AdminLeaveScreen({ navigation }: any) {
                                         style={[styles.actionBtn, styles.approveBtn, { backgroundColor: colors.primary }]}
                                         onPress={() => requestAction(req, "APPROVED")}
                                         accessibilityRole="button"
-                                        accessibilityLabel={`Approve leave request from ${req.WorkspaceMember.user.surname || req.WorkspaceMember.user.name}`}
+                                        accessibilityLabel={`Approve leave request from ${req.surname}`}
                                     >
                                         <Text style={styles.approveBtnText}>Approve</Text>
                                     </TouchableOpacity>
@@ -238,7 +233,7 @@ export default function AdminLeaveScreen({ navigation }: any) {
                 title={actionSheet?.status === "APPROVED" ? "Approve this leave request?" : "Reject this leave request?"}
                 description={
                     actionSheet
-                        ? `${actionSheet.status === "APPROVED" ? "Approve" : "Reject"} the leave request for ${actionSheet.request.WorkspaceMember.user.surname || actionSheet.request.WorkspaceMember.user.name}.`
+                        ? `${actionSheet.status === "APPROVED" ? "Approve" : "Reject"} the leave request for ${actionSheet.request.surname}.`
                         : undefined
                 }
                 tone={actionSheet?.status === "REJECTED" ? "destructive" : "default"}

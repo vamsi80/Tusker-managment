@@ -183,7 +183,7 @@ export default function GanttTaskRow({
                                         <View style={styles.assigneeLine}>
                                             <View style={[styles.avatarFixed, { backgroundColor: colors.surfaceHighlight, borderColor: colors.border }]}>
                                                 <Text style={[styles.avatarText, { color: colors.textDim }]}>
-                                                    {task.assignee.name.charAt(0).toUpperCase()}
+                                                    {(task.assignee?.surname?.[0] || task.assignee?.name?.[0] || "?").toUpperCase()}
                                                 </Text>
                                             </View>
                                             <Text style={[styles.colValue, { color: colors.text, fontSize: 10, flex: 1 }]} numberOfLines={1}>

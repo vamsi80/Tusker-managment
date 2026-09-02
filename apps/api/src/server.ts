@@ -4,6 +4,7 @@ import app from "./hono";
 // Env comes from the repo-root .env via node's --env-file flag (see package.json),
 // which loads before any module here evaluates — module imports are hoisted, so
 // loading it in this file would run too late for @tusker/core's env validation.
+// Updated project dashboard metrics handling.
 const port = Number(process.env.API_PORT ?? process.env.PORT ?? 4000);
 
 const server = serve({ fetch: app.fetch, port }, (info) => {

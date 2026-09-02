@@ -424,7 +424,7 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                                             >
                                                 <View style={[styles.avatar, { backgroundColor: colors.primary + "22" }]}>
                                                     <Text style={[styles.avatarText, { color: colors.primary }]}>
-                                                        {(member.user.surname?.[0] || member.user.name.charAt(0)).toUpperCase()}
+                                                        {(member.user?.surname?.[0] || member.user?.name?.[0] || member.user?.email?.[0] || "?").toUpperCase()}
                                                     </Text>
                                                 </View>
                                                 <Text

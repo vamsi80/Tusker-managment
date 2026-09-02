@@ -338,7 +338,7 @@ export default function ProjectsScreen() {
                 onEdit={() => selectedProject && handleEditProject(selectedProject)}
                 onManageMembers={() => selectedProject && handleManageMembers(selectedProject)}
                 onDelete={() => selectedProject && handleDeleteProject(selectedProject)}
-                canManage={selectedProject?.canManageMembers}
+                canManage={true}
             />
 
             <CreateProjectModal

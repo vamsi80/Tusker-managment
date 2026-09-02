@@ -37,6 +37,7 @@ export interface MinimalProjectData {
 }
 
 export interface ProjectListItem extends MinimalProjectData {
+  description?: string | null;
   canManageMembers: boolean;
   projectRole?: ProjectRole;
   createdAt: string;

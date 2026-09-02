@@ -1500,7 +1500,7 @@ export default function AttendanceScreen() {
                               fontFamily: FONTS.semibold,
                             }}
                           >
-                            {(u.surname?.[0] || u.name.charAt(0)).toUpperCase()}
+                            {(u.surname?.[0] || u.name?.[0] || u.email?.[0] || "?").toUpperCase()}
                           </Text>
                         </View>
                       )}

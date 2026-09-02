@@ -225,7 +225,7 @@ export default function TeamListScreen({ navigation }: Props) {
                         <Image source={{ uri: item.user.image }} style={styles.avatarImage} />
                     ) : (
                         <Text style={styles.avatarText}>
-                            {(item.user.surname?.[0] || item.user.name.charAt(0)).toUpperCase()}
+                            {(item.user?.surname?.[0] || item.user?.name?.[0] || item.user?.email?.[0] || "?").toUpperCase()}
                         </Text>
                     )}
                 </View>

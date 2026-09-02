@@ -32,6 +32,7 @@ export class ProjectService {
       name: true,
       slug: true,
       color: true,
+      description: true,
       createdBy: true,
       createdAt: true,
       projectManager: {
@@ -759,35 +760,66 @@ export class ProjectService {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
-    const baseTaskWhere: any = { projectId: project.id, isParent: false };
+    const baseTaskWhere: any = {
+      projectId: project.id,
+      OR: [
+        { parentTaskId: { not: null } },
+        { isParent: false },
+      ],
+    };
+
+    const assigneeFilter: any = {
+      OR: [
+        { assigneeId: userId },
+        { assignee: { workspaceMember: { userId } } },
+        ...(permissions.projectMember?.id ? [{ assigneeId: permissions.projectMember.id }] : []),
+      ],
+    };
 
     // For MEMBERs: scope all task queries to only their assigned tasks
     const memberTaskWhere = hasFullAccess
       ? baseTaskWhere
-      : { ...baseTaskWhere, assigneeId: permissions.projectMember?.id };
+      : {
+          AND: [
+            baseTaskWhere,
+            assigneeFilter,
+          ],
+        };
 
     const dueThisWeekWhere: any = {
-      projectId: project.id,
-      isParent: false,
-      dueDate: { gte: weekStart, lte: weekEnd },
-      status: { notIn: ["COMPLETED", "CANCELLED"] },
-      ...(hasFullAccess ? {} : { assigneeId: permissions.projectMember?.id }),
+      AND: [
+        baseTaskWhere,
+        {
+          dueDate: { gte: weekStart, lte: weekEnd },
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
+        },
+        ...(hasFullAccess ? [] : [assigneeFilter]),
+      ],
     };
 
     const [totalCount, todoCount, completedCount, allMembers, absentRecords, dueThisWeek] = await Promise.all([
-      // 1a. Total tasks
+      // 1a. Total subtasks
       prisma.task.count({ where: memberTaskWhere }),
 
-      // 1b. Pending tasks (not COMPLETED, HOLD, or CANCELLED)
+      // 1b. Pending subtasks (not COMPLETED, HOLD, or CANCELLED)
       prisma.task.count({
         where: {
-          ...memberTaskWhere,
-          status: { notIn: ["COMPLETED", "HOLD", "CANCELLED"] },
+          AND: [
+            memberTaskWhere,
+            { status: { notIn: ["COMPLETED", "HOLD", "CANCELLED"] } },
+          ],
         },
       }),
 
-      // 1c. Completed tasks
-      prisma.task.count({ where: { ...memberTaskWhere, status: "COMPLETED" } }),
+      // 1c. Completed subtasks
+      prisma.task.count({
+        where: {
+          AND: [
+            memberTaskWhere,
+            { status: "COMPLETED" },
+          ],
+        },
+      }),
 
       // 2. Project members: full list for PM/Lead, or just self for MEMBER
       prisma.projectMember.findMany({
@@ -802,7 +834,7 @@ export class ProjectService {
               id: true,
               userId: true,
               workspaceRole: true,
-              user: { select: { id: true, surname: true } },
+              user: { select: { id: true, name: true, surname: true, image: true, email: true } },
             },
           },
           assignedTasks: {

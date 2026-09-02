@@ -7,13 +7,14 @@ import {
     ActivityIndicator,
     Dimensions,
     RefreshControl,
-    Alert
+    Alert,
+    DeviceEventEmitter
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, ThemeColors, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { updateTask, getTasks, deleteTask, getProject } from "../../services/api";
+import { updateTask, updateSubTaskStatus, getTasks, deleteTask, getProject } from "../../services/api";
 import { Task, TaskStatus } from "../../types";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import StatusPickerModal from "../../components/StatusPickerModal";
@@ -103,6 +104,17 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
     const [editingTask, setEditingTask] = React.useState<Task | null>(null);
     const [projectManager, setProjectManager] = React.useState<any>(null);
 
+    const flattenTasks = (taskList: Task[]): Task[] => {
+        let flat: Task[] = [];
+        taskList.forEach(t => {
+            flat.push(t);
+            if (t.subTasks && t.subTasks.length > 0) {
+                flat = flat.concat(flattenTasks(t.subTasks));
+            }
+        });
+        return flat;
+    };
+
     const fetchKanbanTasks = React.useCallback(async (isRefreshing = false) => {
         if (!activeWorkspace || !projectId) return;
 
@@ -129,16 +141,27 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
             setLoading(false);
             setRefreshing(false);
         }
-    }, [activeWorkspace, projectId]);
+    }, [activeWorkspace, projectId, parentId]);
 
     React.useEffect(() => {
-        if (tasks) {
-            setLocalTasks(tasks);
-            setLoading(false);
-        } else {
-            fetchKanbanTasks();
+        if (tasks && tasks.length > 0) {
+            const flat = flattenTasks(tasks);
+            const subOnly = flat.filter(t => !!t.parentTaskId || !t.isParent);
+            if (subOnly.length > 0) {
+                setLocalTasks(subOnly);
+                setLoading(false);
+                return;
+            }
         }
+        fetchKanbanTasks();
     }, [fetchKanbanTasks, tasks]);
+
+    React.useEffect(() => {
+        const sub = DeviceEventEmitter.addListener("remote_update", () => {
+            fetchKanbanTasks(true);
+        });
+        return () => sub.remove();
+    }, [fetchKanbanTasks]);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -177,6 +200,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
     }, [projectId]);
 
     const handleStatusUpdate = async (taskId: string, newStatus: string, comment?: string, attachmentData?: any) => {
+        if (!activeWorkspace) return;
         const fromStatus = selectedTask?.status;
         const toStatus = newStatus;
 
@@ -196,14 +220,16 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
         }
 
         try {
-            const updateData: any = { status: newStatus as TaskStatus };
-            if (comment) updateData.comment = comment;
-            if (attachmentData) updateData.attachmentData = attachmentData;
-
             // Optimistic update
             setLocalTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as any } : t));
 
-            await updateTask(taskId, updateData);
+            await updateSubTaskStatus(taskId, {
+                newStatus,
+                workspaceId: activeWorkspace.id,
+                projectId: selectedTask?.projectId || projectId,
+                comment,
+                attachmentData,
+            });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
             // Re-fetch to be sure
@@ -338,7 +364,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                             <>
                                 <Text style={[styles.separator, { color: colors.textDim }]}>/</Text>
                                 <Text style={[styles.parentText, { color: colors.textDim }]}>
-                                    {task.parentTask?.name?.toUpperCase()}
+                                    {(task.parentTask?.name || "").toUpperCase()}
                                 </Text>
                             </>
                         )}
@@ -368,9 +394,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                             (task.projectId === projectId ? projectManager : null) ||
                             normalizeManager(resolveProjectManager(contextManagers));
 
-                        if (localTasks.length > 0 && localTasks[0].id === task.id) {
-                            console.log(`[ProjectKanban] Task: "${task.name}", Manager Found: ${!!firstManager}, Name: ${firstManager?.name}`);
-                        }
+                        const managerInitial = (firstManager?.surname?.[0] || firstManager?.name?.[0] || "M").toUpperCase();
 
                         return (
                             <View style={[styles.memberInfoRow, { marginLeft: 8 }]}>
@@ -381,9 +405,9 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                                     </Text>
                                 </View>
                                 <View style={[styles.avatarCircle, { backgroundColor: colors.statusReview + "30", borderColor: colors.statusReview }]}>
-                                    {firstManager ? (
+                                    {firstManager && (firstManager.surname || firstManager.name) ? (
                                         <Text style={[styles.avatarText, { color: colors.statusReview }]}>
-                                            {(firstManager.surname?.[0] || firstManager.name?.[0]).toUpperCase()}
+                                            {managerInitial}
                                         </Text>
                                     ) : (
                                         <Ionicons name="person-outline" size={10} color={colors.textDim} />
@@ -433,9 +457,9 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                             </Text>
                         </View>
                         <View style={[styles.avatarCircle, { backgroundColor: colors.surfaceHighlight, borderColor: colors.border }]}>
-                            {task.assignee ? (
+                            {task.assignee && (task.assignee.surname || task.assignee.name) ? (
                                 <Text style={[styles.avatarText, { color: colors.textDim }]}>
-                                    {(task.assignee.surname?.[0] || task.assignee.name?.[0]).toUpperCase()}
+                                    {(task.assignee.surname?.[0] || task.assignee.name?.[0] || "A").toUpperCase()}
                                 </Text>
                             ) : (
                                 <Ionicons name="person-outline" size={10} color={colors.textDim} />
@@ -448,9 +472,9 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
     };
 
     const renderColumn = (column: KanbanColumn) => {
-        // Exclude parent tasks (isParent === true means it's a container with subtasks, not a kanban card)
+        // Exclude only top-level parent containers (parentTaskId == null AND isParent == true)
         const columnTasks = localTasks
-            .filter(t => !t.isParent && t.status === column.status)
+            .filter(t => (t.parentTaskId != null || !t.isParent) && t.status === column.status)
             .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
         const statusColor = statusThemeColor(column.status, colors);
         const statusBg = `${statusColor}1E`;

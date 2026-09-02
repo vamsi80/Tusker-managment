@@ -19,6 +19,8 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             workspaceId: true,
             createdAt: true,
             position: true,
+            subtaskCount: true,
+            completedSubtaskCount: true,
             _count: {
                 select: {
                     subTasks: subtaskFilter ? { where: subtaskFilter } : true
