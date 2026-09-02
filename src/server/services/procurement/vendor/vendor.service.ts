@@ -131,7 +131,7 @@ export class VendorService {
     materialName: string,
     unit?: string,
     serviceType?: "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL",
-    rate?: number | null
+    extras?: { rate?: number | null; link?: string | null }
   ) {
     const normalized = materialName.toLowerCase().trim();
     const vendor = await prisma.vendor.findFirst({
@@ -161,9 +161,10 @@ export class VendorService {
         update: {
           unit: unit || null,
           materialCatalogId: material.id,
-          // Re-adding the same material is how a rate gets corrected; an
-          // omitted rate leaves the agreed one alone.
-          ...(rate === undefined ? {} : { rate }),
+          // Re-adding the same material is how a rate or link gets corrected;
+          // an omitted one leaves what is already stored alone.
+          ...(extras?.rate === undefined ? {} : { rate: extras.rate }),
+          ...(extras?.link === undefined ? {} : { link: extras.link }),
         },
         create: {
           vendorId,
@@ -173,7 +174,8 @@ export class VendorService {
           workspaceId,
           source: "MANUAL",
           serviceType: resolvedServiceType,
-          rate: rate ?? null,
+          rate: extras?.rate ?? null,
+          link: extras?.link ?? null,
         },
         include: {
           material: {

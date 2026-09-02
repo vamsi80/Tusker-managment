@@ -5,7 +5,8 @@ const indentLineItem = { findMany: vi.fn() };
 const vendorMaterialCapability = { findMany: vi.fn() };
 
 vi.mock("@/lib/db", () => ({ default: { indentLineItem, vendorMaterialCapability } }));
-vi.mock("@/server/services/procurement", () => ({ VendorService: {}, lookupGstin: vi.fn() }));
+const addManualCapability = vi.fn(async () => ({ id: "cap-1" }));
+vi.mock("@/server/services/procurement", () => ({ VendorService: { addManualCapability }, lookupGstin: vi.fn() }));
 vi.mock("@/data/user/get-user-permissions", () => ({
   getWorkspacePermissions: vi.fn(async () => ({ hasAccess: true, workspaceRole: "PROCUREMENT" })),
 }));
@@ -18,6 +19,15 @@ app.use("*", async (c, next) => {
   await next();
 });
 (app as any).route("/", procurementVendors);
+// Mirrors the real app's handler, so a rejected body answers 400 rather than 500.
+app.onError((err: any) => new Response(err.message, { status: err.statusCode ?? 500 }));
+
+const addMaterial = (body: any) =>
+  app.request("/ven-1/capabilities?w=ws-1", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ materialName: "river sand", ...body }),
+  });
 
 const row = (overrides: any) => ({
   id: "li-1",
@@ -101,5 +111,26 @@ describe("GET /vendors/:id/materials", () => {
         },
       })
     );
+  });
+
+  /**
+   * The link lands in an anchor href, so anything but http(s) — javascript:,
+   * data: — has to be refused at the boundary rather than on render.
+   */
+  it("stores an http(s) link and refuses any other scheme", async () => {
+    expect((await addMaterial({ link: "https://drive.example.com/tv.jpg" })).status).toBe(201);
+    expect(addManualCapability).toHaveBeenCalledWith(
+      "ven-1",
+      "ws-1",
+      "river sand",
+      undefined,
+      "SUPPLY",
+      { rate: undefined, link: "https://drive.example.com/tv.jpg" }
+    );
+
+    addManualCapability.mockClear();
+    expect((await addMaterial({ link: "javascript:alert(1)" })).status).toBe(400);
+    expect((await addMaterial({ link: "not a url" })).status).toBe(400);
+    expect(addManualCapability).not.toHaveBeenCalled();
   });
 });

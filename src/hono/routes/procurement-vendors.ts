@@ -397,6 +397,7 @@ procurementVendors.get("/:id/materials", async (c) => {
       unit: item.unit,
       serviceType: null as string | null,
       quantity: item.quantity,
+      link: null as string | null,
       rate:
         item.finalUnitPrice ??
         (item.approvedQuote ? Number(item.approvedQuote.unitPrice) : null) ??
@@ -416,6 +417,7 @@ procurementVendors.get("/:id/materials", async (c) => {
       serviceType: cap.serviceType as string | null,
       quantity: null,
       rate: cap.rate,
+      link: cap.link,
       indentId: null,
       indentRef: null,
       indentName: null,
@@ -466,6 +468,15 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional().default("SUPPLY"),
   // Agreed rate in paise, matching every other price in procurement.
   rate: z.number().int().positive().nullable().optional(),
+  // Reference link — a photo, a quotation, a catalogue page. Restricted to
+  // http(s) so nothing script-bearing can reach an anchor href.
+  link: z
+    .string()
+    .trim()
+    .url()
+    .regex(/^https?:\/\//i, "Link must start with http:// or https://")
+    .nullable()
+    .optional(),
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -482,7 +493,7 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     data.materialName,
     data.unit,
     data.serviceType,
-    data.rate
+    { rate: data.rate, link: data.link }
   );
 
   return c.json({ success: true, data: capability }, 201);

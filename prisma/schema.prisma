@@ -686,6 +686,9 @@ model VendorMaterialCapability {
   /// Rate agreed with this vendor, in paise. Set by hand so a material with no
   /// approved indent behind it still carries a price to negotiate from.
   rate              Int?
+  /// http(s) link to whatever backs the entry — a photo of the material, a
+  /// quotation PDF, a catalogue page. Opened in a new tab, never rendered.
+  link              String?
   createdAt         DateTime              @default(now())
   serviceType       CapabilityServiceType @default(SUPPLY)
   material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)

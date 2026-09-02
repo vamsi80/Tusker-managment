@@ -7,7 +7,7 @@ import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Trash2, Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Loader2, Trash2, Check, ChevronsUpDown, Plus, ExternalLink } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ interface MaterialRow {
   serviceType: ServiceType | null;
   quantity: number | null;
   rate: number | null;
+  link: string | null;
   indentId: string | null;
   indentRef: string | null;
   indentName: string | null;
@@ -34,6 +35,9 @@ const money = (paise: number | null) =>
   paise == null
     ? "—"
     : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(paise / 100);
+
+// Only http(s) reaches an href, whatever a row happens to hold.
+const isHttpLink = (link: string | null) => /^https?:\/\//i.test(link || "");
 
 const SERVICE_LABEL: Record<ServiceType, string> = {
   SUPPLY: "📦 Supply",
@@ -56,6 +60,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
   const [customMaterialName, setCustomMaterialName] = useState("");
   const [newUnit, setNewUnit] = useState("");
   const [newRate, setNewRate] = useState("");
+  const [newLink, setNewLink] = useState("");
   const [newServiceType, setNewServiceType] = useState<ServiceType>("SUPPLY");
   const [adding, setAdding] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -130,6 +135,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
           serviceType: newServiceType,
           // Rupees in the form, paise on the wire, like every other price.
           rate: newRate ? Math.round(Number(newRate) * 100) : undefined,
+          link: newLink.trim() || undefined,
         }),
       });
       const body = await res.json();
@@ -139,6 +145,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         setCustomMaterialName("");
         setNewUnit("");
         setNewRate("");
+        setNewLink("");
         setNewServiceType("SUPPLY");
         fetchMaterials();
       } else {
@@ -175,7 +182,20 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         header: "Material / Service",
         cell: ({ row }) => (
           <div className="flex flex-col gap-1">
-            <span className="font-medium capitalize text-foreground">{row.original.materialName}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium capitalize text-foreground">{row.original.materialName}</span>
+              {isHttpLink(row.original.link) && (
+                <a
+                  href={row.original.link!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open attached link"
+                  className="text-primary hover:text-primary/80"
+                >
+                  <ExternalLink className="size-3.5" />
+                </a>
+              )}
+            </div>
             {row.original.serviceType && (
               <Badge variant="outline" className={cn("w-fit text-[10px]", SERVICE_CLASS[row.original.serviceType])}>
                 {SERVICE_LABEL[row.original.serviceType]}
@@ -278,7 +298,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
   return (
     <div className="space-y-4">
       <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-        <div className="space-y-1 md:col-span-4">
+        <div className="space-y-1 md:col-span-3">
           <label className="text-xs font-semibold text-muted-foreground">Material / Service Name</label>
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
@@ -346,7 +366,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
           </Popover>
         </div>
 
-        <div className="space-y-1 md:col-span-2">
+        <div className="space-y-1 md:col-span-1">
           <label className="text-xs font-semibold text-muted-foreground">Unit</label>
           <Input
             value={newUnit}
@@ -370,15 +390,26 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
         </div>
 
         <div className="space-y-1 md:col-span-3">
+          <label className="text-xs font-semibold text-muted-foreground">Link (optional)</label>
+          <Input
+            type="url"
+            value={newLink}
+            onChange={(e) => setNewLink(e.target.value)}
+            placeholder="https://... photo, quote, catalogue"
+            className="bg-background h-9"
+          />
+        </div>
+
+        <div className="space-y-1 md:col-span-2">
           <label className="text-xs font-semibold text-muted-foreground">Service Type</label>
           <select
             value={newServiceType}
             onChange={(e) => setNewServiceType(e.target.value as ServiceType)}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
           >
-            <option value="SUPPLY" className="bg-background text-foreground">📦 Supply Only</option>
-            <option value="LABOUR" className="bg-background text-foreground">🔨 Labour Only</option>
-            <option value="LABOUR_WITH_MATERIAL" className="bg-background text-foreground">🔄 Labour &amp; Material</option>
+            <option value="SUPPLY" className="bg-background text-foreground">📦 Supply</option>
+            <option value="LABOUR" className="bg-background text-foreground">🔨 Labour</option>
+            <option value="LABOUR_WITH_MATERIAL" className="bg-background text-foreground">🔄 Labour + Material</option>
           </select>
         </div>
 
