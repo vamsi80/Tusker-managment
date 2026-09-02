@@ -92,6 +92,10 @@ export class CommentMapper {
         groupedMap.set(id, {
           id: dn.id,
           taskId: dn.entityId || dn.id,
+          // Not every notification is about a task — an indent approval points
+          // at an indent. The client needs to know before it fetches a task.
+          entityType: dn.entityType || null,
+          entityId: dn.entityId || null,
           taskName,
           taskSlug,
           projectName,
