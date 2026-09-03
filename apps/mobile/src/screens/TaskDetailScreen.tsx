@@ -11,6 +11,8 @@ import { format, isBefore, isSameDay, startOfToday } from "date-fns";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
+import { ListSkeleton, DetailSkeleton } from "../components/ScreenSkeleton";
+import { Skeleton } from "../components/Skeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useNotifications } from "../context/NotificationContext";
 import { 
@@ -59,7 +61,11 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
     const [loadingActivities, setLoadingActivities] = useState(true);
     const [sendingComment, setSendingComment] = useState(false);
     const [fetchedTask, setFetchedTask] = useState<Task | null>(null);
-    const [loadingTask, setLoadingTask] = useState(false);
+    // Starts true: the fetch only flips this inside an effect, which runs after
+    // the first render commits. Starting false let a task that is not already in
+    // context (subtasks routinely are not) paint the "not found" / preview
+    // branch for one frame before loading began.
+    const [loadingTask, setLoadingTask] = useState(true);
     const [subTasks, setSubTasks] = useState<Task[]>([]);
     const [loadingSubTasks, setLoadingSubTasks] = useState(false);
     const [createSubTaskVisible, setCreateSubTaskVisible] = useState(false);
@@ -322,7 +328,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
 
     const renderActivitiesList = () => {
         if (loadingActivities) {
-            return <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />;
+            return <ListSkeleton rows={4} />;
         }
         if (activities.length === 0) {
             return (
@@ -415,13 +421,14 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
                                 <Ionicons name="arrow-back" size={24} color={colors.text} />
                             </TouchableOpacity>
+                            {/* `taskName` is a route-param placeholder — callers
+                                synthesise names like "Subtask #a3f9" from the id.
+                                Hold a skeleton rather than flash a fake name. */}
                             <View style={styles.titleContainer}>
-                                <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>{taskName}</Text>
+                                <Skeleton width="70%" height={18} />
                             </View>
                         </View>
-                        <View style={styles.center}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                        </View>
+                        <DetailSkeleton paragraphs={3} />
                     </View>
                 </SafeAreaView>
             );
@@ -977,7 +984,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                                                 renderActivitiesList()
                                             ) : (
                                                 loadingComments ? (
-                                                    <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+                                                    <ListSkeleton rows={4} />
                                                 ) : comments.length === 0 ? (
                                                     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: SPACING.xl, marginTop: 30 }}>
                                                         <Text style={[styles.emptyContentText, { color: colors.textDim, textAlign: "center" }]}>No messages yet. Start the conversation!</Text>
@@ -1287,7 +1294,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                                                 renderActivitiesList()
                                             ) : activeTab === "Deliverables" ? (
                                                 loadingSubTasks ? (
-                                                    <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+                                                    <ListSkeleton rows={4} showAvatar={false} />
                                                 ) : subTasks.length === 0 ? (
                                                     <View style={styles.emptyTabBox}>
                                                         <Ionicons name="git-branch-outline" size={48} color={colors.textDim} />
@@ -1333,7 +1340,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                                                 )
                                             ) : (
                                                 loadingComments ? (
-                                                    <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+                                                    <ListSkeleton rows={4} />
                                                 ) : comments.length === 0 ? (
                                                     <Text style={[styles.emptyContentText, { color: colors.textDim, marginTop: 20 }]}>No messages yet. Start the conversation!</Text>
                                                 ) : (

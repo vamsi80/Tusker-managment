@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { useTheme } from "../context/ThemeContext";
+import { ListSkeleton } from "../components/ScreenSkeleton";
 import { haptics } from "../services/haptics";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
@@ -171,9 +172,7 @@ export default function ProcurementScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator color={colors.primary} size="large" />
-      </View>
+      <ListSkeleton rows={7} />
     );
   }
 

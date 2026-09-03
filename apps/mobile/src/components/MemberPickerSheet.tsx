@@ -33,12 +33,18 @@ interface MemberPickerSheetProps {
     onClose: () => void;
     title: string;
     members: any[];
-    selectedId: string | null;
-    onSelect: (userId: string | null) => void;
+    selectedId?: string | null;
+    onSelect?: (userId: string | null) => void;
     /** Shown when there are no eligible members. */
     emptyText?: string;
     /** Label for the "no one selected" row. */
     clearLabel?: string;
+
+    /** Multi-select mode (used by the filter sheet). */
+    multiple?: boolean;
+    selectedIds?: string[];
+    onToggle?: (userId: string) => void;
+    onClearAll?: () => void;
 }
 
 /**
@@ -54,6 +60,10 @@ export default function MemberPickerSheet({
     onSelect,
     emptyText = "No members available",
     clearLabel = "Unassigned",
+    multiple,
+    selectedIds,
+    onToggle,
+    onClearAll,
 }: MemberPickerSheetProps) {
     const options = useMemo<PickerOption[]>(
         () =>
@@ -86,6 +96,10 @@ export default function MemberPickerSheet({
             onSelect={onSelect}
             emptyText={emptyText}
             clearLabel={clearLabel}
+            multiple={multiple}
+            selectedIds={selectedIds}
+            onToggle={onToggle}
+            onClearAll={onClearAll}
         />
     );
 }

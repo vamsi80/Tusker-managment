@@ -113,10 +113,24 @@ export class WorkspaceService {
   /**
    * Get workspace members (paginated)
    */
-  static async getMembers(workspaceId: string, page: number = 1, limit: number = 10, search?: string) {
+  static async getMembers(
+    workspaceId: string,
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    /**
+     * Optional workspaceRole filter (e.g. ["MANAGER"]). The route accepted a
+     * `role` query long before anything applied it, so callers asking for
+     * managers silently received the whole workspace.
+     */
+    roles?: string[],
+  ) {
     const skip = (page - 1) * limit;
 
     const where: any = { workspaceId };
+    if (roles && roles.length > 0) {
+      where.workspaceRole = { in: roles };
+    }
     if (search && search.trim() !== "") {
       where.OR = [
         { user: { name: { contains: search, mode: 'insensitive' } } },
@@ -187,6 +201,44 @@ export class WorkspaceService {
    * Get all workspace members but ONLY minimal fields for filters.
    * This is extremely fast even with 1000+ members.
    */
+  /**
+   * Members whose birthday falls in the current month, sorted by day.
+   *
+   * dateOfBirth is a UTC-midnight calendar day, and "today" is the IST calendar
+   * day — a plain UTC read shows last month's list until 05:30 IST on the 1st.
+   *
+   * Ported from the pre-monorepo web app (commit e78a4f15), which the monorepo
+   * restructure did not carry across.
+   */
+  static async getBirthdaysThisMonth(workspaceId: string, viewerUserId?: string) {
+    const { getISTDateOnly } = await import("../../lib/date-utils");
+    const today = getISTDateOnly(new Date());
+    const month = today.getUTCMonth();
+
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId, dateOfBirth: { not: null } },
+      select: {
+        id: true,
+        userId: true,
+        designation: true,
+        dateOfBirth: true,
+        user: { select: { surname: true } },
+      },
+    });
+
+    return members
+      .filter((m) => m.dateOfBirth!.getUTCMonth() === month)
+      .map((m) => ({
+        id: m.id,
+        surname: m.user?.surname || "Member",
+        designation: m.designation,
+        day: m.dateOfBirth!.getUTCDate(),
+        isToday: m.dateOfBirth!.getUTCDate() === today.getUTCDate(),
+        isSelf: m.userId === viewerUserId,
+      }))
+      .sort((a, b) => a.day - b.day);
+  }
+
   static async getMembersSlim(workspaceId: string) {
     const members = await prisma.workspaceMember.findMany({
       where: { workspaceId },

@@ -25,8 +25,10 @@ import { format } from "date-fns";
 import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { SPACING, FONTS } from "../constants/theme";
+import { SPACING, FONTS, BORDER_RADIUS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
+import { Skeleton } from "../components/Skeleton";
+import { getBirthdays, BirthdayMember } from "../services/api";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useNotifications } from "../context/NotificationContext";
 import { MainTabParamList, RootStackParamList, Workspace, Task } from "../types";
@@ -83,6 +85,10 @@ export default function HomeScreen({ navigation }: Props) {
     const [currentTime, setCurrentTime] = useState(new Date());
 
     const [profile, setProfile] = useState<any>(null);
+    // Distinct from `profile === null`: a failed request also leaves profile
+    // null, and a skeleton that never resolves is worse than a blank name.
+    const [profileLoading, setProfileLoading] = useState(true);
+    const [birthdays, setBirthdays] = useState<BirthdayMember[] | null>(null);
     const [actionLoading, setActionLoading] = useState<boolean>(false);
     const [checkOutSheetVisible, setCheckOutSheetVisible] = useState<boolean>(false);
 
@@ -150,6 +156,13 @@ export default function HomeScreen({ navigation }: Props) {
         })
     ).current;
 
+    const fetchBirthdays = async (workspaceId: string) => {
+        // Null means "still loading" so the card can hold a skeleton; [] is a
+        // resolved empty month, which hides the card entirely.
+        const data = await getBirthdays(workspaceId);
+        setBirthdays(data);
+    };
+
     const fetchProfile = async () => {
         try {
             const data = await getProfile();
@@ -158,8 +171,14 @@ export default function HomeScreen({ navigation }: Props) {
             }
         } catch (err) {
             console.error("Failed to fetch profile on home screen:", err);
+        } finally {
+            setProfileLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (activeWorkspace?.id) fetchBirthdays(activeWorkspace.id);
+    }, [activeWorkspace?.id]);
 
     useEffect(() => {
         fetchProfile();
@@ -347,7 +366,14 @@ export default function HomeScreen({ navigation }: Props) {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-            <View style={[styles.mainContentContainer, { maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center', flex: 1, paddingHorizontal: value(SPACING.md, SPACING.lg, SPACING.xl), paddingBottom: SPACING.md }]}>
+            {/* Scrollable: the widgets below the hero card can exceed the
+                viewport (the Birthdays list grows with the month), and the
+                previous fixed flex layout gave no way to reach them. */}
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={[styles.mainContentContainer, { maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center', paddingHorizontal: value(SPACING.md, SPACING.lg, SPACING.xl), paddingBottom: SPACING.xl }]}
+                showsVerticalScrollIndicator={false}
+            >
 
                 {/* Top Main Card */}
                 <View style={[styles.mainCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -355,9 +381,13 @@ export default function HomeScreen({ navigation }: Props) {
                     <View style={styles.cardHeaderRow}>
                         <View style={StyleSheet.absoluteFill}>
                             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                                <Text style={[styles.workspaceNameHeader, { color: colors.text }]} numberOfLines={1}>
-                                    {activeWorkspace?.name ?? "Trava Tasks"}
-                                </Text>
+                                {wsLoading && !activeWorkspace ? (
+                                    <Skeleton width={130} height={16} />
+                                ) : (
+                                    <Text style={[styles.workspaceNameHeader, { color: colors.text }]} numberOfLines={1}>
+                                        {activeWorkspace?.name ?? ""}
+                                    </Text>
+                                )}
                             </View>
                         </View>
                         <View style={{ flex: 1 }} />
@@ -393,9 +423,13 @@ export default function HomeScreen({ navigation }: Props) {
                     {/* Welcome Back & Name */}
                     <View style={{ paddingHorizontal: SPACING.xs, marginTop: -10 }}>
                         <Text style={[styles.welcomeText, { color: colors.textDim }]}>Welcome back,</Text>
-                        <Text style={[styles.profileNameText, { color: colors.text }]}>
-                            {profile?.name ?? "Sufiyan"}
-                        </Text>
+                        {profileLoading && !profile ? (
+                            <Skeleton width={180} height={30} style={{ marginTop: 4 }} />
+                        ) : (
+                            <Text style={[styles.profileNameText, { color: colors.text }]}>
+                                {profile?.name ?? ""}
+                            </Text>
+                        )}
                     </View>
 
                     {/* Day and Date */}
@@ -497,9 +531,13 @@ export default function HomeScreen({ navigation }: Props) {
                                     <View style={styles.gridCardHeader}>
                                         <MaterialCommunityIcons name="view-dashboard-outline" size={20} color={colors.text} />
                                     </View>
-                                    <Text style={[styles.gridCardValue, { color: colors.text }]}>
-                                        {stats.totalProjects}
-                                    </Text>
+                                    {wsLoading ? (
+                                        <Skeleton width={34} height={26} style={{ marginVertical: 4 }} />
+                                    ) : (
+                                        <Text style={[styles.gridCardValue, { color: colors.text }]}>
+                                            {stats.totalProjects}
+                                        </Text>
+                                    )}
                                     <Text style={[styles.gridCardTitle, { color: colors.textDim }]}>Projects</Text>
                                     <View style={[styles.arrowCircle, { backgroundColor: colors.primary + "24" }]}>
                                         <Ionicons name="arrow-forward" size={12} color={colors.primary} />
@@ -568,9 +606,13 @@ export default function HomeScreen({ navigation }: Props) {
                                     <View style={styles.gridCardHeader}>
                                         <MaterialCommunityIcons name="view-dashboard-outline" size={20} color={colors.text} />
                                     </View>
-                                    <Text style={[styles.gridCardValue, { color: colors.text }]}>
-                                        {stats.totalProjects}
-                                    </Text>
+                                    {wsLoading ? (
+                                        <Skeleton width={34} height={26} style={{ marginVertical: 4 }} />
+                                    ) : (
+                                        <Text style={[styles.gridCardValue, { color: colors.text }]}>
+                                            {stats.totalProjects}
+                                        </Text>
+                                    )}
                                     <Text style={[styles.gridCardTitle, { color: colors.textDim }]}>Projects</Text>
                                     <View style={[styles.arrowCircle, { backgroundColor: colors.primary + "24" }]}>
                                         <Ionicons name="arrow-forward" size={12} color={colors.primary} />
@@ -629,10 +671,69 @@ export default function HomeScreen({ navigation }: Props) {
                     )}
                 </View>
 
-                {/* Trailing spacer — keeps the card + widgets grouped at the top */}
-                <View style={{ flex: 1 }} />
+                {/* Birthdays — parity with the web dashboard's Birthdays widget.
+                    Hidden entirely in a month with none, so it costs no space. */}
+                {birthdays === null ? (
+                    <View style={[styles.birthdayCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <Skeleton width={110} height={12} />
+                        <View style={{ height: SPACING.md }} />
+                        <Skeleton width="70%" height={14} />
+                    </View>
+                ) : birthdays.length > 0 ? (
+                    <View style={[styles.birthdayCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <View style={styles.birthdayHeader}>
+                            <View style={styles.gridCardHeader}>
+                                <MaterialCommunityIcons name="cake-variant-outline" size={20} color={colors.text} />
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={[styles.gridCardValue, { color: colors.text }]}>Birthdays</Text>
+                                <Text style={[styles.gridCardTitle, { color: colors.textDim }]}>
+                                    {format(currentTime, "MMMM")} celebrations
+                                </Text>
+                            </View>
+                        </View>
 
-            </View>
+                        {birthdays.map((m) => (
+                            <View key={m.id} style={styles.birthdayRow}>
+                                <View style={[styles.birthdayAvatar, { backgroundColor: colors.primary + "24" }]}>
+                                    <Text style={{ fontSize: 12, fontFamily: FONTS.bold, color: colors.primary }}>
+                                        {m.surname.substring(0, 1).toUpperCase()}
+                                    </Text>
+                                </View>
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                    <Text style={{ color: colors.text, fontFamily: FONTS.semibold, fontSize: 14 }} numberOfLines={1}>
+                                        {m.surname}{m.isSelf ? " (you)" : ""}
+                                    </Text>
+                                    {m.designation ? (
+                                        <Text style={{ color: colors.textDim, fontSize: 11, fontFamily: FONTS.regular }} numberOfLines={1}>
+                                            {m.designation}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                                <View
+                                    style={[
+                                        styles.birthdayBadge,
+                                        m.isToday
+                                            ? { backgroundColor: colors.primary }
+                                            : { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
+                                    ]}
+                                >
+                                    <Text
+                                        style={{
+                                            fontSize: 10,
+                                            fontFamily: FONTS.bold,
+                                            color: m.isToday ? INK_ON_PRIMARY : colors.textDim,
+                                        }}
+                                    >
+                                        {m.isToday ? "Today" : `${m.day} ${format(currentTime, "MMM")}`}
+                                    </Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                ) : null}
+
+            </ScrollView>
 
             <HeaderMenu
                 visible={isMenuOpen}
@@ -704,7 +805,48 @@ export default function HomeScreen({ navigation }: Props) {
     );
 }
 
+/** Text that sits on top of the primary amber, matching the app's buttons. */
+const INK_ON_PRIMARY = "#2b1c04";
+
 const styles = StyleSheet.create({
+    birthdayCard: {
+        // No marginHorizontal: the scroll container already applies the page
+        // gutter, and adding one here inset the card past the grid above it.
+        marginTop: SPACING.md,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 2,
+    },
+    birthdayHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: SPACING.sm,
+    },
+    birthdayRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACING.sm,
+        paddingVertical: 7,
+    },
+    birthdayAvatar: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    birthdayBadge: {
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: 3,
+        borderRadius: BORDER_RADIUS.full,
+        minWidth: 54,
+        alignItems: "center",
+    },
     container: { flex: 1 },
     mainContentContainer: { paddingVertical: SPACING.md },
 

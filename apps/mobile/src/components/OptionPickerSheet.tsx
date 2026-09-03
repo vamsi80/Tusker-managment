@@ -23,13 +23,25 @@ interface OptionPickerSheetProps {
     onClose: () => void;
     title: string;
     options: PickerOption[];
-    selectedId: string | null;
-    onSelect: (id: string | null) => void;
     emptyText?: string;
     /** Label for the "nothing selected" row; pass null to hide that row. */
     clearLabel?: string | null;
     /** Show the search box once there are more than this many options. */
     searchThreshold?: number;
+
+    /** Single-select (default): picking an option closes the sheet. */
+    selectedId?: string | null;
+    onSelect?: (id: string | null) => void;
+
+    /**
+     * Multi-select: the sheet stays open and each row toggles. Used by the
+     * filter sheet, where several assignees or tags can be active at once.
+     */
+    multiple?: boolean;
+    selectedIds?: string[];
+    onToggle?: (id: string) => void;
+    /** Multi-select only: clears every selection. */
+    onClearAll?: () => void;
 }
 
 /**
@@ -44,11 +56,15 @@ export default function OptionPickerSheet({
     onClose,
     title,
     options,
-    selectedId,
+    selectedId = null,
     onSelect,
     emptyText = "Nothing available",
     clearLabel = "None",
     searchThreshold = 6,
+    multiple = false,
+    selectedIds,
+    onToggle,
+    onClearAll,
 }: OptionPickerSheetProps) {
     const { colors, isDark } = useTheme();
     const [query, setQuery] = useState("");
@@ -63,9 +79,18 @@ export default function OptionPickerSheet({
         );
     }, [options, query]);
 
+    const activeIds = selectedIds ?? [];
+    const isChosen = (id: string) => (multiple ? activeIds.includes(id) : selectedId === id);
+
     const choose = (id: string | null) => {
         haptics.selection();
-        onSelect(id);
+        if (multiple) {
+            // Stay open so several values can be toggled in one visit.
+            if (id === null) onClearAll?.();
+            else onToggle?.(id);
+            return;
+        }
+        onSelect?.(id);
         onClose();
     };
 
@@ -105,17 +130,19 @@ export default function OptionPickerSheet({
                 {clearLabel !== null && (
                     <PressableScale
                         haptic={null}
-                        style={[styles.row, selectedId === null && { backgroundColor: selectedBg }]}
+                        style={[styles.row, (multiple ? activeIds.length === 0 : selectedId === null) && { backgroundColor: selectedBg }]}
                         onPress={() => choose(null)}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: selectedId === null }}
+                        accessibilityRole={multiple ? "button" : "radio"}
+                        accessibilityState={{ selected: multiple ? activeIds.length === 0 : selectedId === null }}
                         accessibilityLabel={clearLabel}
                     >
                         <View style={[styles.leadingSlot, { backgroundColor: colors.border }]}>
                             <Ionicons name="close" size={15} color={colors.textDim} />
                         </View>
                         <Text style={[styles.label, { color: colors.textDim }]}>{clearLabel}</Text>
-                        {selectedId === null && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
+                        {(multiple ? activeIds.length === 0 : selectedId === null) && (
+                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                        )}
                     </PressableScale>
                 )}
 
@@ -125,15 +152,15 @@ export default function OptionPickerSheet({
                     </Text>
                 ) : (
                     filtered.map((o) => {
-                        const isSelected = selectedId === o.id;
+                        const isSelected = isChosen(o.id);
                         const accent = o.accent || colors.primary;
                         return (
                             <PressableScale
                                 key={o.id}
                                 haptic={null}
                                 style={[styles.row, isSelected && { backgroundColor: selectedBg }]}
-                                onPress={() => choose(isSelected ? null : o.id)}
-                                accessibilityRole="radio"
+                                onPress={() => choose(multiple ? o.id : (isSelected ? null : o.id))}
+                                accessibilityRole={multiple ? "checkbox" : "radio"}
                                 accessibilityState={{ selected: isSelected }}
                                 accessibilityLabel={o.label}
                             >
@@ -148,7 +175,13 @@ export default function OptionPickerSheet({
                                 >
                                     {o.label}
                                 </Text>
-                                {isSelected && <Ionicons name="checkmark-circle" size={20} color={accent} />}
+                                {isSelected && (
+                                    <Ionicons
+                                        name={multiple ? "checkbox" : "checkmark-circle"}
+                                        size={20}
+                                        color={accent}
+                                    />
+                                )}
                             </PressableScale>
                         );
                     })

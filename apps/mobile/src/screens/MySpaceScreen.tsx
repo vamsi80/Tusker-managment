@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DraggableFlatList, { ScaleDecorator } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTheme } from "../context/ThemeContext";
+import { ListSkeleton } from "../components/ScreenSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { getMySpaceTodos, createMySpaceTodo, toggleMySpaceTodo, deleteMySpaceTodo, syncMySpaceTodos } from "../services/api";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
@@ -182,9 +183,7 @@ export default function MySpaceScreen({ navigation }: any) {
         return (
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top", "bottom"]}>
-                    <View style={styles.center}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                    </View>
+                    <ListSkeleton rows={7} showAvatar={false} />
                 </SafeAreaView>
             </GestureHandlerRootView>
         );
@@ -201,7 +200,9 @@ export default function MySpaceScreen({ navigation }: any) {
                     </PressableScale>
                     <View style={styles.headerTitleContainer}>
                         <Text style={[styles.headerSubtitle, { color: colors.textDim }]}>
-                            Workspace &gt; {activeWorkspace?.name || "Tusker"}
+                            {/* No generic stand-in: an unresolved workspace shows
+                                just the label rather than a fictional name. */}
+                            {activeWorkspace?.name ? `Workspace > ${activeWorkspace.name}` : "Workspace"}
                         </Text>
                         <Text style={[styles.headerTitle, { color: colors.text }]}>My Space</Text>
                     </View>

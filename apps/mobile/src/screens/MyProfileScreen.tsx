@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList, UserProfile } from "../types";
 import { useTheme } from "../context/ThemeContext";
+import { DetailSkeleton } from "../components/ScreenSkeleton";
 import { getProfile, updateProfile } from "../services/api";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { useResponsive } from "../hooks/useResponsive";
@@ -84,9 +85,7 @@ export default function MyProfileScreen({ navigation }: Props) {
 
     if (loading) {
         return (
-            <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            <DetailSkeleton paragraphs={4} />
         );
     }
 

@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList, WorkspaceMember, User } from "../types";
 import { useTheme } from "../context/ThemeContext";
+import { ListSkeleton } from "../components/ScreenSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useNotifications } from "../context/NotificationContext";
 import { getWorkspaceMembers, getCachedSession, getConversations } from "../services/api";
@@ -267,9 +268,7 @@ export default function TeamListScreen({ navigation }: Props) {
             </View>
 
             {loadingChats ? (
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </View>
+                <ListSkeleton rows={7} />
             ) : (
                 <FlatList
                     data={conversations}
@@ -339,9 +338,7 @@ export default function TeamListScreen({ navigation }: Props) {
                     </View>
 
                     {loadingMembers ? (
-                        <View style={styles.center}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                        </View>
+                        <ListSkeleton rows={7} />
                     ) : (
                         <FlatList
                             data={filteredMembers}

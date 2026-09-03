@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { haptics } from "../../services/haptics";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { getActivities, getCachedSession, getTaskById, getProjectDashboard, ProjectDashboardData } from "../../services/api";
@@ -345,9 +346,7 @@ export default function ProjectDashboard({ projectId, tasks, isManagerOfProject,
             <Text style={[styles.sectionTitle, { color: colors.text, marginTop: SPACING.md }]}>Recent Activity</Text>
 
             {loading ? (
-                <View style={{ padding: 40, alignItems: "center" }}>
-                    <ActivityIndicator color={colors.primary} />
-                </View>
+                <ListSkeleton rows={4} />
             ) : activities.length === 0 ? (
                 <View style={[styles.activityCard, { backgroundColor: colors.surfaceSolid, borderColor: colors.border, justifyContent: "center", borderStyle: "dashed" }]}>
                     <Text style={[styles.activityText, { color: colors.textDim, textAlign: "center" }]}>

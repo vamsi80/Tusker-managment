@@ -31,6 +31,7 @@ import {
   FONTS,
 } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
+import { ListSkeleton, StatsSkeleton } from "../components/ScreenSkeleton";
 import { haptics } from "../services/haptics";
 import { useWorkspace } from "../context/WorkspaceContext";
 import {
@@ -782,11 +783,7 @@ export default function AttendanceScreen() {
 
   const renderTeamRegister = () => {
     if (loading) {
-      return (
-        <View style={[styles.center, { marginTop: 40 }]}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      );
+      return <ListSkeleton rows={6} />;
     }
 
     if (teamRegister.length === 0) {
@@ -1328,10 +1325,7 @@ export default function AttendanceScreen() {
               </View>
 
               {loadingLogs ? (
-                <ActivityIndicator
-                  color={colors.primary}
-                  style={{ marginTop: 20 }}
-                />
+                <ListSkeleton rows={5} />
               ) : (
                 <View style={styles.logsList}>
                   {workspaceLogs.map((log: any) => {
@@ -1617,9 +1611,7 @@ export default function AttendanceScreen() {
                   </Text>
 
                   {loadingStats ? (
-                    <View style={{ paddingVertical: 40 }}>
-                      <ActivityIndicator size="large" color={colors.primary} />
-                    </View>
+                    <StatsSkeleton tiles={2} rows={0} />
                   ) : historicalStats ? (
                     <View style={styles.statsRow}>
                       <View

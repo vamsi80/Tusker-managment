@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../context/ThemeContext";
+import { DetailSkeleton } from "../components/ScreenSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { getWorkspaceSettings, updateWorkspaceSettings } from "../services/api";
@@ -132,9 +133,7 @@ export default function WorkspaceSettingsScreen({ navigation }: any) {
 
     if (loading) {
         return (
-            <View style={[styles.center, { backgroundColor: colors.background }]}>
-                <ActivityIndicator color={colors.primary} size="large" />
-            </View>
+            <DetailSkeleton paragraphs={5} />
         );
     }
 

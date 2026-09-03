@@ -15,6 +15,8 @@ import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace, DEFAULT_FILTERS } from "../context/WorkspaceContext";
 import { getWorkspaceMembers, getTags, getProjectMembers, getTasks } from "../services/api";
+import MemberPickerSheet, { memberDisplayName } from "./MemberPickerSheet";
+import OptionPickerSheet, { PickerOption } from "./OptionPickerSheet";
 import CalendarPicker from "./CalendarPicker";
 import AppButton from "./AppButton";
 import { getStatusHex, getStatusBgColor } from "../utils/taskColors";
@@ -68,27 +70,14 @@ export default function TaskFilterSheet({
     ];
     const [members, setMembers] = useState<any[]>([]);
     const [tags, setTags] = useState<any[]>([]);
+    const [openPicker, setOpenPicker] = useState<null | "assignee" | "tag">(null);
     const [showDatePicker, setShowDatePicker] = useState<"after" | "before" | null>(null);
     const [showTimeOptions, setShowTimeOptions] = useState(false);
 
-    const [tagSearchQuery, setTagSearchQuery] = useState("");
-    const [showAllTags, setShowAllTags] = useState(false);
-
-    const filteredTags = useMemo(() => {
-        if (!tagSearchQuery.trim()) return tags;
-        return tags.filter(tag => tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase()));
-    }, [tags, tagSearchQuery]);
-
-    const displayedTags = useMemo(() => {
-        if (tagSearchQuery.trim() || showAllTags) return filteredTags;
-        return filteredTags.slice(0, 6);
-    }, [filteredTags, tagSearchQuery, showAllTags]);
 
     useEffect(() => {
         if (visible) {
             setLocalFilters(currentFilters);
-            setTagSearchQuery("");
-            setShowAllTags(false);
             loadData();
         }
     }, [visible]); // Refetch data when visible, but only update localFilters once when visible becomes true.
@@ -238,6 +227,42 @@ export default function TaskFilterSheet({
         return (localFilters[type] || []).includes(id);
     };
 
+    const selectedAssigneeIds: string[] = localFilters.assigneeId || [];
+    const selectedTagIds: string[] = localFilters.tagId || [];
+
+    /** "Any" / a single name / "N selected" — keeps the closed trigger informative. */
+    const summarise = (ids: string[], nameOf: (id: string) => string, anyLabel: string) => {
+        if (ids.length === 0) return anyLabel;
+        if (ids.length === 1) return nameOf(ids[0]);
+        return `${ids.length} selected`;
+    };
+
+    const assigneeSummary = summarise(
+        selectedAssigneeIds,
+        (id) => {
+            const m = members.find((x: any) => x.userId === id);
+            return m ? memberDisplayName(m) : "1 selected";
+        },
+        "Any assignee",
+    );
+
+    const tagSummary = summarise(
+        selectedTagIds,
+        (id) => tags.find((t: any) => t.id === id)?.name ?? "1 selected",
+        "Any tag",
+    );
+
+    const tagOptions: PickerOption[] = tags.map((t: any) => ({
+        id: t.id,
+        label: t.name,
+        accent: t.color || undefined,
+        leading: (
+            <View style={[styles.tagDot, { backgroundColor: (t.color || colors.primary) + "22" }]}>
+                <Ionicons name="pricetag" size={15} color={t.color || colors.primary} />
+            </View>
+        ),
+    }));
+
     return (
         <Modal
             visible={visible}
@@ -371,102 +396,51 @@ export default function TaskFilterSheet({
                         </View>
 
 
-                        {/* Assignee */}
+                        {/* Assignee — dropdown rather than a sideways strip, matching
+                            the create/edit forms. */}
                         {members.length > 0 && (
                             <>
                                 <Text style={[styles.sectionTitle, { color: colors.textDim }]}>Assignee</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                                    {members.map((member) => {
-                                        const selected = isSelected("assigneeId", member.userId);
-                                        return (
-                                            <TouchableOpacity
-                                                key={member.userId}
-                                                style={[
-                                                    styles.avatarChip,
-                                                    { backgroundColor: colors.background, borderColor: colors.border },
-                                                    selected && [styles.avatarChipSelected, { borderColor: colors.primary, backgroundColor: colors.activeTab }]
-                                                ]}
-                                                onPress={() => toggleFilter("assigneeId", member.userId)}
-                                            >
-                                                <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                                                    <Text style={styles.avatarText}>
-                                                        {(member.user?.surname?.[0] || member.user?.name?.[0] || member.user?.email?.[0] || "?").toUpperCase()}
-                                                    </Text>
-                                                </View>
-                                                <Text style={[styles.chipText, { color: colors.textDim }, selected && [styles.chipTextSelected, { color: colors.primary }]]}>
-                                                    {member.user.surname || member.user.name}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
+                                <TouchableOpacity
+                                    style={[styles.filterTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                                    onPress={() => setOpenPicker("assignee")}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Assignee filter: ${assigneeSummary}`}
+                                    accessibilityHint="Opens the assignee list"
+                                >
+                                    <Ionicons name="person-outline" size={18} color={colors.textDim} />
+                                    <Text
+                                        style={[styles.filterTriggerText, { color: selectedAssigneeIds.length ? colors.text : colors.textDim }]}
+                                        numberOfLines={1}
+                                    >
+                                        {assigneeSummary}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                                </TouchableOpacity>
                             </>
                         )}
 
-                        {/* Tags */}
+                        {/* Tags — dropdown with built-in search, replacing the inline
+                            search box, chip grid and "show more" toggle. */}
                         {tags.length > 0 && (
                             <>
-                                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                                    <Text style={[styles.sectionTitle, { color: colors.textDim, marginBottom: 0 }]}>Tags</Text>
-                                </View>
-
-                                {/* Tag Search Bar */}
-                                <View style={[styles.tagSearchRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                                    <Ionicons name="search-outline" size={16} color={colors.textDim} style={{ marginRight: 8 }} />
-                                    <TextInput
-                                        style={[styles.tagSearchInput, { color: colors.text }]}
-                                        placeholder="Search tags..."
-                                        placeholderTextColor={colors.textDim}
-                                        value={tagSearchQuery}
-                                        onChangeText={setTagSearchQuery}
-                                        autoCapitalize="none"
-                                        autoCorrect={false}
-                                    />
-                                    {tagSearchQuery.length > 0 && (
-                                        <TouchableOpacity onPress={() => setTagSearchQuery("")} style={{ padding: 4 }}>
-                                            <Ionicons name="close-circle" size={16} color={colors.textDim} />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {displayedTags.length === 0 ? (
-                                    <Text style={{ fontSize: 13, color: colors.textDim, fontStyle: "italic", marginVertical: 8, paddingHorizontal: 4 }}>
-                                        No matching tags found
-                                    </Text>
-                                ) : (
-                                    <View style={styles.chipContainer}>
-                                        {displayedTags.map((tag) => {
-                                            const selected = isSelected("tagId", tag.id);
-                                            return (
-                                                <TouchableOpacity
-                                                    key={tag.id}
-                                                    style={[
-                                                        styles.chip,
-                                                        { backgroundColor: colors.background, borderColor: colors.border },
-                                                        selected && [styles.chipSelected, { borderColor: colors.primary, backgroundColor: colors.activeTab }]
-                                                    ]}
-                                                    onPress={() => toggleFilter("tagId", tag.id)}
-                                                >
-                                                    <Ionicons name="pricetag-outline" size={14} color={selected ? colors.primary : colors.textDim} />
-                                                    <Text style={[styles.chipText, { color: colors.textDim }, selected && [styles.chipTextSelected, { color: colors.primary }]]}>
-                                                        {tag.name}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            );
-                                        })}
-                                    </View>
-                                )}
-
-                                {filteredTags.length > 6 && !tagSearchQuery && (
-                                    <TouchableOpacity 
-                                        onPress={() => setShowAllTags(!showAllTags)}
-                                        style={styles.showMoreBtn}
+                                <Text style={[styles.sectionTitle, { color: colors.textDim }]}>Tags</Text>
+                                <TouchableOpacity
+                                    style={[styles.filterTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                                    onPress={() => setOpenPicker("tag")}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Tag filter: ${tagSummary}`}
+                                    accessibilityHint="Opens the tag list"
+                                >
+                                    <Ionicons name="pricetag-outline" size={18} color={colors.textDim} />
+                                    <Text
+                                        style={[styles.filterTriggerText, { color: selectedTagIds.length ? colors.text : colors.textDim }]}
+                                        numberOfLines={1}
                                     >
-                                        <Text style={[styles.showMoreText, { color: colors.primary }]}>
-                                            {showAllTags ? "Show Less" : `Show More (+${filteredTags.length - 6})`}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
+                                        {tagSummary}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                                </TouchableOpacity>
                             </>
                         )}
 
@@ -535,11 +509,49 @@ export default function TaskFilterSheet({
                     title="Select Date Range"
                 />
             </View>
+
+            <MemberPickerSheet
+                visible={openPicker === "assignee"}
+                onClose={() => setOpenPicker(null)}
+                title="Filter by Assignee"
+                members={members}
+                multiple
+                selectedIds={selectedAssigneeIds}
+                onToggle={(userId) => toggleFilter("assigneeId", userId)}
+                onClearAll={() => setLocalFilters({ ...localFilters, assigneeId: [] })}
+                emptyText="No members available"
+                clearLabel="Any assignee"
+            />
+
+            <OptionPickerSheet
+                visible={openPicker === "tag"}
+                onClose={() => setOpenPicker(null)}
+                title="Filter by Tag"
+                options={tagOptions}
+                multiple
+                selectedIds={selectedTagIds}
+                onToggle={(tagId) => toggleFilter("tagId", tagId)}
+                onClearAll={() => setLocalFilters({ ...localFilters, tagId: [] })}
+                emptyText="No tags in use"
+                clearLabel="Any tag"
+            />
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
+    filterTrigger: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACING.sm,
+        minHeight: 48,
+        paddingHorizontal: SPACING.md,
+        borderRadius: BORDER_RADIUS.md,
+        borderWidth: 1,
+        marginBottom: SPACING.lg,
+    },
+    filterTriggerText: { flex: 1, fontSize: 15, fontFamily: FONTS.medium },
+    tagDot: { width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center" },
     overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
     sheet: {
         borderTopLeftRadius: BORDER_RADIUS.xl,
@@ -567,8 +579,6 @@ const styles = StyleSheet.create({
     chipTextSelected: {},
 
     horizontalScroll: { marginHorizontal: -SPACING.lg, paddingHorizontal: SPACING.lg, marginBottom: 4 },
-    avatarChip: { flexDirection: "row", alignItems: "center", borderRadius: 24, padding: 6, paddingRight: 16, borderWidth: 1, marginRight: 10 },
-    avatarChipSelected: {},
     avatar: { width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 8 },
     avatarText: { color: "#fff", fontSize: 12, fontFamily: FONTS.bold },
 
@@ -602,31 +612,6 @@ const styles = StyleSheet.create({
     },
     applyBtn: { borderRadius: BORDER_RADIUS.md, height: 52, justifyContent: "center", alignItems: "center" },
     applyBtnText: { color: "#fff", fontSize: 16, fontFamily: FONTS.bold },
-    tagSearchRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderRadius: BORDER_RADIUS.md,
-        paddingHorizontal: 12,
-        height: 40,
-        borderWidth: 1,
-        marginBottom: 12,
-    },
-    tagSearchInput: {
-        flex: 1,
-        fontSize: 14,
-        padding: 0,
-        height: "100%",
-    },
-    showMoreBtn: {
-        alignSelf: "flex-start",
-        paddingVertical: 8,
-        paddingHorizontal: 4,
-        marginTop: 8,
-    },
-    showMoreText: {
-        fontSize: 13,
-        fontFamily: FONTS.semibold,
-    },
     dropdownButton: {
         height: 48,
         borderRadius: BORDER_RADIUS.md,

@@ -733,6 +733,32 @@ export async function getTasks(
     }
 }
 
+export interface BirthdayMember {
+    id: string;
+    surname: string;
+    designation: string | null;
+    /** Day of the month (1-31). */
+    day: number;
+    isToday: boolean;
+    isSelf: boolean;
+}
+
+/**
+ * Members with a birthday this month, sorted by day.
+ * Mirrors the web dashboard's Birthdays widget.
+ */
+export async function getBirthdays(workspaceId: string): Promise<BirthdayMember[]> {
+    try {
+        const res = await apiFetch(`/api/workspaces/${workspaceId}/birthdays`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json, "birthdays");
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
 export type KanbanColumnResponse = {
     tasks: Task[];
     totalCount: number;

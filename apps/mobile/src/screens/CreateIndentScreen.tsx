@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from "date-fns";
 import { useTheme } from "../context/ThemeContext";
+import { DetailSkeleton } from "../components/ScreenSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import {
@@ -222,9 +223,7 @@ export default function CreateIndentScreen({ route, navigation }: any) {
 
     if (loading) {
         return (
-            <View style={[styles.center, { backgroundColor: colors.background }]}>
-                <ActivityIndicator color={colors.primary} size="large" />
-            </View>
+            <DetailSkeleton paragraphs={4} />
         );
     }
 

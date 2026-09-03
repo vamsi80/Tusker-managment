@@ -76,22 +76,41 @@ tasks.get("/", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   const parseParam = (key: string, shortKey: string) => {
-    const val = q[shortKey] || q[key];
-    if (!val) return undefined;
+    // Repeated keys (?status=A&status=B) are how the mobile client sends
+    // multi-value filters. `q` comes from c.req.query(), which keeps only the
+    // FIRST value of a repeated key — reading it alone silently dropped every
+    // selection after the first. queries() returns them all.
+    const raw = [
+      ...(c.req.queries(shortKey) ?? []),
+      ...(c.req.queries(key) ?? []),
+    ];
+    if (raw.length === 0) return undefined;
 
-    // 1. Try to parse as JSON first (handles ["todo"] or "todo" with quotes)
-    try {
-      const parsed = JSON.parse(val);
-      if (Array.isArray(parsed)) return parsed;
-      if (parsed === null || parsed === undefined) return undefined;
-      return [String(parsed)];
-    } catch {
-      // 2. Fallback to comma-separated split (handles todo,in_progress)
-      return val
-        .split(",")
-        .map((v) => v.trim())
-        .filter((v) => v.length > 0);
+    const out: string[] = [];
+    for (const val of raw) {
+      // 1. Try to parse as JSON first (handles ["todo"] or "todo" with quotes)
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) {
+          out.push(...parsed.map((v) => String(v)));
+          continue;
+        }
+        if (parsed === null || parsed === undefined) continue;
+        out.push(String(parsed));
+      } catch {
+        // 2. Fallback to comma-separated split (handles todo,in_progress)
+        out.push(
+          ...val
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v.length > 0),
+        );
+      }
     }
+
+    // De-duplicate: a client may send both the short and long form.
+    const deduped = [...new Set(out)];
+    return deduped.length > 0 ? deduped : undefined;
   };
 
   const status = parseParam("status", "s");

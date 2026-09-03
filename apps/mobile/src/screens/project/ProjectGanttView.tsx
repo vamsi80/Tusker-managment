@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, startOfDay } from "date-fns";
 import { SPACING, TOUCH_TARGET, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { haptics } from "../../services/haptics";
 import { Task } from "../../types";
 import StatusChip, { StatusKind } from "../../components/StatusChip";
@@ -455,7 +456,7 @@ export default function ProjectGanttView({
 
     // ── 7. Early-return states ──────────────────────────────────────────────
     if (loading && tasks.length === 0) {
-        return <View style={s.center}><ActivityIndicator color={colors.primary} size="large" /></View>;
+        return <ListSkeleton rows={7} showAvatar={false} />;
     }
 
     if (!loading && tasks.length === 0) {

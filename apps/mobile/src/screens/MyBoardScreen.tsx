@@ -1372,7 +1372,6 @@ export default function MyBoardScreen() {
                 visible={filterVisible}
                 onClose={() => setFilterVisible(false)}
                 showProjectFilter={true}
-                view={viewMode}
             />
 
             {viewMode === "List" ? (
