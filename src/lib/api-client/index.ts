@@ -4,9 +4,10 @@ import { projectsClient } from "@/lib/api-client/projects";
 import { authClient } from "@/lib/api-client/auth";
 import { commentsClient } from "@/lib/api-client/comments";
 import { reportsClient } from "@/lib/api-client/reports";
+import { meetingsClient } from "@/lib/api-client/meetings";
 import { type ApiResponse } from "./types";
 
-export { tasksClient, workspacesClient, projectsClient, commentsClient, reportsClient, type ApiResponse };
+export { tasksClient, workspacesClient, projectsClient, commentsClient, reportsClient, meetingsClient, type ApiResponse };
 
 export const apiClient = {
     tasks: tasksClient,
@@ -15,4 +16,5 @@ export const apiClient = {
     auth: authClient,
     comments: commentsClient,
     reports: reportsClient,
+    meetings: meetingsClient,
 };

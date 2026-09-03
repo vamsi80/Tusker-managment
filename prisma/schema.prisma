@@ -39,6 +39,8 @@ model User {
   direct_message      direct_message[]
   notification        notification[]
   sessions            Session[]
+  organizedMeetings   Meeting[]           @relation("MeetingOrganizer")
+  meetingAttendees    MeetingAttendee[]
 
   @@map("user")
 }
@@ -145,6 +147,7 @@ model Workspace {
   purchaseOrders         PurchaseOrder[]
   departments            Department[]
   shiftSchedules         ShiftSchedule[]
+  meetings               Meeting[]
 }
 
 /// A set of check-in/check-out times shared by every department that points at it.
@@ -253,6 +256,7 @@ model Project {
   indents          Indent[]
   materialItems    ProjectMaterialItem[]
   tags             Tag[]                 @relation("ProjectTags")
+  meetings         Meeting[]
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -1182,3 +1186,106 @@ model PoSequence {
   @@id([workspaceId, company, financialYear])
   @@map("po_sequence")
 }
+
+enum MeetingType {
+  INTERNAL
+  CLIENT
+  PROJECT_REVIEW
+  ONE_ON_ONE
+  GENERAL
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendeeStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+model Meeting {
+  id              String            @id @default(uuid())
+  workspaceId     String
+  title           String
+  description     String?
+  startTime       DateTime
+  endTime         DateTime
+  location        String?
+  meetingUrl      String?
+  type            MeetingType       @default(INTERNAL)
+  status          MeetingStatus     @default(SCHEDULED)
+  color           String?           @default("indigo")
+  reminderMinutes Int               @default(15)
+  isAllDay        Boolean           @default(false)
+  organizerId     String
+  projectId       String?
+
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organizer       User              @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  project         Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  attendees       MeetingAttendee[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([workspaceId, startTime])
+  @@index([organizerId])
+  @@map("meeting")
+}
+
+model MeetingAttendee {
+  id        String         @id @default(uuid())
+  meetingId String
+  userId    String
+  status    AttendeeStatus @default(ACCEPTED)
+
+  meeting   Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([meetingId, userId])
+  @@index([userId])
+  @@map("meeting_attendee")
+}
+
+model travisConversation {
+  id          String          @id
+  workspaceId String
+  userId      String
+  title       String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  messages    travisMessage[]
+
+  @@map("travisConversation")
+}
+
+model travisMessage {
+  id                String             @id
+  conversationId    String
+  role              String
+  content           String
+  toolName          String?
+  toolArgs          Json?
+  toolOutcome       String?
+  entityRefs        Json?
+  confirmationState String?
+  provider          String?
+  model             String?
+  latencyMs         Int?
+  errorCategory     String?
+  createdAt         DateTime           @default(now())
+  conversation      travisConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("travisMessage")
+}
+
+

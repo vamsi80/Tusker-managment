@@ -54,6 +54,7 @@ export function RealtimeNotificationListener() {
       const entityId = data.entityId || payload?.id;
 
       // 2. Identify Category
+      const isMeeting = action.includes("MEETING") || !!data.meetingId;
       const isTask = action.includes("TASK");
       const isProject = action.includes("PROJECT");
       const isMember = action.includes("MEMBER");
@@ -62,20 +63,21 @@ export function RealtimeNotificationListener() {
       // 3. 🚀 SURGICAL DISPATCH
       const syncDetail = {
         action,
-        category: isTask ? "TASK" : isProject ? "PROJECT" : isMember ? "MEMBER" : isAttendance ? "ATTENDANCE" : "OTHER",
-        record: { ...payload, id: entityId },
+        category: isMeeting ? "MEETING" : isTask ? "TASK" : isProject ? "PROJECT" : isMember ? "MEMBER" : isAttendance ? "ATTENDANCE" : "OTHER",
+        record: { ...payload, id: entityId || data.meetingId },
         oldRecord: data.oldData,
         raw: data,
         isActor
       };
 
-      if (isTask || isProject || isMember || isAttendance) {
+      if (isMeeting || isTask || isProject || isMember || isAttendance) {
         console.log(`[REALTIME_SYNC] 🚀 Dispatching ${syncDetail.category} event: ${action}`);
 
         // Global event (for backward compatibility)
         window.dispatchEvent(new CustomEvent("realtime-sync-refresh", { detail: syncDetail }));
 
         // Category-specific events (for cleaner individual listeners)
+        if (isMeeting) window.dispatchEvent(new CustomEvent("realtime-meeting-sync", { detail: syncDetail }));
         if (isTask) window.dispatchEvent(new CustomEvent("realtime-task-sync", { detail: syncDetail }));
         if (isProject) window.dispatchEvent(new CustomEvent("realtime-project-sync", { detail: syncDetail }));
         if (isMember) window.dispatchEvent(new CustomEvent("realtime-member-sync", { detail: syncDetail }));

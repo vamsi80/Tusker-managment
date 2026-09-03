@@ -21,6 +21,7 @@ import procurementRfq from "./routes/procurement-rfq";
 import procurementPurchaseOrders from "./routes/procurement-purchase-orders";
 import projectMaterials from "./routes/project-materials";
 import materials from "./routes/materials";
+import meetings from "./routes/meetings";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { requireCapability } from "./middleware/capability";
@@ -153,6 +154,9 @@ app.route("/conversations", conversations);
 
 // Presence API
 app.route("/presence", presence);
+
+// Meetings & Calendar API
+app.route("/meetings", meetings);
 
 // Procurement APIs
 // Settings -> Permissions gate. Mounted on the routers so a handler that resolves
