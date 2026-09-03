@@ -8,8 +8,7 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
-    ScrollView,
-    Dimensions
+    ScrollView
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
@@ -20,7 +19,6 @@ import { WorkspaceMember } from "../types";
 import PressableScale from "./PressableScale";
 import AppButton from "./AppButton";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 /** Dark ink for content sitting on the amber primary — white fails contrast on #fbb54a. */
 const INK_ON_PRIMARY = "#2b1c04";
@@ -515,8 +513,8 @@ const styles = StyleSheet.create({
     },
     handle: {
         width: 40,
-        height: 4,
-        borderRadius: 2,
+        height: 5,
+        borderRadius: 3,
         marginBottom: 14,
     },
     titleRow: {
@@ -535,13 +533,13 @@ const styles = StyleSheet.create({
     iconBox: {
         width: 36,
         height: 36,
-        borderRadius: 12,
+        borderRadius: 10,
         justifyContent: "center",
         alignItems: "center",
     },
     title: {
-        fontSize: SCREEN_WIDTH < 380 ? 17 : 19,
-        fontFamily: FONTS.extrabold,
+        fontSize: 18,
+        fontFamily: FONTS.bold,
         letterSpacing: -0.3,
     },
     closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
@@ -633,10 +631,10 @@ const styles = StyleSheet.create({
         letterSpacing: 0.7,
     },
     input: {
-        borderRadius: BORDER_RADIUS.lg,
+        borderRadius: BORDER_RADIUS.md,
         paddingHorizontal: SPACING.md,
         paddingVertical: 14,
-        fontSize: 15.5,
+        fontSize: 16,
         fontFamily: FONTS.medium,
         borderWidth: 1,
         minHeight: 52,

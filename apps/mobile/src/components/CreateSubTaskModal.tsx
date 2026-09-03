@@ -10,7 +10,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    Dimensions,
     Image,
     LayoutAnimation,
     UIManager,
@@ -30,7 +29,6 @@ import { getProjectPermissions, ProjectPermissions } from "../services/api";
 import { isEditFormStatusDisabled } from "../utils/statusPermissions";
 import AppButton from "./AppButton";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 if (Platform.OS === "android") {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -868,8 +866,8 @@ const styles = StyleSheet.create({
     },
     handle: {
         width: 40,
-        height: 4,
-        borderRadius: 2,
+        height: 5,
+        borderRadius: 3,
         marginBottom: 12,
     },
     titleRow: {
@@ -892,7 +890,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     title: {
-        fontSize: SCREEN_WIDTH < 380 ? 17 : 19,
+        fontSize: 18,
         fontFamily: FONTS.bold,
     },
     closeBtn: {
@@ -902,8 +900,8 @@ const styles = StyleSheet.create({
         padding: SPACING.lg,
     },
     label: {
-        fontSize: 13,
-        fontFamily: FONTS.semibold,
+        fontSize: 12,
+        fontFamily: FONTS.bold,
         marginBottom: 8,
         marginTop: 16,
         textTransform: "uppercase",

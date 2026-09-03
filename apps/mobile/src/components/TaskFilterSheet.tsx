@@ -560,9 +560,12 @@ const styles = StyleSheet.create({
         paddingBottom: Platform.OS === "ios" ? 40 : 20,
     },
     header: { alignItems: "center", paddingTop: 12, paddingBottom: 16 },
-    handle: { width: 40, height: 4, borderRadius: 2, marginBottom: 12 },
+    handle: {
+        width: 40,
+        height: 5,
+        borderRadius: 3, marginBottom: 12 },
     titleRow: { flexDirection: "row", justifyContent: "space-between", width: "100%", paddingHorizontal: SPACING.lg },
-    title: { fontSize: 20, fontFamily: FONTS.bold },
+    title: { fontSize: 18, fontFamily: FONTS.bold },
     resetText: { fontSize: 14, color: "#ef4444", fontFamily: FONTS.semibold },
 
     content: { flex: 1, paddingHorizontal: SPACING.lg },

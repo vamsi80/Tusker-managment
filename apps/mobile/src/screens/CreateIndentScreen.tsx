@@ -516,20 +516,20 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: SPACING.md },
     backBtn: { width: 40, height: 40, justifyContent: "center" },
-    title: { fontSize: 20, fontFamily: FONTS.bold },
+    title: { fontSize: 18, fontFamily: FONTS.bold },
     
     scrollContent: { paddingBottom: 60 },
     sectionTitle: { fontSize: 15, fontFamily: FONTS.bold, marginTop: SPACING.lg, marginBottom: SPACING.sm },
     sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: SPACING.lg, marginBottom: SPACING.sm },
     
     card: { padding: 16, borderRadius: BORDER_RADIUS.lg, borderWidth: 1 },
-    label: { fontSize: 12, fontFamily: FONTS.semibold, marginBottom: 6 },
+    label: { fontSize: 12, fontFamily: FONTS.bold, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.7 },
     errorText: { fontSize: 12, fontFamily: FONTS.semibold, marginTop: 6 },
-    input: { height: 44, borderRadius: BORDER_RADIUS.md, borderWidth: 1, paddingHorizontal: 12, fontSize: 15 },
+    input: { height: 48, borderRadius: BORDER_RADIUS.md, borderWidth: 1, paddingHorizontal: SPACING.md, fontSize: 16 },
     textArea: { height: 80, paddingVertical: 10, textAlignVertical: "top" },
     
     pickerRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    pickerPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+    pickerPill: { paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: BORDER_RADIUS.full, borderWidth: 1 },
     
     addMatBtn: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
     addMatText: { fontSize: 12, fontFamily: FONTS.bold, marginLeft: 2 },

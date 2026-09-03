@@ -9,8 +9,7 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
-    ScrollView,
-    Dimensions
+    ScrollView
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { format, startOfToday } from "date-fns";
@@ -21,7 +20,6 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { createProjectTask, updateTask } from "../services/api";
 import AppButton from "./AppButton";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface CreateTaskModalProps {
     visible: boolean;
@@ -217,8 +215,8 @@ const styles = StyleSheet.create({
     },
     handle: {
         width: 40,
-        height: 4,
-        borderRadius: 2,
+        height: 5,
+        borderRadius: 3,
         marginBottom: 12,
     },
     titleRow: {
@@ -229,7 +227,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
     },
     title: {
-        fontSize: SCREEN_WIDTH < 380 ? 18 : 20,
+        fontSize: 18,
         fontFamily: FONTS.bold,
     },
     closeBtn: {
@@ -239,10 +237,12 @@ const styles = StyleSheet.create({
         padding: SPACING.lg,
     },
     label: {
-        fontSize: 14,
-        fontFamily: FONTS.semibold,
+        fontSize: 12,
+        fontFamily: FONTS.bold,
         marginBottom: 8,
         marginTop: 16,
+        textTransform: "uppercase",
+        letterSpacing: 0.7,
     },
     input: {
         borderRadius: BORDER_RADIUS.md,
