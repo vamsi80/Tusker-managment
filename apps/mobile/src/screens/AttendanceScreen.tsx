@@ -23,7 +23,7 @@ import {
 } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfMonth, endOfMonth } from "date-fns";
 import {
   SPACING,
   BORDER_RADIUS,
@@ -40,7 +40,8 @@ import {
   submitCheckOut,
   getCachedSession,
   getMemberAttendanceStats,
-  getWorkspaceAttendanceLogs,
+  getWorkspaceSettings,
+  getWorkspaceAttendanceLogsPage,
 } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 import StatusChip, { StatusKind } from "../components/StatusChip";
@@ -74,6 +75,25 @@ interface AttendanceRecord {
 function formatTime(ts: string | null): string {
   if (!ts) return "—";
   return format(new Date(ts), "hh:mm a");
+}
+
+/** Minutes past midnight for an "HH:mm" string, or null if unparseable. */
+function parseThreshold(value: string | undefined | null): number | null {
+  if (!value) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/** True when `ts` falls at or after the "HH:mm" threshold on its own day. */
+function isAtOrAfter(ts: string, threshold: string | undefined | null): boolean {
+  const limit = parseThreshold(threshold);
+  if (limit == null) return false;
+  const d = new Date(ts);
+  return d.getHours() * 60 + d.getMinutes() >= limit;
 }
 
 function calcDuration(checkIn: string | null, checkOut: string | null): string {
@@ -156,6 +176,14 @@ export default function AttendanceScreen() {
   // --- NEW: Workspace Logs (History) ---
   const [workspaceLogs, setWorkspaceLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  // Attendance timings are configured per workspace (Settings > Attendance) and
+  // are what the web app judges lateness by. The app used to hardcode 09:40 /
+  // 19:00, so it disagreed with web whenever the workspace was configured
+  // differently — TuskerLane runs 10:01 / 19:30.
+  const [attendanceSettings, setAttendanceSettings] = useState<{
+    lateThreshold?: string;
+    shiftEndTime?: string;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     if (!activeWorkspace?.id) {
@@ -189,6 +217,12 @@ export default function AttendanceScreen() {
       setMyAttendance(myAtt);
       setTeamRegister(sortedTeamAtt);
 
+      // Workspace attendance timings drive lateness/shift-end, exactly as they
+      // do on web. Fetched once per dashboard load.
+      getWorkspaceSettings(activeWorkspace.id)
+        .then((cfg) => cfg && setAttendanceSettings(cfg))
+        .catch(() => { /* fall back to the server-computed status alone */ });
+
       // If admin, fetch history
       const myMember = sortedTeamAtt.find(
         (r: any) => r.member.userId === user?.id,
@@ -196,8 +230,16 @@ export default function AttendanceScreen() {
       const myRole = myMember?.member.role;
       if (myRole === "OWNER" || myRole === "ADMIN") {
         setLoadingLogs(true);
-        const logs = await getWorkspaceAttendanceLogs(activeWorkspace.id);
-        setWorkspaceLogs(logs);
+        // Same window the web attendance table opens on (current month), and an
+        // explicit pageSize — the route defaults to 10, so omitting it silently
+        // truncated the history to ten all-time rows.
+        const now = new Date();
+        const page = await getWorkspaceAttendanceLogsPage(activeWorkspace.id, {
+          startDate: startOfMonth(now),
+          endDate: endOfMonth(now),
+          pageSize: 100,
+        });
+        setWorkspaceLogs(page.records);
         setLoadingLogs(false);
       }
     } catch (err) {
@@ -426,13 +468,9 @@ export default function AttendanceScreen() {
     const status = myAttendance?.status ?? null;
     let statusInfo = status ? statusConfig[status as AttendanceStatus] : null;
 
-    // Apply OUT override rule
-    if (myAttendance?.checkOut) {
-      const outTime = new Date(myAttendance.checkOut);
-      const istOut = new Date(outTime.getTime() + 5.5 * 60 * 60 * 1000);
-      if (istOut.getUTCHours() >= 19) {
-        statusInfo = statusConfig["OUT"];
-      }
+    // Apply OUT override rule, using the workspace's configured shift end.
+    if (myAttendance?.checkOut && isAtOrAfter(myAttendance.checkOut, attendanceSettings?.shiftEndTime)) {
+      statusInfo = statusConfig["OUT"];
     }
 
     return (
@@ -766,14 +804,12 @@ export default function AttendanceScreen() {
       ?.member.role;
     const isAdmin = myRole === "OWNER" || myRole === "ADMIN";
 
-    const lateMembers = teamRegister.filter((r: any) => {
-      if (!r.attendance?.checkIn) return false;
-      const inTime = new Date(r.attendance.checkIn);
-      const istIn = new Date(inTime.getTime() + 5.5 * 60 * 60 * 1000);
-      const hours = istIn.getUTCHours();
-      const minutes = istIn.getUTCMinutes();
-      return hours > 9 || (hours === 9 && minutes > 40);
-    });
+    // The API already resolves LATE against the workspace's configured
+    // lateThreshold (AttendanceService), and the web table just renders that
+    // status. Trust it here too rather than re-deriving from a hardcoded clock.
+    const lateMembers = teamRegister.filter(
+      (r: any) => r.attendance?.status === "LATE",
+    );
 
     const missingMembers = teamRegister.filter(
       (r: any) => !r.attendance?.checkIn,
@@ -880,21 +916,11 @@ export default function AttendanceScreen() {
             let actualStatus = (att ? att.status : "NOT_CHECKED_IN") as
               | AttendanceStatus
               | "NOT_CHECKED_IN";
-            if (att?.checkIn) {
-              const inTime = new Date(att.checkIn);
-              const istIn = new Date(inTime.getTime() + 5.5 * 60 * 60 * 1000);
-              const hours = istIn.getUTCHours();
-              const minutes = istIn.getUTCMinutes();
-              if (hours > 9 || (hours === 9 && minutes > 40)) {
-                actualStatus = "LATE";
-              }
-            }
-            if (att?.checkOut) {
-              const outTime = new Date(att.checkOut);
-              const istOut = new Date(outTime.getTime() + 5.5 * 60 * 60 * 1000);
-              if (istOut.getUTCHours() >= 19) {
-                actualStatus = "OUT";
-              }
+            // LATE comes from the server, which applies the workspace's
+            // lateThreshold — the same value the web table displays. OUT is an
+            // app-only presentation state, driven by the configured shift end.
+            if (att?.checkOut && isAtOrAfter(att.checkOut, attendanceSettings?.shiftEndTime)) {
+              actualStatus = "OUT";
             }
 
             let sInfo = statusConfig[actualStatus];

@@ -28,6 +28,18 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
             }
         };
 
+        // Gantt is served by this minimal projection (see TasksService: it forces
+        // isMinimal for view_mode "gantt"), but a gantt is drawn entirely from
+        // dates and grouped by project — without these every row is bar-less and
+        // every group header reads "No Project".
+        if (isGantt) {
+            select.startDate = true;
+            select.dueDate = true;
+            select.status = true;
+            select.days = true;
+            select.project = { select: { id: true, name: true, color: true } };
+        }
+
         if (extraFields && extraFields.length > 0) {
             extraFields.forEach(field => {
                 (select as any)[field] = true;

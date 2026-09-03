@@ -498,6 +498,78 @@ export class TasksService {
     TaskMapper.stripParentMetadata(result);
   }
 
+  /**
+   * Count tasks matching the same filters `listTasks` accepts.
+   *
+   * `listTasks` returns `totalCount: null` on its cursor-paginated paths, so a
+   * caller that only wants a total (the mobile board's subtask counter) has no
+   * way to get one from it. This reuses `resolveTaskPermissions` so the count
+   * is scoped to exactly what the user may see.
+   */
+  static async countTasks(opts: any, userId: string): Promise<number> {
+    const { workspaceId } = opts;
+    if (!workspaceId) throw AppError.ValidationError("workspaceId is required");
+
+    const projectIdOpt = Array.isArray(opts.projectId)
+      ? (opts.projectId.length === 1 ? opts.projectId[0] : undefined)
+      : opts.projectId;
+
+    const access = await this.resolveTaskPermissions(workspaceId, projectIdOpt, userId);
+    const { isWorkspaceAdmin, fullAccessProjectIds, restrictedProjectIds } = access;
+
+    const where: any = { workspaceId };
+
+    // Hierarchy filters
+    if (opts.onlySubtasks) where.parentTaskId = { not: null };
+    else if (opts.excludeParents) where.isParent = false;
+
+    // Explicit filters
+    if (opts.projectId) {
+      const ids = Array.isArray(opts.projectId) ? opts.projectId : [opts.projectId];
+      where.projectId = { in: ids };
+    }
+    if (opts.status?.length) where.status = { in: opts.status };
+    if (opts.tagId?.length) where.tagId = { in: opts.tagId };
+    if (opts.search) where.name = { contains: opts.search, mode: "insensitive" };
+
+    const start = toUTCDateOnly(opts.dueAfter);
+    const end = toUTCDateOnly(opts.dueBefore);
+    if (start || end) {
+      where.dueDate = {};
+      if (start) where.dueDate.gte = start;
+      if (end) where.dueDate.lte = end;
+    }
+
+    const and: any[] = [];
+    if (opts.assigneeId?.length) {
+      and.push(buildAssigneeFilter(opts.assigneeId));
+    }
+
+    // Visibility: an admin sees the whole workspace. Everyone else sees all
+    // tasks in their full-access projects, but only their own work in projects
+    // where they are just a member/viewer — mirroring listTasks.
+    if (!isWorkspaceAdmin) {
+      const scope: any[] = [];
+      if (fullAccessProjectIds.length) {
+        scope.push({ projectId: { in: fullAccessProjectIds } });
+      }
+      if (restrictedProjectIds.length) {
+        scope.push({
+          AND: [
+            { projectId: { in: restrictedProjectIds } },
+            buildAssigneeFilter(userId),
+          ],
+        });
+      }
+      if (scope.length === 0) return 0;
+      and.push({ OR: scope });
+    }
+
+    if (and.length) where.AND = and;
+
+    return TaskRepository.countTasks(where);
+  }
+
   public static async resolveTaskPermissions(
     workspaceId: string,
     projectId?: string,

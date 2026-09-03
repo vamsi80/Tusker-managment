@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -120,6 +120,13 @@ export default function ProjectGanttView({
         return out;
     }, [tasks, lazySubtasks]);
 
+    // Workspace mode (no projectId) groups rows under collapsible project nodes,
+    // and a project row never draws a bar of its own. Left collapsed, the chart
+    // renders as a bare list of project names against an empty timeline — so
+    // seed each group as expanded the first time it appears. Tracked in a ref so
+    // a deliberate collapse by the user is not undone on the next render.
+    const seededProjectsRef = useRef<Set<string>>(new Set());
+
     // Group tasks by project (if projectId is empty)
     const { projectsList, projectParentTasksMap } = useMemo(() => {
         const pm = new Map<string, Task[]>();
@@ -150,6 +157,20 @@ export default function ProjectGanttView({
     }, [allRelevantTasks]);
 
     // ── 2. Hierarchy flattening ─────────────────────────────────────────────
+    useEffect(() => {
+        if (projectId) return;
+        const unseen = projectsList.filter(p => !seededProjectsRef.current.has(p.id));
+        if (unseen.length === 0) return;
+        setExpandedNodes(prev => {
+            const next = new Set(prev);
+            unseen.forEach(p => {
+                next.add(`project-${p.id}`);
+                seededProjectsRef.current.add(p.id);
+            });
+            return next;
+        });
+    }, [projectId, projectsList]);
+
     const { roots, childMap } = useMemo(() => {
         const cm = new Map<string, Task[]>();
         const itemIds = new Set(allRelevantTasks.map(t => t.id));
@@ -300,12 +321,28 @@ export default function ProjectGanttView({
         () => buildMonthGroups(timelineRange.start, totalDays),
         [timelineRange, totalDays]
     );
+    const timelineScrollRef = useRef<ScrollView>(null);
+    const didAutoScrollRef = useRef(false);
+
     const todayOffset = useMemo(() => {
         const today = startOfDay(new Date());
         if (today < timelineRange.start || today > timelineRange.end) return null;
         return getDaysBetween(timelineRange.start, today) * DAY_W;
     }, [timelineRange]);
 
+
+    // The range spans the earliest task to the latest, so across a whole
+    // workspace "today" can sit far to the right and the first screen shows
+    // empty timeline. Scroll to today once, keeping a few days of lead-in.
+    useEffect(() => {
+        if (didAutoScrollRef.current) return;
+        if (todayOffset == null || flatItems.length === 0) return;
+        didAutoScrollRef.current = true;
+        const x = Math.max(0, todayOffset - DAY_W * 3);
+        requestAnimationFrame(() => {
+            timelineScrollRef.current?.scrollTo({ x, animated: false });
+        });
+    }, [todayOffset, flatItems.length]);
 
     // ── 6. Render helpers ───────────────────────────────────────────────────
     const renderRow = (item: FlatItem) => {
@@ -440,6 +477,7 @@ export default function ProjectGanttView({
 
 
             <ScrollView
+                ref={timelineScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 bounces={false}

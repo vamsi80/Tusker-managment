@@ -24,6 +24,10 @@ import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { createSubTask, getWorkspaceMembers, getProjectMembers, getTags, getTasks, updateTask } from "../services/api";
 import { getStatusHex, getStatusBgColor } from "../utils/taskColors";
+import MemberPickerSheet, { memberDisplayName, memberAvatarColor, memberPhoto } from "./MemberPickerSheet";
+import OptionPickerSheet, { PickerOption } from "./OptionPickerSheet";
+import { getProjectPermissions, ProjectPermissions } from "../services/api";
+import { isEditFormStatusDisabled } from "../utils/statusPermissions";
 import AppButton from "./AppButton";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -55,6 +59,11 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
     const [status, setStatus] = useState("TO_DO");
+    // Status changes on this form are gated exactly as the web edit form gates
+    // them, so a transition the API would reject is disabled instead of failing
+    // on save.
+    const [permissions, setPermissions] = useState<ProjectPermissions | null>(null);
+    const [openPicker, setOpenPicker] = useState<null | "assignee" | "reviewer" | "tag">(null);
     const [assigneeId, setAssigneeId] = useState<string | null>(null);
     const [reviewerId, setReviewerId] = useState<string | null>(null);
     const [tagId, setTagId] = useState<string | null>(null);
@@ -104,6 +113,17 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
         { id: "HOLD", label: "On Hold", color: getStatusHex("HOLD") },
         { id: "COMPLETED", label: "Completed", color: getStatusHex("COMPLETED") },
     ];
+
+    useEffect(() => {
+        if (!visible || !isEditing) return;
+        const pid = editingTask?.projectId || selectedProjectId || initialProjectId;
+        if (!pid || !activeWorkspace?.id) return;
+        let alive = true;
+        getProjectPermissions(pid, activeWorkspace.id).then((p) => {
+            if (alive) setPermissions(p);
+        });
+        return () => { alive = false; };
+    }, [visible, isEditing, editingTask?.projectId, selectedProjectId, initialProjectId, activeWorkspace?.id]);
 
     useEffect(() => {
         if (visible) {
@@ -297,67 +317,76 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
         }
     };
 
-    const renderUserChip = (member: any, isSelected: boolean, onSelect: () => void) => {
-        // API returns { userId, name, email, image, role }
-        const getSurname = (fullName: string) => {
-            const name = fullName?.trim() || "";
-            if (!name) return "Unknown";
-            const parts = name.split(/\s+/);
-            return parts[parts.length - 1];
-        };
-        const displayName = getSurname(member.user?.surname || member.surname || member.user?.name || member.name);
-        const photoUrl = member.image || member.user?.image || null;
-        const initials = displayName.charAt(0).toUpperCase();
-        // Use distinct hue per member to differentiate avatars (like web)
-        const colorSeed = member.userId ? member.userId.charCodeAt(0) % 5 : 0;
-        const avatarColors = ["#ef4444", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b"];
-        const avatarBg = avatarColors[colorSeed];
-        return (
-            <TouchableOpacity
-                key={member.userId}
-                style={[
-                    styles.avatarChip,
-                    { backgroundColor: colors.background, borderColor: colors.border },
-                    isSelected && { borderColor: colors.primary, backgroundColor: colors.primary + "15" }
-                ]}
-                onPress={onSelect}
-            >
-                <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
-                    {photoUrl ? (
-                        <Image source={{ uri: photoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-                    ) : (
-                        <Text style={styles.avatarText}>{initials}</Text>
-                    )}
-                </View>
-                <Text style={[styles.chipText, { color: colors.textDim }, isSelected && { color: colors.primary, fontFamily: FONTS.bold }]}>
-                    {displayName}
-                </Text>
-                {isSelected && (
-                    <Ionicons name="checkmark-circle" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
-                )}
-            </TouchableOpacity>
-        );
-    };
+    const selectedTag = tags.find((t: any) => t.id === tagId) ?? null;
+    const tagOptions: PickerOption[] = tags.map((t: any) => ({
+        id: t.id,
+        label: t.name,
+        accent: t.color || undefined,
+        leading: (
+            <View style={[styles.tagDot, { backgroundColor: (t.color || colors.primary) + "22" }]}>
+                <Ionicons name="pricetag" size={15} color={t.color || colors.primary} />
+            </View>
+        ),
+    }));
 
-    const renderMemberRow = (label: string, selectedId: string | null, setter: (id: string | null) => void, filterFn?: (m: any) => boolean) => {
-        let displayMembers = members;
-        if (filterFn) {
-            displayMembers = members.filter(filterFn);
-        }
+    const eligibleMembers = (filterFn?: (m: any) => boolean) =>
+        filterFn ? members.filter(filterFn) : members;
+
+    /**
+     * Dropdown trigger + sheet, replacing the horizontal avatar strip. With a
+     * full project roster most people sat off-screen behind a sideways swipe.
+     */
+    const renderMemberRow = (
+        label: string,
+        selectedId: string | null,
+        setter: (id: string | null) => void,
+        filterFn?: (m: any) => boolean,
+        pickerKey?: "assignee" | "reviewer",
+    ) => {
+        const displayMembers = eligibleMembers(filterFn);
+        const selected = displayMembers.find(m => m.userId === selectedId) ?? null;
+        const photo = selected ? memberPhoto(selected) : null;
+        const isEmpty = !loadingMembers && displayMembers.length === 0;
 
         return (
             <>
                 <Text style={[styles.label, { color: colors.textDim }]}>{label}</Text>
                 {loadingMembers ? (
                     <ActivityIndicator size="small" color={colors.primary} style={{ alignSelf: "flex-start", marginBottom: 12 }} />
-                ) : displayMembers.length > 0 ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                        {displayMembers.map(m => renderUserChip(m, selectedId === m.userId, () => setter(selectedId === m.userId ? null : m.userId)))}
-                    </ScrollView>
-                ) : (
+                ) : isEmpty ? (
                     <Text style={{ color: colors.textDim, fontSize: 12, marginBottom: 12 }}>
                         {filterFn ? `No eligible ${label.toLowerCase()}s found` : "No project members available"}
                     </Text>
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.selectTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        onPress={() => pickerKey && setOpenPicker(pickerKey)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${label}: ${selected ? memberDisplayName(selected) : "none selected"}`}
+                        accessibilityHint={`Opens the ${label.toLowerCase()} list`}
+                    >
+                        {selected ? (
+                            <>
+                                {photo ? (
+                                    <Image source={{ uri: photo }} style={styles.selectAvatar} />
+                                ) : (
+                                    <View style={[styles.selectAvatar, { backgroundColor: memberAvatarColor(selected) }]}>
+                                        <Text style={styles.selectAvatarText}>
+                                            {memberDisplayName(selected).charAt(0).toUpperCase()}
+                                        </Text>
+                                    </View>
+                                )}
+                                <Text style={[styles.selectValue, { color: colors.text }]} numberOfLines={1}>
+                                    {memberDisplayName(selected)}
+                                </Text>
+                            </>
+                        ) : (
+                            <Text style={[styles.selectValue, { color: colors.textDim }]} numberOfLines={1}>
+                                Select {label.toLowerCase()}
+                            </Text>
+                        )}
+                        <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                    </TouchableOpacity>
                 )}
             </>
         );
@@ -554,26 +583,54 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                     {/* Status */}
                                     <Text style={[styles.label, { color: colors.textDim }]}>Status</Text>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                                        {STATUS_OPTIONS.map((opt) => (
-                                            <TouchableOpacity
-                                                key={opt.id}
-                                                style={[
-                                                    styles.chip,
-                                                    { backgroundColor: colors.background, borderColor: colors.border },
-                                                    status === opt.id && { borderColor: opt.color, backgroundColor: getStatusBgColor(opt.id) }
-                                                ]}
-                                                onPress={() => setStatus(opt.id)}
-                                            >
-                                                <View style={[styles.dot, { backgroundColor: opt.color }]} />
-                                                <Text style={[styles.chipText, { color: colors.textDim }, status === opt.id && { color: opt.color, fontFamily: FONTS.bold }]}>
-                                                    {opt.label}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
+                                        {STATUS_OPTIONS.map((opt) => {
+                                            const gate = isEditing
+                                                ? isEditFormStatusDisabled(opt.id, {
+                                                    permissions,
+                                                    assigneeId: editingTask?.assignee?.id ?? editingTask?.assigneeId ?? null,
+                                                    createdById: editingTask?.createdById ?? null,
+                                                    currentStatus: editingTask?.status ?? null,
+                                                })
+                                                : { allowed: true as const };
+                                            const blocked = !gate.allowed;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={opt.id}
+                                                    disabled={blocked}
+                                                    accessibilityState={{ disabled: blocked, selected: status === opt.id }}
+                                                    accessibilityHint={blocked ? gate.reason : undefined}
+                                                    style={[
+                                                        styles.chip,
+                                                        { backgroundColor: colors.background, borderColor: colors.border },
+                                                        status === opt.id && { borderColor: opt.color, backgroundColor: getStatusBgColor(opt.id) },
+                                                        blocked && { opacity: 0.4 }
+                                                    ]}
+                                                    onPress={() => setStatus(opt.id)}
+                                                >
+                                                    <View style={[styles.dot, { backgroundColor: opt.color }]} />
+                                                    <Text style={[styles.chipText, { color: colors.textDim }, status === opt.id && { color: opt.color, fontFamily: FONTS.bold }]}>
+                                                        {opt.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
                                     </ScrollView>
+                                    {isEditing && STATUS_OPTIONS.some((opt) =>
+                                        !isEditFormStatusDisabled(opt.id, {
+                                            permissions,
+                                            assigneeId: editingTask?.assignee?.id ?? editingTask?.assigneeId ?? null,
+                                            createdById: editingTask?.createdById ?? null,
+                                            currentStatus: editingTask?.status ?? null,
+                                        }).allowed
+                                    ) ? (
+                                        <Text style={[styles.helperNote, { color: colors.textDim }]}>
+                                            Some transitions are disabled because you are the assignee on this task,
+                                            or they need an explanation comment — change those from the board or list view.
+                                        </Text>
+                                    ) : null}
 
                                     {/* Assignee - Restricted to Project Members only */}
-                                    {renderMemberRow("Assignee", assigneeId, setAssigneeId, (m) => !m.isExternalAdmin)}
+                                    {renderMemberRow("Assignee", assigneeId, setAssigneeId, (m) => !m.isExternalAdmin, "assignee")}
 
                                     {/* Reviewer - Restricted to Respective PM, Leads, and Workspace Admins */}
                                     {renderMemberRow("Reviewer", reviewerId, setReviewerId, (m) => {
@@ -585,30 +642,33 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                             wsRole === "OWNER" ||
                                             wsRole === "ADMIN"
                                         );
-                                    })}
+                                    }, "reviewer")}
 
-                                    {/* Tags */}
+                                    {/* Tag — dropdown rather than a sideways strip, matching
+                                        the Assignee and Reviewer fields. */}
                                     {tags.length > 0 && (
                                         <>
                                             <Text style={[styles.label, { color: colors.textDim }]}>Tag</Text>
-                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                                                {tags.map((tag) => (
-                                                    <TouchableOpacity
-                                                        key={tag.id}
-                                                        style={[
-                                                            styles.chip,
-                                                            { backgroundColor: colors.background, borderColor: colors.border },
-                                                            tagId === tag.id && { borderColor: colors.primary, backgroundColor: colors.primary + "15" }
-                                                        ]}
-                                                        onPress={() => setTagId(tagId === tag.id ? null : tag.id)}
-                                                    >
-                                                        <Ionicons name="pricetag-outline" size={14} color={tagId === tag.id ? colors.primary : colors.textDim} />
-                                                        <Text style={[styles.chipText, { color: colors.textDim }, tagId === tag.id && { color: colors.primary, fontFamily: FONTS.bold }]}>
-                                                            {tag.name}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </ScrollView>
+                                            <TouchableOpacity
+                                                style={[styles.selectTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                                                onPress={() => setOpenPicker("tag")}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`Tag: ${selectedTag ? selectedTag.name : "none selected"}`}
+                                                accessibilityHint="Opens the tag list"
+                                            >
+                                                <Ionicons
+                                                    name="pricetag-outline"
+                                                    size={18}
+                                                    color={selectedTag ? (selectedTag.color || colors.primary) : colors.textDim}
+                                                />
+                                                <Text
+                                                    style={[styles.selectValue, { color: selectedTag ? colors.text : colors.textDim }]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {selectedTag ? selectedTag.name : "Select tag"}
+                                                </Text>
+                                                <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                                            </TouchableOpacity>
                                         </>
                                     )}
 
@@ -741,6 +801,48 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                     </View>
                 </KeyboardAvoidingView>
             </View>
+
+            <MemberPickerSheet
+                visible={openPicker === "assignee"}
+                onClose={() => setOpenPicker(null)}
+                title="Select Assignee"
+                members={eligibleMembers((m) => !m.isExternalAdmin)}
+                selectedId={assigneeId}
+                onSelect={setAssigneeId}
+                emptyText="No project members available"
+                clearLabel="Unassigned"
+            />
+
+            <OptionPickerSheet
+                visible={openPicker === "tag"}
+                onClose={() => setOpenPicker(null)}
+                title="Select Tag"
+                options={tagOptions}
+                selectedId={tagId}
+                onSelect={setTagId}
+                emptyText="No tags in this workspace"
+                clearLabel="No tag"
+            />
+
+            <MemberPickerSheet
+                visible={openPicker === "reviewer"}
+                onClose={() => setOpenPicker(null)}
+                title="Select Reviewer"
+                members={eligibleMembers((m) => {
+                    const pRole = m.role || m.projectRole;
+                    const wsRole = m.workspaceRole || m.workspaceMember?.workspaceRole;
+                    return (
+                        pRole === "PROJECT_MANAGER" ||
+                        pRole === "LEAD" ||
+                        wsRole === "OWNER" ||
+                        wsRole === "ADMIN"
+                    );
+                })}
+                selectedId={reviewerId}
+                onSelect={setReviewerId}
+                emptyText="No eligible reviewers found"
+                clearLabel="No reviewer"
+            />
         </Modal>
     );
 }
@@ -924,6 +1026,21 @@ const styles = StyleSheet.create({
         alignItems: "center",
         width: "100%",
     },
+    tagDot: { width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center" },
+    selectTrigger: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACING.sm,
+        minHeight: 48,
+        paddingHorizontal: SPACING.md,
+        borderRadius: BORDER_RADIUS.md,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    selectAvatar: { width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+    selectAvatarText: { color: "#fff", fontSize: 12, fontFamily: FONTS.bold },
+    selectValue: { flex: 1, fontSize: 15, fontFamily: FONTS.medium },
+    helperNote: { fontSize: 11, fontFamily: FONTS.regular, lineHeight: 15, marginTop: 6 },
     horizontalScroll: {
         marginHorizontal: -20,
         paddingHorizontal: 20,
@@ -947,27 +1064,5 @@ const styles = StyleSheet.create({
     chipText: {
         fontSize: 14,
         fontFamily: FONTS.medium,
-    },
-    avatarChip: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderRadius: 24,
-        padding: 6,
-        paddingRight: 16,
-        borderWidth: 1,
-        marginRight: 10,
-    },
-    avatar: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 8,
-    },
-    avatarText: {
-        color: "#fff",
-        fontSize: 12,
-        fontFamily: FONTS.bold,
     },
 });

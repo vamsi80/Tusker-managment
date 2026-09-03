@@ -443,6 +443,46 @@ export async function getWorkspaceMembers(workspaceId: string, role?: string): P
     }
 }
 
+export interface ProjectPermissions {
+    isWorkspaceAdmin: boolean;
+    isProjectLead: boolean;
+    isProjectCoordinator: boolean;
+    isProjectManager: boolean;
+    isMember: boolean;
+    workspaceMemberId: string | null;
+    userId: string | null;
+}
+
+/**
+ * Per-project permission flags for the current user — the same set the web
+ * client gates its status changes on.
+ */
+export async function getProjectPermissions(
+    projectId: string,
+    workspaceId: string
+): Promise<ProjectPermissions | null> {
+    try {
+        const res = await apiFetch(
+            `/api/projects/${projectId}/permissions?workspaceId=${encodeURIComponent(workspaceId)}`
+        );
+        if (!res.ok) return null;
+        const json = await res.json();
+        const d = json?.data ?? json;
+        if (!d || typeof d !== "object") return null;
+        return {
+            isWorkspaceAdmin: !!d.isWorkspaceAdmin,
+            isProjectLead: !!d.isProjectLead,
+            isProjectCoordinator: !!d.isProjectCoordinator,
+            isProjectManager: !!d.isProjectManager,
+            isMember: !!d.isMember,
+            workspaceMemberId: d.workspaceMemberId ?? null,
+            userId: d.userId ?? null,
+        };
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Fetch workspace clients
  */
@@ -649,7 +689,10 @@ export async function getTasks(
 
         if (filters.excludeParents) url += `&excludeParents=true`;
         if (filters.onlySubtasks) url += `&onlySubtasks=true`;
-        if (filters.includeSubTasks) url += `&includeSubTasks=true`;
+        // The API reads this flag as `subTasks`/`sub` (apps/api tasks route), not
+        // `includeSubTasks`. Sending only the latter leaves list views on the
+        // "no subtasks unless specifically asked" default.
+        if (filters.includeSubTasks) url += `&includeSubTasks=true&subTasks=true`;
         if (filters.view_mode) url += `&view_mode=${filters.view_mode}`;
         url += `&includeTag=true&includeTags=true&include=tag&include=Tag`;
 
@@ -981,7 +1024,12 @@ export async function createSubTask(
 export async function createProject(
     workspaceId: string,
     name: string,
-    projectManagerUserId: string,
+    /**
+     * WorkspaceMember id (not userId) — ProjectService validates it with
+     * `workspace.members.some(m => m.id === assignedProjectManagerId)`, and the
+     * web form submits `member.id` for the same reason.
+     */
+    projectManagerId: string,
     color?: string,
     description?: string,
     companyName?: string,
@@ -998,7 +1046,7 @@ export async function createProject(
             name,
             workspaceId,
             color,
-            projectManagerUserId,
+            projectManagerId,
             description,
             companyName,
             registeredCompanyName,
@@ -1281,27 +1329,87 @@ export async function getMemberAttendanceStats(workspaceId: string, memberId: st
 }
 
 /**
- * Get Workspace Attendance Logs (Web Parity)
+ * Format a Date as a calendar day (yyyy-MM-dd) in local time.
+ *
+ * The attendance API resolves these onto the UTC day grid its `@db.Date` column
+ * uses. Sending `toISOString()` instead hands it an instant it has to guess a
+ * day from, which shifts the range by one day either side of midnight — the web
+ * client carries the same warning.
  */
-export async function getWorkspaceAttendanceLogs(workspaceId: string, startDate?: string, endDate?: string): Promise<any[]> {
+export function toDateOnlyString(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+export interface AttendanceLogFilters {
+    startDate?: Date | string;
+    endDate?: Date | string;
+    memberId?: string[];
+    status?: string[];
+    search?: string;
+    page?: number;
+    pageSize?: number;
+    refresh?: boolean;
+}
+
+export interface AttendanceLogPage {
+    records: any[];
+    totalCount: number;
+}
+
+/**
+ * Workspace attendance logs — same contract as the web attendance table
+ * (apps/web .../team/attendance/_components/attendance-table.tsx).
+ *
+ * Note the route defaults to pageSize=10, so callers that omit paging silently
+ * get only ten rows.
+ */
+export async function getWorkspaceAttendanceLogsPage(
+    workspaceId: string,
+    filters: AttendanceLogFilters = {}
+): Promise<AttendanceLogPage> {
     try {
-        let url = `/api/attendance`;
         const params = new URLSearchParams();
-        if (startDate) params.append("startDate", startDate);
-        if (endDate) params.append("endDate", endDate);
+        const asDay = (v: Date | string) => (typeof v === "string" ? v : toDateOnlyString(v));
 
-        const queryString = params.toString();
-        if (queryString) url += `?${queryString}`;
+        if (filters.startDate) params.append("startDate", asDay(filters.startDate));
+        if (filters.endDate) params.append("endDate", asDay(filters.endDate));
+        // Multi-value filters are JSON-encoded, matching the web client and the
+        // route's parseMultiQuery.
+        if (filters.memberId && filters.memberId.length > 0) params.append("memberId", JSON.stringify(filters.memberId));
+        if (filters.status && filters.status.length > 0) params.append("status", JSON.stringify(filters.status));
+        if (filters.search) params.append("search", filters.search);
+        params.append("page", String(filters.page ?? 1));
+        params.append("pageSize", String(filters.pageSize ?? 50));
+        if (filters.refresh) params.append("refresh", "true");
 
-        const res = await apiFetch(url, {
+        const res = await apiFetch(`/api/attendance?${params.toString()}`, {
             headers: { "x-workspace-id": workspaceId }
         });
         const data = await res.json();
-        return data.success ? data.data : [];
+        if (!data?.success) return { records: [], totalCount: 0 };
+        return {
+            records: Array.isArray(data.data) ? data.data : [],
+            totalCount: data.totalCount ?? (Array.isArray(data.data) ? data.data.length : 0),
+        };
     } catch (e) {
-        console.error("[api] getWorkspaceAttendanceLogs error:", e);
-        return [];
+        console.error("[api] getWorkspaceAttendanceLogsPage error:", e);
+        return { records: [], totalCount: 0 };
     }
+}
+
+/**
+ * Back-compat wrapper returning just the rows.
+ */
+export async function getWorkspaceAttendanceLogs(
+    workspaceId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<any[]> {
+    const page = await getWorkspaceAttendanceLogsPage(workspaceId, { startDate, endDate });
+    return page.records;
 }
 
 /**

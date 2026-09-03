@@ -179,6 +179,57 @@ tasks.get("/", async (c) => {
  * columns in a single round trip rather than one list call per status.
  * Registered ahead of any /:taskId route so "kanban" is not read as an id.
  */
+/**
+ * GET /api/v1/tasks/count
+ *
+ * Total number of tasks matching the given filters, scoped to what the caller
+ * may see. The listing route paginates by cursor and reports no total, so the
+ * mobile board's counter needs this.
+ */
+tasks.get("/count", async (c) => {
+  const user = c.get("user");
+  const q = c.req.query();
+  const workspaceId = q.w || q.workspaceId;
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  // queries() keeps every value of a repeated key (?status=A&status=B), which
+  // is how the mobile client sends multi-value filters; query() would drop all
+  // but the first. JSON and comma-separated forms are accepted too.
+  const multi = (key: string, shortKey: string): string[] | undefined => {
+    const all = [...(c.req.queries(key) ?? []), ...(c.req.queries(shortKey) ?? [])];
+    if (all.length === 0) return undefined;
+    const out: string[] = [];
+    for (const v of all) {
+      try {
+        const parsed = JSON.parse(v);
+        if (Array.isArray(parsed)) { out.push(...parsed.map(String)); continue; }
+        out.push(String(parsed));
+      } catch {
+        out.push(...v.split(",").map((x) => x.trim()).filter(Boolean));
+      }
+    }
+    return out.length ? out : undefined;
+  };
+
+  const count = await TasksService.countTasks(
+    {
+      workspaceId,
+      projectId: multi("projectId", "p"),
+      status: multi("status", "s"),
+      assigneeId: multi("assigneeId", "a"),
+      tagId: multi("tagId", "t"),
+      search: q.q || q.search || undefined,
+      onlySubtasks: q.onlySubtasks === "true" || q.onlySub === "true",
+      excludeParents: q.excludeParents === "true",
+      dueAfter: q.da || q.dueAfter || q.startDate || undefined,
+      dueBefore: q.db || q.dueBefore || q.endDate || undefined,
+    },
+    user.id,
+  );
+
+  return c.json({ success: true, data: { totalCount: count }, totalCount: count });
+});
+
 tasks.get("/kanban", async (c) => {
   const user = c.get("user");
   const q = c.req.queries();

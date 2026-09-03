@@ -1436,6 +1436,11 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                 onClose={() => setStatusPickerVisible(false)}
                 onSelect={(newStatus) => handleUpdateTaskField({ status: newStatus })}
                 currentStatus={task?.status ?? "TO_DO"}
+                projectId={task?.projectId}
+                workspaceId={activeWorkspace?.id}
+                currentUserId={currentUserId}
+                assigneeId={task?.assigneeId ?? null}
+                createdById={(task as any)?.createdById ?? null}
             />
 
             <CalendarPicker

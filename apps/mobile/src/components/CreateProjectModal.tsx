@@ -128,13 +128,17 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
         if (!activeWorkspace) return;
         setFetchingMembers(true);
         try {
-            // Exactly align with web: only fetch people with the MANAGER role
+            // The members endpoint ignores ?role=, so filter here exactly as the
+            // web form does: members?.filter(m => m.workspaceRole === "MANAGER").
+            // Without this the picker listed the whole workspace, not managers.
             const data = await getWorkspaceMembers(activeWorkspace.id, "MANAGER");
-            setMembers(data);
-            
-            // Default to first eligible manager
-            if (data.length > 0) {
-                setSelectedManagerId(data[0].userId);
+            const managers = data.filter((m) => m.workspaceRole === "MANAGER");
+            setMembers(managers);
+
+            // Default to first eligible manager. The value is the WorkspaceMember
+            // id — that is what ProjectService validates against.
+            if (managers.length > 0) {
+                setSelectedManagerId(managers[0].id);
             }
         } catch (err) {
             console.error("Failed to load members", err);
@@ -408,14 +412,18 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                             ) : (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.memberList}>
                                     {members.map((member) => {
-                                        const selected = selectedManagerId === member.userId;
+                                        const selected = selectedManagerId === member.id;
+                                        // Web shows `member.surname || "Unknown Member"` — no
+                                        // fallback to `name`, which is what made the app list
+                                        // different names for the same people.
+                                        const displayName = member.user?.surname || "Unknown Member";
                                         return (
                                             <PressableScale
-                                                key={member.userId}
-                                                onPress={() => setSelectedManagerId(member.userId)}
+                                                key={member.id}
+                                                onPress={() => setSelectedManagerId(member.id)}
                                                 haptic="selection"
                                                 accessibilityRole="button"
-                                                accessibilityLabel={member.user.surname || member.user.name}
+                                                accessibilityLabel={displayName}
                                                 accessibilityState={{ selected }}
                                                 style={[
                                                     styles.memberItem,
@@ -424,7 +432,7 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                                             >
                                                 <View style={[styles.avatar, { backgroundColor: colors.primary + "22" }]}>
                                                     <Text style={[styles.avatarText, { color: colors.primary }]}>
-                                                        {(member.user?.surname?.[0] || member.user?.name?.[0] || member.user?.email?.[0] || "?").toUpperCase()}
+                                                        {displayName.charAt(0).toUpperCase()}
                                                     </Text>
                                                 </View>
                                                 <Text
@@ -435,7 +443,7 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                                                     ]}
                                                     numberOfLines={1}
                                                 >
-                                                    {member.user.surname || member.user.name}
+                                                    {displayName}
                                                 </Text>
                                                 {selected && (
                                                     <View style={[styles.selectedBadge, { backgroundColor: colors.primary, borderColor: colors.surfaceSolid }]}>

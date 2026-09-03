@@ -89,7 +89,10 @@ export class TaskMapper {
         const allowedFields = [
           "id", "name", "taskSlug", "isParent", "parentTaskId", "projectId", "subTasks", "subtaskCount", "completedSubtaskCount",
           "createdAt", "tags", "position", "assignee", "reviewer", "description",
-          "status", "startDate", "dueDate", "progress", "days"
+          "status", "startDate", "dueDate", "progress", "days",
+          // A workspace-wide gantt groups parent rows under their project, so
+          // the project relation has to survive this trim.
+          "project"
         ];
         Object.keys(task).forEach((key) => {
           if (!allowedFields.includes(key)) delete task[key];

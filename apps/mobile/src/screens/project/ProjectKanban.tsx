@@ -552,6 +552,10 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                     onClose={() => setStatusPickerVisible(false)}
                     onSelect={(status) => handleStatusUpdate(selectedTask?.id || "", status)}
                     currentStatus={selectedTask?.status || ""}
+                    projectId={selectedTask?.projectId || projectId}
+                    workspaceId={activeWorkspace?.id}
+                    assigneeId={selectedTask?.assigneeId ?? null}
+                    createdById={(selectedTask as any)?.createdById ?? null}
                     onMorePress={selectedTask ? () => handleMoreOptions(selectedTask) : undefined}
                 />
             </ScrollView>
