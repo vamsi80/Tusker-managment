@@ -2090,6 +2090,38 @@ export async function getProcurableProjects(workspaceId: string): Promise<any[]>
 }
 
 /**
+ * Units of measure configured for the workspace, for the indent line-item unit
+ * picker. Mirrors web's create-indent form.
+ */
+export async function getIndentUnits(workspaceId: string): Promise<{ abbreviation: string; name: string; isDefault?: boolean }[]> {
+    try {
+        const res = await apiFetch(`/api/procurement/indents/units?w=${workspaceId}&workspaceId=${workspaceId}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json, "units");
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Procurement-taggable subtasks in a project that don't already have an
+ * indent — the "Link to Subtask" picker on the create-indent form.
+ */
+export async function getIndentableProjectTasks(workspaceId: string, projectId: string): Promise<any[]> {
+    try {
+        const res = await apiFetch(`/api/procurement/indents/projects/${projectId}/tasks?w=${workspaceId}&workspaceId=${workspaceId}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json, "tasks");
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
  * Fetch workspace vendors
  */
 export async function getVendors(workspaceId: string): Promise<any[]> {

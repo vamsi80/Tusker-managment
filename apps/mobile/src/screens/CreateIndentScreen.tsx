@@ -25,9 +25,32 @@ import {
     getProcurableProjects,
     getWorkspaceMembers,
     getMaterialsCatalog,
+    getIndentUnits,
+    getIndentableProjectTasks,
     createIndent,
     editIndent,
 } from "../services/api";
+
+/** Used only when the workspace has no units configured yet — mirrors
+ * packages/core/src/lib/procurement/units.ts, which the mobile app (installed
+ * standalone, outside the pnpm workspace) cannot import directly. */
+const FALLBACK_UNITS = [
+    { abbreviation: "pcs", name: "Pieces" },
+    { abbreviation: "nos", name: "Numbers" },
+    { abbreviation: "kg", name: "Kilogram" },
+    { abbreviation: "ton", name: "Tonne" },
+    { abbreviation: "gm", name: "Gram" },
+    { abbreviation: "ltr", name: "Litre" },
+    { abbreviation: "ml", name: "Millilitre" },
+    { abbreviation: "mtr", name: "Metre" },
+    { abbreviation: "ft", name: "Feet" },
+    { abbreviation: "cm", name: "Centimetre" },
+    { abbreviation: "sqft", name: "Square Feet" },
+    { abbreviation: "sqmtr", name: "Square Metre" },
+    { abbreviation: "bag", name: "Bag" },
+    { abbreviation: "box", name: "Box" },
+    { abbreviation: "roll", name: "Roll" },
+];
 import { useResponsive } from "../hooks/useResponsive";
 
 export default function CreateIndentScreen({ route, navigation }: any) {
@@ -46,9 +69,16 @@ export default function CreateIndentScreen({ route, navigation }: any) {
     const [projects, setProjects] = useState<any[]>([]);
     const [members, setMembers] = useState<any[]>([]);
     const [catalog, setCatalog] = useState<any[]>([]);
+    const [units, setUnits] = useState<{ abbreviation: string; name: string }[]>([]);
+    const [projectTasks, setProjectTasks] = useState<any[]>([]);
+    const [loadingProjectTasks, setLoadingProjectTasks] = useState(false);
 
     // Form states
-    const [name, setName] = useState("");
+    // Web asks this only from the global procurement hub (the app's only
+    // entry point today) and, on "No", creates a workspace-level indent with
+    // no project at all. There is no Indent Name field on web — the name is
+    // always generated server-side from the project/material/date.
+    const [isProjectRelated, setIsProjectRelated] = useState(true);
     const [description, setDescription] = useState("");
     const [selectedProject, setSelectedProject] = useState<any>(null);
     const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -76,15 +106,13 @@ export default function CreateIndentScreen({ route, navigation }: any) {
     const [transportCharge, setTransportCharge] = useState("");
     const [labourCharge, setLabourCharge] = useState("");
 
-    // Inline field validation (preserves entered values on failure)
-    const [formErrors, setFormErrors] = useState<{ name?: string }>({});
-
     // Modal state for adding material item
     const [itemModalVisible, setItemModalVisible] = useState(false);
     const [matName, setMatName] = useState("");
-    const [matUnit, setMatUnit] = useState("unit");
+    const [matUnit, setMatUnit] = useState("pcs");
     const [matQty, setMatQty] = useState("");
     const [matEstPrice, setMatEstPrice] = useState("");
+    const [matTotalPrice, setMatTotalPrice] = useState("");
     const [matSpec, setMatSpec] = useState("");
     const [matDesc, setMatDesc] = useState("");
 
@@ -94,23 +122,26 @@ export default function CreateIndentScreen({ route, navigation }: any) {
     const loadData = useCallback(async () => {
         if (!activeWorkspace?.id) return;
         try {
-            const [projectsData, membersData, catalogData] = await Promise.all([
+            const [projectsData, membersData, catalogData, unitsData] = await Promise.all([
                 getProcurableProjects(activeWorkspace.id),
                 getWorkspaceMembers(activeWorkspace.id, "OWNER"),
                 getMaterialsCatalog(activeWorkspace.id),
+                getIndentUnits(activeWorkspace.id),
             ]);
             setProjects(projectsData);
             setMembers(membersData);
             setCatalog(catalogData);
+            setUnits(unitsData.length > 0 ? unitsData : FALLBACK_UNITS);
 
             if (isEdit) {
-                setName(editPayload.name || "");
                 setDescription(editPayload.description || "");
                 setExpectedDelivery(editPayload.expectedDelivery ? new Date(editPayload.expectedDelivery) : new Date());
-                
-                // Set materials
-                if (editPayload.indent_line_item) {
-                    setMaterials(editPayload.indent_line_item.map((item: any) => ({
+
+                // Set materials — lineItems is the real field name on the
+                // single-indent GET response (see IndentRepository.findById);
+                // indent_line_item never existed there.
+                if (editPayload.lineItems) {
+                    setMaterials(editPayload.lineItems.map((item: any) => ({
                         materialName: item.materialName,
                         unit: item.unit,
                         quantity: String(item.quantity),
@@ -122,7 +153,9 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                     })));
                 }
 
-                // Match project
+                // Match project. No project on the saved indent means it was
+                // created as a workspace-level (not-project-related) indent.
+                setIsProjectRelated(!!editPayload.projectId);
                 const matchedProj = projectsData.find(p => p.id === editPayload.projectId);
                 if (matchedProj) setSelectedProject(matchedProj);
 
@@ -152,6 +185,37 @@ export default function CreateIndentScreen({ route, navigation }: any) {
         loadData();
     }, [loadData]);
 
+    // Procurement-taggable subtasks for the selected project, excluding ones
+    // that already have an indent — mirrors web's per-project task fetch.
+    // "Link to Subtask" is optional; selecting one auto-fills the delivery
+    // date from the task's due date, same as web's handleTaskChange.
+    useEffect(() => {
+        if (!activeWorkspace?.id || !selectedProject?.id || !isProjectRelated) {
+            setProjectTasks([]);
+            return;
+        }
+        let cancelled = false;
+        setLoadingProjectTasks(true);
+        getIndentableProjectTasks(activeWorkspace.id, selectedProject.id).then((tasks) => {
+            if (cancelled) return;
+            setProjectTasks(tasks);
+            setLoadingProjectTasks(false);
+            if (isEdit && editPayload?.taskId) {
+                const matched = tasks.find((t: any) => t.id === editPayload.taskId);
+                if (matched) setSelectedTask(matched);
+            }
+        });
+        return () => { cancelled = true; };
+    }, [activeWorkspace?.id, selectedProject?.id, isProjectRelated, isEdit, editPayload?.taskId]);
+
+    const handleTaskSelect = (task: any | null) => {
+        setSelectedTask(task);
+        if (task?.dueDate) {
+            const due = new Date(task.dueDate);
+            if (!isNaN(due.getTime())) setExpectedDelivery(due);
+        }
+    };
+
     const handleMatNameChange = (text: string) => {
         setMatName(text);
         if (!text) {
@@ -171,9 +235,44 @@ export default function CreateIndentScreen({ route, navigation }: any) {
         setAutocompleteList([]);
     };
 
+    // Unit price, quantity and total price stay mutually consistent — mirrors
+    // web's handleRowChange: editing quantity or unit price recomputes the
+    // total; editing the total back-derives the unit price.
+    const handleMatQtyChange = (text: string) => {
+        setMatQty(text);
+        const qty = Number(text) || 0;
+        if (matEstPrice !== "" && !isNaN(Number(matEstPrice))) {
+            setMatTotalPrice(qty > 0 ? String(Math.round(Number(matEstPrice) * qty * 100) / 100) : "");
+        } else if (matTotalPrice !== "" && qty > 0 && !isNaN(Number(matTotalPrice))) {
+            setMatEstPrice(String(Math.round((Number(matTotalPrice) / qty) * 100) / 100));
+        }
+    };
+    const handleMatUnitPriceChange = (text: string) => {
+        setMatEstPrice(text);
+        const qty = Number(matQty) || 0;
+        if (text === "") {
+            setMatTotalPrice("");
+        } else if (!isNaN(Number(text))) {
+            setMatTotalPrice(String(Math.round(Number(text) * qty * 100) / 100));
+        }
+    };
+    const handleMatTotalPriceChange = (text: string) => {
+        setMatTotalPrice(text);
+        const qty = Number(matQty) || 0;
+        if (text === "") {
+            setMatEstPrice("");
+        } else if (!isNaN(Number(text)) && qty > 0) {
+            setMatEstPrice(String(Math.round((Number(text) / qty) * 100) / 100));
+        }
+    };
+
     const handleAddMaterial = () => {
         if (!matName.trim()) {
             Alert.alert("Error", "Material name is required");
+            return;
+        }
+        if (!matUnit.trim()) {
+            Alert.alert("Error", "Unit is required");
             return;
         }
         if (!matQty || isNaN(Number(matQty)) || Number(matQty) <= 0) {
@@ -183,7 +282,7 @@ export default function CreateIndentScreen({ route, navigation }: any) {
 
         const newItem = {
             materialName: matName.trim(),
-            unit: matUnit.trim() || "unit",
+            unit: matUnit.trim(),
             quantity: String(Number(matQty)),
             estimatedUnitPrice: matEstPrice ? String(Number(matEstPrice)) : undefined,
             specifications: matSpec.trim() || undefined,
@@ -191,12 +290,13 @@ export default function CreateIndentScreen({ route, navigation }: any) {
         };
 
         setMaterials([...materials, newItem]);
-        
+
         // Reset modal fields
         setMatName("");
-        setMatUnit("unit");
+        setMatUnit("pcs");
         setMatQty("");
         setMatEstPrice("");
+        setMatTotalPrice("");
         setMatSpec("");
         setMatDesc("");
         setItemModalVisible(false);
@@ -222,23 +322,46 @@ export default function CreateIndentScreen({ route, navigation }: any) {
 
     const handleSubmit = async () => {
         if (!activeWorkspace?.id) return;
-        if (!name.trim()) {
-            setFormErrors((e) => ({ ...e, name: "Indent name is required." }));
-            return;
-        }
-        setFormErrors({});
-        if (!selectedProject) {
+
+        // Validation order matches web's handleSubmit exactly: project (only
+        // when project-related) → approvers → charge ranges → per-line-item
+        // fields. Web has no Indent Name field to validate — the name is
+        // always generated server-side.
+        if (isProjectRelated && !selectedProject) {
             Alert.alert("Error", "Please select a project");
             return;
         }
-        if (materials.length === 0) {
-            Alert.alert("Error", "Please add at least one material item");
+        if (approverIds.length === 0) {
+            Alert.alert("Error", "Select at least one owner for approval");
             return;
         }
-        // The API requires at least one approver; catch it here rather than
-        // letting the request come back as a validation error.
-        if (approverIds.length === 0) {
-            Alert.alert("Error", "Please select at least one approver");
+        const pctCharges: [string, boolean, string][] = [
+            ["Tax", includeTax, taxPercent],
+            ["Excise duty", includeExciseDuty, exciseDutyPercent],
+            ["VAT", includeVat, vatPercent],
+        ];
+        for (const [label, on, value] of pctCharges) {
+            if (!on || value === "") continue;
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+                Alert.alert("Error", `${label} must be between 0% and 100%`);
+                return;
+            }
+        }
+        const flatCharges: [string, boolean, string][] = [
+            ["Transportation charge", includeTransport, transportCharge],
+            ["Labour charge", includeLabour, labourCharge],
+        ];
+        for (const [label, on, value] of flatCharges) {
+            if (!on || value === "") continue;
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed) || parsed < 0) {
+                Alert.alert("Error", `${label} must be a positive amount`);
+                return;
+            }
+        }
+        if (materials.length === 0) {
+            Alert.alert("Error", "Please add at least one material item");
             return;
         }
 
@@ -266,7 +389,6 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                 // silently dropped by zod, which made "editing materials" a no-op
                 // that still reported success. Send only what the route reads.
                 const patch: any = {
-                    name: name.trim(),
                     expectedDelivery: expectedDelivery.toISOString(),
                     approverIds,
                     ...charges,
@@ -279,12 +401,14 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                 // (a query param alone is rejected), the array is `lineItems` (not
                 // `materials` — an unknown key is stripped, silently creating an
                 // indent with no items), and `description` must be omitted rather
-                // than sent as null.
+                // than sent as null. `name` is left unset entirely — web's form has
+                // no name field either; the server always generates one
+                // ("<Project or General> - <first material> - <date>") unless a
+                // caller explicitly supplies one, which no UI here does.
                 const payload: any = {
                     workspaceId: activeWorkspace.id,
-                    projectId: selectedProject.id,
-                    taskId: selectedTask?.id || null,
-                    name: name.trim(),
+                    projectId: isProjectRelated ? selectedProject.id : undefined,
+                    taskId: isProjectRelated ? selectedTask?.id || undefined : undefined,
                     expectedDelivery: expectedDelivery.toISOString(),
                     approverIds,
                     // No in-project entry point exists yet (CreateIndentScreen is
@@ -338,26 +462,12 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                     contentContainerStyle={[styles.scrollContent, { paddingHorizontal: value(SPACING.lg, SPACING.xl, SPACING.xxl) }]}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* General Section */}
+                    {/* General Section — no Indent Name field: web has none either,
+                        and the server always generates one from the project,
+                        first material and date (IndentService.createIndent). */}
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Request Info</Text>
                     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <Text style={[styles.label, { color: colors.textDim }]}>Indent Name *</Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                { backgroundColor: colors.background, color: colors.text, borderColor: formErrors.name ? colors.error : colors.border },
-                            ]}
-                            value={name}
-                            onChangeText={(t) => {
-                                setName(t);
-                                if (formErrors.name) setFormErrors((e) => ({ ...e, name: "" }));
-                            }}
-                            placeholder="e.g. Sourcing Cement for Phase 1"
-                            placeholderTextColor={colors.textDim}
-                        />
-                        {formErrors.name ? <Text style={[styles.errorText, { color: colors.error }]}>{formErrors.name}</Text> : null}
-
-                        <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Description</Text>
+                        <Text style={[styles.label, { color: colors.textDim }]}>Description</Text>
                         <TextInput
                             style={[styles.input, styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                             value={description}
@@ -372,33 +482,120 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                     {/* Logistics Section */}
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Logistics & Assignment</Text>
                     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        
-                        {/* Project Picker */}
-                        <Text style={[styles.label, { color: colors.textDim }]}>Project *</Text>
-                        <View style={styles.pickerRow}>
-                            {projects.map((proj) => (
-                                <TouchableOpacity
-                                    key={proj.id}
-                                    style={[
-                                        styles.pickerPill,
-                                        { borderColor: colors.border },
-                                        selectedProject?.id === proj.id && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                    ]}
-                                    onPress={() => {
-                                        setSelectedProject(proj);
-                                        setSelectedTask(null);
-                                    }}
-                                >
-                                    <Text style={{
-                                        fontFamily: FONTS.bold,
-                                        fontSize: 12,
-                                        color: selectedProject?.id === proj.id ? "#fff" : colors.text
-                                    }}>
-                                        {proj.name}
+
+                        {/* Is this related to a project? Only asked from the global
+                            hub (this screen's only entry point), matching web's
+                            asksProjectQuestion. "No" creates a workspace-level
+                            indent with no project — it then shows up only in the
+                            workspace-wide indent list, not under any project. */}
+                        {!isEdit && (
+                            <>
+                                <Text style={[styles.label, { color: colors.textDim }]}>Is this related to a project? *</Text>
+                                <View style={styles.pickerRow}>
+                                    {([["Yes", true], ["No", false]] as const).map(([label, val]) => (
+                                        <TouchableOpacity
+                                            key={label}
+                                            style={[
+                                                styles.pickerPill,
+                                                { borderColor: colors.border },
+                                                isProjectRelated === val && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                            ]}
+                                            onPress={() => {
+                                                setIsProjectRelated(val);
+                                                if (!val) {
+                                                    setSelectedProject(null);
+                                                    setSelectedTask(null);
+                                                }
+                                            }}
+                                            accessibilityRole="radio"
+                                            accessibilityState={{ selected: isProjectRelated === val }}
+                                        >
+                                            <Text style={{
+                                                fontFamily: FONTS.bold,
+                                                fontSize: 12,
+                                                color: isProjectRelated === val ? "#fff" : colors.text,
+                                            }}>
+                                                {label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                {!isProjectRelated && (
+                                    <Text style={[styles.errorText, { color: colors.textDim, fontFamily: FONTS.regular }]}>
+                                        Saved as a general indent. It appears in the workspace indent list only, not under any project.
                                     </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                                )}
+                            </>
+                        )}
+
+                        {/* Project Picker */}
+                        {isProjectRelated && (
+                            <>
+                                <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Project *</Text>
+                                <View style={styles.pickerRow}>
+                                    {projects.map((proj) => (
+                                        <TouchableOpacity
+                                            key={proj.id}
+                                            style={[
+                                                styles.pickerPill,
+                                                { borderColor: colors.border },
+                                                selectedProject?.id === proj.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                            ]}
+                                            onPress={() => {
+                                                setSelectedProject(proj);
+                                                setSelectedTask(null);
+                                            }}
+                                        >
+                                            <Text style={{
+                                                fontFamily: FONTS.bold,
+                                                fontSize: 12,
+                                                color: selectedProject?.id === proj.id ? "#fff" : colors.text
+                                            }}>
+                                                {proj.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
+
+                        {/* Task Picker — optional, matching web's "Link to Subtask
+                            (Optional)". Only offered when the project has
+                            procurement-taggable subtasks without an indent yet. */}
+                        {isProjectRelated && selectedProject && !loadingProjectTasks && projectTasks.length > 0 && (
+                            <>
+                                <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Link to Subtask (Optional)</Text>
+                                <View style={styles.pickerRow}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.pickerPill,
+                                            { borderColor: colors.border },
+                                            !selectedTask && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                        ]}
+                                        onPress={() => handleTaskSelect(null)}
+                                    >
+                                        <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: !selectedTask ? "#fff" : colors.text }}>
+                                            None / Project-level
+                                        </Text>
+                                    </TouchableOpacity>
+                                    {projectTasks.map((t) => (
+                                        <TouchableOpacity
+                                            key={t.id}
+                                            style={[
+                                                styles.pickerPill,
+                                                { borderColor: colors.border },
+                                                selectedTask?.id === t.id && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                            ]}
+                                            onPress={() => handleTaskSelect(t)}
+                                        >
+                                            <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: selectedTask?.id === t.id ? "#fff" : colors.text }}>
+                                                {t.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
                         {/* Approvers — required by the API (at least one). Web
                             selects workspace owners here; the value submitted is
@@ -693,7 +890,7 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                                         <TextInput
                                             style={[styles.modalInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                                             value={matQty}
-                                            onChangeText={setMatQty}
+                                            onChangeText={handleMatQtyChange}
                                             keyboardType="numeric"
                                             placeholder="100"
                                             placeholderTextColor={colors.textDim}
@@ -712,15 +909,66 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                                     </View>
                                 </View>
 
-                                <Text style={[styles.label, { color: colors.textDim }]}>Estimated Price (Optional, per unit)</Text>
-                                <TextInput
-                                    style={[styles.modalInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                                    value={matEstPrice}
-                                    onChangeText={setMatEstPrice}
-                                    keyboardType="numeric"
-                                    placeholder="450"
-                                    placeholderTextColor={colors.textDim}
-                                />
+                                {/* Unit chips from the workspace's configured units of
+                                    measure (falling back to the same defaults web uses
+                                    when a workspace has none) — tapping one fills the
+                                    Unit field above; it stays editable for anything
+                                    not in the list, same as web's <select> + custom
+                                    value. */}
+                                {units.length > 0 && (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                                        <View style={styles.pickerRow}>
+                                            {units.map((u) => (
+                                                <TouchableOpacity
+                                                    key={u.abbreviation}
+                                                    style={[
+                                                        styles.unitChip,
+                                                        { borderColor: colors.border },
+                                                        matUnit === u.abbreviation && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                                    ]}
+                                                    onPress={() => setMatUnit(u.abbreviation)}
+                                                >
+                                                    <Text style={{
+                                                        fontFamily: FONTS.bold,
+                                                        fontSize: 11,
+                                                        color: matUnit === u.abbreviation ? "#fff" : colors.text,
+                                                    }}>
+                                                        {u.abbreviation}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                )}
+
+                                {/* Unit price and total price stay in sync (see
+                                    handleMatUnitPriceChange/handleMatTotalPriceChange),
+                                    matching web's line-item table. */}
+                                <View style={styles.row}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.label, { color: colors.textDim }]}>Est. Unit Price (Optional)</Text>
+                                        <TextInput
+                                            style={[styles.modalInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                            value={matEstPrice}
+                                            onChangeText={handleMatUnitPriceChange}
+                                            keyboardType="numeric"
+                                            placeholder="450"
+                                            placeholderTextColor={colors.textDim}
+                                        />
+                                    </View>
+                                    <View style={{ width: SPACING.md }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.label, { color: colors.textDim }]}>Total Price (Optional)</Text>
+                                        <TextInput
+                                            style={[styles.modalInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                            value={matTotalPrice}
+                                            onChangeText={handleMatTotalPriceChange}
+                                            keyboardType="numeric"
+                                            placeholder="45000"
+                                            placeholderTextColor={colors.textDim}
+                                        />
+                                    </View>
+                                </View>
 
                                 <Text style={[styles.label, { color: colors.textDim }]}>Specifications (Optional)</Text>
                                 <TextInput
@@ -786,7 +1034,8 @@ const styles = StyleSheet.create({
     
     pickerRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     pickerPill: { paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: BORDER_RADIUS.full, borderWidth: 1 },
-    
+    unitChip: { paddingHorizontal: SPACING.sm, paddingVertical: 5, borderRadius: BORDER_RADIUS.full, borderWidth: 1, marginRight: 6 },
+
     addMatBtn: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
     addMatText: { fontSize: 12, fontFamily: FONTS.bold, marginLeft: 2 },
     
