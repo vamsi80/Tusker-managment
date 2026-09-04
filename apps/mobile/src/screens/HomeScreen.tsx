@@ -28,7 +28,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SPACING, FONTS, BORDER_RADIUS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { Skeleton } from "../components/Skeleton";
-import { getBirthdays, BirthdayMember } from "../services/api";
+import { getBirthdays, BirthdayMember, getWorkspaceCapabilities } from "../services/api";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useNotifications } from "../context/NotificationContext";
 import { MainTabParamList, RootStackParamList, Workspace, Task } from "../types";
@@ -89,6 +89,9 @@ export default function HomeScreen({ navigation }: Props) {
     // null, and a skeleton that never resolves is worse than a blank name.
     const [profileLoading, setProfileLoading] = useState(true);
     const [birthdays, setBirthdays] = useState<BirthdayMember[] | null>(null);
+    // Procurement is gated by `procurement:view` server-side; without this the
+    // entry point would 403 for members who lack it.
+    const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
     const [actionLoading, setActionLoading] = useState<boolean>(false);
     const [checkOutSheetVisible, setCheckOutSheetVisible] = useState<boolean>(false);
 
@@ -177,7 +180,10 @@ export default function HomeScreen({ navigation }: Props) {
     };
 
     useEffect(() => {
-        if (activeWorkspace?.id) fetchBirthdays(activeWorkspace.id);
+        if (activeWorkspace?.id) {
+            fetchBirthdays(activeWorkspace.id);
+            getWorkspaceCapabilities(activeWorkspace.id).then(setCapabilities);
+        }
     }, [activeWorkspace?.id]);
 
     useEffect(() => {
@@ -664,8 +670,32 @@ export default function HomeScreen({ navigation }: Props) {
                                     </View>
                                 </TouchableOpacity>
 
-                                {/* Spacer placeholder view to keep sizes equal */}
-                                <View style={{ flex: 1 }} />
+                                {/* Card 5: Procurement. The screens were registered in
+                                    MainTabNavigator but nothing navigated to them, so the
+                                    whole feature was unreachable. Shown only when the
+                                    workspace grants procurement:view. */}
+                                {capabilities["procurement:view"] ? (
+                                    <TouchableOpacity
+                                        style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                        activeOpacity={0.8}
+                                        onPress={() => (navigation as any).navigate("Procurement")}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Procurement"
+                                    >
+                                        <View style={styles.gridCardHeader}>
+                                            <MaterialCommunityIcons name="clipboard-list-outline" size={20} color={colors.text} />
+                                        </View>
+                                        <Text style={[styles.gridCardValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                                            Procurement
+                                        </Text>
+                                        <Text style={[styles.gridCardTitle, { color: colors.textDim }]}>Indents</Text>
+                                        <View style={[styles.arrowCircle, { backgroundColor: colors.primary + "24" }]}>
+                                            <Ionicons name="arrow-forward" size={12} color={colors.primary} />
+                                        </View>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={{ flex: 1 }} />
+                                )}
                             </View>
                         </>
                     )}

@@ -207,6 +207,8 @@ export interface RadialMenuProps {
     type: string;
     onClose: () => void;
     onAction: (id: string) => void;
+    /** Show the Procurement action — gated on the workspace's procurement:view capability. */
+    procurementEnabled?: boolean;
 }
 
 export interface RadialActionItem {

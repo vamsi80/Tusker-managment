@@ -22,6 +22,7 @@ import ProjectDashboard from "./project/ProjectDashboard";
 import ProjectTaskList from "./project/ProjectTaskList";
 import ProjectKanban from "./project/ProjectKanban";
 import ProjectGanttView from "./project/ProjectGanttView";
+import ProjectMaterialsScreen from "./project/ProjectMaterialsScreen";
 import TaskFilterSheet from "../components/TaskFilterSheet";
 import CreateTaskModal from "../components/CreateTaskModal";
 import { useResponsive } from "../hooks/useResponsive";
@@ -36,6 +37,7 @@ const tabs = [
     { id: "Tasks", label: "List", icon: "list-outline" as const },
     { id: "Kanban", label: "Kanban", icon: "apps-outline" as const },
     { id: "Gantt", label: "Gantt", icon: "layers-outline" as const },
+    { id: "Materials", label: "Materials", icon: "cube-outline" as const },
 ];
 
 export default function ProjectDetailScreen({ route, navigation }: Props) {
@@ -231,7 +233,12 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
                                         size={18}
                                         color={isActive ? colors.textInverse : colors.textDim}
                                     />
-                                    <Text style={[styles.tabLabel, { color: colors.textDim }, isActive && { color: colors.textInverse }]}>
+                                    <Text
+                                        style={[styles.tabLabel, { color: colors.textDim }, isActive && { color: colors.textInverse }]}
+                                        numberOfLines={1}
+                                        adjustsFontSizeToFit
+                                        minimumFontScale={0.8}
+                                    >
                                         {tab.label}
                                     </Text>
                                 </PressableScale>
@@ -269,6 +276,9 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
                     <View style={{ width: COMPONENT_WIDTH, flex: 1 }}>
                         <ProjectGanttView {...(props as any)} />
                     </View>
+                    <View style={{ width: COMPONENT_WIDTH, flex: 1 }}>
+                        <ProjectMaterialsScreen projectId={projectId} />
+                    </View>
                 </ScrollView>
             </View>
 
@@ -300,7 +310,7 @@ const styles = StyleSheet.create({
 
     tabBarContainer: { paddingVertical: SPACING.sm, borderBottomWidth: 1 },
     tabBar: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 4, height: 48, justifyContent: "space-between", borderWidth: 1 },
-    tabItem: { flex: 1, minHeight: TOUCH_TARGET.min - 8, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: BORDER_RADIUS.sm, gap: 6 },
+    tabItem: { flex: 1, minHeight: TOUCH_TARGET.min - 8, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: BORDER_RADIUS.sm, gap: 4, paddingHorizontal: 2 },
     tabLabel: { fontSize: 12, fontWeight: "600" },
 
     activeFiltersBar: { paddingVertical: SPACING.sm, borderBottomWidth: 1 },

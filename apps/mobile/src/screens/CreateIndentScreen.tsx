@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from "date-fns";
 import { useTheme } from "../context/ThemeContext";
+import OptionPickerSheet, { PickerOption } from "../components/OptionPickerSheet";
 import { DetailSkeleton } from "../components/ScreenSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
@@ -51,7 +52,11 @@ export default function CreateIndentScreen({ route, navigation }: any) {
     const [description, setDescription] = useState("");
     const [selectedProject, setSelectedProject] = useState<any>(null);
     const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [selectedAssignee, setSelectedAssignee] = useState<any>(null);
+    // The API requires approverIds (workspaceMember ids, at least one). Web
+    // sources these from workspace OWNERs; a single "assignee" was never a
+    // field the create endpoint accepted.
+    const [approverIds, setApproverIds] = useState<string[]>([]);
+    const [approverPickerOpen, setApproverPickerOpen] = useState(false);
     const [expectedDelivery, setExpectedDelivery] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [materials, setMaterials] = useState<any[]>([]);
@@ -76,7 +81,7 @@ export default function CreateIndentScreen({ route, navigation }: any) {
         try {
             const [projectsData, membersData, catalogData] = await Promise.all([
                 getProcurableProjects(activeWorkspace.id),
-                getWorkspaceMembers(activeWorkspace.id),
+                getWorkspaceMembers(activeWorkspace.id, "OWNER"),
                 getMaterialsCatalog(activeWorkspace.id),
             ]);
             setProjects(projectsData);
@@ -105,8 +110,11 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                 if (matchedProj) setSelectedProject(matchedProj);
 
                 // Match assignee
-                const matchedAssignee = membersData.find(m => m.id === editPayload.assignedToId);
-                if (matchedAssignee) setSelectedAssignee(matchedAssignee);
+                if (Array.isArray(editPayload.approverIds)) {
+                    setApproverIds(editPayload.approverIds);
+                } else if (Array.isArray(editPayload.approvals)) {
+                    setApproverIds(editPayload.approvals.map((a: any) => a.workspaceMemberId).filter(Boolean));
+                }
             }
         } catch (error) {
             console.error("CreateIndentScreen load error:", error);
@@ -174,6 +182,19 @@ export default function CreateIndentScreen({ route, navigation }: any) {
         setMaterials(updated);
     };
 
+    const approverOptions: PickerOption[] = members.map((m: any) => ({
+        id: m.id,
+        label: m.user?.surname || m.user?.name || "Member",
+        searchText: m.user?.email || "",
+    }));
+
+    const approverSummary =
+        approverIds.length === 0
+            ? "Select approvers"
+            : approverIds.length === 1
+                ? (approverOptions.find(o => o.id === approverIds[0])?.label ?? "1 selected")
+                : `${approverIds.length} selected`;
+
     const handleSubmit = async () => {
         if (!activeWorkspace?.id) return;
         if (!name.trim()) {
@@ -189,22 +210,38 @@ export default function CreateIndentScreen({ route, navigation }: any) {
             Alert.alert("Error", "Please add at least one material item");
             return;
         }
+        // The API requires at least one approver; catch it here rather than
+        // letting the request come back as a validation error.
+        if (approverIds.length === 0) {
+            Alert.alert("Error", "Please select at least one approver");
+            return;
+        }
 
         setSubmitting(true);
         try {
-            const payload = {
+            // Shape mirrors CreateIndentSchema in apps/api .../procurement-indents.ts:
+            //   workspaceId lives in the BODY (a query param alone is rejected),
+            //   the array is `lineItems` (not `materials` — an unknown key is
+            //   stripped, silently creating an indent with no items), and
+            //   `description` must be omitted rather than sent as null.
+            const trimmedDescription = description.trim();
+            const payload: any = {
+                workspaceId: activeWorkspace.id,
                 projectId: selectedProject.id,
                 taskId: selectedTask?.id || null,
                 name: name.trim(),
-                description: description.trim() || null,
                 expectedDelivery: expectedDelivery.toISOString(),
-                assignedToId: selectedAssignee?.id || null,
-                materials: materials.map(m => ({
-                    ...m,
+                approverIds,
+                lineItems: materials.map(m => ({
+                    materialCatalogId: m.materialCatalogId || undefined,
+                    materialName: m.materialName,
+                    unit: m.unit,
                     quantity: parseInt(m.quantity, 10),
                     estimatedUnitPrice: m.estimatedUnitPrice ? parseInt(m.estimatedUnitPrice, 10) : undefined,
+                    specifications: m.specifications || undefined,
                 })),
             };
+            if (trimmedDescription) payload.description = trimmedDescription;
 
             if (isEdit) {
                 await editIndent(activeWorkspace.id, editPayload.id, payload);
@@ -308,32 +345,30 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                             ))}
                         </View>
 
-                        {/* Assignee Picker */}
-                        <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Assign to (Procurement Person)</Text>
-                        <View style={styles.pickerRow}>
-                            {members.slice(0, 4).map((member) => {
-                                const displayName = member.user.surname || member.user.name || "Member";
-                                return (
-                                    <TouchableOpacity
-                                        key={member.id}
-                                        style={[
-                                            styles.pickerPill,
-                                            { borderColor: colors.border },
-                                            selectedAssignee?.id === member.id && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                        ]}
-                                        onPress={() => setSelectedAssignee(member)}
-                                    >
-                                        <Text style={{
-                                            fontFamily: FONTS.bold,
-                                            fontSize: 12,
-                                            color: selectedAssignee?.id === member.id ? "#fff" : colors.text
-                                        }}>
-                                            {displayName}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                        {/* Approvers — required by the API (at least one). Web
+                            selects workspace owners here; the value submitted is
+                            the workspaceMember id. */}
+                        <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Approvers *</Text>
+                        <TouchableOpacity
+                            style={[styles.input, { borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+                            onPress={() => setApproverPickerOpen(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Approvers: ${approverSummary}`}
+                            accessibilityHint="Opens the approver list"
+                        >
+                            <Text
+                                style={{
+                                    flex: 1,
+                                    fontSize: 16,
+                                    fontFamily: FONTS.medium,
+                                    color: approverIds.length ? colors.text : colors.textDim,
+                                }}
+                                numberOfLines={1}
+                            >
+                                {approverSummary}
+                            </Text>
+                            <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                        </TouchableOpacity>
 
                         {/* Expected Delivery Date Picker */}
                         <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Expected Delivery *</Text>
@@ -507,6 +542,23 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                     </View>
                 </Modal>
             </View>
+
+            <OptionPickerSheet
+                visible={approverPickerOpen}
+                onClose={() => setApproverPickerOpen(false)}
+                title="Select Approvers"
+                options={approverOptions}
+                multiple
+                selectedIds={approverIds}
+                onToggle={(id) =>
+                    setApproverIds((prev) =>
+                        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                    )
+                }
+                onClearAll={() => setApproverIds([])}
+                emptyText="No workspace owners available"
+                clearLabel="None"
+            />
         </SafeAreaView>
     );
 }

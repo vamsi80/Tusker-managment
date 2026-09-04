@@ -181,6 +181,22 @@ workspaces.get("/:workspaceId/members/slim", async (c) => {
 });
 
 /**
+ * GET /api/v1/workspaces/:workspaceId/capabilities
+ *
+ * The capability map the API gates on (procurement:view, vendors:view,
+ * project:create, ...). Clients need it to avoid offering entry points that
+ * would come back 403 — the mobile app had no way to ask for this.
+ */
+workspaces.get("/:workspaceId/capabilities", async (c) => {
+  const workspaceId = c.req.param("workspaceId");
+  const user = c.get("user");
+  const { fetchWorkspacePermissions } = await import("@tusker/core/permissions");
+  const permissions = await fetchWorkspacePermissions(workspaceId, user.id, true);
+  const capabilities = permissions.capabilities ?? {};
+  return c.json({ success: true, data: capabilities, capabilities });
+});
+
+/**
  * GET /api/v1/workspaces/:workspaceId/birthdays
  * Members with a birthday in the current month.
  */

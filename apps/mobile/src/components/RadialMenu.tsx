@@ -24,6 +24,7 @@ export default function RadialMenu({
     visible,
     onClose,
     onAction,
+    procurementEnabled,
 }: RadialMenuProps) {
     const { colors, isDark } = useTheme();
     const insets = useSafeAreaInsets();
@@ -36,6 +37,11 @@ export default function RadialMenu({
         { id: "tag", label: "Tag", icon: "pricetag", color: "#f59e0b" },
         { id: "attendance", label: "Attendance", icon: "time", color: "#10b981" },
         { id: "ai", label: "Trava AI", icon: "sparkles", color: "#ec4899" },
+        // Hidden for members without procurement:view — the entry point would
+        // otherwise 403 when they reached the list.
+        ...(procurementEnabled
+            ? [{ id: "procurement", label: "Procurement", icon: "clipboard-outline" as const, color: "#06b6d4" }]
+            : []),
     ];
 
     const handleSelect = (id: string) => {
