@@ -752,6 +752,15 @@ export class ProjectService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Day key used for date-only attendance lookups, independent of server TZ.
+    // Attendance rows are written at UTC midnight for the IST calendar day
+    // (see AttendanceService / getISTDateOnly); matching against local-midnight
+    // `today` only worked when the server itself ran in UTC — from IST it
+    // resolved to 18:30 the previous day and matched almost nothing, making
+    // "Absent Today" read as nearly everyone.
+    const { getISTDateOnly } = await import("../../../lib/date-utils");
+    const attendanceDate = getISTDateOnly(new Date());
+
     // Week boundaries (Monday -> Sunday)
     const dayOfWeek = today.getDay();
     const weekStart = new Date(today);
@@ -848,7 +857,7 @@ export class ProjectService {
       prisma.attendance.findMany({
         where: {
           workspaceId,
-          date: today,
+          date: attendanceDate,
           status: { in: ["PRESENT", "LATE", "HALF_DAY"] },
         },
         select: { workspaceMemberId: true },
