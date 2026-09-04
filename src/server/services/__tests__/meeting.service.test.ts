@@ -31,6 +31,10 @@ vi.mock("@/lib/db", () => {
     task: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    workspaceMember: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+    },
     public_holiday: {
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -167,5 +171,123 @@ describe("MeetingService", () => {
       })
     );
     expect(result.success).toBe(true);
+  });
+
+  describe("Role-based task visibility in calendar", () => {
+    it("filters tasks so a normal member only views tasks assigned to them", async () => {
+      (prisma.meeting.findMany as any).mockResolvedValue([]);
+      (prisma.public_holiday.findMany as any).mockResolvedValue([]);
+      (prisma.leave_request.findMany as any).mockResolvedValue([]);
+
+      (prisma.workspaceMember.findFirst as any).mockResolvedValue({
+        id: "mem-1",
+        workspaceRole: "MEMBER",
+        workspace: { ownerId: "owner-1" },
+        managedProjects: [],
+        projectMembers: [],
+        subordinates: [],
+      });
+
+      await MeetingService.getMeetings(
+        "w-1",
+        { startDate: "2026-09-01", endDate: "2026-09-30", includeLayers: true },
+        "user-member"
+      );
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            workspaceId: "w-1",
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { assignee: { workspaceMember: { userId: "user-member" } } },
+                  { assigneeId: "user-member" },
+                  { assignee: { workspaceMemberId: "mem-1" } },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it("allows a project manager to view their team members' tasks (managed projects and subordinates)", async () => {
+      (prisma.meeting.findMany as any).mockResolvedValue([]);
+      (prisma.public_holiday.findMany as any).mockResolvedValue([]);
+      (prisma.leave_request.findMany as any).mockResolvedValue([]);
+
+      (prisma.workspaceMember.findFirst as any).mockResolvedValue({
+        id: "pm-1",
+        workspaceRole: "MEMBER",
+        workspace: { ownerId: "owner-1" },
+        managedProjects: [{ id: "proj-managed-1" }],
+        projectMembers: [{ projectId: "proj-lead-1" }],
+        subordinates: [{ id: "sub-member-1", userId: "sub-user-1" }],
+      });
+
+      await MeetingService.getMeetings(
+        "w-1",
+        { startDate: "2026-09-01", endDate: "2026-09-30", includeLayers: true },
+        "user-pm"
+      );
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            workspaceId: "w-1",
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { assignee: { workspaceMember: { userId: "user-pm" } } },
+                  { assigneeId: "user-pm" },
+                  { assignee: { workspaceMemberId: "pm-1" } },
+                  { projectId: { in: ["proj-managed-1", "proj-lead-1"] } },
+                  {
+                    OR: [
+                      { assignee: { workspaceMemberId: { in: ["sub-member-1"] } } },
+                      { assignee: { workspaceMember: { userId: { in: ["sub-user-1"] } } } },
+                    ],
+                  },
+                ]),
+              }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it("allows an owner to view everybody's tasks without restrictions", async () => {
+      (prisma.meeting.findMany as any).mockResolvedValue([]);
+      (prisma.public_holiday.findMany as any).mockResolvedValue([]);
+      (prisma.leave_request.findMany as any).mockResolvedValue([]);
+
+      (prisma.workspaceMember.findFirst as any).mockResolvedValue({
+        id: "owner-member-1",
+        workspaceRole: "OWNER",
+        workspace: { ownerId: "user-owner" },
+        managedProjects: [],
+        projectMembers: [],
+        subordinates: [],
+      });
+
+      await MeetingService.getMeetings(
+        "w-1",
+        { startDate: "2026-09-01", endDate: "2026-09-30", includeLayers: true },
+        "user-owner"
+      );
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            workspaceId: "w-1",
+            dueDate: expect.any(Object),
+          },
+        })
+      );
+      // Verify no AND condition was added restricting assignees
+      const lastCall = (prisma.task.findMany as any).mock.calls.at(-1)[0];
+      expect(lastCall.where.AND).toBeUndefined();
+    });
   });
 });

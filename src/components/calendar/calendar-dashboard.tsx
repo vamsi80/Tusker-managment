@@ -66,11 +66,20 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
       }
     };
 
+    const handleTaskSyncEvent = (e: any) => {
+      if (e.detail && workspaceId) {
+        console.log("[CALENDAR_DASHBOARD] 🔄 Real-time task sync event received:", e.detail.action);
+        fetchCalendarData(workspaceId);
+      }
+    };
+
     window.addEventListener("realtime-meeting-sync", handleMeetingSyncEvent);
+    window.addEventListener("realtime-task-sync", handleTaskSyncEvent);
     return () => {
       window.removeEventListener("realtime-meeting-sync", handleMeetingSyncEvent);
+      window.removeEventListener("realtime-task-sync", handleTaskSyncEvent);
     };
-  }, [handleRealtimeSync]);
+  }, [handleRealtimeSync, fetchCalendarData, workspaceId]);
 
   // Date Navigation handlers
   const handlePrev = () => {

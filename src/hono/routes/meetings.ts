@@ -38,19 +38,24 @@ meetings.get("/", async (c) => {
     throw AppError.ValidationError("Missing workspaceId parameter");
   }
 
+  const user = c.get("user");
   const startDate = c.req.query("startDate");
   const endDate = c.req.query("endDate");
   const projectId = c.req.query("projectId");
   const type = c.req.query("type") as any;
   const includeLayers = c.req.query("includeLayers") === "true";
 
-  const result = await MeetingService.getMeetings(workspaceId, {
-    startDate,
-    endDate,
-    projectId,
-    type,
-    includeLayers,
-  });
+  const result = await MeetingService.getMeetings(
+    workspaceId,
+    {
+      startDate,
+      endDate,
+      projectId,
+      type,
+      includeLayers,
+    },
+    user?.id
+  );
 
   return c.json({ success: true, data: result });
 });

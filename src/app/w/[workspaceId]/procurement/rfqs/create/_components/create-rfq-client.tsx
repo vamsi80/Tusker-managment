@@ -318,7 +318,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
             {/* Row 1: Vendor Header/Selectors */}
             <tr className="bg-muted/15 border-b">
               {/* Vertical Title spacer */}
-              <th className="w-10 p-0 border-r bg-neutral-900" rowSpan={8}>
+              <th className="w-10 p-0 border-r bg-neutral-900" rowSpan={7}>
                 <div className="h-full flex items-center justify-center py-6">
                   <span className="transform -rotate-90 origin-center text-neutral-400 font-black tracking-widest text-[10px] uppercase whitespace-nowrap block">
                     COMPARISON
@@ -470,8 +470,10 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
 
             {/* Row 5: Lead Time */}
             <tr className="border-b">
-              <th className="p-2 text-[10px] uppercase font-bold text-muted-foreground border-r bg-muted/5 flex items-center gap-1">
-                Lead Time → <Clock className="size-3" />
+              <th className="p-2 text-[10px] uppercase font-bold text-muted-foreground border-r bg-muted/5">
+                <span className="flex items-center gap-1">
+                  Lead Time → <Clock className="size-3" />
+                </span>
               </th>
               <th className="p-2 border-r bg-muted/5" colSpan={2}></th>
               {selectedVendorIds.map((vId, idx) => {
@@ -558,21 +560,23 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
             {/* Selected Material Rows */}
             {selectedRowItems.map((item) => (
               <tr key={item.id} className="border-b transition-colors hover:bg-muted/10 group">
-                <td className="p-2.5 border-r font-semibold text-xs text-foreground flex items-center justify-between">
-                  <div className="flex flex-col gap-0.5 truncate">
-                    <span className="truncate">{item.materialName}</span>
-                    <span className="text-[9px] text-muted-foreground truncate">
-                      Project: {item.project?.name} | Indent: {item.indentName}
-                    </span>
+                <td className="p-2.5 border-r font-semibold text-xs text-foreground align-top">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="truncate">{item.materialName}</span>
+                      <span className="text-[9px] text-muted-foreground truncate">
+                        Project: {item.project?.name} | Indent: {item.indentName}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveMaterial(item.id)}
+                      className="size-6 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 text-muted-foreground shrink-0"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveMaterial(item.id)}
-                    className="size-6 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 text-muted-foreground shrink-0"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
                 </td>
                 <td className="p-2.5 border-r text-center font-mono text-xs text-foreground">
                   {item.quantity}

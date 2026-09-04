@@ -36,7 +36,7 @@ export class MeetingService {
   /**
    * Retrieve workspace meetings and optional ERP calendar layers (tasks, holidays, leaves).
    */
-  static async getMeetings(workspaceId: string, filter: GetMeetingsFilter = {}) {
+  static async getMeetings(workspaceId: string, filter: GetMeetingsFilter = {}, userId?: string) {
     const start = filter.startDate ? new Date(filter.startDate) : undefined;
     const end = filter.endDate ? new Date(filter.endDate) : undefined;
 
@@ -118,13 +118,100 @@ export class MeetingService {
       return { meetings, taskDeadlines: [], publicHolidays: [], leaves: [] };
     }
 
+    // ponytail: Role-based task visibility filter for calendar
+    // - Normal members see only their assigned tasks
+    // - Project managers see their team members' tasks (managed projects & direct reports) + their own tasks
+    // - Owners/Admins see all tasks across the workspace
+    let taskWhere: any = {
+      workspaceId,
+      dueDate: { not: null, ...(start && end ? { gte: start, lte: end } : {}) },
+    };
+
+    if (filter.projectId) {
+      taskWhere.projectId = filter.projectId;
+    }
+
+    if (userId) {
+      const workspaceMember = await prisma.workspaceMember.findFirst({
+        where: { workspaceId, userId },
+        select: {
+          id: true,
+          workspaceRole: true,
+          workspace: {
+            select: { ownerId: true },
+          },
+          managedProjects: {
+            select: { id: true },
+          },
+          projectMembers: {
+            where: {
+              projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
+            },
+            select: { projectId: true },
+          },
+          subordinates: {
+            select: { id: true, userId: true },
+          },
+        },
+      });
+
+      if (!workspaceMember) {
+        // User is not a member of this workspace -> no tasks visible
+        taskWhere.id = "__none__";
+      } else {
+        const isOwnerOrAdmin =
+          workspaceMember.workspaceRole === "OWNER" ||
+          workspaceMember.workspaceRole === "ADMIN" ||
+          workspaceMember.workspace?.ownerId === userId;
+
+        if (!isOwnerOrAdmin) {
+          const managedProjectIds = Array.from(
+            new Set([
+              ...workspaceMember.managedProjects.map((p) => p.id),
+              ...workspaceMember.projectMembers.map((pm) => pm.projectId),
+            ])
+          );
+          const subordinateMemberIds = workspaceMember.subordinates.map((s) => s.id);
+          const subordinateUserIds = workspaceMember.subordinates.map((s) => s.userId);
+
+          // Criteria:
+          // 1. Members can view their own tasks (assigned to their project member / user ID)
+          // 2. Project managers can see their team members' tasks:
+          //    - all tasks in projects they manage (their project team's tasks)
+          //    - all tasks assigned to direct subordinate team members (reportTo)
+          const visibilityConditions: any[] = [
+            { assignee: { workspaceMember: { userId } } },
+            { assigneeId: userId },
+            { assignee: { workspaceMemberId: workspaceMember.id } },
+          ];
+
+          if (managedProjectIds.length > 0) {
+            visibilityConditions.push({
+              projectId: { in: managedProjectIds },
+            });
+          }
+
+          if (subordinateMemberIds.length > 0 || subordinateUserIds.length > 0) {
+            visibilityConditions.push({
+              OR: [
+                { assignee: { workspaceMemberId: { in: subordinateMemberIds } } },
+                { assignee: { workspaceMember: { userId: { in: subordinateUserIds } } } },
+              ],
+            });
+          }
+
+          taskWhere.AND = [
+            ...(taskWhere.AND ? (Array.isArray(taskWhere.AND) ? taskWhere.AND : [taskWhere.AND]) : []),
+            { OR: visibilityConditions },
+          ];
+        }
+      }
+    }
+
     // ponytail: parallel stdlib queries for multi-layered ERP calendar view
     const [tasks, holidays, leaves] = await Promise.all([
       prisma.task.findMany({
-        where: {
-          workspaceId,
-          dueDate: { not: null, ...(start && end ? { gte: start, lte: end } : {}) },
-        },
+        where: taskWhere,
         select: {
           id: true,
           name: true,

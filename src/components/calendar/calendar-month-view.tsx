@@ -309,6 +309,39 @@ export function CalendarMonthView() {
                             </p>
                           </div>
                         ))}
+
+                        {dayTasks.map((t) => (
+                          <div
+                            key={t.id}
+                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 truncate"
+                            title={`Task: ${t.title}`}
+                          >
+                            <CheckSquare className="size-3 shrink-0 text-slate-600 dark:text-slate-400" />
+                            <span className="truncate">{t.title}</span>
+                          </div>
+                        ))}
+
+                        {dayHolidays.map((h) => (
+                          <div
+                            key={h.id}
+                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 truncate"
+                            title={`Holiday: ${h.name}`}
+                          >
+                            <Sparkles className="size-3 shrink-0" />
+                            <span className="truncate">{h.name}</span>
+                          </div>
+                        ))}
+
+                        {dayLeaves.map((l, i) => (
+                          <div
+                            key={`${l.id}-${i}`}
+                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 truncate"
+                            title={`On Leave: ${l.member}`}
+                          >
+                            <UserX className="size-3 shrink-0" />
+                            <span className="truncate">{l.member} (Leave)</span>
+                          </div>
+                        ))}
                       </div>
                     </PopoverContent>
                   </Popover>
