@@ -19,9 +19,11 @@ import { ListSkeleton } from "../components/ScreenSkeleton";
 import { haptics } from "../services/haptics";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
-import { getIndentRequestsPage, getVendors } from "../services/api";
+import { getIndentRequestsPage, getVendors, getIndentLineItemsHub } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 import StatusChip, { StatusKind } from "../components/StatusChip";
+import Sheet from "../components/Sheet";
+import PressableScale from "../components/PressableScale";
 
 const { width } = Dimensions.get("window");
 
@@ -32,9 +34,11 @@ export default function ProcurementScreen({ navigation }: any) {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"indents" | "vendors">("indents");
+  const [activeTab, setActiveTab] = useState<"indents" | "materials" | "vendors">("indents");
   const [indents, setIndents] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [lineItems, setLineItems] = useState<any[]>([]);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
@@ -45,14 +49,16 @@ export default function ProcurementScreen({ navigation }: any) {
   const loadData = useCallback(async () => {
     if (!activeWorkspace?.id) return;
     try {
-      const [indentPage, vendorsData] = await Promise.all([
+      const [indentPage, vendorsData, lineItemsData] = await Promise.all([
         getIndentRequestsPage(activeWorkspace.id, undefined, debouncedSearch),
         getVendors(activeWorkspace.id),
+        getIndentLineItemsHub(activeWorkspace.id),
       ]);
       setIndents(indentPage.indents);
       setHasMoreIndents(indentPage.hasMore);
       setNextIndentCursor(indentPage.nextCursor);
       setVendors(vendorsData);
+      setLineItems(lineItemsData);
     } catch (error) {
       console.error("ProcurementScreen load error:", error);
     } finally {
@@ -124,10 +130,43 @@ export default function ProcurementScreen({ navigation }: any) {
         ind.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (ind.indentId &&
           ind.indentId.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (ind.Project?.name &&
-          ind.Project.name.toLowerCase().includes(searchQuery.toLowerCase())),
+        (ind.project?.name &&
+          ind.project.name.toLowerCase().includes(searchQuery.toLowerCase())),
     );
   }, [indents, searchQuery]);
+
+  // Groups line items by material name+unit (case-insensitive), matching
+  // web's Procurement > Materials hub — this is what actually links a
+  // material to the indent(s) it's raised through.
+  const groupedMaterials = useMemo(() => {
+    const map: Record<string, {
+      groupKey: string;
+      materialName: string;
+      unit: string;
+      combinedQuantity: number;
+      items: any[];
+      projectsCount: number;
+    }> = {};
+    for (const item of lineItems) {
+      const key = `${(item.materialName || "").toLowerCase().trim()}_${(item.unit || "").toLowerCase().trim()}`;
+      if (!map[key]) {
+        map[key] = { groupKey: key, materialName: item.materialName, unit: item.unit, combinedQuantity: 0, items: [], projectsCount: 0 };
+      }
+      map[key].combinedQuantity += item.quantity || 0;
+      map[key].items.push(item);
+    }
+    return Object.values(map).map((group) => ({
+      ...group,
+      projectsCount: new Set(group.items.map((i) => i.indent?.project?.id).filter(Boolean)).size,
+    }));
+  }, [lineItems]);
+
+  const filteredMaterialGroups = useMemo(() => {
+    if (!searchQuery) return groupedMaterials;
+    return groupedMaterials.filter((g) => g.materialName.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [groupedMaterials, searchQuery]);
+
+  const selectedGroup = selectedGroupKey ? groupedMaterials.find((g) => g.groupKey === selectedGroupKey) || null : null;
 
   const filteredVendors = useMemo(() => {
     if (!searchQuery) return vendors;
@@ -177,6 +216,7 @@ export default function ProcurementScreen({ navigation }: any) {
   }
 
   return (
+    <>
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={["top"]}
@@ -274,6 +314,29 @@ export default function ProcurementScreen({ navigation }: any) {
             <TouchableOpacity
               style={[
                 styles.pillOption,
+                activeTab === "materials" && { backgroundColor: colors.surface },
+              ]}
+              onPress={() => {
+                setActiveTab("materials");
+                setSearchQuery("");
+              }}
+            >
+              <Text
+                style={[
+                  styles.pillText,
+                  {
+                    color:
+                      activeTab === "materials" ? colors.primary : colors.textDim,
+                  },
+                ]}
+              >
+                Materials ({groupedMaterials.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.pillOption,
                 activeTab === "vendors" && { backgroundColor: colors.surface },
               ]}
               onPress={() => {
@@ -313,6 +376,8 @@ export default function ProcurementScreen({ navigation }: any) {
             placeholder={
               activeTab === "indents"
                 ? "Search by name, key, project..."
+                : activeTab === "materials"
+                ? "Search materials..."
                 : "Search by vendor, company, email..."
             }
             placeholderTextColor={colors.textDim}
@@ -395,13 +460,13 @@ export default function ProcurementScreen({ navigation }: any) {
                         >
                           {item.indentId || "IND-RAW"}
                         </Text>
-                        {item.Project && (
+                        {item.project && (
                           <View
                             style={[
                               styles.projectBadge,
                               {
                                 borderColor:
-                                  item.Project.color || colors.primary,
+                                  item.project.color || colors.primary,
                               },
                             ]}
                           >
@@ -409,10 +474,10 @@ export default function ProcurementScreen({ navigation }: any) {
                               style={{
                                 fontSize: 10,
                                 fontFamily: FONTS.semibold,
-                                color: item.Project.color || colors.primary,
+                                color: item.project.color || colors.primary,
                               }}
                             >
-                              {item.Project.name.toUpperCase()}
+                              {item.project.name.toUpperCase()}
                             </Text>
                           </View>
                         )}
@@ -459,7 +524,7 @@ export default function ProcurementScreen({ navigation }: any) {
                         <Text
                           style={[styles.footerText, { color: colors.textDim }]}
                         >
-                          {item.indent_line_item?.length ?? 0} items
+                          {item._count?.lineItems ?? 0} items
                         </Text>
                       </View>
 
@@ -489,6 +554,50 @@ export default function ProcurementScreen({ navigation }: any) {
                   </TouchableOpacity>
                 );
               })
+            )
+          ) : activeTab === "materials" ? (
+            filteredMaterialGroups.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="cube-outline" size={54} color={colors.textDim} />
+                <Text style={[styles.emptyText, { color: colors.textDim }]}>
+                  No materials raised in any indent yet
+                </Text>
+              </View>
+            ) : (
+              filteredMaterialGroups.map((group) => (
+                <TouchableOpacity
+                  key={group.groupKey}
+                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => setSelectedGroupKey(group.groupKey)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${group.materialName}, ${group.combinedQuantity} ${group.unit} required across ${group.projectsCount} projects`}
+                >
+                  <View style={styles.cardHeader}>
+                    <Text style={[styles.indentName, { color: colors.text, marginBottom: 0 }]} numberOfLines={1}>
+                      {group.materialName}
+                    </Text>
+                    <Text style={{ fontSize: 13, fontFamily: FONTS.extrabold, color: colors.primary }}>
+                      {group.combinedQuantity} {group.unit}
+                    </Text>
+                  </View>
+                  <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
+                  <View style={styles.cardFooter}>
+                    <View style={styles.footerRow}>
+                      <Ionicons name="folder-outline" size={14} color={colors.textDim} style={{ marginRight: 4 }} />
+                      <Text style={[styles.footerText, { color: colors.textDim }]}>
+                        {group.projectsCount} {group.projectsCount === 1 ? "project" : "projects"}
+                      </Text>
+                    </View>
+                    <View style={styles.footerRow}>
+                      <Ionicons name="document-text-outline" size={14} color={colors.textDim} style={{ marginRight: 4 }} />
+                      <Text style={[styles.footerText, { color: colors.textDim }]}>
+                        {group.items.length} {group.items.length === 1 ? "indent" : "indents"}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
             )
           ) : filteredVendors.length === 0 ? (
             <View style={styles.emptyState}>
@@ -704,6 +813,69 @@ export default function ProcurementScreen({ navigation }: any) {
         </ScrollView>
       </View>
     </SafeAreaView>
+
+    {/* Consolidated material overview — mirrors web's Procurement > Materials
+        hub Sheet: every indent that needs this material, with a link into
+        each one. This IS the material<->indent link the mobile app lacked. */}
+    <Sheet
+      visible={!!selectedGroup}
+      onClose={() => setSelectedGroupKey(null)}
+      accessibilityLabel={selectedGroup?.materialName}
+    >
+      {selectedGroup && (
+        <View style={{ paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg }}>
+          <Text style={{ fontSize: 10, fontFamily: FONTS.extrabold, color: colors.primary, letterSpacing: 0.5 }}>
+            CONSOLIDATED MATERIAL OVERVIEW
+          </Text>
+          <Text style={[styles.indentName, { color: colors.text, marginTop: 4 }]}>
+            {selectedGroup.materialName}
+          </Text>
+          <Text style={{ fontSize: 12, fontFamily: FONTS.medium, color: colors.textDim, marginBottom: SPACING.md }}>
+            Required in {selectedGroup.items.length} {selectedGroup.items.length === 1 ? "indent" : "indents"} across{" "}
+            {selectedGroup.projectsCount} {selectedGroup.projectsCount === 1 ? "project" : "projects"} · Combined total:{" "}
+            {selectedGroup.combinedQuantity} {selectedGroup.unit}
+          </Text>
+
+          <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+            {selectedGroup.items.map((item) => (
+              <PressableScale
+                key={item.id}
+                haptic="selection"
+                style={[styles.materialItemRow, { borderColor: colors.border }]}
+                onPress={() => {
+                  setSelectedGroupKey(null);
+                  navigation.navigate("IndentDetail", { indentId: item.indent.id });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open indent ${item.indent.indentId || "draft"} for ${item.indent.project?.name || "General"}`}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.footerText, { color: colors.text, fontFamily: FONTS.bold }]} numberOfLines={1}>
+                    {item.indent.project?.name || "General"}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    <Text style={{ fontSize: 11, fontFamily: FONTS.bold, color: colors.primary }}>
+                      {item.indent.indentId || "Draft"}
+                    </Text>
+                    <StatusChip label={item.indent.status} kind={getIndentStatusKind(item.indent.status)} size="sm" />
+                  </View>
+                  {item.indent.expectedDelivery && (
+                    <Text style={{ fontSize: 11, color: colors.textDim, marginTop: 2 }}>
+                      Due {format(new Date(item.indent.expectedDelivery), "MMM d, yyyy")}
+                    </Text>
+                  )}
+                </View>
+                <Text style={{ fontSize: 13, fontFamily: FONTS.extrabold, color: colors.text }}>
+                  {item.quantity} {item.unit}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textDim} style={{ marginLeft: 8 }} />
+              </PressableScale>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </Sheet>
+    </>
   );
 }
 
@@ -837,4 +1009,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   capabilityPillText: { fontSize: 11, fontFamily: FONTS.bold },
+
+  materialItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: SPACING.xs,
+  },
 });

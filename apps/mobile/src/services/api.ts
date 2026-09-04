@@ -2153,6 +2153,30 @@ export async function getMaterialsCatalog(workspaceId: string): Promise<any[]> {
 }
 
 /**
+ * Fetch all indent line items in the workspace, each carrying its owning
+ * indent (id, indentId, status, project, expectedDelivery, requestedBy) —
+ * the same data web's Procurement > Materials hub groups by material name.
+ * Mirrors GET /api/v1/procurement/indents/line-items.
+ */
+export async function getIndentLineItemsHub(
+    workspaceId: string,
+    filters?: { projectId?: string[]; status?: string[] }
+): Promise<any[]> {
+    try {
+        const query = new URLSearchParams({ w: workspaceId });
+        if (filters?.projectId?.length) query.set("projectId", JSON.stringify(filters.projectId));
+        if (filters?.status?.length) query.set("status", JSON.stringify(filters.status));
+        const res = await apiFetch(`/api/procurement/indents/line-items?${query.toString()}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return unwrap<any[]>(data, "data") ?? [];
+    } catch (e) {
+        console.error("[api] getIndentLineItemsHub error:", e);
+        return [];
+    }
+}
+
+/**
  * Create a new indent request
  */
 export async function createIndent(workspaceId: string, payload: any): Promise<any> {
