@@ -61,6 +61,21 @@ export default function CreateIndentScreen({ route, navigation }: any) {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [materials, setMaterials] = useState<any[]>([]);
 
+    // Optional charges — mirrors the web create form's toggle-to-reveal fields.
+    // taxPercent/exciseDutyPercent/vatPercent are plain percentages; transport
+    // and labour are flat rupee amounts, converted to paise only at submit
+    // (IndentLineItem/Indent store money as integer paise; see the schema).
+    const [includeTax, setIncludeTax] = useState(false);
+    const [includeExciseDuty, setIncludeExciseDuty] = useState(false);
+    const [includeVat, setIncludeVat] = useState(false);
+    const [includeTransport, setIncludeTransport] = useState(false);
+    const [includeLabour, setIncludeLabour] = useState(false);
+    const [taxPercent, setTaxPercent] = useState("");
+    const [exciseDutyPercent, setExciseDutyPercent] = useState("");
+    const [vatPercent, setVatPercent] = useState("");
+    const [transportCharge, setTransportCharge] = useState("");
+    const [labourCharge, setLabourCharge] = useState("");
+
     // Inline field validation (preserves entered values on failure)
     const [formErrors, setFormErrors] = useState<{ name?: string }>({});
 
@@ -99,7 +114,9 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                         materialName: item.materialName,
                         unit: item.unit,
                         quantity: String(item.quantity),
-                        estimatedUnitPrice: item.estimatedUnitPrice ? String(item.estimatedUnitPrice) : "",
+                        // The API stores estimatedUnitPrice as integer paise; the form
+                        // works in rupees, so divide before displaying it.
+                        estimatedUnitPrice: item.estimatedUnitPrice ? String(item.estimatedUnitPrice / 100) : "",
                         specifications: item.specifications || "",
                         description: item.description || "",
                     })));
@@ -115,6 +132,14 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                 } else if (Array.isArray(editPayload.approvals)) {
                     setApproverIds(editPayload.approvals.map((a: any) => a.workspaceMemberId).filter(Boolean));
                 }
+
+                // Charges: percentages are plain numbers; transport/labour are
+                // paise and need dividing before they land in a rupee input.
+                if (editPayload.taxPercent != null) { setIncludeTax(true); setTaxPercent(String(editPayload.taxPercent)); }
+                if (editPayload.exciseDutyPercent != null) { setIncludeExciseDuty(true); setExciseDutyPercent(String(editPayload.exciseDutyPercent)); }
+                if (editPayload.vatPercent != null) { setIncludeVat(true); setVatPercent(String(editPayload.vatPercent)); }
+                if (editPayload.transportCharge != null) { setIncludeTransport(true); setTransportCharge(String(editPayload.transportCharge / 100)); }
+                if (editPayload.labourCharge != null) { setIncludeLabour(true); setLabourCharge(String(editPayload.labourCharge / 100)); }
             }
         } catch (error) {
             console.error("CreateIndentScreen load error:", error);
@@ -219,34 +244,64 @@ export default function CreateIndentScreen({ route, navigation }: any) {
 
         setSubmitting(true);
         try {
-            // Shape mirrors CreateIndentSchema in apps/api .../procurement-indents.ts:
-            //   workspaceId lives in the BODY (a query param alone is rejected),
-            //   the array is `lineItems` (not `materials` — an unknown key is
-            //   stripped, silently creating an indent with no items), and
-            //   `description` must be omitted rather than sent as null.
             const trimmedDescription = description.trim();
-            const payload: any = {
-                workspaceId: activeWorkspace.id,
-                projectId: selectedProject.id,
-                taskId: selectedTask?.id || null,
-                name: name.trim(),
-                expectedDelivery: expectedDelivery.toISOString(),
-                approverIds,
-                lineItems: materials.map(m => ({
-                    materialCatalogId: m.materialCatalogId || undefined,
-                    materialName: m.materialName,
-                    unit: m.unit,
-                    quantity: parseInt(m.quantity, 10),
-                    estimatedUnitPrice: m.estimatedUnitPrice ? parseInt(m.estimatedUnitPrice, 10) : undefined,
-                    specifications: m.specifications || undefined,
-                })),
+
+            // Money fields round-trip through paise: IndentLineItem.estimatedUnitPrice
+            // and Indent.transportCharge/labourCharge are integer paise columns,
+            // while taxPercent/exciseDutyPercent/vatPercent are plain percentages
+            // (Decimal(5,2)) — confirmed against packages/db/prisma/schema.prisma.
+            const toPaise = (rupees: string) => Math.round(parseFloat(rupees) * 100);
+            const charges: any = {
+                taxPercent: includeTax && taxPercent ? Number(taxPercent) : undefined,
+                exciseDutyPercent: includeExciseDuty && exciseDutyPercent ? Number(exciseDutyPercent) : undefined,
+                vatPercent: includeVat && vatPercent ? Number(vatPercent) : undefined,
+                transportCharge: includeTransport && transportCharge ? toPaise(transportCharge) : undefined,
+                labourCharge: includeLabour && labourCharge ? toPaise(labourCharge) : undefined,
             };
-            if (trimmedDescription) payload.description = trimmedDescription;
 
             if (isEdit) {
-                await editIndent(activeWorkspace.id, editPayload.id, payload);
+                // UpdateIndentSchema (apps/api .../procurement-indents.ts) only
+                // accepts name/description/expectedDelivery/approverIds/charges —
+                // it has no projectId/taskId/lineItems fields. Sending those was
+                // silently dropped by zod, which made "editing materials" a no-op
+                // that still reported success. Send only what the route reads.
+                const patch: any = {
+                    name: name.trim(),
+                    expectedDelivery: expectedDelivery.toISOString(),
+                    approverIds,
+                    ...charges,
+                };
+                patch.description = trimmedDescription || null;
+                await editIndent(activeWorkspace.id, editPayload.id, patch);
                 Alert.alert("Success", "Indent request updated successfully.");
             } else {
+                // Shape mirrors CreateIndentSchema: workspaceId lives in the BODY
+                // (a query param alone is rejected), the array is `lineItems` (not
+                // `materials` — an unknown key is stripped, silently creating an
+                // indent with no items), and `description` must be omitted rather
+                // than sent as null.
+                const payload: any = {
+                    workspaceId: activeWorkspace.id,
+                    projectId: selectedProject.id,
+                    taskId: selectedTask?.id || null,
+                    name: name.trim(),
+                    expectedDelivery: expectedDelivery.toISOString(),
+                    approverIds,
+                    // No in-project entry point exists yet (CreateIndentScreen is
+                    // only reachable from the global Procurement hub), so this
+                    // always matches web's global-hub behaviour.
+                    raisedInProject: false,
+                    lineItems: materials.map(m => ({
+                        materialCatalogId: m.materialCatalogId || undefined,
+                        materialName: m.materialName,
+                        unit: m.unit,
+                        quantity: parseInt(m.quantity, 10),
+                        estimatedUnitPrice: m.estimatedUnitPrice ? toPaise(m.estimatedUnitPrice) : undefined,
+                        specifications: m.specifications || undefined,
+                    })),
+                    ...charges,
+                };
+                if (trimmedDescription) payload.description = trimmedDescription;
                 await createIndent(activeWorkspace.id, payload);
                 Alert.alert("Success", "Indent request created successfully.");
             }
@@ -397,14 +452,27 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                     {/* Materials requested Section */}
                     <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Materials Requested</Text>
-                        <TouchableOpacity
-                            style={[styles.addMatBtn, { borderColor: colors.primary }]}
-                            onPress={() => setItemModalVisible(true)}
-                        >
-                            <Ionicons name="add" size={16} color={colors.primary} />
-                            <Text style={[styles.addMatText, { color: colors.primary }]}>Add Material</Text>
-                        </TouchableOpacity>
+                        {!isEdit && (
+                            <TouchableOpacity
+                                style={[styles.addMatBtn, { borderColor: colors.primary }]}
+                                onPress={() => setItemModalVisible(true)}
+                            >
+                                <Ionicons name="add" size={16} color={colors.primary} />
+                                <Text style={[styles.addMatText, { color: colors.primary }]}>Add Material</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
+
+                    {/* UpdateIndentSchema (apps/api .../procurement-indents.ts) has no
+                        lineItems field — items are managed per-item from the indent
+                        detail screen once created, not through this form. Adding or
+                        removing here in edit mode would look like it worked and then
+                        silently do nothing on save. */}
+                    {isEdit && materials.length > 0 && (
+                        <Text style={[styles.materialsLockedNote, { color: colors.textDim }]}>
+                            Materials are locked once an indent is created. Manage individual items from the indent details screen.
+                        </Text>
+                    )}
 
                     {materials.length === 0 ? (
                         <View style={[styles.emptyCard, { borderColor: colors.border }]}>
@@ -427,13 +495,145 @@ export default function CreateIndentScreen({ route, navigation }: any) {
                                         Qty: {mat.quantity} {mat.unit} {mat.estimatedUnitPrice ? `• Est: ₹${mat.estimatedUnitPrice}/unit` : ""}
                                     </Text>
                                 </View>
-                                
-                                <TouchableOpacity onPress={() => handleRemoveMaterial(idx)}>
-                                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                                </TouchableOpacity>
+
+                                {!isEdit && (
+                                    <TouchableOpacity onPress={() => handleRemoveMaterial(idx)}>
+                                        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         ))
                     )}
+
+                    {/* Optional Charges — mirrors web: tax/excise/VAT apply as a
+                        percentage of the material subtotal, transport/labour are
+                        flat rupee amounts. Toggling a chip reveals its input and
+                        clears the value when turned back off. */}
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Additional Charges (Optional)</Text>
+                    <View style={styles.chargeChipRow}>
+                        {([
+                            ["Tax %", includeTax, setIncludeTax, setTaxPercent],
+                            ["Excise Duty %", includeExciseDuty, setIncludeExciseDuty, setExciseDutyPercent],
+                            ["VAT %", includeVat, setIncludeVat, setVatPercent],
+                            ["Transport", includeTransport, setIncludeTransport, setTransportCharge],
+                            ["Labour", includeLabour, setIncludeLabour, setLabourCharge],
+                        ] as const).map(([label, active, setActive, setValue]) => (
+                            <TouchableOpacity
+                                key={label}
+                                style={[
+                                    styles.chargeChip,
+                                    { borderColor: colors.border },
+                                    active && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                ]}
+                                onPress={() => {
+                                    const next = !active;
+                                    setActive(next);
+                                    if (!next) setValue("");
+                                }}
+                                accessibilityRole="checkbox"
+                                accessibilityState={{ checked: active }}
+                                accessibilityLabel={label}
+                            >
+                                <Text style={{ fontFamily: FONTS.bold, fontSize: 12, color: active ? "#fff" : colors.text }}>
+                                    {label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {includeTax && (
+                        <>
+                            <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Tax Percentage</Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                value={taxPercent}
+                                onChangeText={setTaxPercent}
+                                keyboardType="numeric"
+                                placeholder="e.g. 18"
+                                placeholderTextColor={colors.textDim}
+                            />
+                        </>
+                    )}
+                    {includeExciseDuty && (
+                        <>
+                            <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Excise Duty Percentage</Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                value={exciseDutyPercent}
+                                onChangeText={setExciseDutyPercent}
+                                keyboardType="numeric"
+                                placeholder="e.g. 5"
+                                placeholderTextColor={colors.textDim}
+                            />
+                        </>
+                    )}
+                    {includeVat && (
+                        <>
+                            <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>VAT Percentage</Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                value={vatPercent}
+                                onChangeText={setVatPercent}
+                                keyboardType="numeric"
+                                placeholder="e.g. 12.5"
+                                placeholderTextColor={colors.textDim}
+                            />
+                        </>
+                    )}
+                    {includeTransport && (
+                        <>
+                            <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Transport Charge (₹)</Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                value={transportCharge}
+                                onChangeText={setTransportCharge}
+                                keyboardType="numeric"
+                                placeholder="e.g. 1500"
+                                placeholderTextColor={colors.textDim}
+                            />
+                        </>
+                    )}
+                    {includeLabour && (
+                        <>
+                            <Text style={[styles.label, { color: colors.textDim, marginTop: SPACING.md }]}>Labour Charge (₹)</Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                                value={labourCharge}
+                                onChangeText={setLabourCharge}
+                                keyboardType="numeric"
+                                placeholder="e.g. 800"
+                                placeholderTextColor={colors.textDim}
+                            />
+                        </>
+                    )}
+
+                    {/* Live estimated total — computed in rupees directly from the
+                        local (pre-submit) material state, so no paise round-trip
+                        is needed just to preview it. */}
+                    {(() => {
+                        const subtotal = materials.reduce(
+                            (sum, m) => sum + (m.estimatedUnitPrice ? parseFloat(m.estimatedUnitPrice) * parseInt(m.quantity, 10) : 0),
+                            0
+                        );
+                        const pctCharge = (pct: string) => (pct ? subtotal * (parseFloat(pct) / 100) : 0);
+                        const flatCharge = (amt: string) => (amt ? parseFloat(amt) : 0);
+                        const total =
+                            subtotal +
+                            (includeTax ? pctCharge(taxPercent) : 0) +
+                            (includeExciseDuty ? pctCharge(exciseDutyPercent) : 0) +
+                            (includeVat ? pctCharge(vatPercent) : 0) +
+                            (includeTransport ? flatCharge(transportCharge) : 0) +
+                            (includeLabour ? flatCharge(labourCharge) : 0);
+                        if (subtotal === 0 && total === 0) return null;
+                        return (
+                            <View style={[styles.totalRow, { borderTopColor: colors.border }]}>
+                                <Text style={{ fontFamily: FONTS.bold, fontSize: 13, color: colors.textDim }}>Estimated Total</Text>
+                                <Text style={{ fontFamily: FONTS.bold, fontSize: 15, color: colors.text }}>
+                                    ₹{total.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                                </Text>
+                            </View>
+                        );
+                    })()}
 
                     {/* Submit Button */}
                     <TouchableOpacity
@@ -579,6 +779,10 @@ const styles = StyleSheet.create({
     errorText: { fontSize: 12, fontFamily: FONTS.semibold, marginTop: 6 },
     input: { height: 48, borderRadius: BORDER_RADIUS.md, borderWidth: 1, paddingHorizontal: SPACING.md, fontSize: 16 },
     textArea: { height: 80, paddingVertical: 10, textAlignVertical: "top" },
+    materialsLockedNote: { fontSize: 12, fontFamily: FONTS.regular, fontStyle: "italic", marginBottom: SPACING.sm },
+    chargeChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    chargeChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.full, borderWidth: 1 },
+    totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 1, paddingTop: SPACING.md, marginTop: SPACING.md },
     
     pickerRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     pickerPill: { paddingHorizontal: SPACING.md, paddingVertical: 6, borderRadius: BORDER_RADIUS.full, borderWidth: 1 },

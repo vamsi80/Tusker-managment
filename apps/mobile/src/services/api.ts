@@ -2057,11 +2057,18 @@ export async function getIndentRequest(
     indentId: string
 ): Promise<any | null> {
     try {
-        const query = new URLSearchParams({ w: workspaceId, workspaceId, indentId });
-        const res = await apiFetch(`/api/procurement/indents?${query.toString()}`);
+        // This was calling the LIST route (GET /procurement/indents) filtered
+        // by an `indentId` query param the route never reads — it always
+        // returns every indent in the workspace, in a shape with no line-item
+        // detail. unwrap(json, "indent") then found no `.indent` key on that
+        // array and fell back to returning the whole array as "the indent",
+        // so every field on it read as undefined. The single-item route
+        // (GET /procurement/indents/:id) is what actually exists for this.
+        const query = new URLSearchParams({ w: workspaceId, workspaceId });
+        const res = await apiFetch(`/api/procurement/indents/${indentId}?${query.toString()}`);
         if (!res.ok) return null;
-        const data = await res.json();
-        return unwrap<any>(data, "indent") ?? null;
+        const json = await res.json();
+        return json?.data ?? null;
     } catch (error) {
         console.error("[api] getIndentRequest error:", error);
         return null;
