@@ -212,8 +212,10 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
             {/* Sub-navigation Tabs (segmented control) */}
             <View style={[styles.tabBarContainer, { borderBottomColor: colors.border, paddingHorizontal: value(SPACING.md, SPACING.xl, SPACING.xxl) }]}>
                 <View style={{ maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center' }}>
-                    <View
-                        style={[styles.tabBar, { backgroundColor: colors.surfaceSolid, borderColor: colors.border }]}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={[styles.tabBar, { backgroundColor: colors.surfaceSolid, borderColor: colors.border }]}
                         accessibilityRole="tablist"
                     >
                         {tabs.map((tab) => {
@@ -236,15 +238,13 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
                                     <Text
                                         style={[styles.tabLabel, { color: colors.textDim }, isActive && { color: colors.textInverse }]}
                                         numberOfLines={1}
-                                        adjustsFontSizeToFit
-                                        minimumFontScale={0.8}
                                     >
                                         {tab.label}
                                     </Text>
                                 </PressableScale>
                             );
                         })}
-                    </View>
+                    </ScrollView>
                 </View>
             </View>
 
@@ -309,8 +309,8 @@ const styles = StyleSheet.create({
     moreBtn: { padding: 4 },
 
     tabBarContainer: { paddingVertical: SPACING.sm, borderBottomWidth: 1 },
-    tabBar: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 4, height: 48, justifyContent: "space-between", borderWidth: 1 },
-    tabItem: { flex: 1, minHeight: TOUCH_TARGET.min - 8, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: BORDER_RADIUS.sm, gap: 4, paddingHorizontal: 2 },
+    tabBar: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 4, height: 48, alignItems: "center", borderWidth: 1, gap: 4 },
+    tabItem: { minHeight: TOUCH_TARGET.min - 8, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: BORDER_RADIUS.sm, gap: 4, paddingHorizontal: 12 },
     tabLabel: { fontSize: 12, fontWeight: "600" },
 
     activeFiltersBar: { paddingVertical: SPACING.sm, borderBottomWidth: 1 },
