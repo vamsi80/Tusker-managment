@@ -43,6 +43,20 @@ export const timeString = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { mess
 
 export const projectRole = ["LEAD", "MEMBER", "VIEWER"] as const
 
+/** The three business verticals every project is filed under. */
+export const projectCategory = ["WHITE_TUSKER", "LATTICE_LANE", "MISCELLANEOUS"] as const
+
+export const PROJECT_CATEGORY_LABELS: Record<typeof projectCategory[number], string> = {
+    WHITE_TUSKER: "White Tusker",
+    LATTICE_LANE: "Lattice Lane",
+    MISCELLANEOUS: "Miscellaneous",
+} as const;
+
+export const PROJECT_CATEGORY_OPTIONS = projectCategory.map(value => ({
+    value,
+    label: PROJECT_CATEGORY_LABELS[value]
+}));
+
 export const unitCategories = ["Weight", "Length", "Volume", "Area", "Quantity", "Time"] as const;
 
 export const materialIndentItemStatus = ["PENDING", "APPROVED", "REJECTED", "QUANTITY_APPROVED", "VENDOR_PENDING"] as const;
@@ -240,6 +254,7 @@ export const projectSchema = z.object({
     projectManagerId: z.string().min(1, { message: "Project manager is required" }).optional(),
     memberAccess: z.array(z.string()),
     tagIds: z.array(z.string().uuid()).optional(),
+    category: z.enum(projectCategory, { message: "Project type is required" }),
 });
 
 export const editProjectSchema = z.object({
@@ -298,6 +313,8 @@ export const editProjectSchema = z.object({
     projectManagerId: z.string().optional(),
     memberAccess: z.array(z.string()).optional(),
     tagIds: z.array(z.string().uuid()).optional(),
+    // Optional on edit: an update that omits it leaves the stored value alone.
+    category: z.enum(projectCategory).optional(),
 });
 
 export const taskSchema = z.object({

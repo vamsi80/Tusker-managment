@@ -13,6 +13,37 @@ import {
   FolderKanban
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { projectCategory, PROJECT_CATEGORY_LABELS } from "@/lib/zodSchemas";
+
+// Projects created before categories existed have none, and sort under their own
+// tab rather than being hidden.
+const UNCATEGORIZED = "UNCATEGORIZED";
+
+const categoryStyles: Record<string, { color: string; bg: string; border: string }> = {
+  WHITE_TUSKER: {
+    color: "text-indigo-700 dark:text-indigo-300",
+    bg: "bg-indigo-50 dark:bg-indigo-950/40",
+    border: "border-indigo-200 dark:border-indigo-900/60"
+  },
+  LATTICE_LANE: {
+    color: "text-teal-700 dark:text-teal-300",
+    bg: "bg-teal-50 dark:bg-teal-950/40",
+    border: "border-teal-200 dark:border-teal-900/60"
+  },
+  MISCELLANEOUS: {
+    color: "text-orange-700 dark:text-orange-300",
+    bg: "bg-orange-50 dark:bg-orange-950/40",
+    border: "border-orange-200 dark:border-orange-900/60"
+  },
+  [UNCATEGORIZED]: {
+    color: "text-muted-foreground",
+    bg: "bg-muted/40",
+    border: "border-dashed border-border"
+  },
+};
+
+const categoryLabel = (value: string) =>
+  (PROJECT_CATEGORY_LABELS as Record<string, string>)[value] || "Uncategorized";
 
 const roleLabels: Record<string, { label: string; color: string; bg: string; border: string }> = {
   PROJECT_MANAGER: { 
@@ -70,6 +101,7 @@ export default function WorkspaceProjectsPage() {
   const { data: layoutData, workspaceId, isLoading } = useWorkspaceLayout();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRoleFilters, setSelectedRoleFilters] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const projects = layoutData.projects || [];
   const isWorkspaceAdmin = layoutData.permissions?.isWorkspaceAdmin || false;
@@ -91,9 +123,20 @@ export default function WorkspaceProjectsPage() {
       const matchesRole = selectedRoleFilters.length === 0 ||
         selectedRoleFilters.includes(proj.projectRole);
 
-      return matchesSearch && matchesRole;
+      const matchesCategory = selectedCategories.length === 0 ||
+        selectedCategories.includes(proj.category || UNCATEGORIZED);
+
+      return matchesSearch && matchesRole && matchesCategory;
     });
-  }, [projects, searchQuery, selectedRoleFilters]);
+  }, [projects, searchQuery, selectedRoleFilters, selectedCategories]);
+
+  // The three verticals always show, so an empty one is visibly empty rather than
+  // missing. Uncategorized only appears while projects still lack a category.
+  const categoriesAvailable = useMemo(() => {
+    const list: string[] = [...projectCategory];
+    if (projects.some((p: any) => !p.category)) list.push(UNCATEGORIZED);
+    return list;
+  }, [projects]);
 
   if (isLoading) {
     return (
@@ -145,6 +188,47 @@ export default function WorkspaceProjectsPage() {
             New Project
           </Link>
         )}
+      </div>
+
+      {/* Category Filters */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          onClick={() => setSelectedCategories([])}
+          className={cn(
+            "px-4 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer whitespace-nowrap",
+            selectedCategories.length === 0
+              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              : "bg-card/50 text-muted-foreground/80 border-border hover:text-foreground"
+          )}
+        >
+          All Types
+        </button>
+
+        {categoriesAvailable.map((value) => {
+          const style = categoryStyles[value];
+          const isActive = selectedCategories.includes(value);
+          const count = projects.filter((p: any) => (p.category || UNCATEGORIZED) === value).length;
+
+          return (
+            <button
+              key={value}
+              onClick={() => setSelectedCategories((current) =>
+                current.includes(value)
+                  ? current.filter((item) => item !== value)
+                  : [...current, value]
+              )}
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer whitespace-nowrap",
+                isActive
+                  ? cn(style.bg, style.color, style.border, "shadow-sm")
+                  : "bg-card/50 text-muted-foreground/80 border-border hover:text-foreground"
+              )}
+            >
+              {categoryLabel(value)}
+              <span className="ml-1.5 opacity-60">{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter and Search Row */}
@@ -250,7 +334,15 @@ export default function WorkspaceProjectsPage() {
 
                 {/* Right Section: Role and CTA */}
                 <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-border/40">
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "px-3 py-1 text-xs font-extrabold rounded-full border shadow-sm transition-all",
+                      categoryStyles[proj.category || UNCATEGORIZED].bg,
+                      categoryStyles[proj.category || UNCATEGORIZED].color,
+                      categoryStyles[proj.category || UNCATEGORIZED].border
+                    )}>
+                      {categoryLabel(proj.category || UNCATEGORIZED)}
+                    </span>
                     <span className={cn(
                       "px-3 py-1 text-xs font-extrabold rounded-full border shadow-sm transition-all",
                       roleDetails.bg,

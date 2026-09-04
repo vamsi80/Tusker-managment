@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { projectsClient } from "@/lib/api-client/projects";
-import { projectSchema, ProjectSchemaType } from "@/lib/zodSchemas";
+import { projectSchema, ProjectSchemaType, PROJECT_CATEGORY_OPTIONS } from "@/lib/zodSchemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, Resolver } from "react-hook-form";
 import { tryCatch } from "@/hooks/try-catch";
@@ -38,6 +38,13 @@ import {
     PopoverContent,
     PopoverTrigger
 } from "@/components/ui/popover";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 import {
     Check,
     ChevronLeft,
@@ -137,6 +144,7 @@ export default function CreateProjectPage() {
             contactPerson: "",
             phoneNumber: "",
             tagIds: [],
+            category: undefined,
         },
     });
 
@@ -261,6 +269,31 @@ export default function CreateProjectPage() {
                                                     className="resize-none"
                                                 />
                                             </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="category"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Project Type</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                                                <FormControl>
+                                                    <SelectTrigger className="h-11 w-full">
+                                                        <SelectValue placeholder="Select project type" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {PROJECT_CATEGORY_OPTIONS.map((opt) => (
+                                                        <SelectItem key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}

@@ -4,6 +4,10 @@
 
 export type ProjectRole = "LEAD" | "MEMBER" | "VIEWER" | "PROJECT_MANAGER" | "PROJECT_COORDINATOR";
 
+/** Mirrors the ProjectCategory enum in schema.prisma. Null on projects created
+ *  before categories existed. */
+export type ProjectCategory = "WHITE_TUSKER" | "LATTICE_LANE" | "MISCELLANEOUS";
+
 export type ProjectMemberUI = {
   id: string; // userId
   userId: string;
@@ -41,6 +45,7 @@ export interface ProjectListItem extends MinimalProjectData {
   projectRole?: ProjectRole;
   createdAt: string;
   projectManager?: { id: string; surname: string | null };
+  category: ProjectCategory | null;
 }
 
 export interface FullProjectData extends MinimalProjectData {
@@ -61,6 +66,7 @@ export interface FullProjectData extends MinimalProjectData {
   contactPerson?: string | null;
   phoneNumber?: string | null;
   tagIds?: string[];
+  category: ProjectCategory | null;
 }
 
 export type ProjectReviewer = {

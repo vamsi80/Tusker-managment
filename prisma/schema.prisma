@@ -247,6 +247,9 @@ model Project {
   createdBy        String?
   projectManagerId String?
   clintId          String?
+  /// Which of the three business verticals this project belongs to. Nullable
+  /// because projects created before categories existed have no answer yet.
+  category         ProjectCategory?
   legacyClints     Clints[]              @relation("LegacyProjectClints")
   clint            Clints?               @relation(fields: [clintId], references: [id])
   projectManager   WorkspaceMember?      @relation("ProjectManager", fields: [projectManagerId], references: [id])
@@ -981,6 +984,14 @@ enum ProjectRole {
   VIEWER
   PROJECT_MANAGER
   PROJECT_COORDINATOR
+}
+
+/// The three business verticals every new project is filed under. Distinct from
+/// BuyerCompany, which is a legal entity that issues purchase orders.
+enum ProjectCategory {
+  WHITE_TUSKER
+  LATTICE_LANE
+  MISCELLANEOUS
 }
 
 enum TaskStatus {

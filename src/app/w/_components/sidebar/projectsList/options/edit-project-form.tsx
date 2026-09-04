@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { editProjectSchema, EditProjectSchemaType } from "@/lib/zodSchemas";
+import { editProjectSchema, EditProjectSchemaType, PROJECT_CATEGORY_OPTIONS } from "@/lib/zodSchemas";
 import { tryCatch } from "@/hooks/try-catch";
 import { toast } from "@/lib/toast";
 import { FullProjectData } from "@/types/project";
@@ -34,6 +34,13 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 import {
     Command,
     CommandEmpty,
@@ -80,6 +87,7 @@ export const EditProjectForm = ({
             projectManagerId: project.projectManagerId || "",
             memberAccess: project.memberAccess || [],
             tagIds: project.tagIds || [],
+            category: project.category ?? undefined,
         },
     });
 
@@ -171,6 +179,31 @@ export const EditProjectForm = ({
                                                 rows={4}
                                             />
                                         </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="category"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Project Type</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                                            <FormControl>
+                                                <SelectTrigger className="h-11 w-full">
+                                                    <SelectValue placeholder="Select project type" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {PROJECT_CATEGORY_OPTIONS.map((opt) => (
+                                                    <SelectItem key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
