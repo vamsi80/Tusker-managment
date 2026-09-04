@@ -29,14 +29,15 @@ export function CalendarMonthView() {
   const router = useSafeNavigation();
 
   /**
-   * Opens the task on its project's list page. `?subtask=` is what the global
-   * task sheet hydrates from, so the task itself opens on arrival.
+   * Opens the task on its project's list page. `?focus=` reveals it in the list
+   * itself — parent group expanded, row scrolled to and blinked — rather than
+   * `?subtask=`, which would slide the detail panel over the list.
    */
   const openTask = (task: { projectId?: string | null; taskSlug?: string | null }) => {
     const slug = (layoutData?.projects ?? []).find((p: any) => p.id === task.projectId)?.slug;
     if (!slug) return;
     const listUrl = `/w/${workspaceId}/p/${slug}/list`;
-    router.push(task.taskSlug ? `${listUrl}?subtask=${encodeURIComponent(task.taskSlug)}` : listUrl);
+    router.push(task.taskSlug ? `${listUrl}?focus=${encodeURIComponent(task.taskSlug)}` : listUrl);
   };
 
   // Calendar days generation

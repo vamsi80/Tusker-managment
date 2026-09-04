@@ -370,18 +370,23 @@
 }
 
 /* A row arrived at from a deep link (calendar, notification): five blinks over
-   three seconds, long enough to find it without becoming a distraction. */
+   three seconds in the app's orange, long enough to find it without becoming a
+   distraction. Written out rather than mixed from --primary so it renders the
+   same in both themes, and marked important because rows carry their own
+   background utilities (and sometimes their own animation). */
 @keyframes task-blink {
-  0%, 100% {
+  0%,
+  100% {
     background-color: transparent;
-    box-shadow: inset 3px 0 0 0 transparent;
+    box-shadow: inset 4px 0 0 0 transparent;
   }
   50% {
-    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
-    box-shadow: inset 3px 0 0 0 var(--primary);
+    background-color: oklch(0.8204 0.1446 74.44 / 0.38);
+    box-shadow: inset 4px 0 0 0 oklch(0.8204 0.1446 74.44);
   }
 }
 
-.task-blink {
-  animation: task-blink 0.6s ease-in-out 5;
+.task-blink,
+.task-blink > td {
+  animation: task-blink 0.6s ease-in-out 5 !important;
 }
