@@ -90,13 +90,9 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
 
     // Fetch members for attendees picker
     apiClient.workspaces
-      .getMembers(workspaceId, 1, 100)
-      .then((res: any) => {
-        if (res?.members) {
-          setWorkspaceMembers(res.members);
-        }
-      })
-      .catch(() => {});
+      .getMembers(workspaceId, 1, 200)
+      .then((res) => setWorkspaceMembers(res?.workspaceMembers ?? []))
+      .catch(() => setWorkspaceMembers([]));
 
     // Set initial date & time
     const initialDate = scheduleDefaultDate || new Date();
@@ -202,7 +198,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
   };
 
   const filteredMembers = workspaceMembers.filter((m) => {
-    const name = `${m.user?.surname || ""} ${m.user?.name || ""} ${m.user?.email || ""}`.toLowerCase();
+    const name = `${m.surname || ""} ${m.name || ""} ${m.email || ""}`.toLowerCase();
     return name.includes(memberSearch.toLowerCase());
   });
 
@@ -432,8 +428,8 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
             {selectedAttendeeIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-muted/30 border">
                 {selectedAttendeeIds.map((uid) => {
-                  const member = workspaceMembers.find((m) => m.user?.id === uid);
-                  const name = member?.user?.surname || member?.user?.name || "Member";
+                  const member = workspaceMembers.find((m) => m.userId === uid);
+                  const name = member?.surname || member?.name || "Member";
                   return (
                     <Badge
                       key={uid}
@@ -469,10 +465,10 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
                   </p>
                 ) : (
                   filteredMembers.map((m) => {
-                    const userId = m.user?.id;
+                    const userId = m.userId;
                     if (!userId) return null;
                     const isSelected = selectedAttendeeIds.includes(userId);
-                    const displayName = m.user?.surname || m.user?.name || "Member";
+                    const displayName = m.surname || m.name || "Member";
 
                     return (
                       <div
@@ -486,7 +482,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Avatar className="size-6">
-                            <AvatarImage src={m.user?.image || ""} />
+                            <AvatarImage src={m.image || ""} />
                             <AvatarFallback className="text-[10px]">
                               {displayName[0]?.toUpperCase()}
                             </AvatarFallback>

@@ -9,6 +9,7 @@ import {
   ensureMaterialCatalog,
   updateMaterialCatalog,
 } from "@/server/services/procurement/material-catalog.service";
+import { broadcastTeamUpdate } from "@/lib/realtime";
 
 const materials = new Hono<{ Variables: HonoVariables }>();
 
@@ -39,7 +40,7 @@ materials.get("/", async (c) => {
     prisma.materialCatalog.findMany({
       where: { workspaceId },
       include: { defaultUnit: true },
-      orderBy: { name: "asc" },
+      orderBy: [{ materialId: "asc" }, { name: "asc" }],
     }),
     // What we last agreed to pay, newest first, so picking a remembered
     // material can carry its price into the new indent.
@@ -126,6 +127,11 @@ materials.get("/", async (c) => {
     );
   }
 
+  // ponytail: ensure natural ascending order by materialId (e.g. MAT-0001, MAT-0002, ...)
+  catalog.sort((a, b) =>
+    (a.materialId || "").localeCompare(b.materialId || "", undefined, { numeric: true })
+  );
+
   const formatted = catalog.map((m) => {
     const entry = lastPriceByName.get(m.name.toLowerCase().trim());
     return {
@@ -191,6 +197,20 @@ materials.post("/", zValidator("json", z.object({
     });
   });
 
+  broadcastTeamUpdate({
+    workspaceId: data.workspaceId,
+    type: "CREATE",
+    payload: {
+      action: "MATERIAL_CREATED",
+      material: {
+        id: material.id,
+        materialId: material.materialId,
+        name: material.name,
+        unit: material.defaultUnit?.abbreviation || material.unit,
+      },
+    },
+  }).catch((err) => console.error("Realtime broadcast error:", err));
+
   return c.json({
     success: true,
     data: {
@@ -228,6 +248,20 @@ materials.patch("/:id", zValidator("json", UpdateMaterialSchema), async (c) => {
     c.req.valid("json")
   );
 
+  broadcastTeamUpdate({
+    workspaceId,
+    type: "UPDATE",
+    payload: {
+      action: "MATERIAL_UPDATED",
+      material: {
+        id: material.id,
+        materialId: material.materialId,
+        name: material.name,
+        unit: material.defaultUnit?.abbreviation || material.unit,
+      },
+    },
+  }).catch((err) => console.error("Realtime broadcast error:", err));
+
   return c.json({
     success: true,
     data: {
@@ -240,6 +274,54 @@ materials.patch("/:id", zValidator("json", UpdateMaterialSchema), async (c) => {
           ? { abbreviation: material.unit }
           : null,
     },
+  });
+});
+
+/**
+ * DELETE /api/v1/materials/:id
+ * Delete a material from the workspace catalog so its code can be recycled.
+ */
+materials.delete("/:id", async (c) => {
+  const user = c.get("user");
+  const materialId = c.req.param("id");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id);
+  if (!canManageCatalog(perms)) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const existing = await prisma.materialCatalog.findFirst({
+    where: {
+      workspaceId,
+      OR: [{ id: materialId }, { materialId: materialId }],
+    },
+    select: { id: true, materialId: true },
+  });
+
+  if (!existing) {
+    throw AppError.NotFound("Material not found");
+  }
+
+  await prisma.materialCatalog.delete({
+    where: { id: existing.id },
+  });
+
+  broadcastTeamUpdate({
+    workspaceId,
+    type: "DELETE",
+    payload: {
+      action: "MATERIAL_DELETED",
+      id: existing.id,
+      materialId: existing.materialId,
+    },
+  }).catch((err) => console.error("Realtime broadcast error:", err));
+
+  return c.json({
+    success: true,
+    data: { id: existing.id, materialId: existing.materialId },
   });
 });
 

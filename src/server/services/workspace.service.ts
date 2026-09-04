@@ -14,6 +14,7 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "@/lib/involved-users";
 import { getISTDateOnly } from "@/lib/date-utils";
+import { broadcastTeamUpdate } from "@/lib/realtime";
 
 export class WorkspaceService {
   /**
@@ -535,8 +536,8 @@ export class WorkspaceService {
 
     // 2. Trigger password reset through Better Auth
     // We use the email from the user record
-    const { auth } = await import("@/lib/auth");
-    
+    const { auth, takeResetPasswordSendError } = await import("@/lib/auth");
+
     try {
       await (auth.api as any).requestPasswordReset({
         body: {
@@ -544,6 +545,13 @@ export class WorkspaceService {
           redirectTo: "/reset-password",
         }
       });
+
+      // Better Auth answers "ok" even when the mail bounced or the address is
+      // unknown to it, so check what the send callback actually recorded.
+      const sendError = takeResetPasswordSendError(member.user.email);
+      if (sendError) {
+        throw new Error(`Could not deliver the reset email: ${sendError}`);
+      }
 
       // 3. Record Activity
       await recordActivity({
@@ -1406,5 +1414,77 @@ export class WorkspaceService {
     });
 
     return workspace;
+  }
+
+  /**
+   * Broadcast messages are plain notification rows (type "BROADCAST"), one per
+   * member — no new table, and they show up in the bell alongside everything else.
+   */
+  static async listBroadcasts(workspaceId: string, userId: string, limit: number = 10) {
+    const take = Math.min(limit, 50);
+
+    // Expiry lives in metadata, which Prisma cannot filter on cheaply, so over-fetch
+    // a little and drop the expired ones here.
+    const rows = await prisma.notification.findMany({
+      where: { workspaceId, userId, type: "BROADCAST" },
+      orderBy: { createdAt: "desc" },
+      take: take * 3,
+      select: { id: true, title: true, body: true, createdAt: true, isRead: true, metadata: true },
+    });
+
+    const now = Date.now();
+    return rows
+      .filter((r) => {
+        const expiresAt = (r.metadata as any)?.expiresAt;
+        return !expiresAt || new Date(expiresAt).getTime() > now;
+      })
+      .slice(0, take);
+  }
+
+  static async createBroadcast(
+    workspaceId: string,
+    sender: { id: string; name: string },
+    title: string,
+    message: string,
+    expiresAt?: Date | null
+  ) {
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      select: { userId: true },
+    });
+
+    const broadcastId = crypto.randomUUID();
+    const createdAt = new Date();
+    const metadata = {
+      broadcastId,
+      senderId: sender.id,
+      senderName: sender.name,
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+    };
+
+    await prisma.notification.createMany({
+      data: members.map((m) => ({
+        id: crypto.randomUUID(),
+        userId: m.userId,
+        workspaceId,
+        title,
+        body: message,
+        type: "BROADCAST",
+        entityId: broadcastId,
+        entityType: "BROADCAST",
+        metadata,
+        createdAt,
+        updatedAt: createdAt,
+      })),
+    });
+
+    await broadcastTeamUpdate({
+      workspaceId,
+      type: "CREATE",
+      action: "BROADCAST_CREATED",
+      payload: { title, body: message, ...metadata, createdAt },
+    });
+
+    return { id: broadcastId, title, body: message, createdAt, ...metadata };
   }
 }

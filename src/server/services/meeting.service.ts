@@ -34,6 +34,67 @@ export interface GetMeetingsFilter {
 
 export class MeetingService {
   /**
+   * Notify users who were just invited to a meeting: a stored notification each,
+   * plus a real-time nudge on their personal channel so the bell reacts at once.
+   */
+  private static async notifyInvitees(
+    workspaceId: string,
+    organizerId: string,
+    meeting: { id: string; title: string; startTime: Date; location: string | null; meetingUrl: string | null },
+    inviteeUserIds: string[]
+  ) {
+    if (inviteeUserIds.length === 0) return;
+
+    const formattedDate = new Date(meeting.startTime).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    const message = `You are invited to "${meeting.title}" on ${formattedDate}`;
+
+    await prisma.notification
+      .createMany({
+        data: inviteeUserIds.map((uid) => ({
+          id: randomUUID(),
+          userId: uid,
+          workspaceId,
+          title: "Meeting Scheduled",
+          body: message,
+          type: "MEETING_SCHEDULED",
+          entityId: meeting.id,
+          entityType: "MEETING",
+          metadata: {
+            meetingId: meeting.id,
+            startTime: meeting.startTime,
+            location: meeting.location,
+            meetingUrl: meeting.meetingUrl,
+          },
+          updatedAt: new Date(),
+        })),
+      })
+      .catch((err) => console.error("[MEETING_SERVICE] Failed to save notifications:", err));
+
+    if (pusherServer) {
+      await pusherServer
+        .trigger(
+          inviteeUserIds.map((id) => `user-${id}`),
+          "activity_log",
+          {
+            action: "MEETING_SCHEDULED",
+            entityId: meeting.id,
+            entityType: "MEETING",
+            notification: true,
+            message,
+            newData: meeting,
+            userId: organizerId,
+          }
+        )
+        .catch((err) => console.error("[MEETING_SERVICE] Pusher activity_log error:", err));
+    }
+  }
+
+  /**
    * Retrieve workspace meetings and optional ERP calendar layers (tasks, holidays, leaves).
    */
   static async getMeetings(workspaceId: string, filter: GetMeetingsFilter = {}, userId?: string) {
@@ -345,51 +406,12 @@ export class MeetingService {
     });
 
     // Notify other attendees
-    const notifyUserIds = attendeeUserIds.filter((id) => id !== organizerId);
-    if (notifyUserIds.length > 0) {
-      const formattedDate = startTime.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-
-      const notifications = notifyUserIds.map((uid) => ({
-        id: randomUUID(),
-        userId: uid,
-        workspaceId,
-        title: "Meeting Scheduled",
-        body: `You are invited to "${meeting.title}" on ${formattedDate}`,
-        type: "MEETING_SCHEDULED",
-        entityId: meeting.id,
-        entityType: "MEETING",
-        metadata: {
-          meetingId: meeting.id,
-          startTime: meeting.startTime,
-          location: meeting.location,
-          meetingUrl: meeting.meetingUrl,
-        },
-        updatedAt: new Date(),
-      }));
-
-      prisma.notification.createMany({ data: notifications }).catch((err) => {
-        console.error("[MEETING_SERVICE] Failed to save notifications:", err);
-      });
-
-      if (pusherServer) {
-        const attendeeChannels = notifyUserIds.map((id) => `user-${id}`);
-        pusherServer
-          .trigger(attendeeChannels, "activity_log", {
-            action: "MEETING_SCHEDULED",
-            entityId: meeting.id,
-            entityType: "MEETING",
-            message: `You are invited to "${meeting.title}" on ${formattedDate}`,
-            newData: meeting,
-            userId: organizerId,
-          })
-          .catch((err) => console.error("[MEETING_SERVICE] Pusher activity_log error:", err));
-      }
-    }
+    await MeetingService.notifyInvitees(
+      workspaceId,
+      organizerId,
+      meeting,
+      attendeeUserIds.filter((id) => id !== organizerId)
+    );
 
     // Broadcast workspace-wide meeting update for real-time UI sync
     await broadcastMeetingUpdate({
@@ -451,6 +473,13 @@ export class MeetingService {
             status: uid === existing.organizerId ? "ACCEPTED" : "INVITED",
           })),
         });
+
+        await MeetingService.notifyInvitees(
+          workspaceId,
+          userId,
+          { ...existing, startTime: updateData.startTime ?? existing.startTime, title: updateData.title ?? existing.title },
+          toAdd.filter((id) => id !== userId)
+        );
       }
     }
 

@@ -83,4 +83,31 @@ describe("updateMaterialCatalog", () => {
 
     expect(dbMocks.materialCatalog.update).not.toHaveBeenCalled();
   });
+
+  test("supports finding material by materialId code e.g. MAT-0001", async () => {
+    dbMocks.materialCatalog.findFirst
+      .mockReset()
+      .mockResolvedValueOnce({
+        id: "material-1",
+        materialId: "MAT-0001",
+        workspaceId: "workspace-1",
+        name: "River Sand",
+        unit: "CFT",
+        vendorCapabilities: [],
+      })
+      .mockResolvedValueOnce(null);
+
+    await updateMaterialCatalog("MAT-0001", "workspace-1", {
+      name: "M Sand",
+    });
+
+    expect(dbMocks.materialCatalog.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          workspaceId: "workspace-1",
+          OR: [{ id: "MAT-0001" }, { materialId: "MAT-0001" }],
+        }),
+      })
+    );
+  });
 });

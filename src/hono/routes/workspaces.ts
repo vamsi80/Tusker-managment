@@ -394,4 +394,56 @@ workspaces.get("/:workspaceId/notifications/:id/read", async (c) => {
   return c.json({ success: true });
 });
 
+/**
+ * GET /api/v1/workspaces/:workspaceId/broadcasts
+ * Broadcast messages addressed to the current user.
+ */
+workspaces.get("/:workspaceId/broadcasts", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const limit = parseInt(c.req.query("limit") || "10");
+
+  const broadcasts = await WorkspaceService.listBroadcasts(workspaceId, user.id, limit);
+  return c.json({ success: true, data: broadcasts });
+});
+
+/**
+ * POST /api/v1/workspaces/:workspaceId/broadcasts
+ * Post a broadcast message to every member. Owners and admins only.
+ */
+workspaces.post("/:workspaceId/broadcasts", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  const perms = await getWorkspacePermissions(workspaceId, user.id, true);
+  if (!perms.isWorkspaceAdmin) {
+    throw AppError.Forbidden("Only owners and admins can post broadcast messages");
+  }
+
+  const body = await c.req.json();
+  const title = String(body?.title ?? "").trim() || "Announcement";
+  const message = String(body?.message ?? "").trim();
+
+  if (!message) throw AppError.ValidationError("Message is required");
+  if (message.length > 2000) throw AppError.ValidationError("Message is too long (max 2000 characters)");
+  if (title.length > 120) throw AppError.ValidationError("Title is too long (max 120 characters)");
+
+  // How long the message stays on the dashboard; omitted means it never expires.
+  const hours = body?.expiresInHours == null ? null : Number(body.expiresInHours);
+  if (hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours > 24 * 365)) {
+    throw AppError.ValidationError("Visibility duration must be between 1 hour and 1 year");
+  }
+  const expiresAt = hours === null ? null : new Date(Date.now() + hours * 60 * 60 * 1000);
+
+  const broadcast = await WorkspaceService.createBroadcast(
+    workspaceId,
+    { id: user.id, name: perms.userSurname || user.name || "Admin" },
+    title,
+    message,
+    expiresAt
+  );
+
+  return c.json({ success: true, data: broadcast }, 201);
+});
+
 export default workspaces;

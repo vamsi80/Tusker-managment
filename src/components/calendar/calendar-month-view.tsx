@@ -5,6 +5,7 @@ import { useMeetingStore } from "@/lib/store/meeting-store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, CheckSquare, Sparkles, UserX, Video } from "lucide-react";
 import type { MeetingUI } from "@/lib/api-client/meetings";
+import { addDateOnlyDays, calendarDayKey } from "@/lib/date-utils";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -40,13 +41,13 @@ export function CalendarMonthView() {
       dateKey: string;
     }> = [];
 
-    const todayKey = new Date().toISOString().split("T")[0];
+    const todayKey = calendarDayKey(new Date());
 
     // Previous month padding days
     const prevMonthLastDay = new Date(year, month, 0).getDate();
     for (let i = startingDayIndex - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthLastDay - i);
-      const dateKey = d.toISOString().split("T")[0];
+      const dateKey = calendarDayKey(d);
       daysArray.push({
         date: d,
         isCurrentMonth: false,
@@ -58,7 +59,7 @@ export function CalendarMonthView() {
     // Current month days
     for (let i = 1; i <= totalDays; i++) {
       const d = new Date(year, month, i);
-      const dateKey = d.toISOString().split("T")[0];
+      const dateKey = calendarDayKey(d);
       daysArray.push({
         date: d,
         isCurrentMonth: true,
@@ -71,7 +72,7 @@ export function CalendarMonthView() {
     const remaining = (7 - (daysArray.length % 7)) % 7;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(year, month + 1, i);
-      const dateKey = d.toISOString().split("T")[0];
+      const dateKey = calendarDayKey(d);
       daysArray.push({
         date: d,
         isCurrentMonth: false,
@@ -122,21 +123,21 @@ export function CalendarMonthView() {
 
     if (activeLayers.meetings) {
       filteredMeetings.forEach((m) => {
-        const key = new Date(m.startTime).toISOString().split("T")[0];
+        const key = calendarDayKey(m.startTime);
         getEntry(key).meetings.push(m);
       });
     }
 
     if (activeLayers.tasks) {
       taskDeadlines.forEach((t) => {
-        const key = new Date(t.date).toISOString().split("T")[0];
+        const key = calendarDayKey(t.date);
         getEntry(key).tasks.push(t);
       });
     }
 
     if (activeLayers.holidays) {
       publicHolidays.forEach((h) => {
-        const key = new Date(h.date).toISOString().split("T")[0];
+        const key = calendarDayKey(h.date);
         getEntry(key).holidays.push(h);
       });
     }
@@ -145,10 +146,9 @@ export function CalendarMonthView() {
       leaves.forEach((l) => {
         const start = new Date(l.startDate);
         const end = new Date(l.endDate);
-        // Mark all dates between start and end
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const key = d.toISOString().split("T")[0];
-          getEntry(key).leaves.push(l);
+        // Mark all dates between start and end (UTC day steps: these are @db.Date values)
+        for (let d = start; d <= end; d = addDateOnlyDays(d, 1)) {
+          getEntry(calendarDayKey(d)).leaves.push(l);
         }
       });
     }

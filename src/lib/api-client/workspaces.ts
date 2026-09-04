@@ -17,12 +17,23 @@ export interface BirthdayMember {
     isSelf: boolean;
 }
 
+export interface Broadcast {
+    id: string;
+    title: string;
+    body: string;
+    createdAt: string | Date;
+    isRead?: boolean;
+    metadata?: { senderName?: string; expiresAt?: string | null } | null;
+}
+
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
     getMembers(workspaceId: string, page?: number, limit?: number, search?: string, departmentId?: string): Promise<WorkspaceMembersResult>;
     getMembersSlim(workspaceId: string): Promise<any[]>;
     getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
+    getBroadcasts(workspaceId: string, limit?: number): Promise<Broadcast[]>;
+    postBroadcast(workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
@@ -108,6 +119,19 @@ export const workspacesClient: WorkspacesClient = {
     },
     getBirthdays: async (workspaceId: string): Promise<BirthdayMember[]> => {
         const response = await apiFetch<{ success: boolean; data: BirthdayMember[] }>(`/workspaces/${workspaceId}/birthdays`);
+        return response.data;
+    },
+
+    getBroadcasts: async (workspaceId: string, limit: number = 10): Promise<Broadcast[]> => {
+        const response = await apiFetch<{ success: boolean; data: Broadcast[] }>(`/workspaces/${workspaceId}/broadcasts?limit=${limit}`);
+        return response.data;
+    },
+
+    postBroadcast: async (workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast> => {
+        const response = await apiFetch<{ success: boolean; data: Broadcast }>(`/workspaces/${workspaceId}/broadcasts`, {
+            method: "POST",
+            body: JSON.stringify(values),
+        });
         return response.data;
     },
 

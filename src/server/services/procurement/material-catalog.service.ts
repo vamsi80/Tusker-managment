@@ -71,7 +71,10 @@ export async function updateMaterialCatalog(
 ) {
   return prisma.$transaction(async (tx) => {
     const current = await tx.materialCatalog.findFirst({
-      where: { id: materialId, workspaceId },
+      where: {
+        workspaceId,
+        OR: [{ id: materialId }, { materialId: materialId }],
+      },
       include: {
         vendorCapabilities: {
           select: { id: true, vendorId: true, serviceType: true },
@@ -86,7 +89,7 @@ export async function updateMaterialCatalog(
     const duplicate = await tx.materialCatalog.findFirst({
       where: {
         workspaceId,
-        id: { not: materialId },
+        id: { not: current.id },
         name: { equals: name, mode: "insensitive" },
       },
       select: { id: true },
@@ -133,7 +136,7 @@ export async function updateMaterialCatalog(
     }
 
     const updated = await tx.materialCatalog.update({
-      where: { id: materialId },
+      where: { id: current.id },
       data: {
         ...(data.name === undefined ? {} : { name }),
         ...unitData,
@@ -143,7 +146,7 @@ export async function updateMaterialCatalog(
 
     if (data.name !== undefined && current.vendorCapabilities.length > 0) {
       await tx.vendorMaterialCapability.updateMany({
-        where: { materialCatalogId: materialId },
+        where: { materialCatalogId: current.id },
         data: { materialName: name.toLowerCase() },
       });
     }

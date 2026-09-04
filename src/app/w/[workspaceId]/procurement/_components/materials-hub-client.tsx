@@ -26,9 +26,27 @@ import { Input } from "@/components/ui/input";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { DataTable } from "@/components/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Pencil, Check, X, Send, FolderKanban, Truck } from "lucide-react";
+import { Eye, Pencil, Check, X, Send, FolderKanban, Truck, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { vendorDisplayName } from "@/lib/procurement/vendor-name";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   areStatusFiltersEqual,
   MATERIAL_STATUS_OPTIONS,
@@ -89,6 +107,7 @@ interface MaterialsHubClientProps {
 
 interface GroupedMaterialRow {
   groupKey: string;
+  catalogId?: string | null;
   materialId?: string | null;
   materialName: string;
   unit: string;
@@ -118,12 +137,33 @@ export function MaterialsHubClient({
   const { data: workspaceData } = useWorkspaceLayout();
   const workspaceRole = workspaceData?.permissions?.workspaceRole;
   const workspaceMemberId = workspaceData?.permissions?.workspaceMemberId;
+  const isWorkspaceAdmin = workspaceData?.permissions?.isWorkspaceAdmin;
   const isApprover = workspaceRole === "OWNER" || workspaceRole === "ADMIN" || workspaceRole === "MANAGER";
   const isAccounts = workspaceRole === "ACCOUNTS";
+  const canManageMaterial = Boolean(
+    isWorkspaceAdmin ||
+    workspaceRole === "OWNER" ||
+    workspaceRole === "ADMIN" ||
+    workspaceRole === "MANAGER" ||
+    workspaceRole === "PROCUREMENT" ||
+    (!isAccounts && workspaceRole)
+  );
 
   const [lineItems, setLineItems] = useState<LineItemRow[]>([]);
   const [catalogMaterials, setCatalogMaterials] = useState<any[]>([]);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+
+  // Edit material state & double confirmation
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editMaterialName, setEditMaterialName] = useState("");
+  const [editMaterialUnit, setEditMaterialUnit] = useState("");
+  const [isEditConfirmOpen, setIsEditConfirmOpen] = useState(false);
+  const [isUpdatingMaterial, setIsUpdatingMaterial] = useState(false);
+
+  // Delete material state & double confirmation
+  const [isDeleteStep1Open, setIsDeleteStep1Open] = useState(false);
+  const [isDeleteStep2Open, setIsDeleteStep2Open] = useState(false);
+  const [isDeletingMaterial, setIsDeletingMaterial] = useState(false);
 
   // Edit quantity states
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -268,6 +308,24 @@ export function MaterialsHubClient({
     fetchCatalog();
   }, [fetchLineItems, fetchVendorCoverages, fetchCatalog]);
 
+  // Real-time listener for materials synchronization
+  useEffect(() => {
+    const handleRealtimeSync = (e: any) => {
+      const detail = e.detail || {};
+      const action = detail.action || detail.record?.action;
+      if (
+        action === "MATERIAL_UPDATED" ||
+        action === "MATERIAL_DELETED" ||
+        action === "MATERIAL_CREATED"
+      ) {
+        fetchCatalog();
+        fetchLineItems();
+      }
+    };
+    window.addEventListener("realtime-sync-refresh", handleRealtimeSync);
+    return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
+  }, [fetchCatalog, fetchLineItems]);
+
   useEffect(() => {
     const nextStatuses = parseProcurementStatusParam(statusParam, MATERIAL_STATUSES);
     setStatusFilter((currentStatuses) =>
@@ -283,6 +341,7 @@ export function MaterialsHubClient({
     const key = `${cat.name.toLowerCase().trim()}_${(cat.defaultUnit?.abbreviation || "").toLowerCase().trim()}`;
     groupedItemsMap[key] = {
       groupKey: key,
+      catalogId: cat.id,
       materialId: cat.materialId,
       materialName: cat.name,
       unit: cat.defaultUnit?.abbreviation || "",
@@ -296,10 +355,16 @@ export function MaterialsHubClient({
 
   lineItems.forEach((item) => {
     const key = `${item.materialName.toLowerCase().trim()}_${item.unit.toLowerCase().trim()}`;
+    const matchingCat = catalogMaterials.find(
+      (c) =>
+        (item.materialId && c.materialId === item.materialId) ||
+        c.name.toLowerCase().trim() === item.materialName.toLowerCase().trim()
+    );
     if (!groupedItemsMap[key]) {
       groupedItemsMap[key] = {
         groupKey: key,
-        materialId: item.materialId,
+        catalogId: matchingCat?.id ?? null,
+        materialId: item.materialId || matchingCat?.materialId || null,
         materialName: item.materialName,
         unit: item.unit,
         combinedQuantity: 0,
@@ -308,6 +373,11 @@ export function MaterialsHubClient({
         latestPrice: null,
         vendor: null,
       };
+    } else if (!groupedItemsMap[key].catalogId && matchingCat?.id) {
+      groupedItemsMap[key].catalogId = matchingCat.id;
+      if (!groupedItemsMap[key].materialId && matchingCat.materialId) {
+        groupedItemsMap[key].materialId = matchingCat.materialId;
+      }
     }
     groupedItemsMap[key].combinedQuantity += item.quantity;
     groupedItemsMap[key].items.push(item);
@@ -356,7 +426,148 @@ export function MaterialsHubClient({
     };
   });
 
-  const selectedGroup = selectedGroupKey ? groupedItemsMap[selectedGroupKey] : null;
+  // ponytail: arrange materials in ascending order by materialId
+  groupedMaterials.sort((a, b) => {
+    const idA = a.materialId || "";
+    const idB = b.materialId || "";
+    if (idA && idB) {
+      return idA.localeCompare(idB, undefined, { numeric: true });
+    }
+    if (idA) return -1;
+    if (idB) return 1;
+    return a.materialName.localeCompare(b.materialName);
+  });
+
+  const selectedGroup = selectedGroupKey
+    ? groupedMaterials.find((g) => g.groupKey === selectedGroupKey) ?? groupedItemsMap[selectedGroupKey]
+    : null;
+
+  const handleOpenEdit = () => {
+    if (!selectedGroup) return;
+    setEditMaterialName(selectedGroup.materialName);
+    setEditMaterialUnit(selectedGroup.unit || "");
+    setIsEditDialogOpen(true);
+  };
+
+  const handleProceedToEditConfirm = () => {
+    if (!editMaterialName.trim()) {
+      toast.error("Material name cannot be empty");
+      return;
+    }
+    setIsEditConfirmOpen(true);
+  };
+
+  const handleUpdateMaterial = async () => {
+    if (!selectedGroup) return;
+    const targetId = selectedGroup.catalogId || selectedGroup.materialId;
+    if (!targetId) {
+      toast.error("Unable to identify catalog material to update");
+      return;
+    }
+
+    const trimmedName = editMaterialName.trim();
+    const trimmedUnit = editMaterialUnit.trim() || null;
+
+    setIsUpdatingMaterial(true);
+    try {
+      const res = await fetch(`/api/v1/materials/${encodeURIComponent(targetId)}?w=${workspaceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          unit: trimmedUnit,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to update material");
+      }
+
+      toast.success("Material updated successfully");
+
+      // Optimistic update of local catalog state
+      setCatalogMaterials((prev) =>
+        prev.map((m) =>
+          m.id === targetId || m.materialId === targetId
+            ? {
+                ...m,
+                name: trimmedName,
+                defaultUnit: trimmedUnit ? { abbreviation: trimmedUnit } : null,
+              }
+            : m
+        )
+      );
+
+      // Update selectedGroupKey if name or unit changed
+      const newKey = `${trimmedName.toLowerCase().trim()}_${(trimmedUnit || "").toLowerCase().trim()}`;
+      setSelectedGroupKey(newKey);
+
+      setIsEditConfirmOpen(false);
+      setIsEditDialogOpen(false);
+
+      fetchCatalog();
+      fetchLineItems();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update material");
+    } finally {
+      setIsUpdatingMaterial(false);
+    }
+  };
+
+  const handleOpenDelete = () => {
+    if (!selectedGroup) return;
+    setIsDeleteStep1Open(true);
+  };
+
+  const handleProceedToDeleteStep2 = () => {
+    setIsDeleteStep1Open(false);
+    setIsDeleteStep2Open(true);
+  };
+
+  const handleDeleteMaterial = async () => {
+    if (!selectedGroup) return;
+    const targetId = selectedGroup.catalogId || selectedGroup.materialId;
+    if (!targetId) {
+      toast.error("Unable to identify catalog material to delete");
+      return;
+    }
+
+    setIsDeletingMaterial(true);
+    try {
+      const res = await fetch(`/api/v1/materials/${encodeURIComponent(targetId)}?w=${workspaceId}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to delete material");
+      }
+
+      const freedCode = data.data?.materialId || selectedGroup.materialId;
+      toast.success(
+        freedCode
+          ? `Material deleted. Code ${freedCode} freed for reuse.`
+          : "Material deleted successfully"
+      );
+
+      // Optimistically remove from catalogMaterials
+      setCatalogMaterials((prev) =>
+        prev.filter((m) => m.id !== targetId && m.materialId !== targetId)
+      );
+
+      setIsDeleteStep2Open(false);
+      setIsDeleteStep1Open(false);
+      setSelectedGroupKey(null);
+
+      fetchCatalog();
+      fetchLineItems();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete material");
+    } finally {
+      setIsDeletingMaterial(false);
+    }
+  };
 
   const getIndentStatusBadge = (status: string) => {
     switch (status) {
@@ -573,12 +784,19 @@ export function MaterialsHubClient({
           {selectedGroup && (
             <>
               <SheetHeader className="p-0 border-b pb-4 shrink-0">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/[0.08] px-2 py-0.5 rounded border border-primary/20">
-                      Consolidated Material Overview
-                    </span>
-                    <SheetTitle className="text-base font-bold text-foreground mt-2">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      {selectedGroup.materialId && (
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                          {selectedGroup.materialId}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
+                        Consolidated Material Overview
+                      </span>
+                    </div>
+                    <SheetTitle className="text-base font-bold text-foreground">
                       {selectedGroup.materialName}
                     </SheetTitle>
                     <SheetDescription className="text-xs text-muted-foreground mt-1">
@@ -604,6 +822,27 @@ export function MaterialsHubClient({
                       </div>
                     )}
                   </div>
+
+                  {canManageMaterial && (
+                    <div className="flex items-center gap-2 shrink-0 self-start">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenEdit}
+                        className="h-8 text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <Pencil className="size-3.5" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenDelete}
+                        className="h-8 text-xs font-semibold flex items-center gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                      >
+                        <Trash2 className="size-3.5" /> Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </SheetHeader>
 
@@ -760,6 +999,199 @@ export function MaterialsHubClient({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Edit Material Dialog - Step 1 */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Pencil className="size-4 text-primary" /> Edit Material
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Modify the catalog material name or default unit of measure.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            {selectedGroup?.materialId && (
+              <div className="flex items-center justify-between text-xs bg-muted/50 p-2.5 rounded-md border border-border/60">
+                <span className="text-muted-foreground font-medium">Material Code:</span>
+                <span className="font-mono font-bold text-foreground">{selectedGroup.materialId}</span>
+              </div>
+            )}
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-material-name" className="text-xs font-semibold">
+                Material Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="edit-material-name"
+                value={editMaterialName}
+                onChange={(e) => setEditMaterialName(e.target.value)}
+                placeholder="e.g. River Sand, Samsung 86 Inch TV"
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-material-unit" className="text-xs font-semibold">
+                Default Unit of Measure (UoM)
+              </Label>
+              <Input
+                id="edit-material-unit"
+                value={editMaterialUnit}
+                onChange={(e) => setEditMaterialUnit(e.target.value)}
+                placeholder="e.g. Nos, CFT, Sq.m, Kg"
+                className="text-xs h-9"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleProceedToEditConfirm}
+              className="bg-primary text-primary-foreground font-semibold"
+            >
+              Save Changes...
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Material Double Confirmation AlertDialog - Step 2 */}
+      <AlertDialog open={isEditConfirmOpen} onOpenChange={setIsEditConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold flex items-center gap-2">
+              <AlertTriangle className="size-4 text-amber-500" /> Confirm Material Changes
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-xs text-muted-foreground space-y-3 pt-1">
+                <p>Are you sure you want to save these modifications to the material catalog?</p>
+                <div className="bg-muted/50 p-3 rounded-md border border-border/60 text-xs space-y-1.5 font-sans">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Code:</span>
+                    <span className="font-mono font-bold text-foreground">{selectedGroup?.materialId || "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Name:</span>
+                    <span className="text-foreground font-semibold text-right">
+                      {selectedGroup?.materialName} <span className="text-muted-foreground">→</span> <span className="text-primary font-bold">{editMaterialName.trim()}</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Unit:</span>
+                    <span className="text-foreground font-semibold text-right">
+                      {selectedGroup?.unit || "None"} <span className="text-muted-foreground">→</span> <span className="text-primary font-bold">{editMaterialUnit.trim() || "None"}</span>
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Linked indent line items and capabilities will be updated with the new material details.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUpdatingMaterial}>Go Back</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUpdateMaterial}
+              disabled={isUpdatingMaterial}
+              className="bg-primary text-primary-foreground font-semibold"
+            >
+              {isUpdatingMaterial ? "Updating..." : "Yes, Confirm & Update"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Material AlertDialog - Step 1 */}
+      <AlertDialog open={isDeleteStep1Open} onOpenChange={setIsDeleteStep1Open}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold flex items-center gap-2">
+              <Trash2 className="size-4 text-destructive" /> Delete Material {selectedGroup?.materialName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-xs text-muted-foreground space-y-2.5 pt-1">
+                <p>
+                  Are you sure you want to delete <strong className="text-foreground">{selectedGroup?.materialName}</strong> ({selectedGroup?.materialId}) from the workspace material catalog?
+                </p>
+                {selectedGroup && selectedGroup.items.length > 0 ? (
+                  <div className="bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 p-2.5 rounded-md text-[11px]">
+                    ⚠️ This material has <strong>{selectedGroup.items.length}</strong> associated line item(s). Deleting it will detach the catalog reference while preserving indent history.
+                  </div>
+                ) : (
+                  <p className="text-[11px]">
+                    Deleting this material will free code <strong className="font-mono text-foreground">{selectedGroup?.materialId}</strong> to be reused in ascending order for future materials.
+                  </p>
+                )}
+                <p className="font-medium text-foreground text-xs">
+                  A second confirmation will be required to execute this deletion.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleProceedToDeleteStep2}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
+            >
+              Proceed to Delete...
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Material Final Double Confirmation AlertDialog - Step 2 */}
+      <AlertDialog open={isDeleteStep2Open} onOpenChange={setIsDeleteStep2Open}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-4 text-destructive" /> Final Warning: Permanently Delete Material?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-xs text-muted-foreground space-y-2.5 pt-1">
+                <p>
+                  This is your <strong className="text-destructive">final confirmation</strong>. Are you absolutely certain you want to delete:
+                </p>
+                <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-md text-xs space-y-1">
+                  <div className="font-mono font-bold text-foreground text-sm">
+                    {selectedGroup?.materialId}
+                  </div>
+                  <div className="font-semibold text-foreground">
+                    {selectedGroup?.materialName}
+                  </div>
+                </div>
+                <p className="text-destructive font-medium text-xs">
+                  This action cannot be undone. Once deleted, this material code will be recycled for future materials in ascending order.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingMaterial}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMaterial}
+              disabled={isDeletingMaterial}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
+            >
+              {isDeletingMaterial ? "Deleting..." : "Yes, Permanently Delete Material"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -132,3 +132,19 @@ export function formatDateOnly(
     if (!d) return "-";
     return format(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()), formatStr);
 }
+
+/**
+ * "yyyy-MM-dd" bucket key for anything shown on a calendar grid.
+ *  - `@db.Date` values (leaves, holidays — midnight UTC) keep their UTC day, so a
+ *    leave taken today never lands on tomorrow's cell for viewers east of UTC.
+ *  - real instants (meeting start times, the grid's own local Date cells) use
+ *    their local parts, which is the day the user sees on the clock.
+ */
+export function calendarDayKey(value: string | Date): string {
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return "";
+    if (d.getTime() % MS_PER_DAY === 0) {
+        return `${d.getUTCFullYear()}-${`${d.getUTCMonth() + 1}`.padStart(2, "0")}-${`${d.getUTCDate()}`.padStart(2, "0")}`;
+    }
+    return toDateOnlyString(d);
+}

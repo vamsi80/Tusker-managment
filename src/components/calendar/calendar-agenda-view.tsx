@@ -7,17 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Video, MapPin, Clock, Calendar as CalendarIcon, ExternalLink, Briefcase, Plus } from "lucide-react";
 import type { MeetingUI } from "@/lib/api-client/meetings";
+import { calendarDayKey } from "@/lib/date-utils";
 
 export function CalendarAgendaView() {
   const { meetings, filterType, searchQuery, openScheduleModal, openDetailsModal } = useMeetingStore();
 
   const groupedMeetings = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    const todayStr = calendarDayKey(now);
 
     const tomorrow = new Date(now);
     tomorrow.setDate(now.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    const tomorrowStr = calendarDayKey(tomorrow);
 
     const filtered = meetings.filter((m) => {
       if (m.status === "CANCELLED") return false;
@@ -40,7 +41,7 @@ export function CalendarAgendaView() {
     const groupMap = new Map<string, MeetingUI[]>();
 
     filtered.forEach((m) => {
-      const dateKey = new Date(m.startTime).toISOString().split("T")[0];
+      const dateKey = calendarDayKey(m.startTime);
       if (!groupMap.has(dateKey)) {
         groupMap.set(dateKey, []);
       }

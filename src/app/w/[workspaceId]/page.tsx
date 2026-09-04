@@ -1,29 +1,25 @@
 "use client";
 
 import { useWorkspaceLayout } from "./_components/workspace-layout-context";
-import { BirthdaysWidget } from "./_components/birthdays-widget";
-import { CalendarDashboard } from "@/components/calendar/calendar-dashboard";
-import { UpcomingMeetingAlert } from "@/components/calendar/upcoming-meeting-alert";
-import { TodayAgendaWidget } from "@/components/calendar/today-agenda-widget";
+import { BroadcastWidget } from "./_components/broadcast-widget";
+import { MyTasksWidget } from "./_components/my-tasks-widget";
+import { MeetingsWidget } from "./_components/meetings-widget";
 import { authClient } from "@/lib/auth-client";
 import { getUserDisplayName } from "@/lib/user-display-name";
-import { Button } from "@/components/ui/button";
-import { useMeetingStore } from "@/lib/store/meeting-store";
-import { Plus, Calendar as CalendarIcon, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export default function WorkSpacePage() {
   const { data, workspaceId } = useWorkspaceLayout();
   const { data: session } = authClient.useSession();
-  const { openScheduleModal } = useMeetingStore();
 
   const currentWorkspace = data?.workspaces?.workspaces?.[0];
   const workspaceName = currentWorkspace?.name ?? "Workspace";
+  const canBroadcast = Boolean(data?.permissions?.isWorkspaceAdmin);
 
   const user = session?.user;
   const displayName = user ? getUserDisplayName(user as any) : "Team";
 
-  const today = new Date();
-  const formattedToday = today.toLocaleDateString("en-US", {
+  const formattedToday = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -48,35 +44,15 @@ export default function WorkSpacePage() {
           </h1>
 
           <p className="text-sm text-muted-foreground">
-            Manage your schedule, meetings, and team collaboration across {workspaceName}.
+            Announcements, your tasks and this week&apos;s meetings across {workspaceName}.
           </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            onClick={() => openScheduleModal()}
-            className="rounded-2xl font-semibold gap-2 shadow-sm h-10 px-4 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="size-4" /> Schedule Meeting
-          </Button>
         </div>
       </div>
 
-      {/* Proactive Upcoming Meeting Alert (Intimation) */}
-      <UpcomingMeetingAlert />
-
-      {/* Main ERP Calendar & Side Agenda Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Interactive Multi-Layer Calendar (8 cols) */}
-        <div className="xl:col-span-8 space-y-6">
-          <CalendarDashboard workspaceId={workspaceId} />
-        </div>
-
-        {/* Right Column: Today's Agenda & Widgets (4 cols) */}
-        <div className="xl:col-span-4 space-y-6">
-          <TodayAgendaWidget />
-          <BirthdaysWidget workspaceId={workspaceId} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <BroadcastWidget workspaceId={workspaceId} canBroadcast={canBroadcast} />
+        <MyTasksWidget workspaceId={workspaceId} />
+        <MeetingsWidget workspaceId={workspaceId} />
       </div>
     </div>
   );

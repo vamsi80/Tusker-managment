@@ -22,7 +22,9 @@ export type MeetingEventData = {
 
 export type TeamEventData = {
     workspaceId: string;
-    type: "INVITE" | "DELETE" | "UPDATE";
+    type: "INVITE" | "DELETE" | "UPDATE" | "CREATE";
+    /** Overrides the type->action guess listeners make, e.g. "BROADCAST_CREATED". */
+    action?: string;
     payload: any;
     targetUserIds?: string[];
 };

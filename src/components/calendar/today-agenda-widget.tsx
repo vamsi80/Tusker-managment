@@ -5,17 +5,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, Clock, Plus, Video } from "lucide-react";
+import { calendarDayKey } from "@/lib/date-utils";
 
 export function TodayAgendaWidget() {
   const { meetings, openScheduleModal, openDetailsModal } = useMeetingStore();
 
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = calendarDayKey(now);
 
   // Filter meetings occurring today
   const todayMeetings = meetings.filter((m) => {
     if (m.status === "CANCELLED") return false;
-    const startStr = new Date(m.startTime).toISOString().split("T")[0];
+    const startStr = calendarDayKey(m.startTime);
     return startStr === todayStr;
   });
 

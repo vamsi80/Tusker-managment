@@ -40,7 +40,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
   const mainNavItems = [
     { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
-    { id: "calendar", title: "Calendar", url: `/w/${workspaceId}`, icon: Calendar },
+    { id: "calendar", title: "Calendar", url: `/w/${workspaceId}/calendar`, icon: Calendar },
     { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
     { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
     { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck, capability: "procurement:view" as const },
