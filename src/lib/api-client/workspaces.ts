@@ -28,6 +28,8 @@ export interface WorkspacesClient {
     getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
     getBroadcasts(workspaceId: string, limit?: number): Promise<Broadcast[]>;
     postBroadcast(workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast>;
+    updateBroadcast(workspaceId: string, broadcastId: string, values: { title?: string; message?: string; expiresInHours?: number | null }): Promise<ApiResponse>;
+    deleteBroadcast(workspaceId: string, broadcastId: string): Promise<ApiResponse>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
@@ -127,6 +129,21 @@ export const workspacesClient: WorkspacesClient = {
             body: JSON.stringify(values),
         });
         return response.data;
+    },
+
+    updateBroadcast: async (workspaceId: string, broadcastId: string, values: { title?: string; message?: string; expiresInHours?: number | null }): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/broadcasts/${broadcastId}`, {
+            method: "PATCH",
+            body: JSON.stringify(values),
+        });
+        return { status: response.success ? "success" : "error", message: "Broadcast updated", data: response.data };
+    },
+
+    deleteBroadcast: async (workspaceId: string, broadcastId: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/broadcasts/${broadcastId}`, {
+            method: "DELETE",
+        });
+        return { status: response.success ? "success" : "error", message: "Broadcast deleted", data: response.data };
     },
 
     /**

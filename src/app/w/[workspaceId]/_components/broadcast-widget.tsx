@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Megaphone, Send } from "lucide-react";
+import { Megaphone, Pencil, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,16 @@ import { apiClient } from "@/lib/api-client";
 import { toast } from "@/lib/toast";
 import { pubsub, EVENTS } from "@/lib/pubsub";
 import type { Broadcast } from "@/lib/api-client/workspaces";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /**
  * Workspace announcements. Everyone reads; only owners/admins can post
@@ -45,6 +55,8 @@ export function BroadcastWidget({
   const [message, setMessage] = useState("");
   const [visibleFor, setVisibleFor] = useState("168");
   const [isSending, setIsSending] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Broadcast | null>(null);
 
   // Anything this component fetched itself wins; otherwise show what the layout
   // already delivered, and only go to the network when it delivered nothing.
@@ -62,12 +74,28 @@ export function BroadcastWidget({
 
     // A new broadcast arrives as a team update — refresh instead of polling.
     return pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
-      if (data?.action === "BROADCAST_CREATED") load();
+      if (typeof data?.action === "string" && data.action.startsWith("BROADCAST_")) load();
     });
     // `initialBroadcasts` is only consulted for the first paint; later layout
     // revalidations must not trigger another fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
+
+  const resetComposer = () => {
+    setEditingId(null);
+    setTitle("");
+    setMessage("");
+    setVisibleFor("168");
+  };
+
+  /** Editing reuses the composer; the pill's own id is per-member, so address the broadcast. */
+  const startEditing = (b: Broadcast) => {
+    if (!b.entityId) return;
+    setEditingId(b.entityId);
+    setTitle(b.title === "Announcement" ? "" : b.title);
+    setMessage(b.body);
+    setVisibleFor(b.metadata?.expiresAt ? visibleFor : "0");
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,19 +103,41 @@ export function BroadcastWidget({
 
     setIsSending(true);
     try {
-      await apiClient.workspaces.postBroadcast(workspaceId, {
+      const values = {
         title: title.trim() || undefined,
         message: message.trim(),
         expiresInHours: visibleFor === "0" ? null : Number(visibleFor),
-      });
-      setTitle("");
-      setMessage("");
-      toast.success("Broadcast sent to the workspace");
+      };
+
+      if (editingId) {
+        await apiClient.workspaces.updateBroadcast(workspaceId, editingId, values);
+        toast.success("Broadcast updated");
+      } else {
+        await apiClient.workspaces.postBroadcast(workspaceId, values);
+        toast.success("Broadcast sent to the workspace");
+      }
+
+      resetComposer();
       load();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to send broadcast");
+      toast.error(error?.message || "Failed to save broadcast");
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const broadcastId = pendingDelete?.entityId;
+    setPendingDelete(null);
+    if (!broadcastId) return;
+
+    try {
+      await apiClient.workspaces.deleteBroadcast(workspaceId, broadcastId);
+      if (editingId === broadcastId) resetComposer();
+      toast.success("Broadcast deleted");
+      load();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete broadcast");
     }
   };
 
@@ -133,15 +183,30 @@ export function BroadcastWidget({
               ))}
             </SelectContent>
           </Select>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isSending || !message.trim()}
-            className="rounded-xl gap-1.5 font-semibold w-full"
-          >
-            <Send className="size-3.5" />
-            {isSending ? "Sending…" : "Send to everyone"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={isSending || !message.trim()}
+              className="rounded-xl gap-1.5 font-semibold flex-1"
+            >
+              <Send className="size-3.5" />
+              {isSending ? "Saving…" : editingId ? "Save changes" : "Send to everyone"}
+            </Button>
+            {editingId && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={resetComposer}
+                disabled={isSending}
+                className="rounded-xl"
+                title="Cancel editing"
+              >
+                <X className="size-3.5" />
+              </Button>
+            )}
+          </div>
         </form>
       )}
 
@@ -162,11 +227,33 @@ export function BroadcastWidget({
               <div key={b.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-sm font-semibold text-foreground truncate">{b.title}</span>
-                  <span className="text-[11px] text-muted-foreground shrink-0">
-                    {new Date(b.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(b.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    {canBroadcast && b.entityId && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEditing(b)}
+                          title="Edit broadcast"
+                          className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Pencil className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingDelete(b)}
+                          title="Delete broadcast"
+                          className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </>
+                    )}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap break-words">
@@ -185,6 +272,26 @@ export function BroadcastWidget({
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this broadcast?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It disappears for everyone in the workspace. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

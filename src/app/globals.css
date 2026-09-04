@@ -368,3 +368,20 @@
   border-right: 1px solid rgba(0, 0, 0, 0.28);
   border-radius: 0 0 70% 70% / 0 0 100% 100%;
 }
+
+/* A row arrived at from a deep link (calendar, notification): five blinks over
+   three seconds, long enough to find it without becoming a distraction. */
+@keyframes task-blink {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 0 transparent;
+  }
+  50% {
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+    box-shadow: inset 3px 0 0 0 var(--primary);
+  }
+}
+
+.task-blink {
+  animation: task-blink 0.6s ease-in-out 5;
+}

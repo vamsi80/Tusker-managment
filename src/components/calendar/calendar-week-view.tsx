@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useMeetingStore } from "@/lib/store/meeting-store";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Video } from "lucide-react";
 import type { MeetingUI } from "@/lib/api-client/meetings";
 import { calendarDayKey } from "@/lib/date-utils";
 
-const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+// The whole day is drawn: an 8am-8pm window silently swallowed every early or
+// late meeting, which then existed in the month view and nowhere in the week.
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 60; // px per hour slot
+const DEFAULT_SCROLL_HOUR = 8; // where the view opens, not where it ends
 
 export function CalendarWeekView() {
   const { selectedDate, meetings, openScheduleModal, openDetailsModal } = useMeetingStore();
@@ -62,17 +65,32 @@ export function CalendarWeekView() {
     return map;
   }, [meetings, weekDays]);
 
+  // Open on the first meeting of the week (or the working day) instead of at
+  // midnight, now that all 24 hours are rendered.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const earliestHour = useMemo(() => {
+    const starts = meetings
+      .filter((m) => m.status !== "CANCELLED" && meetingsByDay.has(calendarDayKey(m.startTime)))
+      .map((m) => new Date(m.startTime).getHours());
+    return starts.length > 0 ? Math.min(...starts) : DEFAULT_SCROLL_HOUR;
+  }, [meetings, meetingsByDay]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = Math.max(0, earliestHour - 1) * HOUR_HEIGHT;
+    }
+  }, [earliestHour]);
+
   // Compute live current time offset
   const currentHour = currentTime.getHours();
   const currentMinute = currentTime.getMinutes();
-  const showCurrentTimeLine = currentHour >= 8 && currentHour <= 20;
-  const currentTimeTop = ((currentHour - 8) * 60 + currentMinute) * (HOUR_HEIGHT / 60);
+  const currentTimeTop = (currentHour * 60 + currentMinute) * (HOUR_HEIGHT / 60);
 
   return (
     <div className="flex flex-col border rounded-2xl bg-card overflow-hidden shadow-xs">
       {/* One scroll container for header + grid: both share its width, so the day
           columns stay aligned with their headers once a scrollbar appears. */}
-      <div className="max-h-[600px] overflow-y-auto">
+      <div ref={scrollRef} className="max-h-[600px] overflow-y-auto">
         {/* Week Header */}
         <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted sticky top-0 z-30">
           <div className="py-3 text-center text-xs font-semibold text-muted-foreground border-r border-border/50">
@@ -154,7 +172,7 @@ export function CalendarWeekView() {
                 })}
 
                 {/* Current Time Red Indicator Line */}
-                {wd.isToday && showCurrentTimeLine && (
+                {wd.isToday && (
                   <div
                     style={{ top: currentTimeTop }}
                     className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
@@ -172,12 +190,13 @@ export function CalendarWeekView() {
                   const startH = start.getHours() + start.getMinutes() / 60;
                   const endH = end.getHours() + end.getMinutes() / 60;
 
-                  // Clamp to visible 8am-8pm range
-                  const clampedStart = Math.max(8, startH);
-                  const clampedEnd = Math.min(21, endH);
+                  // Clamp to the day itself; a meeting running past midnight
+                  // stops at the bottom of its own column.
+                  const clampedStart = Math.max(0, startH);
+                  const clampedEnd = Math.min(24, endH > startH ? endH : 24);
                   const duration = Math.max(0.4, clampedEnd - clampedStart);
 
-                  const topPx = (clampedStart - 8) * HOUR_HEIGHT;
+                  const topPx = clampedStart * HOUR_HEIGHT;
                   const heightPx = Math.max(26, duration * HOUR_HEIGHT - 2);
 
                   return (

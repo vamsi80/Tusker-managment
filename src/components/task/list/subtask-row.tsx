@@ -252,6 +252,7 @@ export const SubTaskRow = memo(function SubTaskRow({
             <TableRow
                 ref={setNodeRef}
                 style={style}
+                data-task-id={subTask.id}
                 className={cn(
                     "h-8 [&_td]:py-2 transition-colors",
                     isDragging && "bg-blue-50/50 dark:bg-blue-900/10",

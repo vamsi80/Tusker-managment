@@ -4,6 +4,7 @@ import { useWorkspaceLayout } from "./_components/workspace-layout-context";
 import { BroadcastWidget } from "./_components/broadcast-widget";
 import { MyTasksWidget } from "./_components/my-tasks-widget";
 import { MeetingsWidget } from "./_components/meetings-widget";
+import { BirthdaysWidget } from "./_components/birthdays-widget";
 import { authClient } from "@/lib/auth-client";
 import { getUserDisplayName } from "@/lib/user-display-name";
 import { Sparkles } from "lucide-react";
@@ -58,6 +59,7 @@ export default function WorkSpacePage() {
         />
         <MyTasksWidget key={`tasks-${workspaceId}`} workspaceId={workspaceId} />
         <MeetingsWidget key={`meetings-${workspaceId}`} workspaceId={workspaceId} />
+        <BirthdaysWidget key={`birthdays-${workspaceId}`} workspaceId={workspaceId} />
       </div>
     </div>
   );

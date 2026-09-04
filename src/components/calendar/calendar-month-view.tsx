@@ -28,10 +28,15 @@ export function CalendarMonthView() {
   const { data: layoutData, workspaceId } = useWorkspaceLayout();
   const router = useSafeNavigation();
 
-  /** A task deadline carries only its project id; the list page is addressed by slug. */
-  const openProjectTasks = (projectId?: string | null) => {
-    const slug = (layoutData?.projects ?? []).find((p: any) => p.id === projectId)?.slug;
-    if (slug) router.push(`/w/${workspaceId}/p/${slug}/list`);
+  /**
+   * Opens the task on its project's list page. `?subtask=` is what the global
+   * task sheet hydrates from, so the task itself opens on arrival.
+   */
+  const openTask = (task: { projectId?: string | null; taskSlug?: string | null }) => {
+    const slug = (layoutData?.projects ?? []).find((p: any) => p.id === task.projectId)?.slug;
+    if (!slug) return;
+    const listUrl = `/w/${workspaceId}/p/${slug}/list`;
+    router.push(task.taskSlug ? `${listUrl}?subtask=${encodeURIComponent(task.taskSlug)}` : listUrl);
   };
 
   // Calendar days generation
@@ -280,10 +285,10 @@ export function CalendarMonthView() {
                     key={t.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openProjectTasks(t.projectId);
+                      openTask(t);
                     }}
                     className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 truncate cursor-pointer hover:bg-slate-500/20 transition-colors"
-                    title={`Task: ${t.title} — open project tasks`}
+                    title={`Task: ${t.title} — open task`}
                   >
                     <CheckSquare className="size-2.5 shrink-0" />
                     <span className="truncate">{t.title}</span>
@@ -328,9 +333,9 @@ export function CalendarMonthView() {
                         {dayTasks.map((t) => (
                           <div
                             key={t.id}
-                            onClick={() => openProjectTasks(t.projectId)}
+                            onClick={() => openTask(t)}
                             className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 truncate cursor-pointer hover:bg-slate-500/20 transition-colors"
-                            title={`Task: ${t.title} — open project tasks`}
+                            title={`Task: ${t.title} — open task`}
                           >
                             <CheckSquare className="size-3 shrink-0 text-slate-600 dark:text-slate-400" />
                             <span className="truncate">{t.title}</span>

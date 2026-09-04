@@ -17,6 +17,7 @@ import { useContext } from "react";
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useFilteredFetch } from "@/hooks/use-filtered-fetch";
+import { useDeepLinkHighlight } from "./use-deep-link-highlight";
 
 // Local helper for robust deduplication by ID
 const dedupeTasks = (taskList: TaskWithSubTasks[]) => {
@@ -700,6 +701,15 @@ export function useTaskTableLogic({
     }
   }, [handleRequestSubtasks, filtersActive, setExpanded]);
 
+
+  // Deep links (calendar, notifications) land with ?subtask=<slug>: open the
+  // group that holds it and blink the row so it can be spotted.
+  useDeepLinkHighlight({
+    tasks,
+    setExpanded,
+    requestSubtasks: handleRequestSubtasks,
+    workspaceId,
+  });
 
   // handleSort
   const handleSort = (field: SortField) => {

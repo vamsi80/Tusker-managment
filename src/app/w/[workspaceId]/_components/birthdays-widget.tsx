@@ -26,7 +26,7 @@ export function BirthdaysWidget({ workspaceId }: { workspaceId: string }) {
   const monthShort = now.toLocaleString("en-US", { month: "short" });
 
   return (
-    <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm max-w-md">
+    <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">

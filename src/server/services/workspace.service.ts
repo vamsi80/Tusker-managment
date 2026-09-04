@@ -1437,7 +1437,15 @@ export class WorkspaceService {
       where: { workspaceId, userId, type: "BROADCAST" },
       orderBy: { createdAt: "desc" },
       take: take * 3,
-      select: { id: true, title: true, body: true, createdAt: true, isRead: true, metadata: true },
+      select: {
+        id: true,
+        entityId: true,
+        title: true,
+        body: true,
+        createdAt: true,
+        isRead: true,
+        metadata: true,
+      },
     });
 
     const now = Date.now();
@@ -1494,5 +1502,68 @@ export class WorkspaceService {
     });
 
     return { id: broadcastId, title, body: message, createdAt, ...metadata };
+  }
+
+  /**
+   * A broadcast is one notification row per member sharing an `entityId`, so an
+   * edit or a delete has to touch the whole set.
+   */
+  static async updateBroadcast(
+    workspaceId: string,
+    broadcastId: string,
+    data: { title?: string; message?: string; expiresAt?: Date | null }
+  ) {
+    const existing = await prisma.notification.findFirst({
+      where: { workspaceId, entityId: broadcastId, type: "BROADCAST" },
+      select: { metadata: true },
+    });
+
+    if (!existing) {
+      throw new Error("Broadcast not found in this workspace.");
+    }
+
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.message !== undefined) updateData.body = data.message;
+    if (data.expiresAt !== undefined) {
+      updateData.metadata = {
+        ...(existing.metadata as any),
+        expiresAt: data.expiresAt ? data.expiresAt.toISOString() : null,
+      };
+    }
+    updateData.updatedAt = new Date();
+
+    const { count } = await prisma.notification.updateMany({
+      where: { workspaceId, entityId: broadcastId, type: "BROADCAST" },
+      data: updateData,
+    });
+
+    await broadcastTeamUpdate({
+      workspaceId,
+      type: "UPDATE",
+      action: "BROADCAST_UPDATED",
+      payload: { broadcastId },
+    });
+
+    return { id: broadcastId, updated: count };
+  }
+
+  static async deleteBroadcast(workspaceId: string, broadcastId: string) {
+    const { count } = await prisma.notification.deleteMany({
+      where: { workspaceId, entityId: broadcastId, type: "BROADCAST" },
+    });
+
+    if (count === 0) {
+      throw new Error("Broadcast not found in this workspace.");
+    }
+
+    await broadcastTeamUpdate({
+      workspaceId,
+      type: "DELETE",
+      action: "BROADCAST_DELETED",
+      payload: { broadcastId },
+    });
+
+    return { id: broadcastId, deleted: count };
   }
 }

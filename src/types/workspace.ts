@@ -85,6 +85,8 @@ export type WorkspaceMembersResult = {
 /** A workspace announcement, as stored in the notification table. */
 export type BroadcastMessage = {
   id: string;
+  /** Shared by every member's copy of the same broadcast; edit/delete address this. */
+  entityId?: string | null;
   title: string;
   body: string;
   createdAt: string | Date;

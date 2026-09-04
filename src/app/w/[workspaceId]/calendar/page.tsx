@@ -4,7 +4,6 @@ import { useWorkspaceLayout } from "../_components/workspace-layout-context";
 import { CalendarDashboard } from "@/components/calendar/calendar-dashboard";
 import { UpcomingMeetingAlert } from "@/components/calendar/upcoming-meeting-alert";
 import { TodayAgendaWidget } from "@/components/calendar/today-agenda-widget";
-import { BirthdaysWidget } from "../_components/birthdays-widget";
 import { Button } from "@/components/ui/button";
 import { useMeetingStore } from "@/lib/store/meeting-store";
 import { Plus, Calendar as CalendarIcon } from "lucide-react";
@@ -45,7 +44,6 @@ export default function CalendarPage() {
 
         <div className="xl:col-span-4 space-y-6">
           <TodayAgendaWidget />
-          <BirthdaysWidget workspaceId={workspaceId} />
         </div>
       </div>
     </div>
