@@ -96,7 +96,11 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
 
       <div className="flex-1 overflow-auto max-h-[380px] pr-1">
         {meetings === null ? (
-          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">Loading…</p>
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-muted/40 animate-pulse" />
+            ))}
+          </div>
         ) : active.length === 0 ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
             No meetings scheduled this week

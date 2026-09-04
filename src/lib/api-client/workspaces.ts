@@ -1,6 +1,7 @@
 import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
+import type { BroadcastMessage as Broadcast } from "@/types/workspace";
 import {
     WorkspaceLayoutData,
     type WorkspaceData,
@@ -17,14 +18,7 @@ export interface BirthdayMember {
     isSelf: boolean;
 }
 
-export interface Broadcast {
-    id: string;
-    title: string;
-    body: string;
-    createdAt: string | Date;
-    isRead?: boolean;
-    metadata?: { senderName?: string; expiresAt?: string | null } | null;
-}
+export type { BroadcastMessage as Broadcast } from "@/types/workspace";
 
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;

@@ -36,22 +36,26 @@ const isDelayed = (task: TaskRow) =>
   !!task.dueDate &&
   toDateOnlyString(new Date(task.dueDate)) < toDateOnlyString(new Date());
 
-/** Local start of today, and the end of the current week (Sun-Sat). */
-function rangeFor(range: Range) {
+/** Sunday 00:00 to Saturday 23:59 of the current week, in local time. */
+function currentWeek() {
   const start = new Date();
   const end = new Date();
 
-  if (range === "week") {
-    // Sunday to Saturday, so work already overdue earlier this week still shows.
-    start.setDate(start.getDate() - start.getDay());
-    end.setDate(end.getDate() + (6 - end.getDay()));
-  }
-
+  start.setDate(start.getDate() - start.getDay());
+  end.setDate(end.getDate() + (6 - end.getDay()));
   start.setHours(0, 0, 0, 0);
   end.setHours(23, 59, 59, 999);
 
   return { start, end };
 }
+
+/**
+ * Last successful fetch per workspace. Coming back to the dashboard then paints
+ * from here immediately while a fresh copy loads behind it — the task API is a
+ * slow call and re-showing a skeleton every visit is what made it feel broken.
+ * Page-session only; a reload starts empty.
+ */
+const weekTaskCache = new Map<string, TaskRow[]>();
 
 /** Delayed first, then still-pending work, then the ones due soonest. */
 function byUrgency(a: TaskRow, b: TaskRow) {
@@ -71,15 +75,22 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   // The list view returns project ids only; names come from the layout payload.
   const { data: layoutData } = useWorkspaceLayout();
   const [range, setRange] = useState<Range>("today");
-  const [tasks, setTasks] = useState<TaskRow[] | null>(null);
+  // Safe as a lazy initial value: the dashboard keys this widget by workspace,
+  // so a remount is guaranteed when the workspace changes.
+  const [weekTasks, setWeekTasks] = useState<TaskRow[] | null>(
+    () => weekTaskCache.get(workspaceId) ?? null
+  );
 
+  // The whole week is fetched once and Today is filtered out of it — the task
+  // API is an expensive call (it resolves project permissions before querying),
+  // so switching ranges should not pay for it again.
   useEffect(() => {
     let active = true;
-    const { start, end } = rangeFor(range);
+    const { start, end } = currentWeek();
     const params = new URLSearchParams({
       w: workspaceId,
       vm: "list",
-      l: "25",
+      l: "50",
       da: start.toISOString(),
       db: end.toISOString(),
       sub: "false",
@@ -90,16 +101,26 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
       .then((json) => {
         if (!active) return;
         const rows: TaskRow[] = json?.success ? json.data?.tasks ?? [] : [];
-        setTasks([...rows].sort(byUrgency));
+        const sorted = [...rows].sort(byUrgency);
+        weekTaskCache.set(workspaceId, sorted);
+        setWeekTasks(sorted);
       })
-      .catch(() => active && setTasks([]));
+      .catch(() => active && setWeekTasks((prev) => prev ?? []));
 
     return () => {
       active = false;
     };
-  }, [workspaceId, range]);
+  }, [workspaceId]);
 
   const todayKey = toDateOnlyString(new Date());
+  const tasks =
+    weekTasks === null
+      ? null
+      : range === "week"
+      ? weekTasks
+      : weekTasks.filter(
+          (t) => t.dueDate && toDateOnlyString(new Date(t.dueDate)) === todayKey
+        );
   const delayedCount = (tasks ?? []).filter(isDelayed).length;
   const projectNames = new Map<string, string>(
     (layoutData?.projects ?? []).map((p: any) => [p.id, p.name])
@@ -132,11 +153,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
           <button
             key={r}
             type="button"
-            onClick={() => {
-              if (r === range) return;
-              setTasks(null);
-              setRange(r);
-            }}
+            onClick={() => setRange(r)}
             className={cn(
               "px-3 py-1 rounded-lg font-semibold capitalize transition-all",
               range === r
@@ -151,7 +168,11 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
 
       <div className="flex-1 overflow-auto max-h-[320px] pr-1">
         {tasks === null ? (
-          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">Loading…</p>
+          <div className="space-y-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-14 rounded-full border bg-muted/30 animate-pulse" />
+            ))}
+          </div>
         ) : tasks.length === 0 ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
             {range === "today" ? "No tasks due today" : "No tasks due this week"}

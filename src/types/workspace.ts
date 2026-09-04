@@ -82,6 +82,16 @@ export type WorkspaceMembersResult = {
   totalCount: number;
 };
 
+/** A workspace announcement, as stored in the notification table. */
+export type BroadcastMessage = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string | Date;
+  isRead?: boolean;
+  metadata?: { senderName?: string; expiresAt?: string | null } | null;
+};
+
 export interface WorkspaceLayoutData {
   workspaces: WorkspacesResult;
   metadata?: any;
@@ -89,6 +99,8 @@ export interface WorkspaceLayoutData {
   tags: any[];
   projectManagers: Record<string, any[]>;
   unreadNotificationsCount: number;
+  /** Sent with the layout payload so the dashboard box paints without a second fetch. */
+  broadcasts?: BroadcastMessage[];
   permissions: {
     isWorkspaceAdmin: boolean;
     canCreateProject: boolean;

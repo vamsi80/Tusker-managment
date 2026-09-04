@@ -25,6 +25,7 @@ import meetings from "./routes/meetings";
 import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { requireCapability } from "./middleware/capability";
+import { HTTPException } from "hono/http-exception";
 import { AppError } from "../lib/errors/app-error";
 
 /**
@@ -68,6 +69,19 @@ app.onError((err, c) => {
                 code: err.code,
             },
             err.statusCode as any
+        );
+    }
+
+    // Hono raises these for client mistakes (an unparseable JSON body, a bad
+    // route param). They carry their own status; without this every one of them
+    // was reported to the client — and in the logs — as a 500.
+    if (err instanceof HTTPException) {
+        return c.json(
+            {
+                success: false,
+                error: err.message || "Bad Request",
+            },
+            err.status
         );
     }
 

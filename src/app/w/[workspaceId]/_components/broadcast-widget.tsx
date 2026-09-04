@@ -33,29 +33,40 @@ const VISIBILITY_OPTIONS = [
 export function BroadcastWidget({
   workspaceId,
   canBroadcast,
+  initialBroadcasts,
 }: {
   workspaceId: string;
   canBroadcast: boolean;
+  /** Comes down with the workspace layout payload, so the box usually never fetches. */
+  initialBroadcasts?: Broadcast[];
 }) {
-  const [broadcasts, setBroadcasts] = useState<Broadcast[] | null>(null);
+  const [fetched, setFetched] = useState<Broadcast[] | null>(null);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [visibleFor, setVisibleFor] = useState("168");
   const [isSending, setIsSending] = useState(false);
 
+  // Anything this component fetched itself wins; otherwise show what the layout
+  // already delivered, and only go to the network when it delivered nothing.
+  const broadcasts = fetched ?? initialBroadcasts ?? null;
+
   const load = useCallback(() => {
     apiClient.workspaces
       .getBroadcasts(workspaceId, 10)
-      .then(setBroadcasts)
-      .catch(() => setBroadcasts([]));
+      .then(setFetched)
+      .catch(() => setFetched([]));
   }, [workspaceId]);
 
   useEffect(() => {
-    load();
+    if (!initialBroadcasts) load();
+
     // A new broadcast arrives as a team update — refresh instead of polling.
     return pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
       if (data?.action === "BROADCAST_CREATED") load();
     });
+    // `initialBroadcasts` is only consulted for the first paint; later layout
+    // revalidations must not trigger another fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -136,7 +147,11 @@ export function BroadcastWidget({
 
       <div className="flex-1 overflow-auto max-h-[320px] pr-1">
         {broadcasts === null ? (
-          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">Loading…</p>
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-muted/40 animate-pulse" />
+            ))}
+          </div>
         ) : broadcasts.length === 0 ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
             No announcements yet

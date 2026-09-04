@@ -6,6 +6,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Plus, CheckSquare, Sparkles, UserX, Video } from "lucide-react";
 import type { MeetingUI } from "@/lib/api-client/meetings";
 import { addDateOnlyDays, calendarDayKey } from "@/lib/date-utils";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -22,6 +24,15 @@ export function CalendarMonthView() {
     openScheduleModal,
     openDetailsModal,
   } = useMeetingStore();
+
+  const { data: layoutData, workspaceId } = useWorkspaceLayout();
+  const router = useSafeNavigation();
+
+  /** A task deadline carries only its project id; the list page is addressed by slug. */
+  const openProjectTasks = (projectId?: string | null) => {
+    const slug = (layoutData?.projects ?? []).find((p: any) => p.id === projectId)?.slug;
+    if (slug) router.push(`/w/${workspaceId}/p/${slug}/list`);
+  };
 
   // Calendar days generation
   const { days, monthLabel } = useMemo(() => {
@@ -267,8 +278,12 @@ export function CalendarMonthView() {
                 {dayTasks.slice(0, 1).map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 truncate"
-                    title={`Task: ${t.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openProjectTasks(t.projectId);
+                    }}
+                    className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 truncate cursor-pointer hover:bg-slate-500/20 transition-colors"
+                    title={`Task: ${t.title} — open project tasks`}
                   >
                     <CheckSquare className="size-2.5 shrink-0" />
                     <span className="truncate">{t.title}</span>
@@ -313,8 +328,9 @@ export function CalendarMonthView() {
                         {dayTasks.map((t) => (
                           <div
                             key={t.id}
-                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 truncate"
-                            title={`Task: ${t.title}`}
+                            onClick={() => openProjectTasks(t.projectId)}
+                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 truncate cursor-pointer hover:bg-slate-500/20 transition-colors"
+                            title={`Task: ${t.title} — open project tasks`}
                           >
                             <CheckSquare className="size-3 shrink-0 text-slate-600 dark:text-slate-400" />
                             <span className="truncate">{t.title}</span>

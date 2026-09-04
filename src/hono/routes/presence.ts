@@ -1,17 +1,20 @@
 import { Hono } from "hono";
-import { z } from "zod";
-import { zValidator } from "@/hono/validator";
 import { pusherServer } from "@/lib/pusher";
 import prisma from "@/lib/db";
 import { HonoVariables } from "../types";
 
 const app = new Hono<{ Variables: HonoVariables }>()
-  .post("/:workspaceId", zValidator("json", z.object({
-    status: z.enum(["active", "offline"]).optional().default("active")
-  })), async (c) => {
+  .post("/:workspaceId", async (c) => {
     const user = c.get("user");
     const workspaceId = c.req.param("workspaceId");
-    const { status } = c.req.valid("json");
+
+    // Heartbeats are fire-and-forget: the client aborts the in-flight one on the
+    // next tick and sends the "offline" ping via sendBeacon during pagehide, so
+    // a body can arrive truncated or not at all. Treat anything unreadable as a
+    // plain "active" ping rather than failing the request.
+    const body = await c.req.json().catch(() => null);
+    const status = (body as any)?.status === "offline" ? "offline" : "active";
+
     if (!user) return c.json({ success: false }, 401);
 
     const lastActiveAt = status === "active" ? new Date() : new Date(0);

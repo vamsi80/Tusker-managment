@@ -50,9 +50,14 @@ export default function WorkSpacePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <BroadcastWidget workspaceId={workspaceId} canBroadcast={canBroadcast} />
-        <MyTasksWidget workspaceId={workspaceId} />
-        <MeetingsWidget workspaceId={workspaceId} />
+        <BroadcastWidget
+          key={`broadcast-${workspaceId}`}
+          workspaceId={workspaceId}
+          canBroadcast={canBroadcast}
+          initialBroadcasts={data?.broadcasts}
+        />
+        <MyTasksWidget key={`tasks-${workspaceId}`} workspaceId={workspaceId} />
+        <MeetingsWidget key={`meetings-${workspaceId}`} workspaceId={workspaceId} />
       </div>
     </div>
   );

@@ -1228,11 +1228,18 @@ export class WorkspaceService {
       projects,
       tags,
       unreadNotificationsCount,
+      broadcasts,
     ]: any[] = await Promise.all([
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
       this.getUnreadNotificationsCount(workspaceId, userId, permissions),
+      // Rides along here so the dashboard box does not need its own round trip.
+      // Never allowed to fail the layout: the box refetches on its own if absent.
+      this.listBroadcasts(workspaceId, userId, 10).catch((err) => {
+        console.error("[WorkspaceLayoutData] Broadcasts failed, continuing without:", err);
+        return [];
+      }),
     ]);
 
     // Step 3: Efficiently construct the project leaders map from the fetched projects
@@ -1262,6 +1269,7 @@ export class WorkspaceService {
       tags: tags || [],
       projectManagers: pmMap,
       unreadNotificationsCount: unreadNotificationsCount || 0,
+      broadcasts: broadcasts || [],
     };
   }
 
