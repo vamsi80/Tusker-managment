@@ -12,6 +12,7 @@ import {
     RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { useTheme } from "../context/ThemeContext";
@@ -27,6 +28,7 @@ import {
     approveQuote,
     rejectIndentLineItem,
     deleteIndent,
+    getCachedSession,
 } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 import StatusChip, { StatusKind } from "../components/StatusChip";
@@ -45,6 +47,7 @@ export default function IndentDetailScreen({ route, navigation }: any) {
     const [refreshing, setRefreshing] = useState(false);
     const [indent, setIndent] = useState<any>(null);
     const [vendors, setVendors] = useState<any[]>([]);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     // Modals
     const [quoteModalVisible, setQuoteModalVisible] = useState(false);
@@ -82,9 +85,29 @@ export default function IndentDetailScreen({ route, navigation }: any) {
         }
     }, [activeWorkspace?.id, indentId]);
 
+    // useFocusEffect (not a plain mount effect) so returning here after
+    // editing the indent in CreateIndentScreen picks up the new values —
+    // this screen stays mounted underneath, it doesn't remount on goBack().
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
+
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        getCachedSession().then((session) => {
+            if (session?.user) setCurrentUserId(session.user.id);
+        });
+    }, []);
+
+    // Mirrors IndentService.canEditInitialDetails on the server: ACCOUNTS
+    // can never edit, and only DRAFT (or REJECTED short of the FINAL stage)
+    // indents are editable, by the requester or an OWNER/ADMIN/MANAGER.
+    const canEdit = !!indent &&
+        activeWorkspace?.workspaceRole !== "ACCOUNTS" &&
+        (indent.status === "DRAFT" || (indent.status === "REJECTED" && indent.rejectedStage !== "FINAL")) &&
+        (indent.requestedBy?.user?.id === currentUserId ||
+            ["OWNER", "ADMIN", "MANAGER"].includes(activeWorkspace?.workspaceRole || ""));
 
     const onRefresh = () => {
         haptics.light();
@@ -268,6 +291,18 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                         <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: FONTS.semibold }}>REQUEST DETAILS</Text>
                     </View>
                     
+                    {canEdit && (
+                        <PressableScale
+                            haptic="light"
+                            onPress={() => navigation.navigate("CreateIndent", { indent })}
+                            style={styles.deleteBtn}
+                            accessibilityRole="button"
+                            accessibilityLabel="Edit indent request"
+                        >
+                            <Ionicons name="create-outline" size={22} color={colors.text} />
+                        </PressableScale>
+                    )}
+
                     {/* Delete button for drafts or admins */}
                     {(indent.status === "DRAFT" || isAdmin) && (
                         <PressableScale
