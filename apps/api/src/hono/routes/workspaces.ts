@@ -180,6 +180,33 @@ workspaces.get("/:workspaceId/members/slim", async (c) => {
   return c.json({ success: true, data: members });
 });
 
+/**
+ * GET /api/v1/workspaces/:workspaceId/capabilities
+ *
+ * The capability map the API gates on (procurement:view, vendors:view,
+ * project:create, ...). Clients need it to avoid offering entry points that
+ * would come back 403 — the mobile app had no way to ask for this.
+ */
+workspaces.get("/:workspaceId/capabilities", async (c) => {
+  const workspaceId = c.req.param("workspaceId");
+  const user = c.get("user");
+  const { fetchWorkspacePermissions } = await import("@tusker/core/permissions");
+  const permissions = await fetchWorkspacePermissions(workspaceId, user.id, true);
+  const capabilities = permissions.capabilities ?? {};
+  return c.json({ success: true, data: capabilities, capabilities });
+});
+
+/**
+ * GET /api/v1/workspaces/:workspaceId/birthdays
+ * Members with a birthday in the current month.
+ */
+workspaces.get("/:workspaceId/birthdays", async (c) => {
+  const workspaceId = c.req.param("workspaceId");
+  const user = c.get("user");
+  const members = await WorkspaceService.getBirthdaysThisMonth(workspaceId, user.id);
+  return c.json({ success: true, data: members, birthdays: members });
+});
+
 workspaces.get("/:workspaceId/members", async (c) => {
   const workspaceId = c.req.param("workspaceId");
   console.log(`[HONO_WORKSPACES] GET /members workspaceId: ${workspaceId}`);
@@ -187,7 +214,24 @@ workspaces.get("/:workspaceId/members", async (c) => {
   const limit = parseInt(c.req.query("limit") || "10");
   const search = c.req.query("search");
 
-  const members = await WorkspaceService.getMembers(workspaceId, page, limit, search);
+  // Accepts ?role=MANAGER, repeated keys, a JSON array or a comma list.
+  const roleValues = c.req.queries("role") ?? [];
+  const roles = roleValues.flatMap((v) => {
+    try {
+      const parsed = JSON.parse(v);
+      return Array.isArray(parsed) ? parsed.map(String) : [String(parsed)];
+    } catch {
+      return v.split(",").map((x) => x.trim()).filter(Boolean);
+    }
+  });
+
+  const members = await WorkspaceService.getMembers(
+    workspaceId,
+    page,
+    limit,
+    search,
+    roles.length > 0 ? roles : undefined,
+  );
 
   return c.json({ success: true, data: members });
 });

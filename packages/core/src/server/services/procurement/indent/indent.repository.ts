@@ -14,6 +14,14 @@ export class IndentRepository {
                 vendor: true,
               },
             },
+            // Every submitted quote, not just the approved one — needed for
+            // the quote-comparison view. This was missing entirely, so that
+            // view had no data to render regardless of the client's field names.
+            vendorQuotes: {
+              include: {
+                vendor: true,
+              },
+            },
           },
         },
         requestedBy: {

@@ -8,8 +8,7 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
-    ScrollView,
-    Dimensions
+    ScrollView
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
@@ -20,7 +19,6 @@ import { WorkspaceMember } from "../types";
 import PressableScale from "./PressableScale";
 import AppButton from "./AppButton";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 /** Dark ink for content sitting on the amber primary — white fails contrast on #fbb54a. */
 const INK_ON_PRIMARY = "#2b1c04";
@@ -128,13 +126,17 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
         if (!activeWorkspace) return;
         setFetchingMembers(true);
         try {
-            // Exactly align with web: only fetch people with the MANAGER role
+            // The members endpoint ignores ?role=, so filter here exactly as the
+            // web form does: members?.filter(m => m.workspaceRole === "MANAGER").
+            // Without this the picker listed the whole workspace, not managers.
             const data = await getWorkspaceMembers(activeWorkspace.id, "MANAGER");
-            setMembers(data);
-            
-            // Default to first eligible manager
-            if (data.length > 0) {
-                setSelectedManagerId(data[0].userId);
+            const managers = data.filter((m) => m.workspaceRole === "MANAGER");
+            setMembers(managers);
+
+            // Default to first eligible manager. The value is the WorkspaceMember
+            // id — that is what ProjectService validates against.
+            if (managers.length > 0) {
+                setSelectedManagerId(managers[0].id);
             }
         } catch (err) {
             console.error("Failed to load members", err);
@@ -408,14 +410,18 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                             ) : (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.memberList}>
                                     {members.map((member) => {
-                                        const selected = selectedManagerId === member.userId;
+                                        const selected = selectedManagerId === member.id;
+                                        // Web shows `member.surname || "Unknown Member"` — no
+                                        // fallback to `name`, which is what made the app list
+                                        // different names for the same people.
+                                        const displayName = member.user?.surname || "Unknown Member";
                                         return (
                                             <PressableScale
-                                                key={member.userId}
-                                                onPress={() => setSelectedManagerId(member.userId)}
+                                                key={member.id}
+                                                onPress={() => setSelectedManagerId(member.id)}
                                                 haptic="selection"
                                                 accessibilityRole="button"
-                                                accessibilityLabel={member.user.surname || member.user.name}
+                                                accessibilityLabel={displayName}
                                                 accessibilityState={{ selected }}
                                                 style={[
                                                     styles.memberItem,
@@ -424,7 +430,7 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                                             >
                                                 <View style={[styles.avatar, { backgroundColor: colors.primary + "22" }]}>
                                                     <Text style={[styles.avatarText, { color: colors.primary }]}>
-                                                        {(member.user?.surname?.[0] || member.user?.name?.[0] || member.user?.email?.[0] || "?").toUpperCase()}
+                                                        {displayName.charAt(0).toUpperCase()}
                                                     </Text>
                                                 </View>
                                                 <Text
@@ -435,7 +441,7 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                                                     ]}
                                                     numberOfLines={1}
                                                 >
-                                                    {member.user.surname || member.user.name}
+                                                    {displayName}
                                                 </Text>
                                                 {selected && (
                                                     <View style={[styles.selectedBadge, { backgroundColor: colors.primary, borderColor: colors.surfaceSolid }]}>
@@ -507,8 +513,8 @@ const styles = StyleSheet.create({
     },
     handle: {
         width: 40,
-        height: 4,
-        borderRadius: 2,
+        height: 5,
+        borderRadius: 3,
         marginBottom: 14,
     },
     titleRow: {
@@ -527,13 +533,13 @@ const styles = StyleSheet.create({
     iconBox: {
         width: 36,
         height: 36,
-        borderRadius: 12,
+        borderRadius: 10,
         justifyContent: "center",
         alignItems: "center",
     },
     title: {
-        fontSize: SCREEN_WIDTH < 380 ? 17 : 19,
-        fontFamily: FONTS.extrabold,
+        fontSize: 18,
+        fontFamily: FONTS.bold,
         letterSpacing: -0.3,
     },
     closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
@@ -625,10 +631,10 @@ const styles = StyleSheet.create({
         letterSpacing: 0.7,
     },
     input: {
-        borderRadius: BORDER_RADIUS.lg,
+        borderRadius: BORDER_RADIUS.md,
         paddingHorizontal: SPACING.md,
         paddingVertical: 14,
-        fontSize: 15.5,
+        fontSize: 16,
         fontFamily: FONTS.medium,
         borderWidth: 1,
         minHeight: 52,

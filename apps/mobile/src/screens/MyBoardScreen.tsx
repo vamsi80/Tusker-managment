@@ -525,6 +525,10 @@ export default function MyBoardScreen() {
                 ...filters,
                 hierarchyMode: "parents" as const,
                 view_mode: "gantt",
+                // Parent tasks carry no dates of their own — a parent's bar is
+                // derived from its children (see computeTaskDates), so subtasks
+                // must come down with them or every row renders bar-less.
+                includeSubTasks: true,
                 limit: GANTT_LIMIT,
                 ...extra,
             });
@@ -1423,6 +1427,11 @@ export default function MyBoardScreen() {
                 onClose={() => setStatusPickerVisible(false)}
                 onSelect={(status) => handleStatusUpdate(selectedTask?.id || "", status)}
                 currentStatus={selectedTask?.status || ""}
+                projectId={selectedTask?.projectId}
+                workspaceId={activeWorkspace?.id}
+                currentUserId={currentUser?.id}
+                assigneeId={selectedTask?.assigneeId ?? null}
+                createdById={(selectedTask as any)?.createdById ?? null}
             />
 
             <ReviewCommentModal

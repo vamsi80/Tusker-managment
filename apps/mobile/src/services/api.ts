@@ -443,6 +443,46 @@ export async function getWorkspaceMembers(workspaceId: string, role?: string): P
     }
 }
 
+export interface ProjectPermissions {
+    isWorkspaceAdmin: boolean;
+    isProjectLead: boolean;
+    isProjectCoordinator: boolean;
+    isProjectManager: boolean;
+    isMember: boolean;
+    workspaceMemberId: string | null;
+    userId: string | null;
+}
+
+/**
+ * Per-project permission flags for the current user — the same set the web
+ * client gates its status changes on.
+ */
+export async function getProjectPermissions(
+    projectId: string,
+    workspaceId: string
+): Promise<ProjectPermissions | null> {
+    try {
+        const res = await apiFetch(
+            `/api/projects/${projectId}/permissions?workspaceId=${encodeURIComponent(workspaceId)}`
+        );
+        if (!res.ok) return null;
+        const json = await res.json();
+        const d = json?.data ?? json;
+        if (!d || typeof d !== "object") return null;
+        return {
+            isWorkspaceAdmin: !!d.isWorkspaceAdmin,
+            isProjectLead: !!d.isProjectLead,
+            isProjectCoordinator: !!d.isProjectCoordinator,
+            isProjectManager: !!d.isProjectManager,
+            isMember: !!d.isMember,
+            workspaceMemberId: d.workspaceMemberId ?? null,
+            userId: d.userId ?? null,
+        };
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Fetch workspace clients
  */
@@ -649,7 +689,10 @@ export async function getTasks(
 
         if (filters.excludeParents) url += `&excludeParents=true`;
         if (filters.onlySubtasks) url += `&onlySubtasks=true`;
-        if (filters.includeSubTasks) url += `&includeSubTasks=true`;
+        // The API reads this flag as `subTasks`/`sub` (apps/api tasks route), not
+        // `includeSubTasks`. Sending only the latter leaves list views on the
+        // "no subtasks unless specifically asked" default.
+        if (filters.includeSubTasks) url += `&includeSubTasks=true&subTasks=true`;
         if (filters.view_mode) url += `&view_mode=${filters.view_mode}`;
         url += `&includeTag=true&includeTags=true&include=tag&include=Tag`;
 
@@ -687,6 +730,149 @@ export async function getTasks(
         };
     } catch {
         return { tasks: [], hasMore: false, nextCursor: null };
+    }
+}
+
+/**
+ * Workspace capability map (procurement:view, vendors:view, project:create, ...).
+ * Used to hide entry points the API would reject with 403.
+ */
+export async function getWorkspaceCapabilities(workspaceId: string): Promise<Record<string, boolean>> {
+    try {
+        const res = await apiFetch(`/api/workspaces/${workspaceId}/capabilities`);
+        if (!res.ok) return {};
+        const json = await res.json();
+        const data = unwrap<any>(json, "capabilities");
+        return data && typeof data === "object" ? data : {};
+    } catch {
+        return {};
+    }
+}
+
+// ─── Project Materials (planning list) ────────────────────────────────────
+
+export interface ProjectMaterialItem {
+    id: string;
+    projectId: string;
+    subtaskId: string | null;
+    subtaskNameSnapshot?: string | null;
+    parentTaskNameSnapshot?: string | null;
+    materialName: string;
+    unit: string;
+    quantity: number;
+    notes: string | null;
+    addedById: string;
+    addedBy?: { user?: { name?: string; surname?: string } };
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ProjectMaterialSubtask {
+    id: string;
+    name: string;
+    status: string;
+    parentTask?: { id: string; name: string; taskSlug?: string } | null;
+    tags?: { id: string; name: string; requirePurchase?: boolean }[];
+}
+
+/**
+ * Materials planning list for a project: subtasks tagged for procurement
+ * (requirePurchase or a "procurement" tag) plus every material item recorded
+ * against the project, grouped client-side by subtask. Mirrors the web
+ * project Materials tab (apps/web .../p/[slug]/materials).
+ */
+export async function getProjectMaterials(
+    workspaceId: string,
+    projectId: string
+): Promise<{ subtasks: ProjectMaterialSubtask[]; materialItems: ProjectMaterialItem[] }> {
+    try {
+        const res = await apiFetch(`/api/projects/${projectId}/materials?w=${workspaceId}`);
+        if (!res.ok) return { subtasks: [], materialItems: [] };
+        const json = await res.json();
+        const data = json?.data ?? json;
+        return {
+            subtasks: Array.isArray(data?.subtasks) ? data.subtasks : [],
+            materialItems: Array.isArray(data?.materialItems) ? data.materialItems : [],
+        };
+    } catch {
+        return { subtasks: [], materialItems: [] };
+    }
+}
+
+export interface ProjectMaterialInput {
+    subtaskId?: string | null;
+    materialName: string;
+    unit: string;
+    quantity: number;
+    notes?: string | null;
+}
+
+export async function addProjectMaterial(
+    workspaceId: string,
+    projectId: string,
+    payload: ProjectMaterialInput
+): Promise<ProjectMaterialItem> {
+    const res = await apiFetch(`/api/projects/${projectId}/materials?w=${workspaceId}`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to add material");
+    return data.data;
+}
+
+export async function editProjectMaterial(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    payload: Partial<ProjectMaterialInput>
+): Promise<ProjectMaterialItem> {
+    const res = await apiFetch(`/api/projects/${projectId}/materials/${itemId}?w=${workspaceId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update material");
+    return data.data;
+}
+
+export async function deleteProjectMaterial(
+    workspaceId: string,
+    projectId: string,
+    itemId: string
+): Promise<void> {
+    const res = await apiFetch(`/api/projects/${projectId}/materials/${itemId}?w=${workspaceId}`, {
+        method: "DELETE",
+    });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete material");
+    }
+}
+
+export interface BirthdayMember {
+    id: string;
+    surname: string;
+    designation: string | null;
+    /** Day of the month (1-31). */
+    day: number;
+    isToday: boolean;
+    isSelf: boolean;
+}
+
+/**
+ * Members with a birthday this month, sorted by day.
+ * Mirrors the web dashboard's Birthdays widget.
+ */
+export async function getBirthdays(workspaceId: string): Promise<BirthdayMember[]> {
+    try {
+        const res = await apiFetch(`/api/workspaces/${workspaceId}/birthdays`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json, "birthdays");
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
     }
 }
 
@@ -981,7 +1167,12 @@ export async function createSubTask(
 export async function createProject(
     workspaceId: string,
     name: string,
-    projectManagerUserId: string,
+    /**
+     * WorkspaceMember id (not userId) — ProjectService validates it with
+     * `workspace.members.some(m => m.id === assignedProjectManagerId)`, and the
+     * web form submits `member.id` for the same reason.
+     */
+    projectManagerId: string,
     color?: string,
     description?: string,
     companyName?: string,
@@ -998,7 +1189,7 @@ export async function createProject(
             name,
             workspaceId,
             color,
-            projectManagerUserId,
+            projectManagerId,
             description,
             companyName,
             registeredCompanyName,
@@ -1281,27 +1472,87 @@ export async function getMemberAttendanceStats(workspaceId: string, memberId: st
 }
 
 /**
- * Get Workspace Attendance Logs (Web Parity)
+ * Format a Date as a calendar day (yyyy-MM-dd) in local time.
+ *
+ * The attendance API resolves these onto the UTC day grid its `@db.Date` column
+ * uses. Sending `toISOString()` instead hands it an instant it has to guess a
+ * day from, which shifts the range by one day either side of midnight — the web
+ * client carries the same warning.
  */
-export async function getWorkspaceAttendanceLogs(workspaceId: string, startDate?: string, endDate?: string): Promise<any[]> {
+export function toDateOnlyString(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+export interface AttendanceLogFilters {
+    startDate?: Date | string;
+    endDate?: Date | string;
+    memberId?: string[];
+    status?: string[];
+    search?: string;
+    page?: number;
+    pageSize?: number;
+    refresh?: boolean;
+}
+
+export interface AttendanceLogPage {
+    records: any[];
+    totalCount: number;
+}
+
+/**
+ * Workspace attendance logs — same contract as the web attendance table
+ * (apps/web .../team/attendance/_components/attendance-table.tsx).
+ *
+ * Note the route defaults to pageSize=10, so callers that omit paging silently
+ * get only ten rows.
+ */
+export async function getWorkspaceAttendanceLogsPage(
+    workspaceId: string,
+    filters: AttendanceLogFilters = {}
+): Promise<AttendanceLogPage> {
     try {
-        let url = `/api/attendance`;
         const params = new URLSearchParams();
-        if (startDate) params.append("startDate", startDate);
-        if (endDate) params.append("endDate", endDate);
+        const asDay = (v: Date | string) => (typeof v === "string" ? v : toDateOnlyString(v));
 
-        const queryString = params.toString();
-        if (queryString) url += `?${queryString}`;
+        if (filters.startDate) params.append("startDate", asDay(filters.startDate));
+        if (filters.endDate) params.append("endDate", asDay(filters.endDate));
+        // Multi-value filters are JSON-encoded, matching the web client and the
+        // route's parseMultiQuery.
+        if (filters.memberId && filters.memberId.length > 0) params.append("memberId", JSON.stringify(filters.memberId));
+        if (filters.status && filters.status.length > 0) params.append("status", JSON.stringify(filters.status));
+        if (filters.search) params.append("search", filters.search);
+        params.append("page", String(filters.page ?? 1));
+        params.append("pageSize", String(filters.pageSize ?? 50));
+        if (filters.refresh) params.append("refresh", "true");
 
-        const res = await apiFetch(url, {
+        const res = await apiFetch(`/api/attendance?${params.toString()}`, {
             headers: { "x-workspace-id": workspaceId }
         });
         const data = await res.json();
-        return data.success ? data.data : [];
+        if (!data?.success) return { records: [], totalCount: 0 };
+        return {
+            records: Array.isArray(data.data) ? data.data : [],
+            totalCount: data.totalCount ?? (Array.isArray(data.data) ? data.data.length : 0),
+        };
     } catch (e) {
-        console.error("[api] getWorkspaceAttendanceLogs error:", e);
-        return [];
+        console.error("[api] getWorkspaceAttendanceLogsPage error:", e);
+        return { records: [], totalCount: 0 };
     }
+}
+
+/**
+ * Back-compat wrapper returning just the rows.
+ */
+export async function getWorkspaceAttendanceLogs(
+    workspaceId: string,
+    startDate?: string,
+    endDate?: string
+): Promise<any[]> {
+    const page = await getWorkspaceAttendanceLogsPage(workspaceId, { startDate, endDate });
+    return page.records;
 }
 
 /**
@@ -1774,7 +2025,10 @@ export async function getIndentRequestsPage(
     search?: string
 ): Promise<{ indents: any[]; hasMore: boolean; nextCursor: string | null }> {
     try {
-        const query = new URLSearchParams({ workspaceId, limit: "25" });
+        // procurement-indents reads `w`, not `workspaceId` — sending only the
+        // latter returned 400 "Missing workspaceId (w)". Both are sent so the
+        // call works regardless of which the route reads.
+        const query = new URLSearchParams({ w: workspaceId, workspaceId, limit: "25" });
         if (cursor) query.set("cursor", cursor);
         if (search) query.set("search", search);
         const res = await apiFetch(`/api/procurement/indents?${query.toString()}`);
@@ -1803,11 +2057,18 @@ export async function getIndentRequest(
     indentId: string
 ): Promise<any | null> {
     try {
-        const query = new URLSearchParams({ workspaceId, indentId });
-        const res = await apiFetch(`/api/procurement/indents?${query.toString()}`);
+        // This was calling the LIST route (GET /procurement/indents) filtered
+        // by an `indentId` query param the route never reads — it always
+        // returns every indent in the workspace, in a shape with no line-item
+        // detail. unwrap(json, "indent") then found no `.indent` key on that
+        // array and fell back to returning the whole array as "the indent",
+        // so every field on it read as undefined. The single-item route
+        // (GET /procurement/indents/:id) is what actually exists for this.
+        const query = new URLSearchParams({ w: workspaceId, workspaceId });
+        const res = await apiFetch(`/api/procurement/indents/${indentId}?${query.toString()}`);
         if (!res.ok) return null;
-        const data = await res.json();
-        return unwrap<any>(data, "indent") ?? null;
+        const json = await res.json();
+        return json?.data ?? null;
     } catch (error) {
         console.error("[api] getIndentRequest error:", error);
         return null;
@@ -1829,11 +2090,44 @@ export async function getProcurableProjects(workspaceId: string): Promise<any[]>
 }
 
 /**
+ * Units of measure configured for the workspace, for the indent line-item unit
+ * picker. Mirrors web's create-indent form.
+ */
+export async function getIndentUnits(workspaceId: string): Promise<{ abbreviation: string; name: string; isDefault?: boolean }[]> {
+    try {
+        const res = await apiFetch(`/api/procurement/indents/units?w=${workspaceId}&workspaceId=${workspaceId}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json, "units");
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Procurement-taggable subtasks in a project that don't already have an
+ * indent — the "Link to Subtask" picker on the create-indent form.
+ */
+export async function getIndentableProjectTasks(workspaceId: string, projectId: string): Promise<any[]> {
+    try {
+        const res = await apiFetch(`/api/procurement/indents/projects/${projectId}/tasks?w=${workspaceId}&workspaceId=${workspaceId}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json, "tasks");
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
  * Fetch workspace vendors
  */
 export async function getVendors(workspaceId: string): Promise<any[]> {
     try {
-        const res = await apiFetch(`/api/procurement/vendors?workspaceId=${workspaceId}`);
+        // procurement-vendors also reads `w`.
+        const res = await apiFetch(`/api/procurement/vendors?w=${workspaceId}&workspaceId=${workspaceId}`);
         if (!res.ok) return [];
         const data = await res.json();
         return unwrap<any[]>(data, "vendors") ?? [];
@@ -1859,10 +2153,34 @@ export async function getMaterialsCatalog(workspaceId: string): Promise<any[]> {
 }
 
 /**
+ * Fetch all indent line items in the workspace, each carrying its owning
+ * indent (id, indentId, status, project, expectedDelivery, requestedBy) —
+ * the same data web's Procurement > Materials hub groups by material name.
+ * Mirrors GET /api/v1/procurement/indents/line-items.
+ */
+export async function getIndentLineItemsHub(
+    workspaceId: string,
+    filters?: { projectId?: string[]; status?: string[] }
+): Promise<any[]> {
+    try {
+        const query = new URLSearchParams({ w: workspaceId });
+        if (filters?.projectId?.length) query.set("projectId", JSON.stringify(filters.projectId));
+        if (filters?.status?.length) query.set("status", JSON.stringify(filters.status));
+        const res = await apiFetch(`/api/procurement/indents/line-items?${query.toString()}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return unwrap<any[]>(data, "data") ?? [];
+    } catch (e) {
+        console.error("[api] getIndentLineItemsHub error:", e);
+        return [];
+    }
+}
+
+/**
  * Create a new indent request
  */
 export async function createIndent(workspaceId: string, payload: any): Promise<any> {
-    const res = await apiFetch(`/api/procurement/indents?workspaceId=${workspaceId}`, {
+    const res = await apiFetch(`/api/procurement/indents?w=${workspaceId}&workspaceId=${workspaceId}`, {
         method: "POST",
         body: JSON.stringify(payload),
     });
@@ -1877,7 +2195,7 @@ export async function createIndent(workspaceId: string, payload: any): Promise<a
  * Edit an existing indent
  */
 export async function editIndent(workspaceId: string, id: string, payload: any): Promise<any> {
-    const res = await apiFetch(`/api/procurement/indents/${id}?workspaceId=${workspaceId}`, {
+    const res = await apiFetch(`/api/procurement/indents/${id}?w=${workspaceId}&workspaceId=${workspaceId}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
     });
@@ -1892,7 +2210,7 @@ export async function editIndent(workspaceId: string, id: string, payload: any):
  * Delete an indent
  */
 export async function deleteIndent(workspaceId: string, id: string): Promise<any> {
-    const res = await apiFetch(`/api/procurement/indents/${id}?workspaceId=${workspaceId}`, {
+    const res = await apiFetch(`/api/procurement/indents/${id}?w=${workspaceId}&workspaceId=${workspaceId}`, {
         method: "DELETE",
     });
     const data = await res.json();

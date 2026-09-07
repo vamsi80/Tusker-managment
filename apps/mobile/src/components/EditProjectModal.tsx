@@ -823,8 +823,8 @@ const styles = StyleSheet.create({
     },
     handle: {
         width: 40,
-        height: 4,
-        borderRadius: 2,
+        height: 5,
+        borderRadius: 3,
         marginBottom: 12,
     },
     titleRow: {
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     title: {
-        fontSize: 17,
+        fontSize: 18,
         fontFamily: FONTS.bold,
     },
     subtitle: {
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
     input: {
         borderRadius: BORDER_RADIUS.md,
         padding: SPACING.md,
-        fontSize: 15,
+        fontSize: 16,
         borderWidth: 1,
     },
     textArea: {

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SPACING, TOUCH_TARGET, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { haptics } from "../../services/haptics";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { getActivities, getCachedSession, getTaskById } from "../../services/api";
@@ -130,9 +131,7 @@ export default function ProjectActivityScreen({ route, navigation }: Props) {
                 }
             >
                 {loading ? (
-                    <View style={{ padding: 40, alignItems: "center" }}>
-                        <ActivityIndicator color={colors.primary} />
-                    </View>
+                    <ListSkeleton rows={6} />
                 ) : activities.length === 0 ? (
                     <EmptyState icon="time-outline" title="No activity found" message="Activity for this project will show up here." />
                 ) : (

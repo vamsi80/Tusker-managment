@@ -54,7 +54,7 @@ export default function ProjectActionModal({
             accessibilityRole="button"
             accessibilityLabel={label}
         >
-            <View style={[styles.iconContainer, { backgroundColor: destructive ? `${colors.error}18` : colors.surfaceHighlight }]}>
+            <View style={[styles.iconBox, { backgroundColor: destructive ? `${colors.error}18` : colors.surfaceHighlight }]}>
                 <Ionicons
                     name={icon}
                     size={20}
@@ -69,12 +69,17 @@ export default function ProjectActionModal({
 
     return (
         <Sheet visible={visible} onClose={onClose} accessibilityLabel="Project actions">
+            {/* Header matches the app's other sheets (StatusPickerModal,
+                ConfirmationSheet): one centred 18/bold title, with the subject
+                as a 14/regular dimmed subtitle beneath it. */}
             <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: colors.textDim }]}>PROJECT ACTIONS</Text>
-                <Text style={[styles.projectName, { color: colors.text }]} numberOfLines={1}>{projectName}</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Project Actions</Text>
+                <Text style={[styles.subtitle, { color: colors.textDim }]} numberOfLines={1}>
+                    {projectName}
+                </Text>
             </View>
 
-            <View style={styles.actionsList}>
+            <View style={styles.content}>
                 <ActionItem icon="eye-outline" label="View Project" onPress={onView} />
                 {canManage && (
                     <>
@@ -85,45 +90,39 @@ export default function ProjectActionModal({
                     </>
                 )}
             </View>
-
-            <PressableScale
-                haptic="selection"
-                style={[styles.cancelBtn, { backgroundColor: colors.surfaceHighlight }]}
-                onPress={onClose}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel"
-            >
-                <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
-            </PressableScale>
         </Sheet>
     );
 }
 
 const styles = StyleSheet.create({
     header: {
-        padding: SPACING.lg,
+        paddingHorizontal: SPACING.md,
+        paddingBottom: 12,
         alignItems: "center",
     },
-    headerTitle: {
-        fontSize: 10,
-        fontFamily: FONTS.bold,
-        letterSpacing: 1.5,
-        marginBottom: 4,
-    },
-    projectName: {
-        fontSize: 16,
+    title: {
+        fontSize: 18,
         fontFamily: FONTS.bold,
     },
-    actionsList: {
-        paddingVertical: SPACING.sm,
+    subtitle: {
+        fontSize: 14,
+        fontFamily: FONTS.regular,
+        lineHeight: 20,
+        marginTop: 2,
     },
+    content: {
+        paddingHorizontal: SPACING.md,
+        paddingTop: 4,
+    },
+    // Inset rounded rows, matching StatusPickerModal's list items.
     actionItem: {
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: SPACING.md,
-        paddingHorizontal: SPACING.lg,
+        padding: SPACING.md,
+        borderRadius: BORDER_RADIUS.lg,
+        marginBottom: 4,
     },
-    iconContainer: {
+    iconBox: {
         width: 36,
         height: 36,
         borderRadius: 10,
@@ -132,23 +131,13 @@ const styles = StyleSheet.create({
         marginRight: SPACING.md,
     },
     actionLabel: {
-        fontSize: 15,
+        flex: 1,
+        fontSize: 16,
         fontFamily: FONTS.medium,
     },
-    cancelBtn: {
-        margin: SPACING.lg,
-        height: 48,
-        borderRadius: BORDER_RADIUS.md,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    cancelText: {
-        fontSize: 15,
-        fontFamily: FONTS.semibold,
-    },
     separator: {
-        height: 1,
+        height: StyleSheet.hairlineWidth,
         marginVertical: SPACING.xs,
-        marginHorizontal: SPACING.lg,
+        marginHorizontal: SPACING.md,
     },
 });

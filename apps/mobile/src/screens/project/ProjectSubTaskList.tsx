@@ -10,6 +10,7 @@ const { width: SCREEN_W } = Dimensions.get("window");
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { useWorkspace, DEFAULT_FILTERS } from "../../context/WorkspaceContext";
 import { RootStackParamList, Task } from "../../types";
 import TaskFilterSheet from "../../components/TaskFilterSheet";
@@ -451,10 +452,7 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
                         showsVerticalScrollIndicator={false}
                         ListEmptyComponent={
                             loading ? (
-                                <View style={styles.empty}>
-                                    <ActivityIndicator size="large" color={colors.primary} />
-                                    <Text style={[styles.emptySub, { color: colors.textDim, marginTop: 16 }]}>Loading subtasks...</Text>
-                                </View>
+                                <ListSkeleton rows={6} showAvatar={false} />
                             ) : (
                                 <View style={styles.empty}>
                                     <Ionicons name="documents-outline" size={64} color={colors.textDim} />

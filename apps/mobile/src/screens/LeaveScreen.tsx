@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, differenceInDays } from "date-fns";
 import { LeaveRequest, LeaveBalance, LeaveType, LeaveStatus, User } from "../types";
 import { useTheme } from "../context/ThemeContext";
+import { StatsSkeleton } from "../components/ScreenSkeleton";
 import { haptics } from "../services/haptics";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
@@ -236,9 +237,7 @@ export default function LeaveScreen({ navigation }: any) {
 
     if (loading) {
         return (
-            <View style={[styles.center, { backgroundColor: colors.background }]}>
-                <ActivityIndicator color={colors.primary} size="large" />
-            </View>
+            <StatsSkeleton tiles={2} rows={4} />
         );
     }
 

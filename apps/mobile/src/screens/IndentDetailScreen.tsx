@@ -12,9 +12,11 @@ import {
     RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { useTheme } from "../context/ThemeContext";
+import { DetailSkeleton } from "../components/ScreenSkeleton";
 import { haptics } from "../services/haptics";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
@@ -26,6 +28,7 @@ import {
     approveQuote,
     rejectIndentLineItem,
     deleteIndent,
+    getCachedSession,
 } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 import StatusChip, { StatusKind } from "../components/StatusChip";
@@ -44,6 +47,7 @@ export default function IndentDetailScreen({ route, navigation }: any) {
     const [refreshing, setRefreshing] = useState(false);
     const [indent, setIndent] = useState<any>(null);
     const [vendors, setVendors] = useState<any[]>([]);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     // Modals
     const [quoteModalVisible, setQuoteModalVisible] = useState(false);
@@ -81,9 +85,29 @@ export default function IndentDetailScreen({ route, navigation }: any) {
         }
     }, [activeWorkspace?.id, indentId]);
 
+    // useFocusEffect (not a plain mount effect) so returning here after
+    // editing the indent in CreateIndentScreen picks up the new values —
+    // this screen stays mounted underneath, it doesn't remount on goBack().
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+        }, [loadData])
+    );
+
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        getCachedSession().then((session) => {
+            if (session?.user) setCurrentUserId(session.user.id);
+        });
+    }, []);
+
+    // Mirrors IndentService.canEditInitialDetails on the server: ACCOUNTS
+    // can never edit, and only DRAFT (or REJECTED short of the FINAL stage)
+    // indents are editable, by the requester or an OWNER/ADMIN/MANAGER.
+    const canEdit = !!indent &&
+        activeWorkspace?.workspaceRole !== "ACCOUNTS" &&
+        (indent.status === "DRAFT" || (indent.status === "REJECTED" && indent.rejectedStage !== "FINAL")) &&
+        (indent.requestedBy?.user?.id === currentUserId ||
+            ["OWNER", "ADMIN", "MANAGER"].includes(activeWorkspace?.workspaceRole || ""));
 
     const onRefresh = () => {
         haptics.light();
@@ -240,9 +264,7 @@ export default function IndentDetailScreen({ route, navigation }: any) {
 
     if (loading) {
         return (
-            <View style={[styles.center, { backgroundColor: colors.background }]}>
-                <ActivityIndicator color={colors.primary} size="large" />
-            </View>
+            <DetailSkeleton />
         );
     }
 
@@ -269,6 +291,18 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                         <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: FONTS.semibold }}>REQUEST DETAILS</Text>
                     </View>
                     
+                    {canEdit && (
+                        <PressableScale
+                            haptic="light"
+                            onPress={() => navigation.navigate("CreateIndent", { indent })}
+                            style={styles.deleteBtn}
+                            accessibilityRole="button"
+                            accessibilityLabel="Edit indent request"
+                        >
+                            <Ionicons name="create-outline" size={22} color={colors.text} />
+                        </PressableScale>
+                    )}
+
                     {/* Delete button for drafts or admins */}
                     {(indent.status === "DRAFT" || isAdmin) && (
                         <PressableScale
@@ -304,7 +338,7 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                         <View style={styles.gridRow}>
                             <View style={styles.gridCol}>
                                 <Text style={[styles.gridLabel, { color: colors.textDim }]}>PROJECT</Text>
-                                <Text style={[styles.gridValue, { color: colors.text }]}>{indent.Project?.name || "Global"}</Text>
+                                <Text style={[styles.gridValue, { color: colors.text }]}>{indent.project?.name || "Global"}</Text>
                             </View>
                             <View style={styles.gridCol}>
                                 <Text style={[styles.gridLabel, { color: colors.textDim }]}>EXPECTED DELIVERY</Text>
@@ -318,24 +352,24 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                             <View style={styles.gridCol}>
                                 <Text style={[styles.gridLabel, { color: colors.textDim }]}>REQUESTED BY</Text>
                                 <Text style={[styles.gridValue, { color: colors.text }]}>
-                                    {indent.WorkspaceMember_indent_requestedByIdToWorkspaceMember?.user?.surname || 
-                                     indent.WorkspaceMember_indent_requestedByIdToWorkspaceMember?.user?.name || "Requestor"}
+                                    {indent.requestedBy?.user?.surname ||
+                                     indent.requestedBy?.user?.name || "Requestor"}
                                 </Text>
                             </View>
                             <View style={styles.gridCol}>
                                 <Text style={[styles.gridLabel, { color: colors.textDim }]}>ASSIGNED TO</Text>
                                 <Text style={[styles.gridValue, { color: colors.text }]}>
-                                    {indent.WorkspaceMember_indent_assignedToIdToWorkspaceMember?.user?.surname || 
-                                     indent.WorkspaceMember_indent_assignedToIdToWorkspaceMember?.user?.name || "Not Assigned"}
+                                    {indent.assignedTo?.user?.surname ||
+                                     indent.assignedTo?.user?.name || "Not Assigned"}
                                 </Text>
                             </View>
                         </View>
                     </View>
 
                     {/* Materials Checklist */}
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Requested Materials ({indent.indent_line_item?.length ?? 0})</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Requested Materials ({indent.lineItems?.length ?? 0})</Text>
 
-                    {indent.indent_line_item && indent.indent_line_item.map((item: any) => {
+                    {indent.lineItems && indent.lineItems.map((item: any) => {
                         const itemStyle = getItemStatusStyles(item.status);
                         return (
                             <View
@@ -346,7 +380,10 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.itemNameText, { color: colors.text }]}>{item.materialName}</Text>
                                         <Text style={[styles.itemQtyText, { color: colors.textDim }]}>
-                                            Requested: {item.quantity} {item.unit} {item.estimatedUnitPrice ? `• Est: ₹${item.estimatedUnitPrice}/unit` : ""}
+                                            {/* estimatedUnitPrice is stored as integer paise (see
+                                                packages/db/prisma/schema.prisma) — divide by 100
+                                                before displaying it, matching web's formatRate. */}
+                                            Requested: {item.quantity} {item.unit} {item.estimatedUnitPrice ? `• Est: ₹${(item.estimatedUnitPrice / 100).toFixed(2)}/unit` : ""}
                                         </Text>
                                     </View>
 
@@ -410,10 +447,10 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                                 )}
 
                                 {/* Display Submitted Quotes if any */}
-                                {item.vendor_quote_vendor_quote_lineItemIdToindent_line_item?.length > 0 && (
+                                {item.vendorQuotes?.length > 0 && (
                                     <View style={styles.quotesSection}>
                                         <Text style={[styles.quotesTitle, { color: colors.text }]}>SUPPLIER QUOTES COMPARISON</Text>
-                                        {item.vendor_quote_vendor_quote_lineItemIdToindent_line_item.map((quote: any) => {
+                                        {item.vendorQuotes.map((quote: any) => {
                                             const isQuoteApproved = item.approvedQuoteId === quote.id;
                                             return (
                                                 <View
@@ -464,6 +501,65 @@ export default function IndentDetailScreen({ route, navigation }: any) {
                             </View>
                         );
                     })}
+
+                    {/* Additional Charges — mirrors web's Cost Summary card.
+                        estimatedUnitPrice, transportCharge and labourCharge are
+                        integer paise; taxPercent/exciseDutyPercent/vatPercent are
+                        plain percentages of the material subtotal (not each
+                        other's fields — confirmed against the Prisma schema). */}
+                    {(() => {
+                        const items = indent.lineItems || [];
+                        const subtotalPaise = items.reduce(
+                            (sum: number, item: any) => sum + Number(item.estimatedUnitPrice || 0) * Number(item.quantity || 0),
+                            0
+                        );
+                        const pctCharges = [
+                            { label: "Tax", percent: Number(indent.taxPercent || 0) },
+                            { label: "Excise Duty", percent: Number(indent.exciseDutyPercent || 0) },
+                            { label: "VAT", percent: Number(indent.vatPercent || 0) },
+                        ].filter((c) => c.percent > 0);
+                        const flatCharges = [
+                            { label: "Transportation", amountPaise: Number(indent.transportCharge || 0) },
+                            { label: "Labour", amountPaise: Number(indent.labourCharge || 0) },
+                        ].filter((c) => c.amountPaise > 0);
+
+                        if (pctCharges.length === 0 && flatCharges.length === 0) return null;
+
+                        const chargeTotalPaise =
+                            pctCharges.reduce((sum, c) => sum + subtotalPaise * (c.percent / 100), 0) +
+                            flatCharges.reduce((sum, c) => sum + c.amountPaise, 0);
+                        const fmt = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+                        return (
+                            <View style={[styles.mainCard, { backgroundColor: colors.surfaceSolid, borderColor: colors.border, marginTop: 16 }]}>
+                                <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 12 }]}>Additional Charges</Text>
+                                <View style={styles.chargeRow}>
+                                    <Text style={{ color: colors.textDim, fontSize: 12 }}>Material subtotal</Text>
+                                    <Text style={{ color: colors.text, fontSize: 12, fontFamily: FONTS.bold }}>{fmt(subtotalPaise)}</Text>
+                                </View>
+                                {pctCharges.map((c) => (
+                                    <View key={c.label} style={styles.chargeRow}>
+                                        <Text style={{ color: colors.textDim, fontSize: 12 }}>{c.label} ({c.percent}%)</Text>
+                                        <Text style={{ color: colors.text, fontSize: 12, fontFamily: FONTS.bold }}>
+                                            {fmt(subtotalPaise * (c.percent / 100))}
+                                        </Text>
+                                    </View>
+                                ))}
+                                {flatCharges.map((c) => (
+                                    <View key={c.label} style={styles.chargeRow}>
+                                        <Text style={{ color: colors.textDim, fontSize: 12 }}>{c.label}</Text>
+                                        <Text style={{ color: colors.text, fontSize: 12, fontFamily: FONTS.bold }}>{fmt(c.amountPaise)}</Text>
+                                    </View>
+                                ))}
+                                <View style={[styles.chargeRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, marginTop: 4 }]}>
+                                    <Text style={{ color: colors.text, fontSize: 13, fontFamily: FONTS.extrabold }}>Estimated Total</Text>
+                                    <Text style={{ color: colors.text, fontSize: 13, fontFamily: FONTS.extrabold }}>
+                                        {fmt(subtotalPaise + chargeTotalPaise)}
+                                    </Text>
+                                </View>
+                            </View>
+                        );
+                    })()}
                 </ScrollView>
 
                 {/* Add Vendor Quote Modal */}
@@ -636,6 +732,7 @@ const styles = StyleSheet.create({
     
     gridRow: { flexDirection: "row", justifyContent: "space-between" },
     gridCol: { flex: 1 },
+    chargeRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
     gridLabel: { fontSize: 9, fontFamily: FONTS.extrabold, letterSpacing: 0.5, marginBottom: 2 },
     gridValue: { fontSize: 13, fontFamily: FONTS.bold },
     

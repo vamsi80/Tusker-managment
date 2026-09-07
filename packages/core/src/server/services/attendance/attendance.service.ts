@@ -825,6 +825,30 @@ export class AttendanceService {
      * Distinct from getWorkspaceAttendance, which is a paginated record query
      * returning { data, totalCount } and omits members with nothing to show.
      */
+    /**
+     * Lifetime attendance totals for one workspace member.
+     *
+     * `daysWorked` counts every day the member actually attended (PRESENT,
+     * LATE or HALF_DAY); `daysLate` counts the LATE subset, so it is always a
+     * subset of daysWorked. ABSENT and ON_LEAVE are excluded from both.
+     */
+    static async getMemberStats(workspaceId: string, workspaceMemberId: string) {
+        const [daysWorked, daysLate] = await Promise.all([
+            prisma.attendance.count({
+                where: {
+                    workspaceId,
+                    workspaceMemberId,
+                    status: { in: [AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.HALF_DAY] },
+                },
+            }),
+            prisma.attendance.count({
+                where: { workspaceId, workspaceMemberId, status: AttendanceStatus.LATE },
+            }),
+        ]);
+
+        return { daysWorked, daysLate };
+    }
+
     static async getTeamRegister(workspaceId: string, date: Date) {
         const dateOnly = new Date(date);
         dateOnly.setUTCHours(0, 0, 0, 0);

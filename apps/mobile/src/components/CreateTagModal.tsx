@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     title: {
-        fontSize: 19,
+        fontSize: 18,
         fontFamily: FONTS.bold,
     },
     closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
@@ -175,8 +175,8 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     label: {
-        fontSize: 13,
-        fontFamily: FONTS.semibold,
+        fontSize: 12,
+        fontFamily: FONTS.bold,
         marginBottom: 8,
         textTransform: "uppercase",
         letterSpacing: 0.5,

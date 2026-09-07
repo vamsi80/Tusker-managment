@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     },
     errorBannerText: { flex: 1, fontSize: 13, fontFamily: FONTS.semibold, lineHeight: 18 },
     inputGroup: { gap: 8 },
-    label: { fontSize: 11, fontFamily: FONTS.bold, letterSpacing: 1, marginLeft: 4 },
+    label: { fontSize: 12, fontFamily: FONTS.bold, letterSpacing: 0.7, marginLeft: 4, textTransform: "uppercase" },
     inputWrapper: {
         flexDirection: "row",
         alignItems: "center",

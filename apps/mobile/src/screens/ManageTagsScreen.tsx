@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
+import { ListSkeleton } from "../components/ScreenSkeleton";
 import { haptics } from "../services/haptics";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { getTags, deleteTag } from "../services/api";
@@ -162,9 +163,7 @@ export default function ManageTagsScreen({ navigation }: any) {
             </View>
 
             {loading ? (
-                <View style={styles.center}>
-                    <ActivityIndicator color={colors.primary} size="large" />
-                </View>
+                <ListSkeleton rows={6} showAvatar={false} />
             ) : (
                 <FlatList
                     data={tags}

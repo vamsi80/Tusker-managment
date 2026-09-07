@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { deleteTask } from "../../services/api";
 import { Task } from "../../types";
@@ -145,9 +146,7 @@ export default function ProjectTaskList({
 
     if (loading && parentTasks.length === 0) {
         return (
-            <View style={styles.center}>
-                <ActivityIndicator color={colors.primary} size="large" />
-            </View>
+            <ListSkeleton rows={7} showAvatar={false} />
         );
     }
 

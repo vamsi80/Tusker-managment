@@ -81,6 +81,11 @@ export default function Sheet({ visible, onClose, children, dismissable = true, 
 
     const pan = Gesture.Pan()
         .enabled(dismissable)
+        // Only a deliberate downward drag dismisses. Without this an upward
+        // flick anywhere in the sheet was swallowed by the pan, which is why
+        // scrollable sheet content could not be scrolled at all.
+        .activeOffsetY(8)
+        .failOffsetY(-8)
         .onChange((e) => {
             translateY.value = Math.max(0, translateY.value + e.changeY);
         })
@@ -118,21 +123,27 @@ export default function Sheet({ visible, onClose, children, dismissable = true, 
                     </Pressable>
                 </Animated.View>
 
-                <GestureDetector gesture={pan}>
-                    <Animated.View
-                        accessibilityViewIsModal
-                        accessibilityLabel={accessibilityLabel}
-                        style={[
-                            styles.sheet,
-                            { backgroundColor: colors.surface, paddingBottom: insets.bottom + 8, zIndex: Z_INDEX.sheet },
-                            sheetStyle,
-                            style,
-                        ]}
-                    >
-                        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-                        {children}
-                    </Animated.View>
-                </GestureDetector>
+                <Animated.View
+                    accessibilityViewIsModal
+                    accessibilityLabel={accessibilityLabel}
+                    style={[
+                        styles.sheet,
+                        { backgroundColor: colors.surface, paddingBottom: insets.bottom + 8, zIndex: Z_INDEX.sheet },
+                        sheetStyle,
+                        style,
+                    ]}
+                >
+                    {/* Drag-to-dismiss lives on the grabber rather than the whole
+                        sheet: a pan over the body would capture vertical gestures
+                        before any scrollable child could use them. Backdrop tap
+                        still dismisses. */}
+                    <GestureDetector gesture={pan}>
+                        <View style={styles.grabberArea}>
+                            <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+                        </View>
+                    </GestureDetector>
+                    {children}
+                </Animated.View>
             </GestureHandlerRootView>
         </Modal>
     );
@@ -148,6 +159,12 @@ const styles = StyleSheet.create({
         borderTopRightRadius: BORDER_RADIUS.xl,
         paddingTop: 8,
         maxHeight: "92%",
+    },
+    grabberArea: {
+        alignSelf: "stretch",
+        alignItems: "center",
+        paddingTop: 2,
+        paddingBottom: 6,
     },
     grabber: {
         alignSelf: "center",

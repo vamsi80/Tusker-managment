@@ -30,6 +30,8 @@ import LeaveScreen from "../screens/LeaveScreen";
 import WorkspaceSettingsScreen from "../screens/WorkspaceSettingsScreen";
 import AdminLeaveScreen from "../screens/AdminLeaveScreen";
 import { MainTabParamList } from "../types";
+import { useWorkspace } from "../context/WorkspaceContext";
+import { getWorkspaceCapabilities } from "../services/api";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator();
@@ -80,6 +82,16 @@ const MyTasksStack = createTabStack(MyBoardScreen, "MyTasks");
 const ProfileStack = createTabStack(ProfileScreen, "Profile");
 
 export default function MainTabNavigator() {
+    const { activeWorkspace } = useWorkspace();
+    const [procurementEnabled, setProcurementEnabled] = useState(false);
+
+    React.useEffect(() => {
+        if (!activeWorkspace?.id) return;
+        getWorkspaceCapabilities(activeWorkspace.id).then((caps) => {
+            setProcurementEnabled(!!caps["procurement:view"]);
+        });
+    }, [activeWorkspace?.id]);
+
     const navigation = useNavigation();
 
     const [menuVisible, setMenuVisible] = useState(false);
@@ -109,6 +121,8 @@ export default function MainTabNavigator() {
             (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Attendance" } });
         } else if (id === "ai") {
             (navigation as any).navigate("Main", { screen: "Home", params: { screen: "AI" } });
+        } else if (id === "procurement") {
+            (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Procurement" } });
         }
     }, [navigation]);
 
@@ -134,6 +148,7 @@ export default function MainTabNavigator() {
                     type={menuType}
                     onClose={() => setMenuVisible(false)}
                     onAction={handleAction}
+                    procurementEnabled={procurementEnabled}
                 />
 
                 <CreateTaskModal

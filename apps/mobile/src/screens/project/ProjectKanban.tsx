@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, ThemeColors, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { updateTask, updateSubTaskStatus, getTasks, deleteTask, getProject } from "../../services/api";
 import { Task, TaskStatus } from "../../types";
 import { useWorkspace } from "../../context/WorkspaceContext";
@@ -527,9 +528,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
 
     if (loading && !refreshing) {
         return (
-            <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            <ListSkeleton rows={6} showAvatar={false} />
         );
     }
 
@@ -552,6 +551,10 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                     onClose={() => setStatusPickerVisible(false)}
                     onSelect={(status) => handleStatusUpdate(selectedTask?.id || "", status)}
                     currentStatus={selectedTask?.status || ""}
+                    projectId={selectedTask?.projectId || projectId}
+                    workspaceId={activeWorkspace?.id}
+                    assigneeId={selectedTask?.assigneeId ?? null}
+                    createdById={(selectedTask as any)?.createdById ?? null}
                     onMorePress={selectedTask ? () => handleMoreOptions(selectedTask) : undefined}
                 />
             </ScrollView>
