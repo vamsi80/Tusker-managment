@@ -1,4 +1,4 @@
-import { PrismaClient } from '../src/generated/prisma';
+import { PrismaClient } from "@tusker/db";
 import * as dotenv from 'dotenv';
 dotenv.config();
 

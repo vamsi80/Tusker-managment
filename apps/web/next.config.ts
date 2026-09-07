@@ -44,16 +44,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // The Prisma client is generated into packages/db, outside this app. Next's
-  // file tracer stops at the app directory by default, so the query engine
-  // binary never reaches the deployed function and every query fails with
-  // "Query Engine not found". Widen the trace root to the monorepo and pull the
-  // generated client in explicitly - prisma is used by RSC, server actions and
-  // the mounted /api/v1 handler alike, so every route needs it.
+  // Workspace packages live above this app, so the file tracer needs the
+  // monorepo root to follow them into the deployed function.
   outputFileTracingRoot: path.resolve(__dirname, "../.."),
-  outputFileTracingIncludes: {
-    "/**": ["../../packages/db/src/generated/prisma/**/*"],
-  },
 
   serverExternalPackages: [
     '@prisma/client',
