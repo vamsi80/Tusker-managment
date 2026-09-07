@@ -45,6 +45,7 @@
     "@tusker/api-client": "workspace:*",
     "@tusker/core": "workspace:*",
     "@tusker/db": "workspace:*",
+    "api": "workspace:*",
     "better-auth": "^1.6.9",
     "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.1",

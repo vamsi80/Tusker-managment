@@ -13,15 +13,16 @@
         "buildType": "app-bundle"
       }
     },
-    "production": {},
+    "//": "EAS uploads the project via git, and .env is gitignored, so EXPO_PUBLIC_* must be declared here or the build bakes in undefined and the app falls back to localhost:4000. This value is inlined into the binary at build time and CANNOT be changed afterwards - moving to a custom domain later means rebuilding and redistributing every install.",
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://REPLACE-WITH-VERCEL-DOMAIN.vercel.app"
+      }
+    },
     "apk": {
       "extends": "production",
       "android": {
         "buildType": "apk"
-      },
-      "//": "EAS uploads the project via git, and .env is gitignored, so EXPO_PUBLIC_* must be declared here or the build bakes in undefined and the app falls back to localhost:4000. This LAN address only resolves on the dev machine's Wi-Fi with `pnpm dev:api` running - change it to the deployed API before sharing this APK with anyone.",
-      "env": {
-        "EXPO_PUBLIC_API_BASE": "http://192.168.1.44:4000"
       }
     },
     "ios-simulator": {

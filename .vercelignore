@@ -1,0 +1,32 @@
+# CLI deploys upload the working tree, so this trims it to what the build needs.
+#
+# Patterns follow .gitignore rules: a leading slash anchors to the repo root.
+# The anchors below are load-bearing - a bare `src`, `public` or `.next` would
+# also match apps/web/src, apps/web/public and apps/web/.next and break the build.
+
+node_modules
+.git
+.pnpm-store
+
+# Pre-monorepo leftovers: the Next app used to live at the repo root. All of
+# this is untracked and superseded by apps/web.
+/.next
+/src
+/public
+/next-env.d.ts
+/tsconfig.tsbuildinfo
+/deploy.json
+
+# Excluded from the pnpm workspace (pnpm-workspace.yaml) and built by EAS, not
+# Vercel. Uploading its separate dependency graph only slows the deploy.
+apps/mobile
+
+# Local notes, dumps and scratch work.
+/backups
+/scratch
+/.agents
+/*.md
+/*.sql
+/check-*.js
+/temp_*.ts
+!/README.md

@@ -44,6 +44,17 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  // The Prisma client is generated into packages/db, outside this app. Next's
+  // file tracer stops at the app directory by default, so the query engine
+  // binary never reaches the deployed function and every query fails with
+  // "Query Engine not found". Widen the trace root to the monorepo and pull the
+  // generated client in explicitly - prisma is used by RSC, server actions and
+  // the mounted /api/v1 handler alike, so every route needs it.
+  outputFileTracingRoot: path.resolve(__dirname, "../.."),
+  outputFileTracingIncludes: {
+    "/**": ["../../packages/db/src/generated/prisma/**/*"],
+  },
+
   serverExternalPackages: [
     '@prisma/client',
     'prisma',
@@ -72,20 +83,9 @@ const nextConfig: NextConfig = {
       protocol: "https",
     }]
   },
-  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core', '@tusker/api-client'],
-
-  // /api/v1/* is served by the standalone API (apps/api). Proxying through Next
-  // keeps it same-origin for the browser: no CORS preflight, no SameSite=None,
-  // and the session cookie rides along to the API untouched. Native clients
-  // (mobile) skip this and call API_URL directly with a bearer token.
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${process.env.API_URL ?? "http://localhost:4000"}/api/v1/:path*`,
-      },
-    ];
-  },
+  // 'api' is apps/api, mounted at src/app/api/v1/[[...route]]/route.ts. Like the
+  // @tusker/* packages it ships raw TypeScript, so Next has to transpile it.
+  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core', '@tusker/api-client', 'api'],
 };
 
 export default withBundleAnalyzer(nextConfig);

@@ -29,6 +29,8 @@ interface DashboardData {
   dueThisWeek: any[];
   weekStart: Date | string;
   weekEnd: Date | string;
+  nextWeekStart: Date | string;
+  nextWeekEnd: Date | string;
   hasFullAccess: boolean;
 }
 
@@ -48,6 +50,8 @@ export function ProjectDashboard({ data, workspaceId }: ProjectDashboardProps) {
     dueThisWeek,
     weekStart,
     weekEnd,
+    nextWeekStart,
+    nextWeekEnd,
     hasFullAccess,
   } = data;
 
@@ -76,6 +80,8 @@ export function ProjectDashboard({ data, workspaceId }: ProjectDashboardProps) {
           dueThisWeek={dueThisWeek}
           weekStart={new Date(weekStart)}
           weekEnd={new Date(weekEnd)}
+          nextWeekStart={new Date(nextWeekStart)}
+          nextWeekEnd={new Date(nextWeekEnd)}
         />
         {hasFullAccess && <UnassignedMembersWidget allMembers={allMembers} />}
       </div>
