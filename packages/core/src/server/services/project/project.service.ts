@@ -769,6 +769,16 @@ export class ProjectService {
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
 
+    // The widget toggles between this week and next, so fetch both in one go and
+    // let it filter client-side. A fortnight of one project's due tasks is small,
+    // and this keeps the toggle instant with no refetch or loading state.
+    const nextWeekStart = new Date(weekEnd);
+    nextWeekStart.setDate(weekEnd.getDate() + 1);
+    nextWeekStart.setHours(0, 0, 0, 0);
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+    nextWeekEnd.setHours(23, 59, 59, 999);
+
     const baseTaskWhere: any = {
       projectId: project.id,
       OR: [
@@ -799,7 +809,7 @@ export class ProjectService {
       AND: [
         baseTaskWhere,
         {
-          dueDate: { gte: weekStart, lte: weekEnd },
+          dueDate: { gte: weekStart, lte: nextWeekEnd },
           status: { notIn: ["COMPLETED", "CANCELLED"] },
         },
         ...(hasFullAccess ? [] : [assigneeFilter]),
@@ -905,6 +915,8 @@ export class ProjectService {
       dueThisWeek,
       weekStart,
       weekEnd,
+      nextWeekStart,
+      nextWeekEnd,
       hasFullAccess,
     };
   }

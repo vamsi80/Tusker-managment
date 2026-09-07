@@ -1,6 +1,9 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  // Vercel's Lambda runtime is rhel-openssl-3.0.x. Without it listed, a client
+  // generated on a dev machine ships only that machine's engine and the
+  // deployed function fails at the first query with "Query Engine not found".
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

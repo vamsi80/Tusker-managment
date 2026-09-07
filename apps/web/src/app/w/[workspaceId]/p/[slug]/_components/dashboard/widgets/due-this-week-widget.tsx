@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Calendar, User } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -24,9 +25,12 @@ interface Task {
 }
 
 interface DueThisWeekWidgetProps {
+  /** Tasks due across both weeks - the widget filters to the selected one. */
   dueThisWeek: Task[];
   weekStart: Date;
   weekEnd: Date;
+  nextWeekStart: Date;
+  nextWeekEnd: Date;
 }
 
 const statusColorMap: Record<string, string> = {
@@ -36,32 +40,81 @@ const statusColorMap: Record<string, string> = {
   HOLD: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
 };
 
-export function DueThisWeekWidget({ dueThisWeek, weekStart, weekEnd }: DueThisWeekWidgetProps) {
-  const formattedRange = `${format(new Date(weekStart), "MMM d")} - ${format(new Date(weekEnd), "MMM d")}`;
+export function DueThisWeekWidget({
+  dueThisWeek,
+  weekStart,
+  weekEnd,
+  nextWeekStart,
+  nextWeekEnd,
+}: DueThisWeekWidgetProps) {
+  const [range, setRange] = useState<"this" | "next">("this");
   const { openSubTaskSheet } = useSubTaskSheet();
+
+  const { start, end } = useMemo(
+    () =>
+      range === "this"
+        ? { start: new Date(weekStart), end: new Date(weekEnd) }
+        : { start: new Date(nextWeekStart), end: new Date(nextWeekEnd) },
+    [range, weekStart, weekEnd, nextWeekStart, nextWeekEnd]
+  );
+
+  // The server sends both weeks in one payload, so switching is a local filter.
+  const tasks = useMemo(
+    () =>
+      dueThisWeek.filter((task) => {
+        if (!task.dueDate) return false;
+        const due = new Date(task.dueDate);
+        return due >= start && due <= end;
+      }),
+    [dueThisWeek, start, end]
+  );
+
+  const formattedRange = `${format(start, "MMM d")} - ${format(end, "MMM d")}`;
 
   return (
     <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Due This Week
+            {range === "this" ? "Due This Week" : "Due Next Week"}
           </h3>
           <span className="text-xs text-muted-foreground">{formattedRange}</span>
         </div>
-        <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
-          <Calendar className="size-4.5" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border bg-muted/40 p-0.5" role="group" aria-label="Due date range">
+            {([["this", "This Week"], ["next", "Next Week"]] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setRange(value)}
+                aria-pressed={range === value}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                  range === value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
+            <Calendar className="size-4.5" />
+          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto max-h-[300px] pr-1">
-        {dueThisWeek.length === 0 ? (
+        {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground/60">
-            <p className="text-sm italic">No tasks due this week</p>
+            <p className="text-sm italic">
+              No tasks due {range === "this" ? "this week" : "next week"}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {dueThisWeek.map((task) => {
+            {tasks.map((task) => {
               const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
               const assigneeUser = task.assignee?.workspaceMember?.user;
               const displayName = assigneeUser ? (assigneeUser.surname || "User") : "";

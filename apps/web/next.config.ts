@@ -44,6 +44,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  // Workspace packages live above this app, so the file tracer needs the
+  // monorepo root to follow them into the deployed function.
+  outputFileTracingRoot: path.resolve(__dirname, "../.."),
+
   serverExternalPackages: [
     '@prisma/client',
     'prisma',
@@ -72,20 +76,9 @@ const nextConfig: NextConfig = {
       protocol: "https",
     }]
   },
-  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core', '@tusker/api-client'],
-
-  // /api/v1/* is served by the standalone API (apps/api). Proxying through Next
-  // keeps it same-origin for the browser: no CORS preflight, no SameSite=None,
-  // and the session cookie rides along to the API untouched. Native clients
-  // (mobile) skip this and call API_URL directly with a bearer token.
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${process.env.API_URL ?? "http://localhost:4000"}/api/v1/:path*`,
-      },
-    ];
-  },
+  // 'api' is apps/api, mounted at src/app/api/v1/[[...route]]/route.ts. Like the
+  // @tusker/* packages it ships raw TypeScript, so Next has to transpile it.
+  transpilePackages: ['better-auth', '@tusker/db', '@tusker/core', '@tusker/api-client', 'api'],
 };
 
 export default withBundleAnalyzer(nextConfig);

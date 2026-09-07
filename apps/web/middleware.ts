@@ -27,6 +27,9 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/webhooks|$).*)"
+    // api/v1 is the mounted Hono app: it does its own auth and never needs the
+    // /w/* cookie gate below, so skipping it here saves a middleware invocation
+    // on every web and mobile API call.
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/v1|api/webhooks|$).*)"
   ]
 };
