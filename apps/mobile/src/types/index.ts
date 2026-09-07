@@ -100,6 +100,10 @@ export interface Task {
     isParent: boolean;
     tagId?: string;
     assigneeId?: string;
+    assigneeRole?: string;
+    createdById?: string | null;
+    dependsOnIds?: string[];
+    days?: number | null;
     reviewerId?: string;
     assignee?: {
         id: string;

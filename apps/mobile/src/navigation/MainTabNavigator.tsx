@@ -30,8 +30,6 @@ import LeaveScreen from "../screens/LeaveScreen";
 import WorkspaceSettingsScreen from "../screens/WorkspaceSettingsScreen";
 import AdminLeaveScreen from "../screens/AdminLeaveScreen";
 import { MainTabParamList } from "../types";
-import { useWorkspace } from "../context/WorkspaceContext";
-import { getWorkspaceCapabilities } from "../services/api";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const Stack = createNativeStackNavigator();
@@ -82,15 +80,8 @@ const MyTasksStack = createTabStack(MyBoardScreen, "MyTasks");
 const ProfileStack = createTabStack(ProfileScreen, "Profile");
 
 export default function MainTabNavigator() {
-    const { activeWorkspace } = useWorkspace();
-    const [procurementEnabled, setProcurementEnabled] = useState(false);
-
-    React.useEffect(() => {
-        if (!activeWorkspace?.id) return;
-        getWorkspaceCapabilities(activeWorkspace.id).then((caps) => {
-            setProcurementEnabled(!!caps["procurement:view"]);
-        });
-    }, [activeWorkspace?.id]);
+    // Procurement hidden from the app UI for now.
+    const procurementEnabled = false;
 
     const navigation = useNavigation();
 

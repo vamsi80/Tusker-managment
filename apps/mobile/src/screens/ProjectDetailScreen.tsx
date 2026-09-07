@@ -22,7 +22,6 @@ import ProjectDashboard from "./project/ProjectDashboard";
 import ProjectTaskList from "./project/ProjectTaskList";
 import ProjectKanban from "./project/ProjectKanban";
 import ProjectGanttView from "./project/ProjectGanttView";
-import ProjectMaterialsScreen from "./project/ProjectMaterialsScreen";
 import TaskFilterSheet from "../components/TaskFilterSheet";
 import CreateTaskModal from "../components/CreateTaskModal";
 import { useResponsive } from "../hooks/useResponsive";
@@ -37,7 +36,7 @@ const tabs = [
     { id: "Tasks", label: "List", icon: "list-outline" as const },
     { id: "Kanban", label: "Kanban", icon: "apps-outline" as const },
     { id: "Gantt", label: "Gantt", icon: "layers-outline" as const },
-    { id: "Materials", label: "Materials", icon: "cube-outline" as const },
+    // Materials tab hidden along with the rest of the procurement UI.
 ];
 
 export default function ProjectDetailScreen({ route, navigation }: Props) {
@@ -276,9 +275,6 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
                     <View style={{ width: COMPONENT_WIDTH, flex: 1 }}>
                         <ProjectGanttView {...(props as any)} />
                     </View>
-                    <View style={{ width: COMPONENT_WIDTH, flex: 1 }}>
-                        <ProjectMaterialsScreen projectId={projectId} />
-                    </View>
                 </ScrollView>
             </View>
 
@@ -309,8 +305,8 @@ const styles = StyleSheet.create({
     moreBtn: { padding: 4 },
 
     tabBarContainer: { paddingVertical: SPACING.sm, borderBottomWidth: 1 },
-    tabBar: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 4, height: 48, alignItems: "center", borderWidth: 1, gap: 4 },
-    tabItem: { minHeight: TOUCH_TARGET.min - 8, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: BORDER_RADIUS.sm, gap: 4, paddingHorizontal: 12 },
+    tabBar: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 4, height: 48, alignItems: "center", borderWidth: 1, gap: 4, flexGrow: 1 },
+    tabItem: { minHeight: TOUCH_TARGET.min - 8, flexDirection: "row", alignItems: "center", justifyContent: "center", borderRadius: BORDER_RADIUS.sm, gap: 4, paddingHorizontal: 12, flex: 1 },
     tabLabel: { fontSize: 12, fontWeight: "600" },
 
     activeFiltersBar: { paddingVertical: SPACING.sm, borderBottomWidth: 1 },

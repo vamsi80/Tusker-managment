@@ -78,6 +78,8 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
     const [showTeamPicker, setShowTeamPicker] = useState(false);
     const [managerSearch, setManagerSearch] = useState("");
     const [teamSearch, setTeamSearch] = useState("");
+    const [showTagPicker, setShowTagPicker] = useState(false);
+    const [tagSearch, setTagSearch] = useState("");
 
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
@@ -312,6 +314,11 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
         const n = m.user?.name || "";
         const e = m.user?.email || "";
         return s.toLowerCase().includes(q) || n.toLowerCase().includes(q) || e.toLowerCase().includes(q);
+    });
+
+    const filteredTags = (workspaceTags || []).filter((t: any) => {
+        if (!tagSearch.trim()) return true;
+        return t.name.toLowerCase().includes(tagSearch.trim().toLowerCase());
     });
 
     return (
@@ -566,43 +573,95 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
                                     </View>
                                 )}
 
-                                {/* Project Tags Selection */}
+                                {/* Project Tags Selection — dropdown, matching the Manager/Team Members pickers above */}
                                 {workspaceTags && workspaceTags.length > 0 && (
                                     <>
                                         <Text style={[styles.label, { color: colors.textDim }]}>Project Tags</Text>
                                         <Text style={[styles.helperText, { color: colors.textDim }]}>
                                             Select workspace tags that will be available for tasks in this project.
                                         </Text>
-                                        <View style={styles.tagsContainer}>
-                                            {workspaceTags.map((tag: any) => {
-                                                const isTagSelected = selectedTagIds.includes(tag.id);
-                                                return (
-                                                    <PressableScale
-                                                        key={tag.id}
-                                                        onPress={() => toggleTag(tag.id)}
-                                                        haptic="selection"
-                                                        style={[
-                                                            styles.tagChip,
-                                                            { backgroundColor: colors.background, borderColor: colors.border },
-                                                            isTagSelected && { backgroundColor: (tag.color || colors.primary) + "20", borderColor: tag.color || colors.primary }
-                                                        ]}
-                                                    >
-                                                        {isTagSelected && (
-                                                            <Ionicons name="checkmark-circle" size={14} color={tag.color || colors.primary} style={{ marginRight: 4 }} />
-                                                        )}
-                                                        <Text
-                                                            style={[
-                                                                styles.tagChipText,
-                                                                { color: colors.textDim },
-                                                                isTagSelected && { color: tag.color || colors.primary, fontFamily: FONTS.bold }
-                                                            ]}
-                                                        >
-                                                            {tag.name}
+                                        <PressableScale
+                                            onPress={() => setShowTagPicker(!showTagPicker)}
+                                            style={[styles.dropdownTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                                            haptic="selection"
+                                        >
+                                            <View style={styles.dropdownValueRow}>
+                                                {selectedTagIds.length > 0 ? (
+                                                    <View style={styles.tagsContainer}>
+                                                        {selectedTagIds.map((id) => {
+                                                            const tag = workspaceTags.find((t: any) => t.id === id);
+                                                            if (!tag) return null;
+                                                            return (
+                                                                <View
+                                                                    key={id}
+                                                                    style={[styles.memberAccessChip, { backgroundColor: (tag.color || colors.primary) + "20" }]}
+                                                                >
+                                                                    <Text style={[styles.memberAccessChipText, { color: tag.color || colors.primary }]}>
+                                                                        {tag.name}
+                                                                    </Text>
+                                                                </View>
+                                                            );
+                                                        })}
+                                                    </View>
+                                                ) : (
+                                                    <Text style={[styles.dropdownPlaceholder, { color: colors.textDim }]}>Select tags</Text>
+                                                )}
+                                            </View>
+                                            <Ionicons name={showTagPicker ? "chevron-up" : "chevron-down"} size={16} color={colors.textDim} />
+                                        </PressableScale>
+
+                                        {showTagPicker && (
+                                            <View style={[styles.pickerBox, { backgroundColor: colors.surfaceSolid, borderColor: colors.border }]}>
+                                                <View style={[styles.searchBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                                                    <Ionicons name="search" size={14} color={colors.textDim} />
+                                                    <TextInput
+                                                        style={[styles.searchInput, { color: colors.text }]}
+                                                        placeholder="Search tags..."
+                                                        placeholderTextColor={colors.textDim}
+                                                        value={tagSearch}
+                                                        onChangeText={setTagSearch}
+                                                    />
+                                                </View>
+                                                <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                                                    {filteredTags.map((tag: any) => {
+                                                        const isSelected = selectedTagIds.includes(tag.id);
+                                                        return (
+                                                            <PressableScale
+                                                                key={tag.id}
+                                                                onPress={() => toggleTag(tag.id)}
+                                                                style={[
+                                                                    styles.pickerRow,
+                                                                    { borderBottomColor: colors.border },
+                                                                    isSelected && { backgroundColor: (tag.color || colors.primary) + "14" }
+                                                                ]}
+                                                                haptic="selection"
+                                                            >
+                                                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                                                    <View style={[styles.checkboxSmall, isSelected && { backgroundColor: tag.color || colors.primary, borderColor: tag.color || colors.primary }]}>
+                                                                        {isSelected && <Ionicons name="checkmark" size={10} color="#fff" />}
+                                                                    </View>
+                                                                    <View style={[styles.tagColorDot, { backgroundColor: tag.color || colors.primary }]} />
+                                                                    <Text
+                                                                        style={[
+                                                                            styles.pickerRowText,
+                                                                            { color: colors.text },
+                                                                            isSelected && { fontFamily: FONTS.bold, color: tag.color || colors.primary }
+                                                                        ]}
+                                                                    >
+                                                                        {tag.name}
+                                                                    </Text>
+                                                                </View>
+                                                            </PressableScale>
+                                                        );
+                                                    })}
+                                                    {filteredTags.length === 0 && (
+                                                        <Text style={[styles.emptyPickerText, { color: colors.textDim }]}>
+                                                            No tags found.
                                                         </Text>
-                                                    </PressableScale>
-                                                );
-                                            })}
-                                        </View>
+                                                    )}
+                                                </ScrollView>
+                                            </View>
+                                        )}
                                     </>
                                 )}
 
@@ -843,7 +902,7 @@ const styles = StyleSheet.create({
     iconBox: {
         width: 34,
         height: 34,
-        borderRadius: 8,
+        borderRadius: BORDER_RADIUS.sm,
         justifyContent: "center",
         alignItems: "center",
     },
@@ -916,6 +975,14 @@ const styles = StyleSheet.create({
         padding: SPACING.md,
         borderWidth: 1,
         minHeight: 48,
+        // Soft card shadow — same weight as the Home screen's grid cards
+        // (apps/mobile/src/screens/HomeScreen.tsx gridCard) so form surfaces
+        // read as the same design language as the rest of the app.
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
     },
     dropdownValueRow: {
         flex: 1,
@@ -929,7 +996,7 @@ const styles = StyleSheet.create({
         alignSelf: "flex-start",
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: 4,
+        borderRadius: BORDER_RADIUS.sm,
     },
     managerBadgeText: {
         fontSize: 13,
@@ -938,7 +1005,7 @@ const styles = StyleSheet.create({
     memberAccessChip: {
         paddingHorizontal: 8,
         paddingVertical: 3,
-        borderRadius: 4,
+        borderRadius: BORDER_RADIUS.sm,
     },
     memberAccessChipText: {
         fontSize: 12,
@@ -949,6 +1016,11 @@ const styles = StyleSheet.create({
         borderRadius: BORDER_RADIUS.md,
         marginTop: 6,
         padding: 6,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
     },
     searchBox: {
         flexDirection: "row",
@@ -1008,7 +1080,7 @@ const styles = StyleSheet.create({
         gap: 6,
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: 6,
+        borderRadius: BORDER_RADIUS.sm,
         borderWidth: 1,
     },
     internalToggleText: {
@@ -1021,7 +1093,7 @@ const styles = StyleSheet.create({
         gap: 6,
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 6,
+        borderRadius: BORDER_RADIUS.sm,
         borderWidth: 1,
         alignSelf: "flex-start",
         marginTop: 8,
@@ -1047,17 +1119,10 @@ const styles = StyleSheet.create({
         gap: 8,
         marginTop: 4,
     },
-    tagChip: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    tagChipText: {
-        fontSize: 12,
-        fontFamily: FONTS.medium,
+    tagColorDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
     },
     colorGrid: {
         flexDirection: "row",

@@ -60,6 +60,7 @@ export function getTaskSelect(view_mode: string = "list", isMinimal: boolean = f
         days: true,
         assignee: {
             select: {
+                projectRole: true,
                 workspaceMember: {
                     select: {
                         user: { select: { id: true, surname: true } }
@@ -371,6 +372,13 @@ export function buildOrderBy(sorts?: Array<{ field: string; direction: "asc" | "
     return [primary, { id: direction as "asc" | "desc" }];
 }
 
+// DateTime columns need a real Date passed to Prisma — the cursor arrives
+// off the wire as a JSON-serialized (string) value, so a plain string here
+// makes Prisma reject the query or silently match nothing, which is why
+// scrolling past the first page stalled whenever a date-sorted filter
+// (e.g. the Date Range / Today / This Week quick filters) was active.
+const DATE_SORT_FIELDS = new Set(["dueDate", "startDate", "createdAt"]);
+
 export function buildSeekCondition(
     sorts: Array<{ field: string; direction: "asc" | "desc" }>,
     cursor: any
@@ -383,7 +391,10 @@ export function buildSeekCondition(
         if (!def) return {};
 
         const dbField = def.dbField;
-        const lastFieldValue = cursor[dbField];
+        let lastFieldValue = cursor[dbField];
+        if (DATE_SORT_FIELDS.has(dbField) && lastFieldValue !== null && lastFieldValue !== undefined) {
+            lastFieldValue = new Date(lastFieldValue);
+        }
         const lastId = cursor.id;
 
         if (lastId === undefined || lastId === null) return {};
@@ -830,8 +841,15 @@ export function buildWorkspaceFilterWhere(
     if (opts.cursor) {
         if (opts.view_mode === "kanban") {
             appendAnd(where, buildKanbanCursorWhere(opts.cursor));
-        } else if ((opts.view_mode === "list" || opts.view_mode === "gantt") && !opts.projectId) {
-            // Workspace list/gantt: seek across project boundaries
+        } else if (opts.view_mode === "list" || opts.view_mode === "gantt") {
+            // List/gantt always orders by position/id (plus project.createdAt
+            // when spanning the whole workspace) — buildWorkspaceListCursorWhere
+            // degrades to a plain position/id seek when the cursor carries no
+            // projectCreatedAt, which is exactly the single-project case.
+            // Previously a project-scoped fetch fell through to the generic
+            // `else` branch below, which seeks by createdAt/desc — a field and
+            // direction that don't match this query's actual ORDER BY at all,
+            // so "load more" inside a single project silently stalled.
             appendAnd(where, buildWorkspaceListCursorWhere(opts.cursor));
         } else if (opts.sorts && opts.sorts.length > 0) {
             appendAnd(where, buildSeekCondition(opts.sorts, opts.cursor));

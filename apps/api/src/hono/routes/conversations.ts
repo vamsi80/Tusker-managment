@@ -41,8 +41,10 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const since = c.req.query("since");
     const limit = parseInt(c.req.query("limit") || "50");
 
-    const messages = await ConversationService.getConversationMessages(conversationId, limit, cursor, since);
-    return c.json({ success: true, data: messages });
+    const { messages, hasMore, nextCursor } = await ConversationService.getConversationMessages(conversationId, limit, cursor, since);
+    // `data` stays a plain array (web reads `data.data` directly); hasMore/
+    // nextCursor ride alongside it for the mobile client's scroll-up paging.
+    return c.json({ success: true, data: messages, hasMore, nextCursor });
   })
   .post("/:workspaceId/:conversationId/messages", zValidator("json", z.object({
     content: z.string().min(1)
@@ -126,8 +128,8 @@ app.get("/:conversationId/messages", async (c) => {
   const since = c.req.query("since");
   const limit = parseInt(c.req.query("limit") || "50");
 
-  const messages = await ConversationService.getConversationMessages(conversationId, limit, cursor, since);
-  return c.json({ success: true, data: messages, messages });
+  const { messages, hasMore, nextCursor } = await ConversationService.getConversationMessages(conversationId, limit, cursor, since);
+  return c.json({ success: true, data: messages, messages, hasMore, nextCursor });
 });
 
 app.post("/:conversationId/messages", async (c) => {
