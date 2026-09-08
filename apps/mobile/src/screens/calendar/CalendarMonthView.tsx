@@ -31,6 +31,8 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
         openDayItems,
     } = ctx;
 
+    const selectedKey = calendarDayKey(selectedDate);
+
     const { days } = useMemo(() => {
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth();
@@ -129,6 +131,7 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
                     const hasLeave = (entry?.leaves ?? 0) > 0;
                     const hasTask = (entry?.tasks ?? 0) > 0;
                     const hasAny = meetingCount > 0 || hasHoliday || hasLeave || hasTask;
+                    const isSelected = day.dateKey === selectedKey;
 
                     return (
                         <TouchableOpacity
@@ -147,13 +150,14 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
                             <View
                                 style={[
                                     styles.dayCircle,
-                                    day.isToday && { backgroundColor: colors.primary },
+                                    isSelected && { backgroundColor: colors.primary },
+                                    !isSelected && day.isToday && { borderWidth: 1.5, borderColor: colors.primary },
                                 ]}
                             >
                                 <Text
                                     style={[
                                         styles.dayNum,
-                                        { color: day.isToday ? "#fff" : colors.text },
+                                        { color: isSelected ? "#fff" : day.isToday ? colors.primary : colors.text },
                                     ]}
                                 >
                                     {day.date.getDate()}
