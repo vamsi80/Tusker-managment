@@ -3,6 +3,5 @@
     "regions": [
         "bom1"
     ],
-    "//": "prisma generate only runs in @tusker/db's postinstall, which Vercel skips on a warm install cache - the generated client is gitignored, so the build then fails on a missing import. Generating here makes it unconditional.",
     "buildCommand": "pnpm --filter @tusker/db exec prisma generate && pnpm build"
 }
