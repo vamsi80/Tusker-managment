@@ -194,6 +194,7 @@ export type RootStackParamList = {
     Attendance: undefined;
     Leave: undefined;
     AdminLeave: undefined;
+    Calendar: undefined;
 };
 
 export type MainTabParamList = {
@@ -272,4 +273,101 @@ export interface LeaveRequest {
     casualLeaveBalance: number;
     sickLeaveBalance: number;
     processedByName?: string | null;
+}
+
+// ─── Calendar / Meetings ────────────────────────────────────────────────────
+// Mirrors packages/api-client/src/meetings.ts (MeetingUI, CalendarLayerData) —
+// mobile keeps its own copy rather than depending on @tusker/api-client,
+// matching how LeaveRequest/Workspace/etc. are duplicated above.
+
+export type MeetingType = "INTERNAL" | "CLIENT" | "PROJECT_REVIEW" | "ONE_ON_ONE" | "GENERAL";
+export type MeetingStatus = "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type RsvpStatus = "INVITED" | "ACCEPTED" | "DECLINED" | "TENTATIVE";
+
+export interface MeetingAttendee {
+    id: string;
+    userId: string;
+    status: RsvpStatus;
+    user?: {
+        id: string;
+        name: string;
+        surname?: string | null;
+        email: string;
+        image?: string | null;
+    };
+}
+
+export interface Meeting {
+    id: string;
+    workspaceId: string;
+    title: string;
+    description?: string | null;
+    startTime: string;
+    endTime: string;
+    location?: string | null;
+    meetingUrl?: string | null;
+    type: MeetingType;
+    status: MeetingStatus;
+    color?: string | null;
+    reminderMinutes: number;
+    isAllDay: boolean;
+    organizerId: string;
+    projectId?: string | null;
+    createdAt: string;
+    updatedAt: string;
+    organizer?: {
+        id: string;
+        name: string;
+        surname?: string | null;
+        email: string;
+        image?: string | null;
+    };
+    project?: {
+        id: string;
+        name: string;
+        slug: string;
+        color: string;
+    } | null;
+    attendees: MeetingAttendee[];
+}
+
+export interface CalendarLayerData {
+    meetings: Meeting[];
+    taskDeadlines: Array<{
+        id: string;
+        title: string;
+        date: string;
+        status: string;
+        taskSlug: string;
+        projectId: string;
+    }>;
+    publicHolidays: Array<{
+        id: string;
+        name: string;
+        date: string;
+    }>;
+    leaves: Array<{
+        id: string;
+        member: string;
+        type: string;
+        startDate: string;
+        endDate: string;
+    }>;
+}
+
+export interface CreateMeetingPayload {
+    workspaceId: string;
+    title: string;
+    description?: string;
+    startTime: string;
+    endTime: string;
+    location?: string;
+    meetingUrl?: string;
+    type?: MeetingType;
+    status?: MeetingStatus;
+    color?: string;
+    reminderMinutes?: number;
+    isAllDay?: boolean;
+    projectId?: string;
+    attendeeUserIds?: string[];
 }

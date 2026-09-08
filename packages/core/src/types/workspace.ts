@@ -91,7 +91,13 @@ export type BroadcastMessage = {
   body: string;
   createdAt: string | Date;
   isRead?: boolean;
-  metadata?: { senderName?: string; expiresAt?: string | null } | null;
+  metadata?: {
+    senderName?: string;
+    expiresAt?: string | null;
+    /** Departments it was addressed to; empty or absent means the whole workspace. */
+    departmentIds?: string[];
+    departmentNames?: string[];
+  } | null;
 };
 
 export interface WorkspaceLayoutData {

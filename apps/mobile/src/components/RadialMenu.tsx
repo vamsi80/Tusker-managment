@@ -36,6 +36,7 @@ export default function RadialMenu({
         { id: "subtask", label: "Sub Task", icon: "git-branch", color: "#8b5cf6" },
         { id: "tag", label: "Tag", icon: "pricetag", color: "#f59e0b" },
         { id: "attendance", label: "Attendance", icon: "time", color: "#10b981" },
+        { id: "calendar", label: "Calendar", icon: "calendar", color: "#6366f1" },
         { id: "ai", label: "Trava AI", icon: "sparkles", color: "#ec4899" },
         // Hidden for members without procurement:view — the entry point would
         // otherwise 403 when they reached the list.
