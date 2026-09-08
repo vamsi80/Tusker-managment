@@ -6,8 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Plus, CheckSquare, Sparkles, UserX, Video } from "lucide-react";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { addDateOnlyDays, calendarDayKey } from "@tusker/core/lib/date-utils";
-import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { useSafeNavigation } from "@/hooks/use-safe-navigation";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -35,19 +34,15 @@ export function CalendarMonthView() {
     openDetailsModal,
   } = useMeetingStore();
 
-  const { data: layoutData, workspaceId } = useWorkspaceLayout();
-  const router = useSafeNavigation();
+  const { openSubTaskSheet } = useSubTaskSheetActions();
 
-  /**
-   * Opens the task on its project's list page. `?focus=` reveals it in the list
-   * itself — parent group expanded, row scrolled to and blinked — rather than
-   * `?subtask=`, which would slide the detail panel over the list.
-   */
-  const openTask = (task: { projectId?: string | null; taskSlug?: string | null }) => {
-    const slug = (layoutData?.projects ?? []).find((p: any) => p.id === task.projectId)?.slug;
-    if (!slug) return;
-    const listUrl = `/w/${workspaceId}/p/${slug}/list`;
-    router.push(task.taskSlug ? `${listUrl}?focus=${encodeURIComponent(task.taskSlug)}` : listUrl);
+  /** Open the task in the shared right-side details panel. */
+  const openTask = (task: { id: string; projectId?: string | null; taskSlug?: string | null }) => {
+    openSubTaskSheet({
+      id: task.id,
+      projectId: task.projectId,
+      taskSlug: task.taskSlug,
+    });
   };
 
   // Calendar days generation

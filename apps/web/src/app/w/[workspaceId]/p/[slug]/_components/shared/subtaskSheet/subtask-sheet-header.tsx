@@ -4,16 +4,16 @@ import type { TaskByIdType } from "@tusker/core/server/services/task/tasks.servi
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Calendar, Tag, User, FileCheck } from "lucide-react";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
-import { getStatusColors, getStatusLabel } from "@tusker/core/lib/colors/status-colors";
-import { memo, useState, useEffect } from "react";
+import { memo, useState } from "react";
 
 import { InlineAssigneePicker } from "@/components/task/shared/inline-assignee-picker";
+import { SubtaskStatusChanger } from "@/components/task/shared/subtask-status-changer";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { useParams } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 
 interface SubtaskSheetHeaderProps {
     subTask: TaskByIdType;
@@ -21,9 +21,11 @@ interface SubtaskSheetHeaderProps {
     members?: any[];
     onSubTaskAssigned?: (memberObj: { id: string; name: string | null; surname: string | null }) => void;
     onSubTaskUpdated?: (updatedTask: Partial<TaskByIdType>) => void;
+    onSubTaskStatusUpdated?: (updatedTask: Partial<TaskByIdType>) => void;
     isAdmin?: boolean;
     isProjectManager?: boolean;
     tags?: { id: string; name: string; }[];
+    permissions?: UserPermissionsType;
 }
 
 export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
@@ -32,9 +34,11 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
     members = [],
     onSubTaskAssigned,
     onSubTaskUpdated,
+    onSubTaskStatusUpdated,
     isAdmin,
     isProjectManager,
-    tags = []
+    tags = [],
+    permissions,
 }: SubtaskSheetHeaderProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const params = useParams();
@@ -153,21 +157,17 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                     <FileCheck className="size-3.5" />
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Status</span>
                                 </div>
-                                {subTask.status ? (
-                                    <Badge
-                                        variant="outline"
-                                        className={cn(
-                                            "text-[9px] font-black px-1.5 py-0 leading-none h-4 uppercase",
-                                            getStatusColors(subTask.status).color,
-                                            getStatusColors(subTask.status).bgColor,
-                                            getStatusColors(subTask.status).borderColor
-                                        )}
-                                    >
-                                        {getStatusLabel(subTask.status)}
-                                    </Badge>
-                                ) : (
-                                    <span className="text-[10px] font-medium text-muted-foreground italic">None</span>
-                                )}
+                                <SubtaskStatusChanger
+                                    subTask={subTask as any}
+                                    workspaceId={(subTask as any).workspaceId}
+                                    projectId={subTask.projectId || undefined}
+                                    permissions={permissions}
+                                    userId={currentUserId || undefined}
+                                    isWorkspaceAdmin={isAdmin}
+                                    onSubTaskUpdated={(_subTaskId, updatedData) => {
+                                        onSubTaskStatusUpdated?.(updatedData as Partial<TaskByIdType>);
+                                    }}
+                                />
                             </div>
 
                             {/* Tags */}

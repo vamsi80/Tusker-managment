@@ -47,12 +47,12 @@ export function SubTaskSheetProvider({ children }: { children: React.ReactNode }
         window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, "", newUrl);
         setSubtaskSlug(slug);
         
-        // Optimistically set the data if we have it
-        setSubTask(task);
-        
-        // If it's a fully loaded task, set lastLoadedSlugRef.current.
-        // If it's missing workspaceId (meaning it's partial), don't set lastLoadedSlugRef.current so it triggers API fetch.
-        if (task && task.workspaceId && task.projectId) {
+        // Calendar and notification entries can contain only summary data. Keep
+        // the loading state visible until the full task has been hydrated.
+        const isFullyLoaded = !!(task && task.workspaceId && task.projectId && task.name);
+        setSubTask(isFullyLoaded ? task : null);
+
+        if (isFullyLoaded) {
             lastLoadedSlugRef.current = slug;
         } else {
             lastLoadedSlugRef.current = null;

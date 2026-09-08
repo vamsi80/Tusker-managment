@@ -50,6 +50,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
 
   const projectId = task?.projectId;
   const tags = useProjectTags(workspaceId, projectId);
+  const currentProjectMember = projectMembers.find((member) => member.userId === workspacePerms?.userId);
 
   const permissions = {
     userId: workspacePerms?.userId,
@@ -59,6 +60,11 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     isProjectManager: isUserWorkspaceAdmin || !!workspacePerms?.managedProjectIds?.includes(projectId || ""),
     isProjectCoordinator: !!workspacePerms?.coordinatorProjectIds?.includes(projectId || ""),
     isProjectLead: !!workspacePerms?.leadProjectIds?.includes(projectId || ""),
+    isMember: !isUserWorkspaceAdmin && currentProjectMember?.projectRole === "MEMBER",
+    projectMember: currentProjectMember ? {
+      id: currentProjectMember.projectMemberId,
+      projectRole: currentProjectMember.projectRole,
+    } : null,
   };
 
   const currentUserId = permissions.userId;
@@ -289,7 +295,11 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
         tags={tags}
         isAdmin={isAdmin}
         isProjectManager={isProjectManager}
+        permissions={permissions as any}
         onSubTaskUpdated={handleSubTaskUpdated}
+        onSubTaskStatusUpdated={(updatedData) => {
+          setTask((previous: any) => previous ? { ...previous, ...updatedData } : previous);
+        }}
         onSubTaskAssigned={(memberObj) => {
           const updatedData = {
             assigneeId: memberObj.id

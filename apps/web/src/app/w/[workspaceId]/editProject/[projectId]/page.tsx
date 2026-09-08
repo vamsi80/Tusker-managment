@@ -73,6 +73,7 @@ export default function EditProjectPage() {
     const [existingClients, setExistingClients] = useState<any[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isLoadingClients, setIsLoadingClients] = useState(true);
+    const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
 
     // --- Access Control ---
     const isWorkspaceAdmin = permissions?.workspaceRole === "ADMIN" || permissions?.workspaceRole === "OWNER";
@@ -594,9 +595,9 @@ export default function EditProjectPage() {
                             </div>
 
                             {existingClients.length > 0 && !form.watch("isInternal") && (
-                                <Popover>
+                                <Popover open={isClientPickerOpen} onOpenChange={setIsClientPickerOpen}>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-8 gap-2">
+                                        <Button type="button" variant="outline" size="sm" className="h-8 gap-2">
                                             <Users className="size-3.5" />
                                             Use Existing Client
                                         </Button>
@@ -621,6 +622,7 @@ export default function EditProjectPage() {
                                                                 form.setValue("contactPerson", member.name || "", { shouldDirty: true });
                                                                 form.setValue("phoneNumber", member.phoneNumber || "", { shouldDirty: true });
                                                             }
+                                                            setIsClientPickerOpen(false);
                                                             toast.success(`Loaded details for ${client.name}`);
                                                         }}
                                                     >

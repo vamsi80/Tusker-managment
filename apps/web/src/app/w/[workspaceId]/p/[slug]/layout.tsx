@@ -34,6 +34,7 @@ export default async function ProjectLayout({
                         projectId={project.id}
                         projectName={project.name}
                         projectColor={project.color}
+                        projectCategory={project.category}
                         userRole={project.userRole}
                         canPerformBulkOperations={project.canPerformBulkOperations}
                     />

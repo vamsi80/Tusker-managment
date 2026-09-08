@@ -45,6 +45,7 @@ export function SubTaskDetailsSheet({
     
     const workspacePerms = workspaceData?.permissions;
     const isUserWorkspaceAdmin = workspacePerms?.workspaceRole === 'ADMIN' || workspacePerms?.workspaceRole === 'OWNER';
+    const localProjectMember = localMembers.find((member) => member.userId === workspacePerms?.userId);
 
     const permissions = (!isDifferentProject && projectCtx?.projectPermissions) ? projectCtx.projectPermissions : {
         userId: workspacePerms?.userId,
@@ -54,6 +55,11 @@ export function SubTaskDetailsSheet({
         isProjectManager: isUserWorkspaceAdmin || !!workspacePerms?.managedProjectIds?.includes(projectId || ""),
         isProjectCoordinator: !!workspacePerms?.coordinatorProjectIds?.includes(projectId || ""),
         isProjectLead: !!workspacePerms?.leadProjectIds?.includes(projectId || ""),
+        isMember: !isUserWorkspaceAdmin && localProjectMember?.projectRole === "MEMBER",
+        projectMember: localProjectMember ? {
+            id: localProjectMember.projectMemberId,
+            projectRole: localProjectMember.projectRole,
+        } : null,
     };
 
     const currentUserId = permissions.userId;
@@ -242,7 +248,12 @@ export function SubTaskDetailsSheet({
                         tags={tags}
                         isAdmin={isAdmin}
                         isProjectManager={isProjectManager}
+                        permissions={permissions as any}
                         onSubTaskUpdated={handleSubTaskUpdated}
+                        onSubTaskStatusUpdated={(updatedData) => {
+                            onSubTaskAssigned?.(task.id, updatedData);
+                            if (projectCtx?.revalidate) projectCtx.revalidate();
+                        }}
                         onSubTaskAssigned={(memberObj) => {
                             const updatedData = {
                                 assigneeId: memberObj.id
