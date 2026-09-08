@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { vendorDisplayName } from "@tusker/core/lib/procurement/vendor-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -195,6 +196,10 @@ export function CreatePurchaseOrderForm() {
       toast.error("Select a vendor");
       return;
     }
+    if (!indentId) {
+      toast.error("Select an approved indent");
+      return;
+    }
     if (!items.length) {
       toast.error("Add at least one line item");
       return;
@@ -213,7 +218,7 @@ export function CreatePurchaseOrderForm() {
           workspaceId,
           company,
           vendorId,
-          indentId: indentId || null,
+          indentId,
           referenceNo: referenceNo.trim() || null,
           poDate,
           deliveryAddress: deliveryAddress.trim(),
@@ -290,14 +295,13 @@ export function CreatePurchaseOrderForm() {
           <div className="grid gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">Indent</label>
             <Select
-              value={indentId || "none"}
-              onValueChange={(value) => loadIndent(value === "none" ? "" : value)}
+              value={indentId || undefined}
+              onValueChange={loadIndent}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Load items from an approved indent" />
+                <SelectValue placeholder="Select an approved indent" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No indent</SelectItem>
                 {indents.map((indent) => (
                   <SelectItem key={indent.id} value={indent.id}>
                     {indent.indentId ? `${indent.indentId} - ` : ""}
@@ -319,7 +323,7 @@ export function CreatePurchaseOrderForm() {
               <SelectContent>
                 {vendors.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
-                    {v.companyName || v.name}
+                    {vendorDisplayName(v)}
                   </SelectItem>
                 ))}
               </SelectContent>

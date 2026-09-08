@@ -23,6 +23,7 @@ import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 
+import { listDepartments } from "@/actions/department/department-actions";
 interface AttendanceRecord {
     id: string;
     date: string;
@@ -86,12 +87,20 @@ export function AttendanceTable({
         to: Date | undefined;
         memberId: string[];
         status: string[];
+        departmentId: string[];
     }>({
         from: startOfMonth(new Date()),
         to: endOfMonth(new Date()),
         memberId: [],
         status: [],
+        departmentId: [],
     });
+
+    const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+        listDepartments(workspaceId).then((res) => setDepartments(res.data));
+    }, [workspaceId]);
 
     // Helper to flatten Prisma records into the shape the table expects
     const flattenRecord = (r: any) => {
@@ -224,6 +233,7 @@ export function AttendanceTable({
             if (activeFilters.to && isValidDate(activeFilters.to)) params.append("endDate", toDateOnlyString(activeFilters.to));
             if (activeFilters.memberId.length > 0) params.append("memberId", JSON.stringify(activeFilters.memberId));
             if (activeFilters.status.length > 0) params.append("status", JSON.stringify(activeFilters.status));
+            if (activeFilters.departmentId.length > 0) params.append("departmentId", JSON.stringify(activeFilters.departmentId));
             if (debouncedSearch) params.append("search", debouncedSearch);
             params.append("page", (pageIndex + 1).toString());
             params.append("pageSize", pageSize.toString());
@@ -257,6 +267,7 @@ export function AttendanceTable({
         activeFilters.to?.getTime(),
         activeFilters.memberId,
         activeFilters.status,
+        activeFilters.departmentId,
         debouncedSearch,
         setIsQuerying
     ]);
@@ -581,6 +592,7 @@ export function AttendanceTable({
             to: undefined,
             memberId: [],
             status: [],
+            departmentId: [],
         };
         setTempFilters(reset);
         setActiveFilters(reset);
@@ -591,6 +603,7 @@ export function AttendanceTable({
         let count = 0;
         count += activeFilters.memberId.length;
         count += activeFilters.status.length;
+        count += activeFilters.departmentId.length;
         if (activeFilters.from || activeFilters.to) count++;
         return count;
     }, [activeFilters]);
@@ -798,6 +811,36 @@ export function AttendanceTable({
                                         options={memberOptions}
                                         placeholder="All Members"
                                         searchPlaceholder="Search members..."
+                                        triggerClassName="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Department Filter */}
+                            {isPowerUser && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/80">Department</h4>
+                                        {tempFilters.departmentId.length > 0 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setTempFilters(prev => ({ ...prev, departmentId: [] }))}
+                                                className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+                                            >
+                                                CLEAR
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <MultiSelectFilter
+                                        selected={tempFilters.departmentId}
+                                        onChange={(values) => setTempFilters(prev => ({ ...prev, departmentId: values }))}
+                                        options={[
+                                            { value: "none", label: "No department" },
+                                            ...departments.map((d) => ({ value: d.id, label: d.name })),
+                                        ]}
+                                        placeholder="All Departments"
+                                        searchPlaceholder="Search departments..."
                                         triggerClassName="h-10 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
                                     />
                                 </div>

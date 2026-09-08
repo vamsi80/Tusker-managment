@@ -70,6 +70,39 @@ const GstinLookupSchema = z.object({
   gstin: z.string().min(1),
 });
 
+const CapabilityLinkSchema = z
+  .string()
+  .trim()
+  .url()
+  .regex(/^https?:\/\//i, "Link must start with http:// or https://")
+  .nullable()
+  .optional();
+
+const UpdateCapabilitySchema = z.object({
+  materialName: z.string().trim().min(1).max(255).optional(),
+  unit: z.string().trim().max(50).nullable().optional(),
+  serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional(),
+  rate: z.number().int().positive().nullable().optional(),
+  quantity: z.number().int().positive().nullable().optional(),
+  link: CapabilityLinkSchema,
+}).refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
+
+/**
+ * Suppliers are workspace-wide reference data, and the whole router already
+ * sits behind the `vendors:view` capability — the switch an admin uses to take
+ * the section away from someone. So a read only has to prove workspace
+ * membership. It used to demand `hasAccess`, which means "belongs to at least
+ * one project": a requester with no project rows got an empty supplier list
+ * while entering final rates, with no error to explain it.
+ */
+const ensureCanReadVendors = async (workspaceId: string, userId: string) => {
+  const perms = await fetchWorkspacePermissions(workspaceId, userId);
+  if (!perms.workspaceMemberId) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+  return perms;
+};
+
 // Permission middleware helper
 const checkProcurementPerms = async (workspaceId: string, userId: string) => {
   const perms = await fetchWorkspacePermissions(workspaceId, userId);
@@ -120,10 +153,7 @@ procurementVendors.get("/materials/coverage", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const catalog = await prisma.materialCatalog.findMany({
     where: { workspaceId },
@@ -214,10 +244,7 @@ procurementVendors.get("/", async (c) => {
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
   // Any member can read vendors
-  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const vendors = await prisma.vendor.findMany({
     where: {
@@ -244,10 +271,7 @@ procurementVendors.get("/:id", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
-  if (!perms.hasAccess && !["PROCUREMENT", "ACCOUNTS"].includes(perms.workspaceRole)) {
-    throw AppError.Forbidden("Access denied to this workspace");
-  }
+  await ensureCanReadVendors(workspaceId, user.id);
 
   const vendor = await prisma.vendor.findFirst({
     where: { id, workspaceId }
@@ -337,6 +361,96 @@ procurementVendors.delete("/:id", async (c) => {
 });
 
 /**
+ * GET /api/v1/procurement/vendors/:id/materials
+ * Everything we buy from this supplier / contractor in one list: line items of
+ * approved indents awarded to them, plus materials added by hand with an agreed
+ * rate, so a material with no indent behind it still carries a price.
+ */
+procurementVendors.get("/:id/materials", async (c) => {
+  const user = c.get("user");
+  const vendorId = c.req.param("id");
+  const workspaceId = c.req.query("w");
+
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  await ensureCanReadVendors(workspaceId, user.id);
+
+  const [capabilities, items] = await Promise.all([
+    prisma.vendorMaterialCapability.findMany({
+      where: { vendorId, workspaceId },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.indentLineItem.findMany({
+      where: {
+        indent: { workspaceId, status: "APPROVED" },
+        // A vendor wins either the whole indent (selectedVendor) or a single line
+        // item through its approved quote. Both count as buying from them.
+        OR: [{ indent: { selectedVendorId: vendorId } }, { approvedQuote: { vendorId } }],
+      },
+      select: {
+        id: true,
+        materialName: true,
+        unit: true,
+        quantity: true,
+        finalUnitPrice: true,
+        estimatedUnitPrice: true,
+        approvedQuote: { select: { unitPrice: true } },
+        indent: {
+          select: {
+            id: true,
+            indentId: true,
+            name: true,
+            finalApprovedAt: true,
+            project: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { indent: { finalApprovedAt: "desc" } },
+    }),
+  ]);
+
+  // Every rate here is paise, so the fallback chain stays comparable.
+  const data = [
+    ...items.map((item) => ({
+      kind: "INDENT" as const,
+      id: item.id,
+      materialName: item.materialName,
+      unit: item.unit,
+      serviceType: null as string | null,
+      quantity: item.quantity,
+      link: null as string | null,
+      rate:
+        item.finalUnitPrice ??
+        (item.approvedQuote ? Number(item.approvedQuote.unitPrice) : null) ??
+        item.estimatedUnitPrice ??
+        null,
+      indentId: item.indent.id,
+      indentRef: item.indent.indentId,
+      indentName: item.indent.name,
+      projectName: item.indent.project?.name ?? null,
+      date: item.indent.finalApprovedAt,
+    })),
+    ...capabilities.map((cap) => ({
+      kind: "CAPABILITY" as const,
+      id: cap.id,
+      materialName: cap.materialName,
+      unit: cap.unit,
+      serviceType: cap.serviceType as string | null,
+      quantity: cap.quantity,
+      rate: cap.rate,
+      link: cap.link,
+      indentId: null,
+      indentRef: null,
+      indentName: null,
+      projectName: null,
+      date: cap.createdAt,
+    })),
+  ].sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+
+  return c.json({ success: true, data });
+});
+
+/**
  * GET /api/v1/procurement/vendors/:id/capabilities
  * List capabilities for a vendor
  */
@@ -373,6 +487,13 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   materialName: z.string().min(1),
   unit: z.string().optional(),
   serviceType: z.enum(["SUPPLY", "LABOUR", "LABOUR_WITH_MATERIAL"]).optional().default("SUPPLY"),
+  // Agreed rate in paise, matching every other price in procurement.
+  rate: z.number().int().positive().nullable().optional(),
+  // Quantity the rate was agreed for; rate x quantity is the row total.
+  quantity: z.number().int().positive().nullable().optional(),
+  // Reference link — a photo, a quotation, a catalogue page. Restricted to
+  // http(s) so nothing script-bearing can reach an anchor href.
+  link: CapabilityLinkSchema,
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -388,11 +509,39 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     workspaceId,
     data.materialName,
     data.unit,
-    data.serviceType
+    data.serviceType,
+    { rate: data.rate, link: data.link, quantity: data.quantity }
   );
 
   return c.json({ success: true, data: capability }, 201);
 });
+
+/**
+ * PATCH /api/v1/procurement/vendors/:id/capabilities/:capId
+ * Edit a manually maintained supplier / contractor material.
+ */
+procurementVendors.patch(
+  "/:id/capabilities/:capId",
+  zValidator("json", UpdateCapabilitySchema),
+  async (c) => {
+    const user = c.get("user");
+    const vendorId = c.req.param("id");
+    const capabilityId = c.req.param("capId");
+    const workspaceId = c.req.query("w");
+
+    if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+    await checkProcurementPerms(workspaceId, user.id);
+
+    const capability = await VendorService.updateCapability(
+      capabilityId,
+      vendorId,
+      workspaceId,
+      c.req.valid("json")
+    );
+
+    return c.json({ success: true, data: capability });
+  }
+);
 
 /**
  * DELETE /api/v1/procurement/vendors/:id/capabilities/:capId

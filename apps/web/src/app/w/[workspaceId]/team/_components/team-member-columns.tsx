@@ -104,6 +104,20 @@ export function createTeamMemberColumns(
         },
 
         {
+            id: "department",
+            accessorKey: "departmentName",
+            header: "Department",
+            cell: ({ row }) => {
+                const department = row.original.departmentName;
+                return (
+                    <div className="text-muted-foreground font-medium">
+                        {department || "—"}
+                    </div>
+                );
+            },
+        },
+
+        {
             id: "reportedTo",
             accessorKey: "reportToName",
             header: "Reported To",

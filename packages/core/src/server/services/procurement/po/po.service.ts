@@ -17,7 +17,7 @@ export type CreatePurchaseOrderInput = {
   workspaceId: string;
   company: CompanyCode;
   vendorId: string;
-  indentId?: string | null;
+  indentId: string;
   referenceNo?: string | null;
   poDate?: Date;
   deliveryAddress: string;
@@ -108,12 +108,13 @@ export class PurchaseOrderService {
     });
     if (!vendor) throw AppError.NotFound("Vendor not found");
 
-    if (input.indentId) {
-      const indent = await prisma.indent.findFirst({
-        where: { id: input.indentId, workspaceId },
-        select: { id: true },
-      });
-      if (!indent) throw AppError.NotFound("Indent not found");
+    const indent = await prisma.indent.findFirst({
+      where: { id: input.indentId, workspaceId },
+      select: { id: true, status: true },
+    });
+    if (!indent) throw AppError.NotFound("Indent not found");
+    if (indent.status !== "APPROVED") {
+      throw AppError.Conflict("A purchase order can only be created from an approved indent");
     }
 
     if (!input.items.length) throw AppError.ValidationError("Add at least one line item");
@@ -159,7 +160,7 @@ export class PurchaseOrderService {
           company,
           financialYear: fy,
           vendorId: vendor.id,
-          indentId: input.indentId ?? null,
+          indentId: input.indentId,
           referenceNo: input.referenceNo ?? null,
           poDate,
           deliveryAddress: input.deliveryAddress,

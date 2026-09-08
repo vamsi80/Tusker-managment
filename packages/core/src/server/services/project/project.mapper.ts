@@ -1,4 +1,5 @@
 import {
+  ProjectCategory,
   ProjectListItem,
   ProjectRole,
   ProjectMemberUI,
@@ -24,6 +25,7 @@ export class ProjectMapper {
       canManageMembers: isOwnerOrAdmin || isProjectManager || isCreator,
       projectRole: userProjectMember?.projectRole as ProjectRole,
       createdAt: project.createdAt.toISOString(),
+      category: (project.category as ProjectCategory) ?? null,
       projectManager: project.projectManager?.user ? {
         id: project.projectManager.user.id,
         surname: project.projectManager.user.surname
@@ -40,7 +42,7 @@ export class ProjectMapper {
       userId: m.userId,
       workspaceRole: m.workspaceRole,
       designation: m.designation,
-      name: m.user?.name,
+      name: m.user?.surname || m.user?.name,
       surname: m.user?.surname,
       email: m.user?.email,
     };
@@ -129,6 +131,7 @@ export class ProjectMapper {
       contactPerson: project.clint?.clintMembers[0]?.name || null,
       phoneNumber: project.clint?.clintMembers[0]?.phoneNumber || null,
       tagIds: project.tags?.map((t: any) => t.id) || [],
+      category: (project.category as ProjectCategory) ?? null,
     };
   }
 

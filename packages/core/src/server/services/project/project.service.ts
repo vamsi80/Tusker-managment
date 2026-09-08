@@ -35,6 +35,7 @@ export class ProjectService {
       description: true,
       createdBy: true,
       createdAt: true,
+      category: true,
       projectManager: {
         select: {
           user: { select: { id: true, surname: true } }
@@ -217,6 +218,7 @@ export class ProjectService {
       description: values.description,
       slug: values.slug,
       color: finalColor,
+      category: values.category,
       workspace: { connect: { id: workspaceId } },
       createdBy: userId,
       projectManager: { connect: { id: assignedProjectManagerId } },
@@ -298,6 +300,7 @@ export class ProjectService {
           name: values.name,
           description: values.description,
           slug: values.slug || project.slug,
+          category: values.category,
           tags: values.tagIds ? {
             set: values.tagIds.map(id => ({ id }))
           } : undefined,
@@ -591,7 +594,7 @@ export class ProjectService {
           workspaceRole: wa.workspaceRole as any,
           user: {
             id: wa.user.id,
-            name: wa.user.name || "",
+            name: wa.user.surname || wa.user.name || "",
             surname: wa.user.surname || "",
             email: wa.user.email,
           }

@@ -1,0 +1,537 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { ColumnDef } from "@tanstack/react-table";
+import { toast } from "@/lib/toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2, Trash2, Check, ChevronsUpDown, Plus, ExternalLink, Pencil } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { DataTable } from "@/components/data-table";
+import { FALLBACK_UNITS } from "@tusker/core/lib/procurement/units";
+import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
+
+type ServiceType = "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL";
+
+interface MaterialRow {
+  kind: "INDENT" | "CAPABILITY";
+  id: string;
+  materialName: string;
+  unit: string | null;
+  serviceType: ServiceType | null;
+  quantity: number | null;
+  rate: number | null;
+  link: string | null;
+  indentId: string | null;
+  indentRef: string | null;
+  indentName: string | null;
+  projectName: string | null;
+  date: string | null;
+}
+
+const money = (paise: number | null) =>
+  paise == null
+    ? "—"
+    : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(paise / 100);
+
+// Only http(s) reaches an href, whatever a row happens to hold.
+const isHttpLink = (link: string | null) => /^https?:\/\//i.test(link || "");
+
+const SERVICE_LABEL: Record<ServiceType, string> = {
+  SUPPLY: "📦 Supply",
+  LABOUR: "🔨 Labour",
+  LABOUR_WITH_MATERIAL: "🔄 Labour + Material",
+};
+
+const SERVICE_CLASS: Record<ServiceType, string> = {
+  SUPPLY: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  LABOUR: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  LABOUR_WITH_MATERIAL: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
+};
+
+export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; workspaceId: string }) {
+  const { data: workspaceData } = useWorkspaceLayout();
+  const canManageMaterials = Boolean(
+    workspaceData.permissions.isWorkspaceAdmin || workspaceData.permissions.workspaceRole === "PROCUREMENT"
+  );
+  const [rows, setRows] = useState<MaterialRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [existingItems, setExistingItems] = useState<{ id: string; name: string; type: "material" | "tag"; unit?: string }[]>([]);
+
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
+  const [customMaterialName, setCustomMaterialName] = useState("");
+  const [newUnit, setNewUnit] = useState("");
+  const [newRate, setNewRate] = useState("");
+  const [units, setUnits] = useState<{ abbreviation: string; name: string }[]>(FALLBACK_UNITS);
+  const [newLink, setNewLink] = useState("");
+  const [newServiceType, setNewServiceType] = useState<ServiceType>("SUPPLY");
+  const [adding, setAdding] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState<MaterialRow | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const fetchMaterials = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/procurement/vendors/${vendorId}/materials?w=${workspaceId}`);
+      const body = await res.json();
+      if (body.success) setRows(body.data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [vendorId, workspaceId]);
+
+  useEffect(() => {
+    fetchMaterials();
+  }, [fetchMaterials]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [matData, tagData] = await Promise.all([
+          fetch(`/api/v1/materials?w=${workspaceId}`).then((r) => r.json()),
+          fetch(`/api/v1/tags?workspaceId=${workspaceId}`).then((r) => r.json()),
+        ]);
+
+        const items: { id: string; name: string; type: "material" | "tag"; unit?: string }[] = [];
+        if (matData.success && matData.data) {
+          matData.data.forEach((m: any) =>
+            items.push({ id: m.id, name: m.name, type: "material", unit: m.defaultUnit?.abbreviation })
+          );
+        }
+        if (tagData.success && tagData.tags) {
+          tagData.tags.forEach((t: any) => items.push({ id: t.id, name: t.name, type: "tag" }));
+        }
+
+        setExistingItems(
+          items.filter(
+            (item, index, self) => self.findIndex((i) => i.name.toLowerCase() === item.name.toLowerCase()) === index
+          )
+        );
+      } catch (error) {
+        console.error("Failed to fetch existing tags/materials:", error);
+      }
+    };
+    load();
+  }, [workspaceId]);
+
+  useEffect(() => {
+    fetch(`/api/v1/procurement/indents/units?w=${workspaceId}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (body.success && body.data?.length) setUnits(body.data);
+      })
+      .catch((error) => console.error("Failed to load units", error));
+  }, [workspaceId]);
+
+  // Paise on the wire, like every other price in procurement.
+  const newRatePaise = newRate ? Math.round(Number(newRate) * 100) : null;
+
+  const newMaterialName =
+    selectedMaterialId === "CUSTOM"
+      ? customMaterialName.trim()
+      : existingItems.find((i) => i.id === selectedMaterialId)?.name || "";
+
+  const resetMaterialForm = () => {
+    setSelectedMaterialId("");
+    setCustomMaterialName("");
+    setNewUnit("");
+    setNewRate("");
+    setNewLink("");
+    setNewServiceType("SUPPLY");
+    setSearchQuery("");
+  };
+
+  const openAddDialog = () => {
+    setEditingRow(null);
+    resetMaterialForm();
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (row: MaterialRow) => {
+    setEditingRow(row);
+    setSelectedMaterialId("CUSTOM");
+    setCustomMaterialName(row.materialName);
+    setNewUnit(row.unit || "");
+    setNewRate(row.rate == null ? "" : String(row.rate / 100));
+    setNewLink(row.link || "");
+    setNewServiceType(row.serviceType || "SUPPLY");
+    setSearchQuery("");
+    setDialogOpen(true);
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMaterialName) {
+      toast.error("Please select or enter a material name");
+      return;
+    }
+
+    setAdding(true);
+    try {
+      const url = editingRow
+        ? `/api/v1/procurement/vendors/${vendorId}/capabilities/${editingRow.id}?w=${workspaceId}`
+        : `/api/v1/procurement/vendors/${vendorId}/capabilities?w=${workspaceId}`;
+      const res = await fetch(url, {
+        method: editingRow ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materialName: newMaterialName,
+          unit: newUnit || (editingRow ? null : undefined),
+          serviceType: newServiceType,
+          // Rupees in the form, paise on the wire, like every other price.
+          rate: newRatePaise ?? (editingRow ? null : undefined),
+          link: newLink.trim() || (editingRow ? null : undefined),
+        }),
+      });
+      const body = await res.json();
+      if (body.success) {
+        toast.success(editingRow ? "Material updated" : "Material added");
+        resetMaterialForm();
+        setEditingRow(null);
+        setDialogOpen(false);
+        fetchMaterials();
+      } else {
+        toast.error(body.error || `Failed to ${editingRow ? "update" : "add"} material`);
+      }
+    } catch {
+      toast.error(`Failed to ${editingRow ? "update" : "add"} material`);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemove = async (capId: string) => {
+    try {
+      const res = await fetch(`/api/v1/procurement/vendors/${vendorId}/capabilities/${capId}?w=${workspaceId}`, {
+        method: "DELETE",
+      });
+      const body = await res.json();
+      if (body.success) {
+        toast.success("Material removed");
+        fetchMaterials();
+      } else {
+        toast.error(body.error || "Failed to remove material");
+      }
+    } catch {
+      toast.error("Failed to remove material");
+    }
+  };
+
+  const columns: ColumnDef<MaterialRow>[] = [
+      {
+        accessorKey: "materialName",
+        header: "Material / Service",
+        cell: ({ row }) => (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium capitalize text-foreground">{row.original.materialName}</span>
+              {isHttpLink(row.original.link) && (
+                <a
+                  href={row.original.link!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open attached link"
+                  className="text-primary hover:text-primary/80"
+                >
+                  <ExternalLink className="size-3.5" />
+                </a>
+              )}
+            </div>
+            {row.original.serviceType && (
+              <Badge variant="outline" className={cn("w-fit text-[10px]", SERVICE_CLASS[row.original.serviceType])}>
+                {SERVICE_LABEL[row.original.serviceType]}
+              </Badge>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "indentRef",
+        header: "Source",
+        cell: ({ row }) =>
+          row.original.kind === "INDENT" ? (
+            <div className="flex flex-col gap-0.5">
+              <Link
+                href={`/w/${workspaceId}/procurement/indents/${row.original.indentId}`}
+                className="font-mono text-[11px] font-bold text-primary hover:underline"
+              >
+                {row.original.indentRef || row.original.indentName}
+              </Link>
+              <span className="text-[11px] text-muted-foreground">{row.original.projectName || "General"}</span>
+            </div>
+          ) : (
+            <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
+              Added manually
+            </Badge>
+          ),
+      },
+      {
+        accessorKey: "date",
+        header: "Date",
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {row.original.date
+              ? new Date(row.original.date).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })
+              : "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "rate",
+        // A vendor rate is always per unit, so that is the only shape it takes.
+        header: "Rate",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold">
+            {money(row.original.rate)}
+            {row.original.rate != null && row.original.unit ? (
+              <span className="text-muted-foreground font-normal"> / {row.original.unit}</span>
+            ) : null}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: " ",
+        cell: ({ row }) =>
+          row.original.kind === "CAPABILITY" && canManageMaterials ? (
+            <div className="flex justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openEditDialog(row.original)}
+                title="Edit material"
+                className="text-muted-foreground hover:text-foreground size-8"
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleRemove(row.original.id)}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 size-8"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ) : null,
+        meta: { className: "w-[80px] text-right" },
+      },
+    ];
+
+  return (
+    <div className="space-y-4">
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={loading}
+        showPagination={true}
+        searchKey="materialName"
+        searchPlaceholder="Search materials..."
+        onAdd={canManageMaterials ? openAddDialog : undefined}
+        addButtonLabel="Add Material"
+      />
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingRow(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px] rounded-3xl border-none shadow-2xl p-0">
+          <form onSubmit={handleAdd} className="p-8 space-y-6">
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-2xl font-medium">
+                {editingRow ? "Edit Material" : "Add Material"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingRow
+                  ? "Update what this supplier / contractor provides and the agreed commercial details."
+                  : "What we buy from this supplier / contractor, and the rate agreed for it."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Material / Service Name</label>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={popoverOpen}
+                    aria-controls="vendor-materials-list"
+                    className="w-full justify-between h-9 bg-background font-normal text-left border border-input shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <span className="truncate">{newMaterialName || "Select Material / Service..."}</span>
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0" align="start">
+                  <Command loop>
+                    <CommandInput
+                      placeholder="Search or enter new material..."
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
+                    <CommandList id="vendor-materials-list" className="max-h-[200px] overflow-y-auto">
+                      <CommandEmpty className="py-2 text-center text-xs text-muted-foreground">
+                        No materials found. Type to create custom.
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {searchQuery.trim() &&
+                          !existingItems.some((item) => item.name.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+                            <CommandItem
+                              value={searchQuery}
+                              onSelect={() => {
+                                setSelectedMaterialId("CUSTOM");
+                                setCustomMaterialName(searchQuery.trim());
+                                setPopoverOpen(false);
+                                setSearchQuery("");
+                              }}
+                              className="text-primary font-medium cursor-pointer"
+                            >
+                              <Plus className="mr-2 size-4 text-primary" /> Create new &quot;{searchQuery.trim()}&quot;
+                            </CommandItem>
+                          )}
+                        {existingItems.map((item) => (
+                          <CommandItem
+                            key={item.id}
+                            value={item.name}
+                            onSelect={() => {
+                              setSelectedMaterialId(item.id);
+                              if (item.unit) setNewUnit(item.unit);
+                              setPopoverOpen(false);
+                              setSearchQuery("");
+                            }}
+                            className="cursor-pointer flex items-center"
+                          >
+                            <Check
+                              className={cn("mr-2 size-4", selectedMaterialId === item.id ? "opacity-100" : "opacity-0")}
+                            />
+                            <span className="truncate">{item.name}</span>
+                            <span className="ml-auto text-xs text-muted-foreground capitalize">{item.type}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Unit</label>
+                <select
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                >
+                  <option value="" className="bg-background text-foreground">Select unit...</option>
+                  {/* A unit already stored but missing from the list stays selectable. */}
+                  {newUnit && !units.some((unit) => unit.abbreviation === newUnit) && (
+                    <option value={newUnit} className="bg-background text-foreground">{newUnit}</option>
+                  )}
+                  {units.map((unit) => (
+                    <option key={unit.abbreviation} value={unit.abbreviation} className="bg-background text-foreground">
+                      {unit.abbreviation} ({unit.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Rate (₹)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newRate}
+                  onChange={(e) => setNewRate(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-background h-9"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Service Type</label>
+              <select
+                value={newServiceType}
+                onChange={(e) => setNewServiceType(e.target.value as ServiceType)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+              >
+                <option value="SUPPLY" className="bg-background text-foreground">📦 Supply</option>
+                <option value="LABOUR" className="bg-background text-foreground">🔨 Labour</option>
+                <option value="LABOUR_WITH_MATERIAL" className="bg-background text-foreground">🔄 Labour + Material</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Link (optional)</label>
+              <Input
+                type="url"
+                value={newLink}
+                onChange={(e) => setNewLink(e.target.value)}
+                placeholder="https://... photo, quotation, catalogue page"
+                className="bg-background h-9"
+              />
+              <p className="text-[11px] text-muted-foreground">Opens in a new tab from the list.</p>
+            </div>
+
+            {/* A vendor rate is always per unit, so that is what gets saved. */}
+            <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 h-10">
+              <span className="text-xs font-semibold text-muted-foreground">Rate</span>
+              <span className="font-mono text-sm font-semibold">
+                {money(newRatePaise)}
+                {newUnit ? <span className="text-muted-foreground font-normal"> / {newUnit}</span> : null}
+              </span>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  setEditingRow(null);
+                }}
+                disabled={adding}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={adding || !newMaterialName} className="min-w-[120px]">
+                {adding ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : editingRow ? (
+                  "Save Changes"
+                ) : (
+                  "Add Material"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

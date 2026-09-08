@@ -1,6 +1,7 @@
 import { WorkSpaceSchemaType, UpdateWorkspaceInfoType, InviteUserSchemaType } from "@tusker/core/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 import { apiFetch } from "./fetch-wrapper";
+import type { BroadcastMessage as Broadcast } from "@tusker/core/types/workspace";
 import {
     WorkspaceLayoutData,
     type WorkspaceData,
@@ -8,11 +9,27 @@ import {
     type WorkspacesResult
 } from "@tusker/core/types/workspace";
 
+export interface BirthdayMember {
+    id: string;
+    surname: string;
+    designation: string | null;
+    day: number;
+    isToday: boolean;
+    isSelf: boolean;
+}
+
+export type { BroadcastMessage as Broadcast } from "@tusker/core/types/workspace";
+
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
-    getMembers(workspaceId: string, page?: number, limit?: number, search?: string): Promise<WorkspaceMembersResult>;
+    getMembers(workspaceId: string, page?: number, limit?: number, search?: string, departmentId?: string): Promise<WorkspaceMembersResult>;
     getMembersSlim(workspaceId: string): Promise<any[]>;
+    getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
+    getBroadcasts(workspaceId: string, limit?: number): Promise<Broadcast[]>;
+    postBroadcast(workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast>;
+    updateBroadcast(workspaceId: string, broadcastId: string, values: { title?: string; message?: string; expiresInHours?: number | null }): Promise<ApiResponse>;
+    deleteBroadcast(workspaceId: string, broadcastId: string): Promise<ApiResponse>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
     removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
@@ -81,8 +98,11 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get workspace members (paginated)
      */
-    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string): Promise<WorkspaceMembersResult> => {
+    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string, departmentId?: string): Promise<WorkspaceMembersResult> => {
         let url = `/workspaces/${workspaceId}/members?page=${page}&limit=${limit}`;
+        if (departmentId) {
+            url += `&departmentId=${encodeURIComponent(departmentId)}`;
+        }
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
         }
@@ -92,6 +112,38 @@ export const workspacesClient: WorkspacesClient = {
     getMembersSlim: async (workspaceId: string): Promise<any[]> => {
         const response = await apiFetch<{ success: boolean; data: any[] }>(`/workspaces/${workspaceId}/members/slim`);
         return response.data;
+    },
+    getBirthdays: async (workspaceId: string): Promise<BirthdayMember[]> => {
+        const response = await apiFetch<{ success: boolean; data: BirthdayMember[] }>(`/workspaces/${workspaceId}/birthdays`);
+        return response.data;
+    },
+
+    getBroadcasts: async (workspaceId: string, limit: number = 10): Promise<Broadcast[]> => {
+        const response = await apiFetch<{ success: boolean; data: Broadcast[] }>(`/workspaces/${workspaceId}/broadcasts?limit=${limit}`);
+        return response.data;
+    },
+
+    postBroadcast: async (workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast> => {
+        const response = await apiFetch<{ success: boolean; data: Broadcast }>(`/workspaces/${workspaceId}/broadcasts`, {
+            method: "POST",
+            body: JSON.stringify(values),
+        });
+        return response.data;
+    },
+
+    updateBroadcast: async (workspaceId: string, broadcastId: string, values: { title?: string; message?: string; expiresInHours?: number | null }): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/broadcasts/${broadcastId}`, {
+            method: "PATCH",
+            body: JSON.stringify(values),
+        });
+        return { status: response.success ? "success" : "error", message: "Broadcast updated", data: response.data };
+    },
+
+    deleteBroadcast: async (workspaceId: string, broadcastId: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; data: any }>(`/workspaces/${workspaceId}/broadcasts/${broadcastId}`, {
+            method: "DELETE",
+        });
+        return { status: response.success ? "success" : "error", message: "Broadcast deleted", data: response.data };
     },
 
     /**

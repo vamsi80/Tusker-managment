@@ -28,6 +28,8 @@ export interface AttendanceFilters {
     memberId?: string | string[];
     status?: AttendanceStatus | AttendanceStatus[];
     search?: string;
+    /** Department ids; the literal "none" selects members with no department. */
+    departmentId?: string | string[];
 }
 
 export interface UpdateSettingsParams {

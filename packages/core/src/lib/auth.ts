@@ -7,11 +7,33 @@ import prisma from "@tusker/db";
 import { sendEmail } from "./email";
 import path from "path";
 
+/**
+ * Better Auth runs `sendResetPassword` through `runInBackgroundOrAwait`, which
+ * catches and only logs anything it throws — so a bounced SMTP send still came
+ * back to the caller as "email sent". Park the failure here instead and let
+ * whoever asked for the reset (the Team tab) read it back.
+ */
+const resetPasswordSendErrors = new Map<string, string>();
+
+/** Returns the last delivery failure for this address, and forgets it. */
+export function takeResetPasswordSendError(email: string) {
+  const error = resetPasswordSendErrors.get(email);
+  resetPasswordSendErrors.delete(email);
+  return error;
+}
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
   user: {
+    additionalFields: {
+      surname: {
+        type: "string",
+        required: false,
+        input: false,
+      },
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,
@@ -26,6 +48,7 @@ export const auth = betterAuth({
     requireEmailVerification: false, // Set to false to allow password reset even if email is not yet verified
     sendResetPassword: async ({ user, url }: { user: any, url: string }) => {
       console.log(`[Auth] Password reset requested for: ${user.email}`);
+      resetPasswordSendErrors.delete(user.email);
       // Print reset link to console for development
       console.log('\n==============================================');
       console.log('📧 PASSWORD RESET LINK');
@@ -56,6 +79,7 @@ export const auth = betterAuth({
 
       if (!result.success) {
         console.error('Failed to send reset password email:', result.error);
+        resetPasswordSendErrors.set(user.email, result.error || 'Unknown SMTP error');
         throw new Error(result.error);
       }
     },
@@ -81,7 +105,7 @@ export const auth = betterAuth({
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2>Welcome to Tusker Management!</h2>
-            <p>Hi ${user.name || user.email},</p>
+            <p>Hi ${(user as typeof user & { surname?: string | null }).surname || user.name || user.email},</p>
             <p>Please verify your email address by clicking the button below:</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${url}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
@@ -189,7 +213,7 @@ export async function sendWorkspaceInvitationEmail({
   const appUrl = env.BETTER_AUTH_URL || "http://localhost:3000";
   const invitationUrl = `${appUrl}/accept-invitation?token=${token}&email=${encodeURIComponent(email)}`;
 
-  await sendEmail({
+  const result = await sendEmail({
     to: email,
     subject: `You've been invited to join a workspace`,
     html: `
@@ -258,4 +282,10 @@ export async function sendWorkspaceInvitationEmail({
       }
     ]
   });
+
+  // sendEmail reports failures in its return value; without this the invite
+  // flow told the admin the mail went out no matter what SMTP said.
+  if (!result.success) {
+    throw new Error(`Failed to send invitation email: ${result.error}`);
+  }
 }

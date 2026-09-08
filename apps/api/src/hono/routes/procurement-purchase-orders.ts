@@ -27,7 +27,7 @@ const CreatePurchaseOrderSchema = z.object({
   workspaceId: z.string().min(1),
   company: z.enum(["WT", "PL"]),
   vendorId: z.string().min(1),
-  indentId: z.string().nullable().optional(),
+  indentId: z.string().min(1, "Select an approved indent"),
   referenceNo: z.string().max(60).nullable().optional(),
   poDate: z.string().optional(),
   deliveryAddress: z.string().min(1).max(500),

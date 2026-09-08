@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { VendorHeader } from "./_components/vendor-header";
 import { VendorProfileInfo } from "./_components/vendor-profile-info";
-import { VendorCapabilities } from "./_components/vendor-capabilities";
+import { VendorMaterials } from "./_components/vendor-materials";
 
 export default function VendorDetailPage() {
   const params = useParams();
@@ -70,9 +70,9 @@ export default function VendorDetailPage() {
           <VendorProfileInfo vendor={vendor} />
         </div>
 
-        {/* Right Column: Material Capabilities */}
+        {/* Right Column: what we buy from them, priced */}
         <div className="lg:col-span-2">
-          <VendorCapabilities vendorId={vendorId} workspaceId={workspaceId} />
+          <VendorMaterials vendorId={vendorId} workspaceId={workspaceId} />
         </div>
       </div>
     </div>

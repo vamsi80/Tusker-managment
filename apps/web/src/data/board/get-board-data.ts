@@ -60,7 +60,7 @@ export const getBoardData = cache(async (workspaceId: string) => {
         },
         orderBy: {
             user: {
-                name: "asc"
+                surname: "asc"
             }
         }
     });

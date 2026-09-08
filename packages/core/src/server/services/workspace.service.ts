@@ -14,6 +14,8 @@ import { recordActivity } from "../../lib/audit";
 import { fetchWorkspacePermissions } from "../../permissions";
 import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "../../lib/involved-users";
+import { getISTDateOnly } from "../../lib/date-utils";
+import { broadcastTeamUpdate } from "../../lib/realtime";
 
 export class WorkspaceService {
   /**
@@ -35,6 +37,19 @@ export class WorkspaceService {
             userId: data.ownerId,
             workspaceRole: "OWNER",
           },
+        },
+        // The two shift schedules a workspace starts with, seeded from its own
+        // default thresholds. Same pair the departments migration created for
+        // existing workspaces, so new ones are not left with an empty picker.
+        shiftSchedules: {
+          create: ["Head Office", "Factory"].map((name) => ({
+            name,
+            lateThreshold: "21:30",
+            halfDayThreshold: "23:00",
+            shiftStartTime: "21:30",
+            shiftEndTime: "07:00",
+            overtimeThreshold: "07:00",
+          })),
         },
       },
     });
@@ -72,7 +87,7 @@ export class WorkspaceService {
       });
       await recordActivity({
         userId: actorId,
-        userName: actor?.name || actor?.surname || "Admin",
+        userName: actor?.surname || actor?.name || "Admin",
         workspaceId,
         action: "WORKSPACE_UPDATED",
         entityType: "WORKSPACE",
@@ -124,12 +139,24 @@ export class WorkspaceService {
      * managers silently received the whole workspace.
      */
     roles?: string[],
+    departmentId?: string,
   ) {
     const skip = (page - 1) * limit;
 
     const where: any = { workspaceId };
     if (roles && roles.length > 0) {
       where.workspaceRole = { in: roles };
+    }
+
+    // Comma-separated department ids; the literal "none" selects people who are
+    // not in any department yet, which is everyone until they are assigned.
+    const departmentIds = departmentId?.split(",").map((id) => id.trim()).filter(Boolean) ?? [];
+    if (departmentIds.length > 0) {
+      const realIds = departmentIds.filter((id) => id !== "none");
+      const clauses: any[] = [];
+      if (realIds.length > 0) clauses.push({ departmentId: { in: realIds } });
+      if (departmentIds.includes("none")) clauses.push({ departmentId: null });
+      where.AND = [...(where.AND ?? []), { OR: clauses }];
     }
     if (search && search.trim() !== "") {
       where.OR = [
@@ -168,6 +195,12 @@ export class WorkspaceService {
               },
             },
           },
+          department: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       }),
       prisma.workspaceMember.count({
@@ -188,6 +221,8 @@ export class WorkspaceService {
         workspaceRole: m.workspaceRole,
         reportToName: m.reportTo?.user?.surname ?? null,
         reportToId: m.reportToId,
+        departmentId: m.departmentId ?? null,
+        departmentName: m.department?.name ?? null,
         workspaceId: m.workspaceId,
         userId: m.userId,
         status: m.user?.emailVerified || (m.user as any)?._count?.accounts > 0 ? "Verified" : "Pending",
@@ -201,44 +236,6 @@ export class WorkspaceService {
    * Get all workspace members but ONLY minimal fields for filters.
    * This is extremely fast even with 1000+ members.
    */
-  /**
-   * Members whose birthday falls in the current month, sorted by day.
-   *
-   * dateOfBirth is a UTC-midnight calendar day, and "today" is the IST calendar
-   * day — a plain UTC read shows last month's list until 05:30 IST on the 1st.
-   *
-   * Ported from the pre-monorepo web app (commit e78a4f15), which the monorepo
-   * restructure did not carry across.
-   */
-  static async getBirthdaysThisMonth(workspaceId: string, viewerUserId?: string) {
-    const { getISTDateOnly } = await import("../../lib/date-utils");
-    const today = getISTDateOnly(new Date());
-    const month = today.getUTCMonth();
-
-    const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId, dateOfBirth: { not: null } },
-      select: {
-        id: true,
-        userId: true,
-        designation: true,
-        dateOfBirth: true,
-        user: { select: { surname: true } },
-      },
-    });
-
-    return members
-      .filter((m) => m.dateOfBirth!.getUTCMonth() === month)
-      .map((m) => ({
-        id: m.id,
-        surname: m.user?.surname || "Member",
-        designation: m.designation,
-        day: m.dateOfBirth!.getUTCDate(),
-        isToday: m.dateOfBirth!.getUTCDate() === today.getUTCDate(),
-        isSelf: m.userId === viewerUserId,
-      }))
-      .sort((a, b) => a.day - b.day);
-  }
-
   static async getMembersSlim(workspaceId: string) {
     const members = await prisma.workspaceMember.findMany({
       where: { workspaceId },
@@ -271,6 +268,39 @@ export class WorkspaceService {
   }
 
   /**
+   * Members whose birthday falls in the current month, sorted by day.
+   * dateOfBirth is a UTC-midnight calendar day, and "today" is the IST calendar
+   * day - a plain UTC read shows last month's list until 05:30 IST on the 1st.
+   */
+  static async getBirthdaysThisMonth(workspaceId: string, viewerUserId?: string) {
+    const today = getISTDateOnly(new Date());
+    const month = today.getUTCMonth();
+
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId, dateOfBirth: { not: null } },
+      select: {
+        id: true,
+        userId: true,
+        designation: true,
+        dateOfBirth: true,
+        user: { select: { surname: true } },
+      },
+    });
+
+    return members
+      .filter((m) => m.dateOfBirth!.getUTCMonth() === month)
+      .map((m) => ({
+        id: m.id,
+        surname: m.user?.surname || "Member",
+        designation: m.designation,
+        day: m.dateOfBirth!.getUTCDate(),
+        isToday: m.dateOfBirth!.getUTCDate() === today.getUTCDate(),
+        isSelf: m.userId === viewerUserId,
+      }))
+      .sort((a, b) => a.day - b.day);
+  }
+
+  /**
    * Invite a new member to the workspace
    */
   static async inviteMember(
@@ -282,7 +312,7 @@ export class WorkspaceService {
       throw new Error("Invalid input data");
     }
 
-    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId, employeeId, dateOfBirth } =
+    const { name, niceName, email, role, workspaceId, phoneNumber, designation, reportToId, departmentId, employeeId, dateOfBirth } =
       parsed.data;
 
     // 1. Pre-flight checks (Validation BEFORE any side effects)
@@ -357,6 +387,7 @@ export class WorkspaceService {
             workspaceRole: role,
             designation: designation || null,
             reportToId: reportToId || null,
+            departmentId: departmentId || null,
             employeeId: employeeId || null,
             dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
           },
@@ -372,7 +403,7 @@ export class WorkspaceService {
       const { sendWorkspaceInvitationEmail } = await import("../../lib/auth");
       await sendWorkspaceInvitationEmail({
         email,
-        name,
+        name: niceName || name,
         workspaceId,
         role,
         token, // PASSING THE TOKEN
@@ -485,7 +516,7 @@ export class WorkspaceService {
     const { sendWorkspaceInvitationEmail } = await import("../../lib/auth");
     await sendWorkspaceInvitationEmail({
       email: member.user.email,
-      name: member.user.name || "Team Member",
+      name: member.user.surname || member.user.name || "Team Member",
       workspaceId,
       role: member.workspaceRole,
       token,
@@ -521,8 +552,8 @@ export class WorkspaceService {
 
     // 2. Trigger password reset through Better Auth
     // We use the email from the user record
-    const { auth } = await import("../../lib/auth");
-    
+    const { auth, takeResetPasswordSendError } = await import("../../lib/auth");
+
     try {
       await (auth.api as any).requestPasswordReset({
         body: {
@@ -531,6 +562,13 @@ export class WorkspaceService {
         }
       });
 
+      // Better Auth answers "ok" even when the mail bounced or the address is
+      // unknown to it, so check what the send callback actually recorded.
+      const sendError = takeResetPasswordSendError(member.user.email);
+      if (sendError) {
+        throw new Error(`Could not deliver the reset email: ${sendError}`);
+      }
+
       // 3. Record Activity
       await recordActivity({
         userId: actor.id,
@@ -538,7 +576,7 @@ export class WorkspaceService {
         action: "REQUESTED_PASSWORD_RESET",
         entityId: member.id,
         workspaceId,
-        newData: { memberName: member.user.name || member.user.email }
+        newData: { memberName: member.user.surname || member.user.name || member.user.email }
       });
 
       return { status: "success", message: "Password reset email sent successfully" };
@@ -736,7 +774,7 @@ export class WorkspaceService {
 
     const userIdToDelete = memberToDelete.userId;
     const userName =
-      memberToDelete.user?.name || memberToDelete.user?.surname || "User";
+      memberToDelete.user?.surname || memberToDelete.user?.name || "User";
 
     // Check if they own other workspaces
     const ownedWorkspaces = await prisma.workspace.count({
@@ -813,6 +851,7 @@ export class WorkspaceService {
       employeeId?: string | null;
       dateOfBirth?: Date | string | null;
       reportToId?: string | null;
+      departmentId?: string | null;
     },
     actorId: string,
   ) {
@@ -826,6 +865,7 @@ export class WorkspaceService {
         workspaceRole: true,
         designation: true,
         reportToId: true,
+        departmentId: true,
         user: {
           select: {
             id: true,
@@ -891,7 +931,8 @@ export class WorkspaceService {
           designation: data.designation,
           employeeId: data.employeeId,
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-          reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null
+          reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null,
+          departmentId: data.departmentId && data.departmentId.trim() !== "" ? data.departmentId : null
         },
       });
 
@@ -969,7 +1010,8 @@ export class WorkspaceService {
         phoneNumber: member.user?.phoneNumber,
         designation: member.designation,
         workspaceRole: member.workspaceRole,
-        reportToId: member.reportToId
+        reportToId: member.reportToId,
+        departmentId: member.departmentId
       },
       broadcastEvent: "team_update",
       targetUserIds
@@ -1202,11 +1244,18 @@ export class WorkspaceService {
       projects,
       tags,
       unreadNotificationsCount,
+      broadcasts,
     ]: any[] = await Promise.all([
       this.getWorkspaces(userId),
       ProjectService.getWorkspaceProjects(workspaceId, userId),
       ProjectService.getWorkspaceTags(workspaceId),
       this.getUnreadNotificationsCount(workspaceId, userId, permissions),
+      // Rides along here so the dashboard box does not need its own round trip.
+      // Never allowed to fail the layout: the box refetches on its own if absent.
+      this.listBroadcasts(workspaceId, userId, 10).catch((err) => {
+        console.error("[WorkspaceLayoutData] Broadcasts failed, continuing without:", err);
+        return [];
+      }),
     ]);
 
     // Step 3: Efficiently construct the project leaders map from the fetched projects
@@ -1236,6 +1285,7 @@ export class WorkspaceService {
       tags: tags || [],
       projectManagers: pmMap,
       unreadNotificationsCount: unreadNotificationsCount || 0,
+      broadcasts: broadcasts || [],
     };
   }
 
@@ -1378,7 +1428,7 @@ export class WorkspaceService {
 
     await recordActivity({
       userId: actorId,
-      userName: actor?.name || actor?.surname || "Admin",
+      userName: actor?.surname || actor?.name || "Admin",
       workspaceId,
       action: "ATTENDANCE_SETTINGS_UPDATED",
       entityType: "WORKSPACE",
@@ -1467,4 +1517,147 @@ export class WorkspaceService {
 
         return updatedWorkspace;
     }
+
+  /**
+   * Broadcast messages are plain notification rows (type "BROADCAST"), one per
+   * member — no new table, and they show up in the bell alongside everything else.
+   */
+  static async listBroadcasts(workspaceId: string, userId: string, limit: number = 10) {
+    const take = Math.min(limit, 50);
+
+    // Expiry lives in metadata, which Prisma cannot filter on cheaply, so over-fetch
+    // a little and drop the expired ones here.
+    const rows = await prisma.notification.findMany({
+      where: { workspaceId, userId, type: "BROADCAST" },
+      orderBy: { createdAt: "desc" },
+      take: take * 3,
+      select: {
+        id: true,
+        entityId: true,
+        title: true,
+        body: true,
+        createdAt: true,
+        isRead: true,
+        metadata: true,
+      },
+    });
+
+    const now = Date.now();
+    return rows
+      .filter((r) => {
+        const expiresAt = (r.metadata as any)?.expiresAt;
+        return !expiresAt || new Date(expiresAt).getTime() > now;
+      })
+      .slice(0, take);
+  }
+
+  static async createBroadcast(
+    workspaceId: string,
+    sender: { id: string; name: string },
+    title: string,
+    message: string,
+    expiresAt?: Date | null
+  ) {
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      select: { userId: true },
+    });
+
+    const broadcastId = crypto.randomUUID();
+    const createdAt = new Date();
+    const metadata = {
+      broadcastId,
+      senderId: sender.id,
+      senderName: sender.name,
+      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+    };
+
+    await prisma.notification.createMany({
+      data: members.map((m) => ({
+        id: crypto.randomUUID(),
+        userId: m.userId,
+        workspaceId,
+        title,
+        body: message,
+        type: "BROADCAST",
+        entityId: broadcastId,
+        entityType: "BROADCAST",
+        metadata,
+        createdAt,
+        updatedAt: createdAt,
+      })),
+    });
+
+    await broadcastTeamUpdate({
+      workspaceId,
+      type: "CREATE",
+      action: "BROADCAST_CREATED",
+      payload: { title, body: message, ...metadata, createdAt },
+    });
+
+    return { id: broadcastId, title, body: message, createdAt, ...metadata };
+  }
+
+  /**
+   * A broadcast is one notification row per member sharing an `entityId`, so an
+   * edit or a delete has to touch the whole set.
+   */
+  static async updateBroadcast(
+    workspaceId: string,
+    broadcastId: string,
+    data: { title?: string; message?: string; expiresAt?: Date | null }
+  ) {
+    const existing = await prisma.notification.findFirst({
+      where: { workspaceId, entityId: broadcastId, type: "BROADCAST" },
+      select: { metadata: true },
+    });
+
+    if (!existing) {
+      throw new Error("Broadcast not found in this workspace.");
+    }
+
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.message !== undefined) updateData.body = data.message;
+    if (data.expiresAt !== undefined) {
+      updateData.metadata = {
+        ...(existing.metadata as any),
+        expiresAt: data.expiresAt ? data.expiresAt.toISOString() : null,
+      };
+    }
+    updateData.updatedAt = new Date();
+
+    const { count } = await prisma.notification.updateMany({
+      where: { workspaceId, entityId: broadcastId, type: "BROADCAST" },
+      data: updateData,
+    });
+
+    await broadcastTeamUpdate({
+      workspaceId,
+      type: "UPDATE",
+      action: "BROADCAST_UPDATED",
+      payload: { broadcastId },
+    });
+
+    return { id: broadcastId, updated: count };
+  }
+
+  static async deleteBroadcast(workspaceId: string, broadcastId: string) {
+    const { count } = await prisma.notification.deleteMany({
+      where: { workspaceId, entityId: broadcastId, type: "BROADCAST" },
+    });
+
+    if (count === 0) {
+      throw new Error("Broadcast not found in this workspace.");
+    }
+
+    await broadcastTeamUpdate({
+      workspaceId,
+      type: "DELETE",
+      action: "BROADCAST_DELETED",
+      payload: { broadcastId },
+    });
+
+    return { id: broadcastId, deleted: count };
+  }
 }

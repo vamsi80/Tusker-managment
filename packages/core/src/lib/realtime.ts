@@ -9,10 +9,22 @@ export const TEAM_UPDATE = "team_update";
 export const PROJECT_UPDATE = "project_update";
 export const ATTENDANCE_UPDATE = "attendance_update";
 export const TASK_UPDATE = "task_update";
+export const MEETING_UPDATE = "meeting_update";
+
+export type MeetingEventData = {
+    workspaceId: string;
+    type: "CREATE" | "UPDATE" | "DELETE" | "RSVP_UPDATE";
+    meetingId: string;
+    action?: string;
+    payload?: any;
+    targetUserIds?: string[];
+};
 
 export type TeamEventData = {
     workspaceId: string;
-    type: "INVITE" | "DELETE" | "UPDATE";
+    type: "INVITE" | "DELETE" | "UPDATE" | "CREATE";
+    /** Overrides the type->action guess listeners make, e.g. "BROADCAST_CREATED". */
+    action?: string;
     payload: any;
     targetUserIds?: string[];
 };
@@ -91,3 +103,11 @@ export const broadcastTaskUpdate = async (data: TaskEventData) => {
 export const broadcastAttendanceUpdate = async (data: AttendanceEventData) => {
     await broadcast(data.workspaceId, ATTENDANCE_UPDATE, data, data.targetUserIds);
 };
+
+/**
+ * Broadcast a meeting event (create, update, delete, rsvp).
+ */
+export const broadcastMeetingUpdate = async (data: MeetingEventData) => {
+    await broadcast(data.workspaceId, MEETING_UPDATE, data, data.targetUserIds);
+};
+

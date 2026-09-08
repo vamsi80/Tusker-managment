@@ -33,6 +33,8 @@ import { HonoVariables } from "./types";
 import { authMiddleware } from "./middleware/auth";
 import { requireCapability } from "./middleware/capability";
 import { AppError } from "@tusker/core/lib/errors/app-error";
+import meetings from "./routes/meetings";
+import { HTTPException } from "hono/http-exception";
 
 /**
  * Main Hono Application
@@ -83,6 +85,19 @@ app.onError((err, c) => {
                 code: err.code,
             },
             err.statusCode as any
+        );
+    }
+
+    // Hono raises these for client mistakes (an unparseable JSON body, a bad
+    // route param). They carry their own status; without this every one of them
+    // was reported to the client — and in the logs — as a 500.
+    if (err instanceof HTTPException) {
+        return c.json(
+            {
+                success: false,
+                error: err.message || "Bad Request",
+            },
+            err.status
         );
     }
 
@@ -181,6 +196,9 @@ app.route("/conversations", conversations);
 
 // Presence API
 app.route("/presence", presence);
+
+// Meetings & Calendar API
+app.route("/meetings", meetings);
 
 // Procurement APIs
 // Settings -> Permissions gate. Mounted on the routers so a handler that resolves

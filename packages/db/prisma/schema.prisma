@@ -42,6 +42,8 @@ model User {
   direct_message      direct_message[]
   notification        notification[]
   sessions            Session[]
+  organizedMeetings   Meeting[]           @relation("MeetingOrganizer")
+  meetingAttendees    MeetingAttendee[]
 
   @@map("user")
 }
@@ -146,6 +148,44 @@ model Workspace {
   vendors                Vendor[]
   vendorCapabilities     VendorMaterialCapability[]
   purchaseOrders         PurchaseOrder[]
+  departments            Department[]
+  shiftSchedules         ShiftSchedule[]
+  meetings               Meeting[]
+}
+
+/// A set of check-in/check-out times shared by every department that points at it.
+/// Seeded as "Head Office" and "Factory"; a workspace can add more without a migration.
+model ShiftSchedule {
+  id                String       @id @default(uuid())
+  workspaceId       String
+  name              String
+  lateThreshold     String
+  halfDayThreshold  String
+  shiftStartTime    String
+  shiftEndTime      String
+  overtimeThreshold String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  workspace         Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  departments       Department[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model Department {
+  id              String            @id @default(uuid())
+  workspaceId     String
+  name            String
+  shiftScheduleId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  shiftSchedule   ShiftSchedule?    @relation(fields: [shiftScheduleId], references: [id], onDelete: SetNull)
+  members         WorkspaceMember[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
 }
 
 model WorkspaceMember {
@@ -164,6 +204,8 @@ model WorkspaceMember {
   dateOfBirth                 DateTime?
   employeeId                  String?
   permissionOverrides         Json?
+  departmentId                String?
+  department                  Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   managedProjects             Project[]             @relation("ProjectManager")
   projectMembers              ProjectMember[]
   reportTo                    WorkspaceMember?      @relation("ReportTo", fields: [reportToId], references: [id])
@@ -189,6 +231,7 @@ model WorkspaceMember {
   @@unique([userId, workspaceId])
   @@unique([workspaceId, employeeId])
   @@index([workspaceId, workspaceRole])
+  @@index([workspaceId, departmentId])
   @@index([userId, createdAt(sort: Desc)])
   @@index([workspaceId, userId])
   @@index([workspaceRole])
@@ -207,6 +250,9 @@ model Project {
   createdBy        String?
   projectManagerId String?
   clintId          String?
+  /// Which of the three business verticals this project belongs to. Nullable
+  /// because projects created before categories existed have no answer yet.
+  category         ProjectCategory?
   legacyClints     Clints[]              @relation("LegacyProjectClints")
   clint            Clints?               @relation(fields: [clintId], references: [id])
   projectManager   WorkspaceMember?      @relation("ProjectManager", fields: [projectManagerId], references: [id])
@@ -216,6 +262,7 @@ model Project {
   indents          Indent[]
   materialItems    ProjectMaterialItem[]
   tags             Tag[]                 @relation("ProjectTags")
+  meetings         Meeting[]
 
   @@index([workspaceId, slug])
   @@index([workspaceId, createdAt])
@@ -646,6 +693,14 @@ model VendorMaterialCapability {
   unit              String?
   workspaceId       String
   source            String                @default("MANUAL")
+  /// Rate agreed with this vendor, in paise. Set by hand so a material with no
+  /// approved indent behind it still carries a price to negotiate from.
+  rate              Int?
+  /// http(s) link to whatever backs the entry — a photo of the material, a
+  /// quotation PDF, a catalogue page. Opened in a new tab, never rendered.
+  link              String?
+  /// Quantity the rate was agreed for. Multiplied by rate for the row total.
+  quantity          Int?
   createdAt         DateTime              @default(now())
   serviceType       CapabilityServiceType @default(SUPPLY)
   material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
@@ -934,6 +989,14 @@ enum ProjectRole {
   PROJECT_COORDINATOR
 }
 
+/// The three business verticals every new project is filed under. Distinct from
+/// BuyerCompany, which is a legal entity that issues purchase orders.
+enum ProjectCategory {
+  WHITE_TUSKER
+  LATTICE_LANE
+  MISCELLANEOUS
+}
+
 enum TaskStatus {
   TO_DO
   IN_PROGRESS
@@ -1136,6 +1199,75 @@ model PoSequence {
 
   @@id([workspaceId, company, financialYear])
   @@map("po_sequence")
+}
+
+enum MeetingType {
+  INTERNAL
+  CLIENT
+  PROJECT_REVIEW
+  ONE_ON_ONE
+  GENERAL
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendeeStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+model Meeting {
+  id              String            @id @default(uuid())
+  workspaceId     String
+  title           String
+  description     String?
+  startTime       DateTime
+  endTime         DateTime
+  location        String?
+  meetingUrl      String?
+  type            MeetingType       @default(INTERNAL)
+  status          MeetingStatus     @default(SCHEDULED)
+  color           String?           @default("indigo")
+  reminderMinutes Int               @default(15)
+  isAllDay        Boolean           @default(false)
+  organizerId     String
+  projectId       String?
+
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organizer       User              @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  project         Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  attendees       MeetingAttendee[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([workspaceId, startTime])
+  @@index([organizerId])
+  @@map("meeting")
+}
+
+model MeetingAttendee {
+  id        String         @id @default(uuid())
+  meetingId String
+  userId    String
+  status    AttendeeStatus @default(ACCEPTED)
+
+  meeting   Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([meetingId, userId])
+  @@index([userId])
+  @@map("meeting_attendee")
 }
 
 // ===========================================================================

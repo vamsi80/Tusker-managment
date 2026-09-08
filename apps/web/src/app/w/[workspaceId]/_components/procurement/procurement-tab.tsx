@@ -85,8 +85,6 @@ export function ProcurementTab({
             <LineItemTable
               indent={indent}
               workspaceId={workspaceId}
-              workspaceRole={workspaceRole || undefined}
-              isWorkspaceAdmin={isWorkspaceAdmin}
               onUpdate={(updated) => {
                 setIndent(updated);
               }}

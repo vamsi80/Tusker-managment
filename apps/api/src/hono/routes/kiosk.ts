@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import prisma from "@tusker/db";
 import { AttendanceService } from "@tusker/core/server/services/attendance/index";
+import { getUserDisplayName } from "@tusker/core/lib/user-display-name";
 
 /**
  * Kiosk Attendance API
@@ -83,14 +84,14 @@ kiosk.get("/members", async (c) => {
     const members = await prisma.workspaceMember.findMany({
         where: { workspaceId, employeeId: { not: null } },
         select: { employeeId: true, user: { select: { name: true, surname: true } } },
-        orderBy: { user: { name: "asc" } },
+        orderBy: { user: { surname: "asc" } },
     });
 
     return c.json({
         success: true,
         data: members.map((m) => ({
             employeeId: m.employeeId,
-            name: [m.user.name, m.user.surname].filter(Boolean).join(" "),
+            name: getUserDisplayName(m.user),
         })),
     });
 });

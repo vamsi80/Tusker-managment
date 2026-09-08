@@ -46,6 +46,8 @@ export type WorkspaceMemberRow = {
   workspaceRole: WorkspaceRole;
   designation?: string | null;
   reportToId?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
   employeeId?: string | null;
   dateOfBirth?: string | Date | null;
   name?: string;
@@ -80,6 +82,18 @@ export type WorkspaceMembersResult = {
   totalCount: number;
 };
 
+/** A workspace announcement, as stored in the notification table. */
+export type BroadcastMessage = {
+  id: string;
+  /** Shared by every member's copy of the same broadcast; edit/delete address this. */
+  entityId?: string | null;
+  title: string;
+  body: string;
+  createdAt: string | Date;
+  isRead?: boolean;
+  metadata?: { senderName?: string; expiresAt?: string | null } | null;
+};
+
 export interface WorkspaceLayoutData {
   workspaces: WorkspacesResult;
   metadata?: any;
@@ -87,6 +101,8 @@ export interface WorkspaceLayoutData {
   tags: any[];
   projectManagers: Record<string, any[]>;
   unreadNotificationsCount: number;
+  /** Sent with the layout payload so the dashboard box paints without a second fetch. */
+  broadcasts?: BroadcastMessage[];
   permissions: {
     isWorkspaceAdmin: boolean;
     canCreateProject: boolean;

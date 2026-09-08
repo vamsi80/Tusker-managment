@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useCallback, useState, useTransition, useEffect } from "react";
+import { pubsub, EVENTS } from "@/lib/pubsub";
+import { vendorDisplayName } from "@tusker/core/lib/procurement/vendor-name";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -46,10 +48,34 @@ import {
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { FALLBACK_UNITS } from "@tusker/core/lib/procurement/units";
 import { approveActionLabel } from "@tusker/core/lib/procurement/status-filters";
+import { getUserDisplayInitial, getUserDisplayName } from "@tusker/core/lib/user-display-name";
+
+/** An API error is a string or a shaped object; either way it reaches the user. */
+const showErrorToast = (errPayload: any, fallback: string) => {
+  if (!errPayload) {
+    toast.error(fallback);
+    return;
+  }
+  if (typeof errPayload === "string") {
+    toast.error(errPayload);
+  } else if (errPayload && typeof errPayload.message === "string") {
+    toast.error(errPayload.message);
+  } else {
+    toast.error(fallback);
+  }
+};
 
 interface IndentDetailClientProps {
   workspaceId: string;
   indent: any;
+  /** The manager and the selected owners, so the approval table can name them. */
+  approvers?: {
+    id: string;
+    workspaceRole: string;
+    user: { name: string | null; surname: string | null; email: string | null };
+  }[];
+  /** Whose manager sign-off this indent needs; null when nobody is named. */
+  managerMemberId?: string | null;
   /** True only for the accounts login that is allowed to raise purchase orders. */
   canCreatePo?: boolean;
 }
@@ -57,6 +83,8 @@ interface IndentDetailClientProps {
 export function IndentDetailClient({
   workspaceId,
   indent: initialIndent,
+  approvers = [],
+  managerMemberId = null,
   canCreatePo = false,
 }: IndentDetailClientProps) {
   const router = useRouter();
@@ -68,6 +96,106 @@ export function IndentDetailClient({
 
   const [indent, setIndent] = useState(initialIndent);
   const [isPending, startTransition] = useTransition();
+
+  // Who each sign-off is waiting on, by name rather than by role. Ordered the
+  // way the workflow runs, so the row in "Pending" is the person to chase.
+  const approverName = (memberId: string | null) => {
+    const member = approvers.find((candidate) => candidate.id === memberId);
+    return member ? getUserDisplayName(member.user) : "Any manager";
+  };
+  const rejectedAtFinal = indent.rejectedStage === "FINAL";
+  const approvalRows = (() => {
+    const ownerIds: string[] = indent.approverIds || [];
+    const state = (approved: boolean, isCurrentStage: boolean, isFinalStage: boolean) => {
+      if (approved) return "APPROVED" as const;
+      if (indent.status === "REJECTED" && rejectedAtFinal === isFinalStage) return "REJECTED" as const;
+      return isCurrentStage ? ("PENDING" as const) : ("WAITING" as const);
+    };
+
+    return [
+      {
+        key: "manager-initial",
+        stage: "Manager review",
+        person: approverName(managerMemberId),
+        state: state(
+          Boolean(indent.managerApprovedAt),
+          ["SUBMITTED", "ASSIGNED"].includes(indent.status),
+          false
+        ),
+      },
+      ...ownerIds.map((ownerId) => ({
+        key: `owner-comparative-${ownerId}`,
+        stage: "Owner authorization",
+        person: approverName(ownerId),
+        state: state(
+          Boolean(indent.approvedByIds?.includes(ownerId)),
+          ["PENDING_OWNER_APPROVAL", "PENDING_OWNER_COMPARATIVE_APPROVAL"].includes(indent.status),
+          false
+        ),
+      })),
+      {
+        key: "manager-final",
+        stage: "Manager final rates",
+        person: approverName(managerMemberId),
+        state: state(
+          Boolean(indent.finalManagerApprovedAt),
+          indent.status === "PENDING_MANAGER_FINAL_RATE_APPROVAL",
+          true
+        ),
+      },
+      ...ownerIds.map((ownerId) => ({
+        key: `owner-final-${ownerId}`,
+        stage: "Owner final approval",
+        person: approverName(ownerId),
+        state: state(
+          Boolean(indent.finalOwnerApprovedByIds?.includes(ownerId)),
+          indent.status === "PENDING_OWNER_FINAL_APPROVAL",
+          true
+        ),
+      })),
+    ];
+  })();
+
+  const approvalStateBadge = (state: "APPROVED" | "PENDING" | "WAITING" | "REJECTED") => {
+    const styles = {
+      APPROVED: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+      PENDING: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+      WAITING: "bg-muted text-muted-foreground border-border",
+      REJECTED: "bg-destructive/10 text-destructive border-destructive/20",
+    } as const;
+    const labels = {
+      APPROVED: "Approved",
+      PENDING: "Pending",
+      WAITING: "Not yet due",
+      REJECTED: "Rejected",
+    } as const;
+    return (
+      <Badge variant="outline" className={`text-[10px] ${styles[state]}`}>
+        {labels[state]}
+      </Badge>
+    );
+  };
+
+  // Several people act on the same indent at once. Whoever is looking at it
+  // sees the stage change as it happens, so nobody approves against a status
+  // that has already moved on.
+  const refreshIndent = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/procurement/indents/${initialIndent.id}?w=${workspaceId}`);
+      const body = await res.json();
+      if (body.success) setIndent(body.data);
+    } catch (error) {
+      console.error("Failed to refresh indent", error);
+    }
+  }, [initialIndent.id, workspaceId]);
+
+  useEffect(() => {
+    return pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
+      if (data?.action !== "PROJECT_INDENT_UPDATED") return;
+      const changedId = data?.payload?.indentId;
+      if (!changedId || changedId === initialIndent.id) refreshIndent();
+    });
+  }, [initialIndent.id, refreshIndent]);
 
   const isRequester = Boolean(workspaceMemberId && workspaceMemberId === indent.requestedById);
   const allSelectedOwnersAuthorized = Boolean(
@@ -83,12 +211,16 @@ export function IndentDetailClient({
   // The manager / selected owners can revise the numbers while the indent sits in
   // their review stage - approximate rates in the first round, final rates in the second.
   // Mirrors IndentService.isManagerForIndent - an owner always clears the
-  // manager gate, whoever the indent is assigned to.
+  // manager gate, whoever the indent is assigned to. The approver is resolved
+  // exactly as the server's approverMemberId does.
+  const managerApproverId = indent.raisedInProject
+    ? indent.project?.projectManagerId ?? indent.requestedBy?.reportToId
+    : indent.requestedBy?.reportToId ?? indent.project?.projectManagerId;
   const isManagerForIndent = Boolean(
     workspaceRole === "OWNER" ||
     (workspaceMemberId &&
-      (indent.requestedBy?.reportToId
-        ? workspaceMemberId === indent.requestedBy.reportToId
+      (managerApproverId
+        ? workspaceMemberId === managerApproverId
         : ["MANAGER", "ADMIN"].includes(workspaceRole || "")))
   );
   const isSelectedOwner = Boolean(
@@ -115,8 +247,8 @@ export function IndentDetailClient({
   // Owners / admins / managers run the indent itself; the requester keeps it while it is still theirs.
   const isIndentManager = !isAccounts && ["OWNER", "ADMIN", "MANAGER"].includes(workspaceRole || "");
   const canEditIndent =
-    (isIndentManager || (isRequester && canEdit)) && !["APPROVED", "CANCELLED"].includes(indent.status);
-  const canDeleteIndent = isIndentManager;
+    (isIndentManager || (isRequester && canEdit)) && indent.status !== "CANCELLED";
+  const canDeleteIndent = isIndentManager && !(indent.purchaseOrders?.length > 0);
 
   // Edit row states
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -205,9 +337,18 @@ export function IndentDetailClient({
     fetch(`/api/v1/procurement/vendors?w=${workspaceId}&status=ACTIVE`)
       .then((response) => response.json())
       .then((payload) => {
-        if (active && payload.success) setVendors(payload.data || []);
+        if (!active) return;
+        // Swallowing this left an empty dropdown that looked like "no
+        // suppliers exist" when it was really a refused request.
+        if (!payload.success) {
+          showErrorToast(payload.error, "Failed to load suppliers / contractors");
+          return;
+        }
+        setVendors(payload.data || []);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) toast.error("Failed to load suppliers / contractors");
+      });
     return () => {
       active = false;
     };
@@ -248,35 +389,22 @@ export function IndentDetailClient({
     optionalCharges.reduce((total, charge) => total + estimatedSubtotal * (charge.percent / 100), 0) +
     flatCharges.reduce((total, charge) => total + charge.amount, 0);
 
-  const showErrorToast = (errPayload: any, fallback: string) => {
-    if (!errPayload) {
-      toast.error(fallback);
-      return;
-    }
-    if (typeof errPayload === "string") {
-      toast.error(errPayload);
-    } else if (errPayload && typeof errPayload.message === "string") {
-      toast.error(errPayload.message);
-    } else {
-      toast.error(fallback);
-    }
-  };
 
   const getIndentStatusBadge = (status: string) => {
     switch (status) {
       case "DRAFT":
         return <Badge variant="outline" className="bg-muted text-muted-foreground border-neutral-300">Draft</Badge>;
       case "SUBMITTED":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Estimate Review</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Request Review</Badge>;
       case "PENDING_OWNER_APPROVAL":
       case "PENDING_OWNER_COMPARATIVE_APPROVAL":
-        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Owner Comparative Authorization</Badge>;
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Owner Request Review</Badge>;
       case "COMPARATIVES_IN_PROGRESS":
         return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Getting Comparatives</Badge>;
       case "PENDING_MANAGER_FINAL_RATE_APPROVAL":
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Final-Rate Review</Badge>;
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Manager Price Review</Badge>;
       case "PENDING_OWNER_FINAL_APPROVAL":
-        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">Owner Final Approval</Badge>;
+        return <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">Awaiting Price Approval</Badge>;
       case "APPROVED":
         return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>;
       case "CANCELLED":
@@ -297,11 +425,14 @@ export function IndentDetailClient({
         const data = await res.json();
         if (data.success) {
           toast.success("Indent approved successfully");
-          const updated = { ...indent, ...data.data };
-          setIndent(updated);
+          // Re-read rather than merging the response: one approval can open the
+          // next stage, and every button on this page is drawn from the indent.
+          await refreshIndent();
           router.refresh();
         } else {
           showErrorToast(data.error, "Failed to approve indent");
+          // The refusal means this page was showing a stage that has moved on.
+          await refreshIndent();
         }
       } catch (error) {
         toast.error("Request failed");
@@ -326,11 +457,11 @@ export function IndentDetailClient({
         const data = await res.json();
         if (data.success) {
           toast.success("Indent returned to the requester for revision");
-          const updated = { ...indent, ...data.data };
-          setIndent(updated);
+          await refreshIndent();
           router.refresh();
         } else {
           showErrorToast(data.error, "Failed to reject indent");
+          await refreshIndent();
         }
       } catch (error) {
         toast.error("Request failed");
@@ -401,11 +532,11 @@ export function IndentDetailClient({
         });
         const data = await res.json();
         if (data.success) {
-          toast.success("Final rates submitted to the manager");
+          toast.success("Price submitted to the manager");
           setIndent({ ...indent, ...data.data });
           router.refresh();
         } else {
-          showErrorToast(data.error, "Failed to submit final rates");
+          showErrorToast(data.error, "Failed to submit price");
         }
       } catch {
         toast.error("Request failed");
@@ -425,12 +556,15 @@ export function IndentDetailClient({
         });
         const data = await res.json();
         if (data.success) {
-          toast.success("Indent submitted for approval");
-          const updated = { ...indent, status: "SUBMITTED" };
+          toast.success("Request raised successfully");
+          // Submission can legitimately skip stages depending on the requester
+          // and selected approvers. Keep the existing relations while applying
+          // the authoritative status and timestamps returned by the server.
+          const updated = { ...indent, ...data.data };
           setIndent(updated);
           router.refresh();
         } else {
-          showErrorToast(data.error, "Failed to submit indent");
+          showErrorToast(data.error, "Failed to raise request");
         }
       } catch (error) {
         toast.error("Request failed");
@@ -443,7 +577,7 @@ export function IndentDetailClient({
       toast.error("Indent name is required");
       return;
     }
-    if (!editApproverIds.length) {
+    if (indent.status !== "APPROVED" && !editApproverIds.length) {
       toast.error("Select at least one owner for approval");
       return;
     }
@@ -487,7 +621,7 @@ export function IndentDetailClient({
                   labourCharge: editLabourCharge === "" ? null : Math.round(Number(editLabourCharge) * 100),
                 }
               : {}),
-            approverIds: editApproverIds,
+            ...(indent.status !== "APPROVED" ? { approverIds: editApproverIds } : {}),
           }),
         });
         const data = await res.json();
@@ -674,7 +808,7 @@ export function IndentDetailClient({
                 <>
                   {" · "}Supplier / Contractor:{" "}
                   <strong className="text-foreground">
-                    {indent.selectedVendor.companyName || indent.selectedVendor.name}
+                    {vendorDisplayName(indent.selectedVendor)}
                   </strong>
                 </>
               )}
@@ -709,7 +843,7 @@ export function IndentDetailClient({
         )}
 
         {/* Top Actions panel */}
-        {!isAccounts && ["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(indent.status) && ["MANAGER", "ADMIN", "OWNER"].includes(workspaceRole || "") && (
+        {!isAccounts && ["SUBMITTED", "ASSIGNED", "PENDING_MANAGER_FINAL_RATE_APPROVAL"].includes(indent.status) && isManagerForIndent && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -758,7 +892,7 @@ export function IndentDetailClient({
               disabled={isPending}
               className="h-8 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5"
             >
-              <FileCheck className="size-3.5" /> Submit for Approval
+              <FileCheck className="size-3.5" /> Raise Request
             </Button>
           </div>
         )}
@@ -842,17 +976,45 @@ export function IndentDetailClient({
             </CardHeader>
             <CardContent className="pt-3.5 flex items-center gap-3">
               <div className="size-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                {indent.requestedBy?.user?.name?.[0]}
-                {indent.requestedBy?.user?.surname?.[0]}
+                {getUserDisplayInitial(indent.requestedBy?.user)}
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-bold text-foreground">
-                  {indent.requestedBy?.user?.name} {indent.requestedBy?.user?.surname}
+                  {getUserDisplayName(indent.requestedBy?.user)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
                   {indent.requestedBy?.user?.email}
                 </span>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Who each sign-off waits on */}
+          <Card>
+            <CardHeader className="py-3 border-b">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Check className="size-4" /> Approvals
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="h-8 text-[10px] uppercase">Stage</TableHead>
+                    <TableHead className="h-8 text-[10px] uppercase">Person</TableHead>
+                    <TableHead className="h-8 text-[10px] uppercase text-right pr-4">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {approvalRows.map((approval) => (
+                    <TableRow key={approval.key} className="hover:bg-muted/10">
+                      <TableCell className="py-2 text-[11px] text-muted-foreground">{approval.stage}</TableCell>
+                      <TableCell className="py-2 text-xs font-semibold text-foreground">{approval.person}</TableCell>
+                      <TableCell className="py-2 text-right pr-4">{approvalStateBadge(approval.state)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -866,12 +1028,11 @@ export function IndentDetailClient({
               </CardHeader>
               <CardContent className="pt-3.5 flex items-center gap-3">
                 <div className="size-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 font-bold text-xs shrink-0">
-                  {indent.finalApprovedBy.user?.name?.[0]}
-                  {indent.finalApprovedBy.user?.surname?.[0]}
+                  {getUserDisplayInitial(indent.finalApprovedBy.user)}
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-foreground">
-                    {indent.finalApprovedBy.user?.name} {indent.finalApprovedBy.user?.surname}
+                    {getUserDisplayName(indent.finalApprovedBy.user)}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
                     {indent.finalApprovedBy.user?.email}
@@ -1188,7 +1349,7 @@ export function IndentDetailClient({
                         <option value="">No supplier / contractor selected</option>
                         {vendors.map((vendor) => (
                           <option key={vendor.id} value={vendor.id}>
-                            {vendor.companyName || vendor.name}
+                            {vendorDisplayName(vendor)}
                           </option>
                         ))}
                       </select>
@@ -1207,7 +1368,7 @@ export function IndentDetailClient({
                     </Button>
                     <Button onClick={handleSubmitFinalRates} disabled={isPending} className="shrink-0 h-8 text-xs">
                       <FileCheck className="mr-1.5 size-3.5" />
-                      {indent.status === "REJECTED" ? "Resubmit Final Rates" : "Submit Final Rates"}
+                      {indent.status === "REJECTED" ? "Resubmit Price" : "Submit Price"}
                     </Button>
                   </div>
                 </div>
@@ -1333,7 +1494,7 @@ export function IndentDetailClient({
                 </div>
               ))}
             </div>
-            <div className="flex flex-col gap-1.5">
+            {indent.status !== "APPROVED" && <div className="flex flex-col gap-1.5">
               <label className="text-[10px] uppercase font-bold text-muted-foreground">Owners for approval</label>
               <div className="max-h-[160px] overflow-y-auto rounded-md border">
                 {owners.map((owner) => (
@@ -1363,7 +1524,7 @@ export function IndentDetailClient({
               <p className="text-[10px] text-muted-foreground">
                 Dropping an owner also drops the approval they had already given.
               </p>
-            </div>
+            </div>}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsEditOpen(false)} disabled={isPending} className="h-8 text-xs">

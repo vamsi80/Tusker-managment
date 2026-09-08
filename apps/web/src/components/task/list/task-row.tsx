@@ -194,6 +194,7 @@ export const TaskRow = memo(function TaskRow({
         <>
             <TableRow
                 ref={rowRef}
+                data-task-id={task.id}
                 className="group [&_td]:py-2 hover:bg-muted/30 transition-colors"
             >
                 <TableCell className="w-[40px] md:w-[50px]">

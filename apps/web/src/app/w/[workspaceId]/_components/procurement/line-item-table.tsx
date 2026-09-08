@@ -12,13 +12,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, CornerDownRight, ChevronRight, Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Trash2, Plus, CornerDownRight, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { VendorMatchPill } from "./vendor-match-pill";
-import { RfqSheet } from "./rfq-sheet";
 
 function AutoCompleteInput({ 
   value, 
@@ -84,16 +83,12 @@ function AutoCompleteInput({
 interface LineItemTableProps {
   indent: any;
   workspaceId: string;
-  workspaceRole?: string;
-  isWorkspaceAdmin?: boolean;
   onUpdate: (updatedIndent: any) => void;
 }
 
 export function LineItemTable({
   indent,
   workspaceId,
-  workspaceRole,
-  isWorkspaceAdmin = false,
   onUpdate,
 }: LineItemTableProps) {
   const [isAdding, setIsAdding] = useState(false);
@@ -106,19 +101,7 @@ export function LineItemTable({
   const [existingItems, setExistingItems] = useState<{ id: string; name: string; type: "material" | "tag"; unit?: string }[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
 
-  // RFQ sheet state
-  const [rfqLineItem, setRfqLineItem] = useState<any | null>(null);
-  const [rfqSheetOpen, setRfqSheetOpen] = useState(false);
-
   const isDraft = indent.status === "DRAFT";
-
-  // Permission checks
-  const canSendRfq =
-    isWorkspaceAdmin ||
-    ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"].includes(workspaceRole || "");
-  const canReviewQuotes =
-    isWorkspaceAdmin ||
-    ["OWNER", "ADMIN", "MANAGER", "PROCUREMENT"].includes(workspaceRole || "");
 
   // Fetch Master Catalog for Combobox
   useEffect(() => {
@@ -172,11 +155,6 @@ export function LineItemTable({
     }
   }, [workspaceId, isDraft]);
 
-
-  const openRfqSheet = (item: any) => {
-    setRfqLineItem(item);
-    setRfqSheetOpen(true);
-  };
 
   const getLineItemStatusBadge = (status: string) => {
     const configs: Record<string, string> = {
@@ -283,20 +261,6 @@ export function LineItemTable({
     }
   };
 
-  const handleLineItemUpdated = async (updatedItem: any) => {
-    const fetchRes = await fetch(
-      `/api/v1/procurement/indents/${indent.id}?w=${workspaceId}`
-    );
-    const fetchJson = await fetchRes.json();
-    if (fetchRes.ok && fetchJson.data) {
-      onUpdate(fetchJson.data);
-      const fresh = fetchJson.data.lineItems?.find(
-        (li: any) => li.id === rfqLineItem?.id
-      );
-      if (fresh) setRfqLineItem(fresh);
-    }
-  };
-
   const colSpan = isDraft ? 7 : 6;
 
   return (
@@ -344,8 +308,7 @@ export function LineItemTable({
                 indent.lineItems.map((item: any) => (
                   <TableRow
                     key={item.id}
-                    className="hover:bg-muted/10 group cursor-pointer"
-                    onClick={() => openRfqSheet(item)}
+                    className="hover:bg-muted/10 group"
                   >
                     <TableCell className="py-2.5 pl-3">
                       <div className="flex flex-col">
@@ -390,7 +353,6 @@ export function LineItemTable({
                         indentId={indent.id}
                         workspaceId={workspaceId}
                         materialName={item.materialName}
-                        onClick={() => openRfqSheet(item)}
                       />
                     </TableCell>
 
@@ -492,27 +454,8 @@ export function LineItemTable({
             </TableBody>
           </Table>
         </div>
-
-        {/* Click to open RFQ hint */}
-        {(indent.lineItems?.length ?? 0) > 0 && (
-          <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1 px-0.5">
-            <ChevronRight className="size-3" />
-            Click any row to open the RFQ panel for that material
-          </p>
-        )}
       </div>
 
-      {/* RFQ Sheet */}
-      <RfqSheet
-        open={rfqSheetOpen}
-        onClose={() => { setRfqSheetOpen(false); setRfqLineItem(null); }}
-        lineItem={rfqLineItem}
-        indentId={indent.id}
-        workspaceId={workspaceId}
-        canSendRfq={canSendRfq}
-        canReviewQuotes={canReviewQuotes}
-        onLineItemUpdated={handleLineItemUpdated}
-      />
     </>
   );
 }

@@ -46,7 +46,7 @@ class RealtimeService {
       }
 
       // 2. Bind to standard updates (refreshes/surgical sync)
-      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update", "conversation_update"];
+      const standardEvents = ["team_update", "task_update", "subtask_update", "project_update", "attendance_update", "conversation_update", "meeting_update"];
       standardEvents.forEach(eventName => {
         const handler = (data: any) => {
           console.log(`[REALTIME_SERVICE] 📥 Received ${eventName}:`, data.action || data.type);
@@ -59,7 +59,9 @@ class RealtimeService {
           const hasTaskProps = data.projectId || data.parentTaskId || data.taskSlug || data.entityType === "TASK";
           const hasProjectProps = data.entityType === "PROJECT" || (action.includes("PROJECT") && !hasTaskProps);
 
-          if (action.includes("TASK") || eventName.includes("task") || hasTaskProps) {
+          if (action.includes("MEETING") || eventName.includes("meeting")) {
+            this.publish(EVENTS.MEETING_UPDATE, data);
+          } else if (action.includes("TASK") || eventName.includes("task") || hasTaskProps) {
             this.publish(EVENTS.TASK_UPDATE, data);
           } else if (action.includes("PROJECT") || eventName.includes("project") || hasProjectProps) {
             this.publish(EVENTS.PROJECT_UPDATE, data);
@@ -146,4 +148,5 @@ export const EVENTS = {
   ATTENDANCE_UPDATE: "attendance_update",
   PRESENCE_UPDATE: "presence_update",
   CONVERSATION_UPDATE: "conversation_update",
+  MEETING_UPDATE: "meeting_update",
 } as const;

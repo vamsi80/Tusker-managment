@@ -6,6 +6,7 @@ const repositoryMocks = vi.hoisted(() => ({
   findWorkspaceMember: vi.fn(),
   create: vi.fn(),
   updateStatus: vi.fn(),
+  recordOwnerApproval: vi.fn(),
   rememberMaterial: vi.fn(),
 }));
 
@@ -15,8 +16,9 @@ const dbMocks = vi.hoisted(() => {
     workspaceMember: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
     vendor: { findFirst: vi.fn() },
     notification: { createMany: vi.fn() },
-    indent: { update: vi.fn(), delete: vi.fn() },
+    indent: { update: vi.fn(), deleteMany: vi.fn() },
     indentLineItem: { update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
+    vendorMaterialCapability: { upsert: vi.fn() },
     $transaction: vi.fn(async (callback: any) => callback(db)),
   };
   return db;
@@ -47,6 +49,7 @@ const baseIndent = (overrides: Record<string, any> = {}) => ({
   approverIds: ["owner-member"],
   approvedByIds: [],
   finalOwnerApprovedByIds: [],
+  purchaseOrders: [],
   lineItems: [
     { id: "item-1", materialName: "Cement", estimatedUnitPrice: 40000, finalUnitPrice: null },
     { id: "item-2", materialName: "Steel", estimatedUnitPrice: 70000, finalUnitPrice: null },
@@ -62,6 +65,7 @@ describe("Indent approval workflow", () => {
     dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
     pusherTrigger.mockResolvedValue(undefined);
     dbMocks.indent.update.mockImplementation(async ({ data }: any) => data);
+    dbMocks.indent.deleteMany.mockResolvedValue({ count: 1 });
     dbMocks.indentLineItem.update.mockImplementation(async ({ data }: any) => data);
   });
 
@@ -194,6 +198,31 @@ describe("Indent approval workflow", () => {
     );
   });
 
+  test("an indent with no approximate rates still reaches the manager", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({
+        status: "DRAFT",
+        lineItems: [{ id: "item-1", materialName: "Cement", estimatedUnitPrice: null, finalUnitPrice: null }],
+      })
+    );
+    dbMocks.workspaceMember.findFirst.mockResolvedValue({ userId: "manager-user" });
+
+    const updated = await IndentService.submitIndent("indent-1", "requester-user", "workspace-1");
+
+    expect(updated.status).toBe("SUBMITTED");
+  });
+
+  test("an indent with no materials at all is still refused", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "DRAFT", lineItems: [] }));
+
+    await expect(
+      IndentService.submitIndent("indent-1", "requester-user", "workspace-1")
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(repositoryMocks.updateStatus).not.toHaveBeenCalled();
+  });
+
   test("manager estimate approval sends the indent to owner comparative authorization", async () => {
     repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "manager-member", workspaceRole: "MANAGER" });
     repositoryMocks.findById.mockResolvedValue(baseIndent());
@@ -214,13 +243,17 @@ describe("Indent approval workflow", () => {
     repositoryMocks.findById.mockResolvedValue(
       baseIndent({ status: "PENDING_OWNER_COMPARATIVE_APPROVAL" })
     );
+    repositoryMocks.recordOwnerApproval.mockResolvedValue({
+      updated: { status: "COMPARATIVES_IN_PROGRESS", approvedByIds: ["owner-member"] },
+      allApproved: true,
+    });
 
     await IndentService.approveIndent("indent-1", "owner-user", "workspace-1");
 
-    expect(repositoryMocks.updateStatus).toHaveBeenCalledWith(
+    expect(repositoryMocks.recordOwnerApproval).toHaveBeenCalledWith(
       "indent-1",
-      "COMPARATIVES_IN_PROGRESS",
-      expect.objectContaining({ approvedByIds: ["owner-member"], ownerAuthorizedAt: expect.any(Date) })
+      "owner-member",
+      "COMPARATIVE"
     );
     expect(dbMocks.notification.createMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: [expect.objectContaining({ userId: "requester-user" })] })
@@ -275,6 +308,67 @@ describe("Indent approval workflow", () => {
         }),
       })
     );
+  });
+
+  /**
+   * The rate agreed at this stage is what we actually pay, so it becomes the
+   * vendor's rate for that material — otherwise their list keeps quoting an
+   * older number at the next negotiation.
+   */
+  test("final rates land in the awarded vendor's material list", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({ status: "COMPARATIVES_IN_PROGRESS", approvedByIds: ["owner-member"] })
+    );
+    dbMocks.workspaceMember.findFirst.mockResolvedValue({ userId: "manager-user" });
+    dbMocks.vendor.findFirst.mockResolvedValue({ id: "vendor-1" });
+
+    await IndentService.submitFinalRates(
+      "indent-1",
+      [
+        { itemId: "item-1", finalUnitPrice: 35000 },
+        { itemId: "item-2", finalUnitPrice: 65000 },
+      ],
+      "vendor-1",
+      "requester-user",
+      "workspace-1"
+    );
+
+    expect(dbMocks.vendorMaterialCapability.upsert).toHaveBeenCalledTimes(2);
+    expect(dbMocks.vendorMaterialCapability.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          vendorId_materialName_serviceType: {
+            vendorId: "vendor-1",
+            // Stored lower-cased, the way every capability row is keyed.
+            materialName: "cement",
+            serviceType: "SUPPLY",
+          },
+        },
+        update: expect.objectContaining({ rate: 35000 }),
+      })
+    );
+  });
+
+  test("no vendor is awarded, so no vendor rate is touched", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({ status: "COMPARATIVES_IN_PROGRESS", approvedByIds: ["owner-member"], selectedVendorId: null })
+    );
+    dbMocks.workspaceMember.findFirst.mockResolvedValue({ userId: "manager-user" });
+
+    await IndentService.submitFinalRates(
+      "indent-1",
+      [
+        { itemId: "item-1", finalUnitPrice: 35000 },
+        { itemId: "item-2", finalUnitPrice: 65000 },
+      ],
+      undefined,
+      "requester-user",
+      "workspace-1"
+    );
+
+    expect(dbMocks.vendorMaterialCapability.upsert).not.toHaveBeenCalled();
   });
 
   test("requester can submit final rates without selecting a vendor", async () => {
@@ -422,6 +516,27 @@ describe("Indent approval workflow", () => {
     );
   });
 
+  test("an admin can edit approved indent metadata without changing the PO snapshot", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "admin-member", workspaceRole: "ADMIN" });
+    repositoryMocks.findById.mockResolvedValue(
+      baseIndent({ status: "APPROVED", purchaseOrders: [{ id: "po-1" }] })
+    );
+
+    await IndentService.updateIndent(
+      "indent-1",
+      { name: "Corrected indent title", expectedDelivery: null },
+      "admin-user",
+      "workspace-1"
+    );
+
+    expect(dbMocks.indent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "indent-1" },
+        data: expect.objectContaining({ name: "Corrected indent title", expectedDelivery: null }),
+      })
+    );
+  });
+
   test("taxes and duties cannot be changed after the initial approval stage", async () => {
     repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "manager-member", workspaceRole: "MANAGER" });
     repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "PENDING_OWNER_COMPARATIVE_APPROVAL" }));
@@ -463,25 +578,45 @@ describe("Indent approval workflow", () => {
     await expect(
       IndentService.deleteIndent("indent-1", "other-user", "workspace-1")
     ).rejects.toMatchObject({ statusCode: 403 });
-    expect(dbMocks.indent.delete).not.toHaveBeenCalled();
+    expect(dbMocks.indent.deleteMany).not.toHaveBeenCalled();
   });
 
   test("an admin deletes an indent, but not once a PO exists", async () => {
     repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "admin-member", workspaceRole: "ADMIN" });
     repositoryMocks.findById.mockResolvedValue(
-      baseIndent({ status: "APPROVED", lineItems: [{ id: "item-1", status: "PO_CREATED" }] })
+      baseIndent({
+        status: "APPROVED",
+        lineItems: [{ id: "item-1", status: "PENDING" }],
+        purchaseOrders: [{ id: "po-1" }],
+      })
     );
 
     await expect(
       IndentService.deleteIndent("indent-1", "admin-user", "workspace-1")
     ).rejects.toMatchObject({ statusCode: 409 });
-    expect(dbMocks.indent.delete).not.toHaveBeenCalled();
+    expect(dbMocks.indent.deleteMany).not.toHaveBeenCalled();
 
     repositoryMocks.findById.mockResolvedValue(
-      baseIndent({ status: "APPROVED", lineItems: [{ id: "item-1", status: "PENDING" }] })
+      baseIndent({
+        status: "APPROVED",
+        lineItems: [{ id: "item-1", status: "PENDING" }],
+        purchaseOrders: [],
+      })
     );
     await IndentService.deleteIndent("indent-1", "admin-user", "workspace-1");
-    expect(dbMocks.indent.delete).toHaveBeenCalledWith({ where: { id: "indent-1" } });
+    expect(dbMocks.indent.deleteMany).toHaveBeenCalledWith({
+      where: { id: "indent-1", purchaseOrders: { none: {} } },
+    });
+  });
+
+  test("an indent delete loses safely if a PO is created concurrently", async () => {
+    repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "admin-member", workspaceRole: "ADMIN" });
+    repositoryMocks.findById.mockResolvedValue(baseIndent({ status: "APPROVED", purchaseOrders: [] }));
+    dbMocks.indent.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      IndentService.deleteIndent("indent-1", "admin-user", "workspace-1")
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 
   test("a final owner rejection becomes an editable final-rate revision", async () => {
@@ -675,8 +810,15 @@ describe("Manager approval routing", () => {
     const indent = indentFrom(false, { project: null, projectId: null });
     const updated = await approveAs("manager-member", indent);
     expect(updated.status).toBe("PENDING_OWNER_COMPARATIVE_APPROVAL");
-    // No project channel exists to broadcast a general indent to.
-    expect(broadcastProjectUpdate).not.toHaveBeenCalled();
+    // A general indent has no project channel, but the workspace still hears
+    // about it — the indent list refreshes off this event.
+    expect(broadcastProjectUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "workspace-1",
+        projectId: undefined,
+        action: "PROJECT_INDENT_UPDATED",
+      })
+    );
   });
 });
 

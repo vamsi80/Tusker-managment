@@ -3,6 +3,8 @@ import prisma from "@tusker/db";
 import { AppError } from "../../../../lib/errors/app-error";
 import { broadcastProjectUpdate } from "../../../../lib/realtime";
 import { pusherServer } from "../../../../lib/pusher";
+import { getUserDisplayName } from "../../../../lib/user-display-name";
+import { INDENT_STATUS_LABELS } from "../../../../lib/procurement/status-filters";
 import { IndentRepository } from "./indent.repository";
 
 type InitialLineItemInput = {
@@ -178,9 +180,7 @@ export class IndentService {
   }
 
   private static requesterName(indent: any) {
-    return (
-      [indent.requestedBy?.user?.name, indent.requestedBy?.user?.surname].filter(Boolean).join(" ") || "A member"
-    );
+    return getUserDisplayName(indent.requestedBy?.user, "A member");
   }
 
   private static async notify(
@@ -230,25 +230,26 @@ export class IndentService {
     }
   }
 
-  private static async broadcast(indent: { projectId: string | null }, workspaceId: string) {
-    // A general indent belongs to no project channel, so there is nothing to
-    // broadcast to one.
-    if (!indent.projectId) return;
+  private static async broadcast(indent: { id?: string; projectId: string | null }, workspaceId: string) {
+    // Goes to the workspace channel either way: the indent list and the indent
+    // page both listen, and a general indent has no project channel to use.
     await broadcastProjectUpdate({
       workspaceId,
-      projectId: indent.projectId,
+      projectId: indent.projectId ?? undefined,
       type: "UPDATE",
       action: "PROJECT_INDENT_UPDATED",
+      payload: { indentId: indent.id },
     } as any);
   }
 
-  private static ensureApproximateRates(indent: any) {
+  /**
+   * Approximate rates are a help to the approver, not a gate. An indent raised
+   * without them still goes to the manager — the numbers get settled at the
+   * comparative stage anyway, and blocking submission only stalled the request.
+   */
+  private static ensureLineItems(indent: any) {
     if (!indent.lineItems.length) {
       throw AppError.ValidationError("Add at least one material before submitting the indent");
-    }
-    const missing = indent.lineItems.find((item: any) => !item.estimatedUnitPrice || item.estimatedUnitPrice <= 0);
-    if (missing) {
-      throw AppError.ValidationError(`Enter an approximate rate for ${missing.materialName}`);
     }
   }
 
@@ -272,7 +273,7 @@ export class IndentService {
     userId: string
   ) {
     if (data.taskId) {
-      const existing = await IndentRepository.findByTaskId(data.taskId);
+      const existing = await IndentRepository.findByTaskId(data.taskId, data.workspaceId);
       if (existing) throw AppError.Conflict("An indent already exists for this task");
     }
 
@@ -356,7 +357,7 @@ export class IndentService {
     if (!this.canManageIndent(member, indent)) {
       throw AppError.Forbidden("You cannot edit this indent");
     }
-    if (["APPROVED", "CANCELLED"].includes(indent.status)) {
+    if (indent.status === "CANCELLED") {
       throw AppError.Conflict("A closed indent can no longer be edited");
     }
     const changesOptionalCharges = [
@@ -368,6 +369,9 @@ export class IndentService {
     ].some((value) => value !== undefined);
     if (changesOptionalCharges && !this.canEditInitialDetails(member, indent)) {
       throw AppError.Conflict("Charges can only be changed while the indent is a draft or initial revision");
+    }
+    if (indent.status === "APPROVED" && data.approverIds !== undefined) {
+      throw AppError.Conflict("Approvers cannot be changed after the indent is approved");
     }
     if (data.name !== undefined && !data.name.trim()) {
       throw AppError.ValidationError("Indent name cannot be empty");
@@ -423,12 +427,21 @@ export class IndentService {
     }
     const indent = await this.getIndent(indentId, workspaceId);
 
-    // A purchase order already refers to these materials - cancel the indent instead.
-    if (indent.lineItems.some((item: any) => item.status === "PO_CREATED")) {
-      throw AppError.Conflict("Cannot delete: some line items are already PO generated");
+    // Purchase orders are immutable snapshots. Preserve their source indent so
+    // the commercial audit trail cannot be severed after an order is raised.
+    if (indent.purchaseOrders?.length) {
+      throw AppError.Conflict("Cannot delete an indent after a purchase order has been created");
     }
 
-    await prisma.indent.delete({ where: { id: indentId } });
+    const deleted = await prisma.indent.deleteMany({
+      where: {
+        id: indentId,
+        purchaseOrders: { none: {} },
+      },
+    });
+    if (deleted.count !== 1) {
+      throw AppError.Conflict("Cannot delete an indent after a purchase order has been created");
+    }
     await this.broadcast(indent, workspaceId);
     return { id: indentId };
   }
@@ -445,7 +458,7 @@ export class IndentService {
       throw AppError.Forbidden("Only the requester can submit this indent");
     }
     this.ensureOwnerApprovers(indent);
-    this.ensureApproximateRates(indent);
+    this.ensureLineItems(indent);
 
     const stage = this.resolveSubmitStage(indent);
     const now = new Date();
@@ -516,7 +529,7 @@ export class IndentService {
       const missing = indent.lineItems.find((item: any) => !item.finalUnitPrice || item.finalUnitPrice <= 0);
       if (missing) throw AppError.ValidationError(`Enter a final rate for ${missing.materialName}`);
     } else {
-      this.ensureApproximateRates(indent);
+      this.ensureLineItems(indent);
     }
 
     const nextStatus = isFinalRevision ? "PENDING_MANAGER_FINAL_RATE_APPROVAL" : "SUBMITTED";
@@ -645,18 +658,10 @@ export class IndentService {
       if (!this.isOwnerApprover(member, indent)) {
         throw AppError.Forbidden("Only a selected owner can get comparitives");
       }
-      const currentApprovedIds = indent.approvedByIds || [];
-      if (currentApprovedIds.includes(member.id)) throw AppError.Conflict("You have already authorized this indent");
-      const approvedByIds = [...currentApprovedIds, member.id];
-      const allApproved = this.haveAllSelectedOwnersApproved(indent, approvedByIds);
-
-      const updated = await IndentRepository.updateStatus(
+      const { updated, allApproved } = await IndentRepository.recordOwnerApproval(
         indentId,
-        allApproved ? "COMPARATIVES_IN_PROGRESS" : "PENDING_OWNER_COMPARATIVE_APPROVAL",
-        {
-          approvedByIds,
-          ...(allApproved ? { ownerAuthorizedAt: new Date() } : {}),
-        }
+        member.id,
+        "COMPARATIVE"
       );
       if (allApproved) {
         await this.notify(
@@ -729,19 +734,10 @@ export class IndentService {
       if (!this.isOwnerApprover(member, indent)) {
         throw AppError.Forbidden("Only a selected owner can give final approval");
       }
-      const currentApprovedIds = indent.finalOwnerApprovedByIds || [];
-      if (currentApprovedIds.includes(member.id)) throw AppError.Conflict("You have already given final approval");
-      const finalOwnerApprovedByIds = [...currentApprovedIds, member.id];
-      const allApproved = this.haveAllSelectedOwnersApproved(indent, finalOwnerApprovedByIds);
-      const updated = await IndentRepository.updateStatus(
+      const { updated, allApproved } = await IndentRepository.recordOwnerApproval(
         indentId,
-        allApproved ? "APPROVED" : "PENDING_OWNER_FINAL_APPROVAL",
-        {
-          finalOwnerApprovedByIds,
-          ...(allApproved
-            ? { finalApprovedAt: new Date(), finalApprovedById: member.id }
-            : {}),
-        }
+        member.id,
+        "FINAL"
       );
       if (allApproved) {
         await this.notify(
@@ -757,7 +753,15 @@ export class IndentService {
       return updated;
     }
 
-    throw AppError.Conflict("Indent is not awaiting your approval");
+    // A page opened before someone else acted still shows Approve. Name the
+    // reason rather than leaving the approver guessing.
+    const alreadyApproved =
+      indent.approvedByIds?.includes(member.id) || indent.finalOwnerApprovedByIds?.includes(member.id);
+    throw AppError.Conflict(
+      alreadyApproved
+        ? `You have already approved this indent — it has moved on to ${INDENT_STATUS_LABELS[indent.status] ?? indent.status}.`
+        : `This indent is no longer awaiting approval — it is now ${INDENT_STATUS_LABELS[indent.status] ?? indent.status}. Refresh to see where it stands.`
+    );
   }
 
   static async submitFinalRates(
@@ -803,6 +807,8 @@ export class IndentService {
       if (!rate || rate <= 0) throw AppError.ValidationError(`Enter a final rate for ${item.materialName}`);
     }
 
+    const awardedVendorId = vendorId ?? indent.selectedVendorId;
+
     const updated = await prisma.$transaction(async (tx) => {
       await Promise.all(
         indent.lineItems.map((item) =>
@@ -812,6 +818,37 @@ export class IndentService {
           })
         )
       );
+
+      // The rate just agreed becomes this vendor's rate for the material, so
+      // their material list shows what we last bought it for rather than an
+      // older number someone typed by hand.
+      if (awardedVendorId) {
+        for (const item of indent.lineItems) {
+          const materialName = item.materialName.toLowerCase().trim();
+          const rate = rateByItemId.get(item.id)!;
+          await tx.vendorMaterialCapability.upsert({
+            where: {
+              vendorId_materialName_serviceType: {
+                vendorId: awardedVendorId,
+                materialName,
+                serviceType: "SUPPLY",
+              },
+            },
+            update: { rate, unit: item.unit || null },
+            create: {
+              vendorId: awardedVendorId,
+              materialCatalogId: item.materialCatalogId,
+              materialName,
+              unit: item.unit || null,
+              workspaceId,
+              source: "AUTO",
+              serviceType: "SUPPLY",
+              rate,
+            },
+          });
+        }
+      }
+
       return tx.indent.update({
         where: { id: indentId },
         data: {

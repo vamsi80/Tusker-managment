@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { SubtaskSheetHeader } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-sheet-header";
 import { SubtaskSheetNavBar } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/subtask-sheet-navbar";
 import { MessagesTab } from "@/app/w/[workspaceId]/p/[slug]/_components/shared/subtaskSheet/messages-tab";
@@ -22,6 +23,7 @@ interface NotificationDetailProps {
 }
 
 export function NotificationDetail({ notificationId }: NotificationDetailProps) {
+  const router = useRouter();
   const { data: workspaceData, workspaceId } = useWorkspaceLayout();
   const { unreadNotifications, readNotifications } = useNotifications();
   const allNotifs = [...unreadNotifications, ...readNotifications];
@@ -63,8 +65,17 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
   const isAdmin = permissions.isWorkspaceAdmin;
   const isProjectManager = permissions.isProjectManager;
 
+  // An indent approval carries an indent id, not a task id. Fetching a task
+  // with it only ever 404s, so send the reader to the indent instead.
+  const indentId = matchedNotif?.entityType === "Indent" ? matchedNotif.entityId : null;
+
+  useEffect(() => {
+    if (indentId) router.replace(`/w/${workspaceId}/procurement/indents/${indentId}`);
+  }, [indentId, router, workspaceId]);
+
   // 1. Fetch Task by slug or ID
   useEffect(() => {
+    if (indentId) return;
     let active = true;
     const fetchTask = async () => {
       if (!workspaceId || !notificationId) return;
@@ -91,7 +102,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     return () => {
       active = false;
     };
-  }, [workspaceId, notificationId, matchedNotif?.taskId]);
+  }, [workspaceId, notificationId, matchedNotif?.taskId, indentId]);
 
   // 2. Fetch Project Members once we have task details
   useEffect(() => {

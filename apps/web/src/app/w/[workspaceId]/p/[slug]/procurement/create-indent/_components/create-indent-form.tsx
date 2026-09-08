@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Trash2, Check, ChevronsUpDown, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FALLBACK_UNITS } from "@tusker/core/lib/procurement/units";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -27,6 +29,7 @@ function AutoCompleteInput({
   value,
   onChange,
   onUnitAutoFill,
+  onPriceAutoFill,
   disabled,
   catalog,
   isLoading,
@@ -36,6 +39,7 @@ function AutoCompleteInput({
   value: string;
   onChange: (val: string) => void;
   onUnitAutoFill?: (unit: string) => void;
+  onPriceAutoFill?: (rupees: number) => void;
   disabled: boolean;
   catalog: any[];
   isLoading: boolean;
@@ -43,6 +47,8 @@ function AutoCompleteInput({
   onFocusTrigger?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [anchor, setAnchor] = useState<{ left: number; top: number; width: number } | null>(null);
   const query = value.trim().toLowerCase();
   const suggestions = catalog
     .filter((item) => !query || item.name.toLowerCase().includes(query))
@@ -51,7 +57,25 @@ function AutoCompleteInput({
       const bStarts = b.name.toLowerCase().startsWith(query) ? 0 : 1;
       return aStarts - bStarts || a.name.localeCompare(b.name);
     })
-    .slice(0, 8);
+    .slice(0, 20);
+
+  // The rows table scrolls, and an absolutely placed menu inside it gets
+  // clipped to the row. Rendered against the body instead, and re-anchored
+  // while it is open.
+  const placeMenu = useCallback(() => {
+    const box = inputRef.current?.getBoundingClientRect();
+    if (box) setAnchor({ left: box.left, top: box.bottom + 4, width: box.width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", placeMenu, true);
+    window.addEventListener("resize", placeMenu);
+    return () => {
+      window.removeEventListener("scroll", placeMenu, true);
+      window.removeEventListener("resize", placeMenu);
+    };
+  }, [open, placeMenu]);
 
   // Auto-fill unit if the user types or enters the exact name of an existing material
   useEffect(() => {
@@ -69,25 +93,31 @@ function AutoCompleteInput({
   return (
     <div className="relative w-full">
       <Input
+        ref={inputRef}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
+          placeMenu();
           setOpen(true);
         }}
         onFocus={() => {
            if (onFocusTrigger) onFocusTrigger();
+           placeMenu();
            setOpen(true);
         }}
         onBlur={() => window.setTimeout(() => setOpen(false), 100)}
-        disabled={disabled || isLoading}
-        placeholder={isLoading ? "Loading..." : "Enter material..."}
+        // Never disabled while the catalog loads: that dropped the focus the
+        // click had just given, and the field had to be clicked a second time.
+        disabled={disabled}
+        placeholder={isLoading ? "Enter material... (loading suggestions)" : "Enter material..."}
         className="h-8 text-xs bg-background font-medium px-2"
         autoComplete="off"
       />
-      {open && !isLoading && value.trim() && suggestions.length > 0 && (
+      {open && !isLoading && value.trim() && suggestions.length > 0 && anchor && createPortal(
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
+          style={{ position: "fixed", left: anchor.left, top: anchor.top, width: Math.max(anchor.width, 260) }}
+          className="z-[100] max-h-[320px] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
         >
           <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Use a remembered material
@@ -103,19 +133,30 @@ function AutoCompleteInput({
                 if (item.defaultUnit?.abbreviation && onUnitAutoFill) {
                   onUnitAutoFill(item.defaultUnit.abbreviation);
                 }
+                // The last rate we agreed for it, in paise on the wire.
+                if (item.lastPrice && onPriceAutoFill) {
+                  onPriceAutoFill(item.lastPrice / 100);
+                }
                 setOpen(false);
               }}
             >
               <span className="font-medium">{item.name}</span>
-              {item.defaultUnit?.abbreviation && (
-                <span className="text-[10px] text-muted-foreground">{item.defaultUnit.abbreviation}</span>
-              )}
+              <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                {item.lastPrice ? (
+                  <span className="font-mono font-semibold text-foreground">
+                    ₹{(item.lastPrice / 100).toLocaleString("en-IN")}
+                    {item.defaultUnit?.abbreviation ? ` / ${item.defaultUnit.abbreviation}` : ""}
+                  </span>
+                ) : null}
+                {item.defaultUnit?.abbreviation && !item.lastPrice ? item.defaultUnit.abbreviation : null}
+              </span>
             </button>
           ))}
           <div className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
             Keep typing to use a new material name.
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -787,9 +828,16 @@ export function CreateIndentForm({
                 clearValue: () => setLabourCharge(""),
               },
             ].map((charge) => (
-              <div
+              // The whole box is the label, so anywhere inside it toggles the
+              // charge rather than only the box itself.
+              <Label
                 key={charge.id}
-                className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2"
+                htmlFor={charge.id}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-xs font-medium transition-colors",
+                  isSubmitting ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-accent",
+                  charge.checked && "border-primary/60 bg-primary/5"
+                )}
               >
                 <Checkbox
                   id={charge.id}
@@ -801,10 +849,8 @@ export function CreateIndentForm({
                   }}
                   disabled={isSubmitting}
                 />
-                <Label htmlFor={charge.id} className="cursor-pointer text-xs font-medium">
-                  {charge.label}
-                </Label>
-              </div>
+                {charge.label}
+              </Label>
             ))}
           </div>
         </div>
@@ -863,6 +909,7 @@ export function CreateIndentForm({
                         currentUnit={item.unit}
                         onChange={(val) => handleRowChange(index, "materialName", val)}
                         onUnitAutoFill={(unit) => handleRowChange(index, "unit", unit)}
+                        onPriceAutoFill={(rupees) => handleRowChange(index, "unitPrice", String(rupees))}
                         onFocusTrigger={() => setShouldLoadCatalog(true)}
                         disabled={isSubmitting}
                         catalog={catalog}

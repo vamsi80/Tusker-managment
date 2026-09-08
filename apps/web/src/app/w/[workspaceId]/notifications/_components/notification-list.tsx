@@ -57,6 +57,12 @@ export function NotificationList() {
     if (notif.isNew !== false) {
       markRead(targetId);
     }
+    // An indent approval is not a task: the detail pane can only render task
+    // comments, so open the indent itself.
+    if (notif.entityType === "Indent" && notif.entityId) {
+      router.push(`/w/${workspaceId}/procurement/indents/${notif.entityId}`);
+      return;
+    }
     // Navigate to detail page
     router.push(`/w/${workspaceId}/notifications/${targetId}`);
   };

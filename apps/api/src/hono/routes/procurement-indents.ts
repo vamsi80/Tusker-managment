@@ -185,12 +185,19 @@ procurementIndents.get("/", async (c) => {
  * Fetch indent details by taskId if one exists
  */
 procurementIndents.get("/task/:taskId", async (c) => {
+  const user = c.get("user");
   const taskId = c.req.param("taskId");
   const workspaceId = c.req.query("w");
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  const indent = await IndentRepository.findByTaskId(taskId);
+  // Same read gate as every other indent fetch; this one had none.
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id);
+  if (!canReadProcurement(perms)) {
+    throw AppError.Forbidden("Access denied to this workspace");
+  }
+
+  const indent = await IndentRepository.findByTaskId(taskId, workspaceId);
   return c.json({ success: true, data: indent });
 });
 
@@ -228,9 +235,17 @@ procurementIndents.get("/line-items", async (c) => {
           name: true,
         },
       },
+      approvedQuote: {
+        select: {
+          id: true,
+          unitPrice: true,
+          vendor: { select: { id: true, name: true, companyName: true } },
+        },
+      },
       indent: {
         include: {
           project: { select: { id: true, name: true, slug: true } },
+          selectedVendor: { select: { id: true, name: true, companyName: true } },
           requestedBy: {
             include: {
               user: {
@@ -261,6 +276,7 @@ procurementIndents.get("/line-items", async (c) => {
     specifications: item.specifications,
     status: item.status,
     rfqDeadline: item.rfqDeadline,
+    vendor: item.approvedQuote?.vendor || item.indent.selectedVendor || null,
     indent: {
       id: item.indent.id,
       indentId: item.indent.indentId,
@@ -268,6 +284,7 @@ procurementIndents.get("/line-items", async (c) => {
       status: item.indent.status,
       rejectedStage: item.indent.rejectedStage,
       project: item.indent.project,
+      selectedVendor: item.indent.selectedVendor,
       expectedDelivery: item.indent.expectedDelivery,
       requestedBy: item.indent.requestedBy,
     },
