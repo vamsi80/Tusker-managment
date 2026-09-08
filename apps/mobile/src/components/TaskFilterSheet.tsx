@@ -19,7 +19,7 @@ import MemberPickerSheet, { memberDisplayName } from "./MemberPickerSheet";
 import OptionPickerSheet, { PickerOption } from "./OptionPickerSheet";
 import CalendarPicker from "./CalendarPicker";
 import AppButton from "./AppButton";
-import { getStatusHex, getStatusBgColor } from "../utils/taskColors";
+import { getStatusHex } from "../utils/taskColors";
 import { format, startOfToday, endOfToday, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isBefore } from "date-fns";
 
 interface TaskFilterSheetProps {
@@ -70,7 +70,7 @@ export default function TaskFilterSheet({
     ];
     const [members, setMembers] = useState<any[]>([]);
     const [tags, setTags] = useState<any[]>([]);
-    const [openPicker, setOpenPicker] = useState<null | "assignee" | "tag">(null);
+    const [openPicker, setOpenPicker] = useState<null | "assignee" | "tag" | "project" | "status">(null);
     const [showDatePicker, setShowDatePicker] = useState<"after" | "before" | null>(null);
     const [showTimeOptions, setShowTimeOptions] = useState(false);
 
@@ -223,12 +223,10 @@ export default function TaskFilterSheet({
         onClose();
     };
 
-    const isSelected = (type: "status" | "assigneeId" | "tagId" | "projectId", id: string) => {
-        return (localFilters[type] || []).includes(id);
-    };
-
     const selectedAssigneeIds: string[] = localFilters.assigneeId || [];
     const selectedTagIds: string[] = localFilters.tagId || [];
+    const selectedProjectIds: string[] = localFilters.projectId || [];
+    const selectedStatusIds: string[] = localFilters.status || [];
 
     /** "Any" / a single name / "N selected" — keeps the closed trigger informative. */
     const summarise = (ids: string[], nameOf: (id: string) => string, anyLabel: string) => {
@@ -252,6 +250,18 @@ export default function TaskFilterSheet({
         "Any tag",
     );
 
+    const projectSummary = summarise(
+        selectedProjectIds,
+        (id) => projects.find((p: any) => p.id === id)?.name ?? "1 selected",
+        "All projects",
+    );
+
+    const statusSummary = summarise(
+        selectedStatusIds,
+        (id) => STATUS_OPTIONS.find((s) => s.id === id)?.label ?? "1 selected",
+        "Any status",
+    );
+
     const tagOptions: PickerOption[] = tags.map((t: any) => ({
         id: t.id,
         label: t.name,
@@ -259,6 +269,28 @@ export default function TaskFilterSheet({
         leading: (
             <View style={[styles.tagDot, { backgroundColor: (t.color || colors.primary) + "22" }]}>
                 <Ionicons name="pricetag" size={15} color={t.color || colors.primary} />
+            </View>
+        ),
+    }));
+
+    const projectOptions: PickerOption[] = projects.map((p: any) => ({
+        id: p.id,
+        label: p.name,
+        accent: p.color || undefined,
+        leading: (
+            <View style={[styles.tagDot, { backgroundColor: (p.color || colors.primary) + "22" }]}>
+                <View style={[styles.projectDotSmall, { backgroundColor: p.color || colors.primary }]} />
+            </View>
+        ),
+    }));
+
+    const statusOptions: PickerOption[] = STATUS_OPTIONS.map((s) => ({
+        id: s.id,
+        label: s.label,
+        accent: s.color,
+        leading: (
+            <View style={[styles.tagDot, { backgroundColor: s.color + "22" }]}>
+                <View style={[styles.projectDotSmall, { backgroundColor: s.color }]} />
             </View>
         ),
     }));
@@ -300,57 +332,49 @@ export default function TaskFilterSheet({
                             />
                         </View>
 
-                        {/* Projects Filter - HIDDEN when inside a project */}
+                        {/* Projects Filter - HIDDEN when inside a project. Dropdown,
+                            matching the Assignee/Tags treatment below rather than a
+                            sideways chip strip that hid most projects off-screen. */}
                         {showProjectFilter && !projectId && projects.length > 0 && (
                             <>
                                 <Text style={[styles.sectionTitle, { color: colors.textDim }]}>Projects</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                                    {projects.map((project) => {
-                                        const selected = isSelected("projectId", project.id);
-                                        return (
-                                            <TouchableOpacity
-                                                key={project.id}
-                                                style={[
-                                                    styles.projectChip,
-                                                    { backgroundColor: colors.background, borderColor: colors.border },
-                                                    selected && [styles.chipSelected, { borderColor: project.color || colors.primary, backgroundColor: (project.color || colors.primary) + "15" }]
-                                                ]}
-                                                onPress={() => toggleFilter("projectId", project.id)}
-                                            >
-                                                <View style={[styles.projectDot, { backgroundColor: project.color || colors.primary }]} />
-                                                <Text style={[styles.chipText, { color: colors.textDim }, selected && { color: project.color || colors.primary, fontFamily: FONTS.bold }]}>
-                                                    {project.name}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
+                                <TouchableOpacity
+                                    style={[styles.filterTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                                    onPress={() => setOpenPicker("project")}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Project filter: ${projectSummary}`}
+                                    accessibilityHint="Opens the project list"
+                                >
+                                    <Ionicons name="albums-outline" size={18} color={colors.textDim} />
+                                    <Text
+                                        style={[styles.filterTriggerText, { color: selectedProjectIds.length ? colors.text : colors.textDim }]}
+                                        numberOfLines={1}
+                                    >
+                                        {projectSummary}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                                </TouchableOpacity>
                             </>
                         )}
 
-                        {/* Status */}
+                        {/* Status — dropdown, same pattern as Projects/Assignee/Tags */}
                         <Text style={[styles.sectionTitle, { color: colors.textDim }]}>Status</Text>
-                        <View style={styles.chipContainer}>
-                            {STATUS_OPTIONS.map((opt) => {
-                                const selected = isSelected("status", opt.id);
-                                return (
-                                    <TouchableOpacity
-                                        key={opt.id}
-                                        style={[
-                                            styles.chip,
-                                            { backgroundColor: colors.background, borderColor: colors.border },
-                                            selected && [styles.chipSelected, { borderColor: opt.color, backgroundColor: getStatusBgColor(opt.id) }]
-                                        ]}
-                                        onPress={() => toggleFilter("status", opt.id)}
-                                    >
-                                        <View style={[styles.dot, { backgroundColor: opt.color }]} />
-                                        <Text style={[styles.chipText, { color: colors.textDim }, selected && [styles.chipTextSelected, { color: opt.color, fontFamily: FONTS.bold }]]}>
-                                            {opt.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                        <TouchableOpacity
+                            style={[styles.filterTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                            onPress={() => setOpenPicker("status")}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Status filter: ${statusSummary}`}
+                            accessibilityHint="Opens the status list"
+                        >
+                            <Ionicons name="flag-outline" size={18} color={colors.textDim} />
+                            <Text
+                                style={[styles.filterTriggerText, { color: selectedStatusIds.length ? colors.text : colors.textDim }]}
+                                numberOfLines={1}
+                            >
+                                {statusSummary}
+                            </Text>
+                            <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                        </TouchableOpacity>
 
                         {/* Date Picker Section */}
                         <Text style={[styles.sectionTitle, { color: colors.textDim }]}>Date Picker</Text>
@@ -535,6 +559,32 @@ export default function TaskFilterSheet({
                 emptyText="No tags in use"
                 clearLabel="Any tag"
             />
+
+            <OptionPickerSheet
+                visible={openPicker === "project"}
+                onClose={() => setOpenPicker(null)}
+                title="Filter by Project"
+                options={projectOptions}
+                multiple
+                selectedIds={selectedProjectIds}
+                onToggle={(id) => toggleFilter("projectId", id)}
+                onClearAll={() => setLocalFilters({ ...localFilters, projectId: [] })}
+                emptyText="No projects available"
+                clearLabel="All projects"
+            />
+
+            <OptionPickerSheet
+                visible={openPicker === "status"}
+                onClose={() => setOpenPicker(null)}
+                title="Filter by Status"
+                options={statusOptions}
+                multiple
+                selectedIds={selectedStatusIds}
+                onToggle={(id) => toggleFilter("status", id)}
+                onClearAll={() => setLocalFilters({ ...localFilters, status: [] })}
+                emptyText="No statuses available"
+                clearLabel="Any status"
+            />
         </Modal>
     );
 }
@@ -548,7 +598,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.md,
         borderRadius: BORDER_RADIUS.md,
         borderWidth: 1,
-        marginBottom: SPACING.lg,
+        marginBottom: SPACING.xs,
+        // Soft card shadow — same weight as Home's grid cards, so this reads
+        // as the same kind of surface as the rest of the app.
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
     },
     filterTriggerText: { flex: 1, fontSize: 15, fontFamily: FONTS.medium },
     tagDot: { width: 36, height: 36, borderRadius: 18, justifyContent: "center", alignItems: "center" },
@@ -569,24 +626,18 @@ const styles = StyleSheet.create({
     resetText: { fontSize: 14, color: "#ef4444", fontFamily: FONTS.semibold },
 
     content: { flex: 1, paddingHorizontal: SPACING.lg },
-    sectionTitle: { fontSize: 13, fontFamily: FONTS.bold, textTransform: "uppercase", letterSpacing: 1, marginTop: 24, marginBottom: 12 },
+    sectionTitle: { fontSize: 13, fontFamily: FONTS.bold, textTransform: "uppercase", letterSpacing: 1, marginTop: 16, marginBottom: 8 },
 
     searchContainer: { flexDirection: "row", alignItems: "center", borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, height: 48, borderWidth: 1 },
     searchInput: { flex: 1, marginLeft: 10, fontSize: 15 },
 
     chipContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: { flexDirection: "row", alignItems: "center", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1 },
+    chip: { flexDirection: "row", alignItems: "center", borderRadius: BORDER_RADIUS.full, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1 },
     chipSelected: {},
-    dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     chipText: { fontSize: 14, fontFamily: FONTS.medium },
     chipTextSelected: {},
 
-    horizontalScroll: { marginHorizontal: -SPACING.lg, paddingHorizontal: SPACING.lg, marginBottom: 4 },
-    avatar: { width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 8 },
-    avatarText: { color: "#fff", fontSize: 12, fontFamily: FONTS.bold },
-
-    projectChip: { flexDirection: "row", alignItems: "center", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, marginRight: 10 },
-    projectDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
+    projectDotSmall: { width: 15, height: 15, borderRadius: 8 },
 
     footer: { padding: SPACING.lg, borderTopWidth: 1 },
     modalOverlay: {
@@ -601,11 +652,14 @@ const styles = StyleSheet.create({
         borderRadius: BORDER_RADIUS.lg,
         borderWidth: 1,
         paddingVertical: 16,
-        elevation: 5,
+        // Soft card shadow — same weight as Home's grid cards, instead of a
+        // much heavier ad-hoc shadow (opacity .25) that didn't match the
+        // rest of the app's "barely-lifted paper" surfaces.
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
     modalTitle: {
         fontSize: 16,

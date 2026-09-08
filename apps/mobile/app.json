@@ -44,6 +44,7 @@
         }
       ],
       "@react-native-community/datetimepicker",
+      "expo-notifications",
       [
         "expo-build-properties",
         {

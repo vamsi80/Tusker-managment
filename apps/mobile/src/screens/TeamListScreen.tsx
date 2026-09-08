@@ -82,7 +82,10 @@ export default function TeamListScreen({ navigation }: Props) {
                 getConversations(activeWorkspace.id),
                 getCachedSession()
             ]);
-            setConversations(chatData.filter((c: any) => c.messages && c.messages.length > 0));
+            // ConversationService.getUserConversations returns each row as
+            // { otherUser, lastMessage } (singular), not { participants, messages }
+            // arrays — filtering on the latter always dropped every conversation.
+            setConversations(chatData.filter((c: any) => !!c.lastMessage));
             if (session?.user) {
                 setCurrentUser(session.user);
             }
@@ -126,7 +129,9 @@ export default function TeamListScreen({ navigation }: Props) {
     }, [activeWorkspace?.id]);
 
     const renderChat = ({ item }: { item: any }) => {
-        const otherParticipant = item.participants?.find((p: any) => p.id !== currentUser?.id) || item.participants?.[0];
+        // ConversationService.getUserConversations shapes each row as
+        // { otherUser, lastMessage } — singular objects, not participant/message arrays.
+        const otherParticipant = item.otherUser;
         if (!otherParticipant) return null;
         const participantName: string = otherParticipant.surname || otherParticipant.name || "Unknown";
         const participantInitial: string = participantName.charAt(0).toUpperCase();
@@ -137,7 +142,8 @@ export default function TeamListScreen({ navigation }: Props) {
             !n.isRead
         );
 
-        const lastMessage = item.messages?.[0];
+        const lastMessage = item.lastMessage;
+        const isMine = lastMessage?.senderId === currentUser?.id;
         const otherRole = members.find(m => m.userId === otherParticipant.id)?.workspaceRole;
 
         return (
@@ -187,7 +193,7 @@ export default function TeamListScreen({ navigation }: Props) {
                         )}
                         {lastMessage && (
                             <Text style={[styles.lastMessage, { color: hasUnread ? colors.primary : colors.textDim, fontFamily: hasUnread ? FONTS.semibold : FONTS.regular }]} numberOfLines={1}>
-                                {lastMessage.sender?.name ? `${lastMessage.sender.name}: ` : ""}{lastMessage.content}
+                                {isMine ? "You: " : ""}{lastMessage.content}
                             </Text>
                         )}
                     </View>

@@ -1,6 +1,9 @@
 import prisma from "@tusker/db";
 import { pusherServer } from "./pusher";
 import { randomUUID } from "crypto";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
+
+const expo = new Expo();
 
 export type AuditAction =
   | "USER_LOGIN"
@@ -280,7 +283,45 @@ export async function recordActivity(options: RecordActivityOptions) {
             .catch((err: any) => console.error("[AUDIT] Notification storage error:", err));
         }
 
-        // 3d. Targeted UI update events (e.g., "team_update")
+        // 3d. Push notifications (mobile, works even when the app is closed).
+        // `finalTargetUserIds` deliberately includes the actor for the in-app
+        // notification center — a push buzz for your own action would be
+        // wrong, so exclude them here.
+        const pushTargetIds = finalTargetUserIds.filter(tid => tid !== userId);
+        if (pushTargetIds.length > 0) {
+          (async () => {
+            try {
+              const recipients = await prisma.user.findMany({
+                where: { id: { in: pushTargetIds }, pushToken: { not: null } },
+                select: { id: true, pushToken: true },
+              });
+
+              const dmExtra = (action as any) === "DM_MESSAGE"
+                ? { conversationId: entityId, senderId: userId, senderName: userName }
+                : {};
+
+              const messages: ExpoPushMessage[] = recipients
+                .filter(r => r.pushToken && Expo.isExpoPushToken(r.pushToken))
+                .map(r => ({
+                  to: r.pushToken!,
+                  sound: "default",
+                  title: action.replace(/_/g, " "),
+                  body: message,
+                  data: { action, entityType, entityId, workspaceId, newData, metadata, ...dmExtra },
+                }));
+
+              for (const chunk of expo.chunkPushNotifications(messages)) {
+                await expo.sendPushNotificationsAsync(chunk).catch((err: any) =>
+                  console.error("[AUDIT] Expo push send error:", err)
+                );
+              }
+            } catch (err) {
+              console.error("[AUDIT] Push notification lookup/send error:", err);
+            }
+          })();
+        }
+
+        // 3e. Targeted UI update events (e.g., "team_update")
         if (options.broadcastEvent) {
           let normalizedType = action.replace("MEMBER_", "").replace("TASK_", "").replace("SUBTASK_", "").replace("LEAVE_", "");
           if (normalizedType === "INVITED") normalizedType = "INVITE";

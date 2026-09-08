@@ -93,7 +93,7 @@ export default function MyBoardScreen() {
 
     // Cursor-based pagination state (List view)
     const [hasMore, setHasMore] = useState(false);
-    const [nextCursor, setNextCursor] = useState<{ id: string; createdAt: string } | null>(null);
+    const [nextCursor, setNextCursor] = useState<Record<string, any> | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [totalCount, setTotalCount] = useState<number | null>(null);
 
@@ -254,7 +254,7 @@ export default function MyBoardScreen() {
         loadUser();
     }, []);
 
-    const fetchData = useCallback(async (isRefresh = false, cursor?: { id: string; createdAt: string } | null) => {
+    const fetchData = useCallback(async (isRefresh = false, cursor?: Record<string, any> | null) => {
         if (!activeWorkspace) return;
         if (!currentUser) return;
 
@@ -286,7 +286,7 @@ export default function MyBoardScreen() {
                     ...extra,
                 });
 
-                let result: { tasks: Task[]; hasMore: boolean; nextCursor: { id: string; createdAt: string } | null };
+                let result: { tasks: Task[]; hasMore: boolean; nextCursor: Record<string, any> | null };
                 let count = 0;
 
                 if (isMyTasksMode) {

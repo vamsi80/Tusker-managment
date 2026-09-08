@@ -575,7 +575,12 @@ function mapTask(t: any): Task {
         reviewer: normalize(t.parentTask.reviewer)
     } : undefined;
 
-    const mappedAssignee = normalize(t.ProjectMember_Task_assigneeIdToProjectMember || t.assignee);
+    const rawAssignee = t.ProjectMember_Task_assigneeIdToProjectMember || t.assignee;
+    const mappedAssignee = normalize(rawAssignee);
+    const assigneeRole: string | undefined = t.assigneeRole || rawAssignee?.projectRole;
+    const dependsOnIds: string[] | undefined = Array.isArray(t.Task_TaskDependency_A)
+        ? t.Task_TaskDependency_A.map((d: any) => d.id)
+        : t.dependsOnIds;
     const mappedReviewer = normalize(t.reviewer);
     const rawTags = [
         t.tag,
@@ -603,6 +608,8 @@ function mapTask(t: any): Task {
         assignee: mappedAssignee,
         reviewer: mappedReviewer,
         assigneeId: mappedAssignee?.id || t.assigneeId,
+        assigneeRole,
+        dependsOnIds,
         reviewerId: mappedReviewer?.id || t.reviewerId,
         parentTask: mappedParentTask,
         tag: primaryTag,
@@ -659,9 +666,12 @@ export async function getTasks(
         sorts?: Array<{ field: string; direction: "asc" | "desc" }>;
         view_mode?: string;
         limit?: number;
-        cursor?: { id: string; createdAt: string } | null;
+        // Shape varies by query (id+createdAt, or id+position+projectCreatedAt,
+        // or id+<sort field> when a custom sort is active) — always opaque,
+        // round-tripped as-is via the `cursor` param (see apps/api tasks route).
+        cursor?: Record<string, any> | null;
     } = {}
-): Promise<{ tasks: Task[]; hasMore: boolean; nextCursor: { id: string; createdAt: string } | null }> {
+): Promise<{ tasks: Task[]; hasMore: boolean; nextCursor: Record<string, any> | null }> {
     try {
         let url = `/api/tasks?workspaceId=${workspaceId}`;
 
@@ -671,16 +681,18 @@ export async function getTasks(
         if (filters.dueBefore) url += `&dueBefore=${filters.dueBefore}`;
         if (filters.parentId) url += `&parentId=${filters.parentId}`;
 
-        // Cursor-based pagination
+        // Cursor-based pagination — the route (GET /api/tasks) reads a single
+        // `cursor`/`c` param and JSON.parses it (apps/api/src/hono/routes/tasks.ts).
+        // Sending it as split cursorId/cursorCreatedAt params meant the server
+        // never saw a cursor at all, so every "load more" refetched page one.
         if (filters.cursor) {
-            url += `&cursorId=${encodeURIComponent(filters.cursor.id)}`;
-            url += `&cursorCreatedAt=${encodeURIComponent(filters.cursor.createdAt)}`;
+            url += `&cursor=${encodeURIComponent(JSON.stringify(filters.cursor))}`;
         }
 
+        // Same story for sorts: the route does `JSON.parse(q.sorts)`, expecting
+        // a JSON array of {field, direction} — not a "field:direction" string.
         if (filters.sorts && filters.sorts.length > 0) {
-            filters.sorts.forEach(s => {
-                url += `&sorts=${s.field}:${s.direction}`;
-            });
+            url += `&sorts=${encodeURIComponent(JSON.stringify(filters.sorts))}`;
         }
 
         // Ensure hierarchyMode is set to children if we are explicitly excluding parents
@@ -985,7 +997,11 @@ export async function getSubTasks(
     projectId?: string
 ): Promise<Task[]> {
     try {
-        let url = `/api/tasks/${parentTaskId}/subtasks?workspaceId=${workspaceId}&includeTag=true&includeTags=true&include=tag&include=Tag`;
+        // vm=gantt matches the select web's Gantt uses for subtask expansion
+        // (apps/api tasks route "/:parentId/subtasks" -> TasksService.expandSubtasks),
+        // which is the only path that includes assignee.projectRole and
+        // Task_TaskDependency_A (dependency ids) needed for parity.
+        let url = `/api/tasks/${parentTaskId}/subtasks?workspaceId=${workspaceId}&vm=gantt&includeTag=true&includeTags=true&include=tag&include=Tag`;
         if (projectId) url += `&projectId=${projectId}`;
 
         const res = await apiFetch(url);
@@ -1277,6 +1293,27 @@ export async function updateTask(taskId: string, data: any): Promise<any> {
     const text = await res.text();
     const result = text ? JSON.parse(text) : { success: res.ok };
     if (!res.ok) throw new Error(result.error || "Failed to update task");
+    return result;
+}
+
+/**
+ * Patch a task/subtask's dates via the universal fields endpoint used by
+ * web's Gantt drag-to-move/resize (apiClient.tasks.patchTaskFields), so
+ * mobile drag gestures hit the exact same route/shape.
+ */
+export async function patchTaskFields(
+    taskId: string,
+    workspaceId: string,
+    projectId: string,
+    data: { startDate?: string; dueDate?: string }
+): Promise<any> {
+    const res = await apiFetch(`/api/tasks/${taskId}/fields`, {
+        method: "PATCH",
+        body: JSON.stringify({ workspaceId, projectId, ...data }),
+    });
+    const text = await res.text();
+    const result = text ? JSON.parse(text) : { success: res.ok };
+    if (!res.ok) throw new Error(result.error || result.message || "Failed to update task dates");
     return result;
 }
 

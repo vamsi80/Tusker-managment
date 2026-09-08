@@ -71,6 +71,91 @@ export function calculateTimelineRange(tasks: Task[]): { start: Date; end: Date 
     return { start: minDate, end: maxDate };
 }
 
+/**
+ * Progress % for a single task/subtask — ported 1:1 from web's
+ * calculateProgress in apps/web/src/components/task/gantt/transform-tasks.ts
+ * so bars read the same on both platforms. Not a DB column; both clients
+ * derive it from status + elapsed time.
+ */
+export function calculateProgress(status: string, start: Date | null, end: Date | null): number {
+    if (status === "COMPLETED") return 100;
+    if (status === "REVIEW") return 80;
+    if (status === "TO_DO" || status === "HOLD" || status === "CANCELLED") return 0;
+
+    if (status === "IN_PROGRESS") {
+        if (!start || !end) return 10;
+        const today = startOfDay(new Date());
+        const total = end.getTime() - start.getTime();
+        if (total <= 0) return 60;
+        const elapsed = today.getTime() - start.getTime();
+        const rawProgress = Math.max(0, (elapsed / total) * 60);
+        return Math.min(60, Math.round(rawProgress));
+    }
+
+    return 0;
+}
+
+/**
+ * Weighted rollup of subtask progress onto a parent task, by duration —
+ * mirrors web's parentProgress calc in transform-tasks.ts.
+ */
+export function calculateParentProgress(
+    subtaskProgress: { progress: number; days: number }[]
+): number {
+    if (subtaskProgress.length === 0) return 0;
+    let totalWeight = 0;
+    let weightedSum = 0;
+    for (const s of subtaskProgress) {
+        const weight = s.days || 1;
+        weightedSum += s.progress * weight;
+        totalWeight += weight;
+    }
+    return totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+}
+
+/**
+ * Delay/overdue calc for a bar's end date — ported from web's
+ * draggable-subtask-bar.tsx isDelayed/delayWidthPercent.
+ */
+export function calculateDelay(
+    end: Date | null,
+    status: string,
+    totalDays: number
+): { isDelayed: boolean; delayDays: number; delayWidthPercent: number } {
+    const isSettled = status === "COMPLETED" || status === "CANCELLED" || status === "HOLD";
+    if (!end || isSettled) return { isDelayed: false, delayDays: 0, delayWidthPercent: 0 };
+
+    const today = startOfDay(new Date());
+    const taskEnd = startOfDay(end);
+    const isDelayed = taskEnd < today;
+    if (!isDelayed) return { isDelayed: false, delayDays: 0, delayWidthPercent: 0 };
+
+    const delayDays = getDaysBetween(taskEnd, today);
+    return {
+        isDelayed: true,
+        delayDays,
+        delayWidthPercent: (delayDays / totalDays) * 100,
+    };
+}
+
+/**
+ * Formats a date for the fields PATCH API (YYYY-MM-DDTHH:mm) — ported from
+ * web's formatDateForAPI in apps/web/src/components/task/gantt/utils.ts so
+ * mobile drag/resize sends the same payload shape.
+ */
+export function formatDateForAPI(date: Date, type: 'start' | 'end'): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    let hours = date.getHours();
+    let minutes = date.getMinutes();
+    if (type === 'end' && hours === 0 && minutes === 0) {
+        hours = 23;
+        minutes = 59;
+    }
+    return `${year}-${month}-${day}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 export function calculateBarPosition(
     barStart: Date,
     barEnd: Date,

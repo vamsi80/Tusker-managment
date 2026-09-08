@@ -22,7 +22,9 @@ export class ConversationService {
             user: {
               select: {
                 id: true,
+                name: true,
                 surname: true,
+                image: true,
                 lastActiveAt: true,
               }
             }
@@ -126,15 +128,20 @@ export class ConversationService {
    * Get messages for a conversation
    * Supports delta-fetching via 'since' parameter
    * Optimized with lean selects
+   *
+   * Overfetches by one row to detect whether older messages remain, so
+   * callers get `hasMore`/`nextCursor` back instead of having to guess —
+   * without this, scroll-up pagination in a chat had no way to know it
+   * should keep going and silently stopped after the first page.
    */
   static async getConversationMessages(conversationId: string, limit: number = 50, cursor?: string, since?: string) {
-    return prisma.direct_message.findMany({
+    const rows = await prisma.direct_message.findMany({
       where: {
         conversationId,
         isDeleted: false,
         ...(since ? { createdAt: { gt: new Date(since) } } : {})
       },
-      take: limit,
+      take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: {
         createdAt: 'desc'
@@ -153,6 +160,12 @@ export class ConversationService {
         }
       }
     });
+
+    const hasMore = rows.length > limit;
+    const messages = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? messages[messages.length - 1].id : null;
+
+    return { messages, hasMore, nextCursor };
   }
 
   /**

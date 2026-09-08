@@ -519,9 +519,16 @@ export class TasksService {
 
     const where: any = { workspaceId };
 
-    // Hierarchy filters
-    if (opts.onlySubtasks) where.parentTaskId = { not: null };
-    else if (opts.excludeParents) where.isParent = false;
+    // Hierarchy filters — must mirror buildWorkspaceFilterWhere's onlySubtasks
+    // branch exactly (parentTaskId not null AND isParent false). Without the
+    // isParent constraint, a nested "subtask that is itself a parent" (a
+    // 3-level hierarchy's middle tier) was counted here but excluded by the
+    // actual list query, so the badge total never matched what scrolling
+    // could ever fetch — it looked like pagination silently stopped early.
+    if (opts.onlySubtasks) {
+      where.parentTaskId = { not: null };
+      where.isParent = false;
+    } else if (opts.excludeParents) where.isParent = false;
 
     // Explicit filters
     if (opts.projectId) {
@@ -529,7 +536,10 @@ export class TasksService {
       where.projectId = { in: ids };
     }
     if (opts.status?.length) where.status = { in: opts.status };
-    if (opts.tagId?.length) where.tagId = { in: opts.tagId };
+    // Task has no scalar `tagId` column — tags are a many-to-many relation
+    // (Task.tags). Filtering on a non-existent `tagId` field here silently
+    // matched nothing (or errored) whenever a tag filter was active.
+    if (opts.tagId?.length) where.tags = { some: { id: { in: opts.tagId } } };
     if (opts.search) where.name = { contains: opts.search, mode: "insensitive" };
 
     const start = toUTCDateOnly(opts.dueAfter);
@@ -1716,7 +1726,12 @@ export class TasksService {
     if (hasMore) rawTasks.pop();
 
     const lastTask = rawTasks[rawTasks.length - 1] as any;
-    const isWsListOrGantt = !opts.projectId && (opts.view_mode === "list" || opts.view_mode === "gantt");
+    // Position/id is the seek key for BOTH the workspace-wide and the
+    // single-project list/gantt query — buildWorkspaceListCursorWhere (see
+    // query-builder.ts) degrades to a plain position/id seek when
+    // projectCreatedAt is omitted, which is what the project-scoped case needs
+    // since its ORDER BY has no project.createdAt component to seek across.
+    const isListOrGantt = opts.view_mode === "list" || opts.view_mode === "gantt";
     const nextCursor: any =
       hasMore && lastTask
         ? primarySort && SORT_MAP[primarySort.field]
@@ -1725,8 +1740,12 @@ export class TasksService {
             [SORT_MAP[primarySort.field].dbField]:
               lastTask[SORT_MAP[primarySort.field].dbField],
           }
-          : isWsListOrGantt
-            ? { id: lastTask.id, position: lastTask.position ?? null, projectCreatedAt: lastTask.project?.createdAt ?? null }
+          : isListOrGantt
+            ? {
+              id: lastTask.id,
+              position: lastTask.position ?? null,
+              ...(opts.projectId ? {} : { projectCreatedAt: lastTask.project?.createdAt ?? null }),
+            }
             : { id: lastTask.id, createdAt: lastTask.createdAt }
         : null;
 

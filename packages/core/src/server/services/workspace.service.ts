@@ -184,6 +184,7 @@ export class WorkspaceService {
               phoneNumber: true,
               email: true,
               emailVerified: true,
+              image: true,
             },
           },
           reportTo: {
@@ -214,6 +215,7 @@ export class WorkspaceService {
         name: m.user?.name ?? "",
         surname: m.user?.surname ?? "",
         email: m.user?.email ?? "",
+        image: m.user?.image ?? null,
         phoneNumber: m.user?.phoneNumber ?? null,
         designation: m.designation ?? null,
         employeeId: m.employeeId ?? null,
