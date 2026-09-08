@@ -36,15 +36,33 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
         });
     }, [selectedDate]);
 
-    const [activeDay, setActiveDay] = useState(() => {
+    // Days (within the displayed week) that actually have a meeting — used to
+    // pick which day the single-day timeline opens on. Defaulting to "today"
+    // unconditionally meant a week with meetings only on, say, Wednesday
+    // rendered an empty timeline whenever it was opened on any other day.
+    const weekDayKeysWithMeetings = useMemo(() => {
+        const set = new Set<string>();
+        meetings.forEach((m) => {
+            if (m.status !== "CANCELLED") set.add(calendarDayKey(m.startTime));
+        });
+        return set;
+    }, [meetings]);
+
+    const pickDefaultDay = (days: typeof weekDays) => {
         const todayKey = calendarDayKey(new Date());
-        return weekDays.find((d) => d.dateKey === todayKey)?.dateKey ?? weekDays[0].dateKey;
-    });
+        const today = days.find((d) => d.dateKey === todayKey);
+        if (today && weekDayKeysWithMeetings.has(todayKey)) return todayKey;
+        const firstWithMeeting = days.find((d) => weekDayKeysWithMeetings.has(d.dateKey));
+        return firstWithMeeting?.dateKey ?? today?.dateKey ?? days[0].dateKey;
+    };
+
+    const [activeDay, setActiveDay] = useState(() => pickDefaultDay(weekDays));
 
     useEffect(() => {
-        const todayKey = calendarDayKey(new Date());
-        const match = weekDays.find((d) => d.dateKey === todayKey);
-        setActiveDay(match?.dateKey ?? weekDays[0].dateKey);
+        setActiveDay(pickDefaultDay(weekDays));
+        // Re-picks only when the visible week changes, not on every meetings
+        // refetch — otherwise a background sync would yank the user back to
+        // the "best" day mid-browse.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
 

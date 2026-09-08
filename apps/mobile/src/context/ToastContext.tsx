@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -71,13 +71,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         timer.current = setTimeout(() => setToast((cur) => (cur?.id === next.id ? null : cur)), duration);
     }, []);
 
-    const value: ToastContextValue = {
-        show,
-        success: (m, d) => show(m, { variant: "success", duration: d }),
-        error: (m, d) => show(m, { variant: "error", duration: d }),
-        info: (m, d) => show(m, { variant: "info", duration: d }),
-        warning: (m, d) => show(m, { variant: "warning", duration: d }),
-    };
+    // Memoized so consumers that put `toast`/`useToast()` methods in a hook
+    // dependency array (e.g. a useCallback fetcher) don't get a new function
+    // identity — and re-fire that effect — on every toast shown/dismissed.
+    const value = useMemo<ToastContextValue>(
+        () => ({
+            show,
+            success: (m, d) => show(m, { variant: "success", duration: d }),
+            error: (m, d) => show(m, { variant: "error", duration: d }),
+            info: (m, d) => show(m, { variant: "info", duration: d }),
+            warning: (m, d) => show(m, { variant: "warning", duration: d }),
+        }),
+        [show]
+    );
 
     useEffect(() => clearTimer, []);
 

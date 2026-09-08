@@ -110,12 +110,6 @@ export default function MainTabNavigator() {
             setCreateProjectVisible(true);
         } else if (id === "tag") {
             setCreateTagVisible(true);
-        } else if (id === "attendance") {
-            (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Attendance" } });
-        } else if (id === "calendar") {
-            (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Calendar" } });
-        } else if (id === "ai") {
-            (navigation as any).navigate("Main", { screen: "Home", params: { screen: "AI" } });
         } else if (id === "procurement") {
             (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Procurement" } });
         }

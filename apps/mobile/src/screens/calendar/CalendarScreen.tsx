@@ -17,6 +17,7 @@ import { useToast } from "../../context/ToastContext";
 import { StatsSkeleton } from "../../components/ScreenSkeleton";
 import { getCachedSession, getCalendarData } from "../../services/api";
 import { PusherClient } from "../../services/PusherClient";
+import { haptics } from "../../services/haptics";
 import { CalendarLayerData, Meeting } from "../../types";
 
 import CalendarMonthView from "./CalendarMonthView";
@@ -145,21 +146,21 @@ export default function CalendarScreen({ navigation }: any) {
         loadData();
     };
 
-    const handlePrev = () => {
+    const shiftDate = (unit: "day" | "month", amount: number) => {
+        haptics.selection();
         const next = new Date(selectedDate);
-        if (activeView === "month") next.setMonth(next.getMonth() - 1);
-        else if (activeView === "week") next.setDate(next.getDate() - 7);
-        else next.setDate(next.getDate() - 1);
+        if (unit === "month") next.setMonth(next.getMonth() + amount);
+        else next.setDate(next.getDate() + amount);
         setSelectedDate(next);
     };
-    const handleNext = () => {
-        const next = new Date(selectedDate);
-        if (activeView === "month") next.setMonth(next.getMonth() + 1);
-        else if (activeView === "week") next.setDate(next.getDate() + 7);
-        else next.setDate(next.getDate() + 1);
-        setSelectedDate(next);
+    const handlePrevDay = () => shiftDate("day", -1);
+    const handleNextDay = () => shiftDate("day", 1);
+    const handlePrevMonth = () => shiftDate("month", -1);
+    const handleNextMonth = () => shiftDate("month", 1);
+    const handleToday = () => {
+        haptics.selection();
+        setSelectedDate(new Date());
     };
-    const handleToday = () => setSelectedDate(new Date());
 
     const toggleLayer = (layer: keyof typeof activeLayers) => {
         setActiveLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
@@ -188,7 +189,7 @@ export default function CalendarScreen({ navigation }: any) {
         [selectedDate, data, activeLayers, filterType, searchQuery, navigation]
     );
 
-    const headerTitle = selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const headerTitle = selectedDate.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
 
     if (loading) {
         return <StatsSkeleton tiles={2} rows={4} />;
@@ -231,20 +232,33 @@ export default function CalendarScreen({ navigation }: any) {
                     </View>
                 )}
 
-                {/* Date navigation */}
+                {/* Date navigation — double arrows jump by month, single arrows by day */}
                 <View style={styles.navRow}>
-                    <View style={styles.navButtons}>
-                        <TouchableOpacity style={[styles.navBtn, { borderColor: colors.border }]} onPress={handlePrev}>
-                            <Ionicons name="chevron-back" size={16} color={colors.text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.todayBtn, { borderColor: colors.border }]} onPress={handleToday}>
-                            <Text style={[styles.todayText, { color: colors.text }]}>Today</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.navBtn, { borderColor: colors.border }]} onPress={handleNext}>
-                            <Ionicons name="chevron-forward" size={16} color={colors.text} />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.monthLabel, { color: colors.text }]}>{headerTitle}</Text>
+                    <TouchableOpacity style={[styles.navBtn, styles.doubleNavBtn, { borderColor: colors.border }]} onPress={handlePrevMonth} accessibilityLabel="Previous month">
+                        <Ionicons name="chevron-back" size={16} color={colors.text} />
+                        <Ionicons name="chevron-back" size={16} color={colors.text} style={styles.doubleChevronOverlap} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.navBtn, { borderColor: colors.border }]} onPress={handlePrevDay} accessibilityLabel="Previous day">
+                        <Ionicons name="chevron-back" size={16} color={colors.text} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.dateBar, { borderColor: colors.border, backgroundColor: colors.surfaceHighlight }]}
+                        onPress={handleToday}
+                        accessibilityLabel="Jump to today"
+                    >
+                        <Text style={[styles.dateBarText, { color: colors.text }]} numberOfLines={1}>
+                            {headerTitle}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.navBtn, { borderColor: colors.border }]} onPress={handleNextDay} accessibilityLabel="Next day">
+                        <Ionicons name="chevron-forward" size={16} color={colors.text} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.navBtn, styles.doubleNavBtn, { borderColor: colors.border }]} onPress={handleNextMonth} accessibilityLabel="Next month">
+                        <Ionicons name="chevron-forward" size={16} color={colors.text} />
+                        <Ionicons name="chevron-forward" size={16} color={colors.text} style={styles.doubleChevronOverlap} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* View switcher */}
@@ -309,34 +323,34 @@ export default function CalendarScreen({ navigation }: any) {
                 )}
 
                 {/* Layer toggles */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.layersScroll}>
-                    <View style={styles.layersRow}>
-                        {[
-                            { key: "meetings" as const, label: "Meetings", icon: "videocam-outline" as const, tint: colors.primary, count: data.meetings.length },
-                            { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#64748b", count: data.taskDeadlines.length },
-                            { key: "holidays" as const, label: "Holidays", icon: "sparkles-outline" as const, tint: "#f43f5e", count: data.publicHolidays.length },
-                            { key: "leaves" as const, label: "Leaves", icon: "person-remove-outline" as const, tint: "#a855f7", count: data.leaves.length },
-                        ].map((l) => {
-                            const active = activeLayers[l.key];
-                            return (
-                                <TouchableOpacity
-                                    key={l.key}
-                                    onPress={() => toggleLayer(l.key)}
-                                    style={[
-                                        styles.layerChip,
-                                        { borderColor: active ? l.tint + "40" : "transparent", backgroundColor: active ? l.tint + "14" : colors.surfaceHighlight },
-                                    ]}
-                                >
-                                    <Ionicons name={l.icon} size={12} color={active ? l.tint : colors.textDim} />
-                                    <Text style={[styles.layerChipText, { color: active ? l.tint : colors.textDim }]}>{l.label}</Text>
-                                    <View style={[styles.layerCount, { backgroundColor: active ? l.tint + "22" : colors.border }]}>
-                                        <Text style={[styles.layerCountText, { color: active ? l.tint : colors.textDim }]}>{l.count}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                </ScrollView>
+                <View style={styles.layersRow}>
+                    {[
+                        { key: "meetings" as const, label: "Meetings", icon: "videocam-outline" as const, tint: colors.primary, count: data.meetings.length },
+                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#64748b", count: data.taskDeadlines.length },
+                        { key: "holidays" as const, label: "Holidays", icon: "sparkles-outline" as const, tint: "#f43f5e", count: data.publicHolidays.length },
+                        { key: "leaves" as const, label: "Leaves", icon: "person-remove-outline" as const, tint: "#a855f7", count: data.leaves.length },
+                    ].map((l) => {
+                        const active = activeLayers[l.key];
+                        return (
+                            <TouchableOpacity
+                                key={l.key}
+                                onPress={() => toggleLayer(l.key)}
+                                style={[
+                                    styles.layerChip,
+                                    { borderColor: active ? l.tint + "40" : "transparent", backgroundColor: active ? l.tint + "14" : colors.surfaceHighlight },
+                                ]}
+                            >
+                                <Ionicons name={l.icon} size={9} color={active ? l.tint : colors.textDim} />
+                                <Text style={[styles.layerChipText, { color: active ? l.tint : colors.textDim }]} numberOfLines={1}>
+                                    {l.label}
+                                </Text>
+                                <View style={[styles.layerCount, { backgroundColor: active ? l.tint + "22" : colors.border }]}>
+                                    <Text style={[styles.layerCountText, { color: active ? l.tint : colors.textDim }]}>{l.count}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
 
                 {/* Main view */}
                 <View style={{ marginTop: SPACING.md }}>
@@ -390,12 +404,12 @@ const styles = StyleSheet.create({
     errorBannerRetry: { paddingHorizontal: 8, paddingVertical: 4 },
     errorBannerRetryText: { fontSize: 12, fontFamily: FONTS.bold },
 
-    navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: SPACING.md },
-    navButtons: { flexDirection: "row", alignItems: "center", gap: 6 },
-    navBtn: { width: 32, height: 32, borderRadius: BORDER_RADIUS.sm, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-    todayBtn: { height: 32, borderRadius: BORDER_RADIUS.sm, borderWidth: 1, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-    todayText: { fontSize: 12, fontFamily: FONTS.bold },
-    monthLabel: { fontSize: 16, fontFamily: FONTS.bold },
+    navRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: SPACING.md },
+    navBtn: { width: 30, height: 34, borderRadius: BORDER_RADIUS.sm, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+    doubleNavBtn: { flexDirection: "row" },
+    doubleChevronOverlap: { marginLeft: -10 },
+    dateBar: { flex: 1, height: 34, borderRadius: BORDER_RADIUS.sm, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
+    dateBarText: { fontSize: 13, fontFamily: FONTS.bold },
 
     viewSwitcher: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 3, marginBottom: SPACING.md },
     viewSwitchItem: { flex: 1, alignItems: "center", paddingVertical: 7, borderRadius: BORDER_RADIUS.sm },
@@ -411,10 +425,9 @@ const styles = StyleSheet.create({
     typeFilterChip: { borderWidth: 1, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
     typeFilterChipText: { fontSize: 11, fontFamily: FONTS.semibold },
 
-    layersScroll: { marginBottom: SPACING.xs, marginHorizontal: -SPACING.lg, paddingHorizontal: SPACING.lg },
-    layersRow: { flexDirection: "row", gap: 8 },
-    layerChip: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 6 },
-    layerChipText: { fontSize: 11, fontFamily: FONTS.semibold },
-    layerCount: { borderRadius: BORDER_RADIUS.full, paddingHorizontal: 5, minWidth: 16, alignItems: "center" },
-    layerCountText: { fontSize: 9, fontFamily: FONTS.bold },
+    layersRow: { flexDirection: "row", gap: 4, marginBottom: SPACING.xs },
+    layerChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2, borderWidth: 1, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 4, paddingVertical: 5 },
+    layerChipText: { fontSize: 9, fontFamily: FONTS.semibold },
+    layerCount: { borderRadius: BORDER_RADIUS.full, paddingHorizontal: 3, minWidth: 13, alignItems: "center" },
+    layerCountText: { fontSize: 8, fontFamily: FONTS.bold },
 });
