@@ -8,7 +8,11 @@ import {
     Task,
     WorkspaceMember,
     LeaveBalance,
-    LeaveRequest
+    LeaveRequest,
+    CalendarLayerData,
+    Meeting,
+    CreateMeetingPayload,
+    RsvpStatus
 } from "../types";
 
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -1678,6 +1682,74 @@ export async function updateLeaveStatus(workspaceId: string, leaveId: string, st
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || "Failed to update leave status");
+    return result.data;
+}
+
+// ─── Calendar / Meetings ────────────────────────────────────────────────────
+
+/**
+ * Fetch meetings plus the task-deadline/holiday/leave calendar layers for a
+ * workspace (mirrors packages/api-client/src/meetings.ts getMeetings).
+ */
+export async function getCalendarData(
+    workspaceId: string,
+    params?: { startDate?: string; endDate?: string; projectId?: string; type?: string }
+): Promise<CalendarLayerData> {
+    const empty: CalendarLayerData = { meetings: [], taskDeadlines: [], publicHolidays: [], leaves: [] };
+    const query = new URLSearchParams({ workspaceId, includeLayers: "true" });
+    if (params?.startDate) query.set("startDate", params.startDate);
+    if (params?.endDate) query.set("endDate", params.endDate);
+    if (params?.projectId) query.set("projectId", params.projectId);
+    if (params?.type) query.set("type", params.type);
+
+    const res = await apiFetch(`/api/meetings?${query.toString()}`);
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+        console.error("[api] getCalendarData failed:", res.status, data);
+        throw new Error(data?.error || `Failed to load calendar (${res.status})`);
+    }
+    return { ...empty, ...(data?.data ?? {}) };
+}
+
+export async function createMeeting(data: CreateMeetingPayload): Promise<Meeting> {
+    const res = await apiFetch("/api/meetings", {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to create meeting");
+    return result.data;
+}
+
+export async function updateMeeting(
+    id: string,
+    workspaceId: string,
+    data: Partial<CreateMeetingPayload>
+): Promise<Meeting> {
+    const res = await apiFetch(`/api/meetings/${id}?workspaceId=${workspaceId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to update meeting");
+    return result.data;
+}
+
+export async function deleteMeeting(id: string, workspaceId: string): Promise<void> {
+    const res = await apiFetch(`/api/meetings/${id}?workspaceId=${workspaceId}`, {
+        method: "DELETE",
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to delete meeting");
+}
+
+export async function rsvpMeeting(id: string, status: RsvpStatus): Promise<any> {
+    const res = await apiFetch(`/api/meetings/${id}/rsvp`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to update RSVP");
     return result.data;
 }
 

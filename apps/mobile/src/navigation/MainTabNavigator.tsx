@@ -29,6 +29,7 @@ import DirectChatScreen from "../screens/DirectChatScreen";
 import LeaveScreen from "../screens/LeaveScreen";
 import WorkspaceSettingsScreen from "../screens/WorkspaceSettingsScreen";
 import AdminLeaveScreen from "../screens/AdminLeaveScreen";
+import CalendarScreen from "../screens/calendar/CalendarScreen";
 import { MainTabParamList } from "../types";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -64,6 +65,7 @@ const createTabStack = (BaseComponent: any, stackName?: string) => {
                 <Stack.Screen name="Leave" component={LeaveScreen as any} />
                 <Stack.Screen name="WorkspaceSettings" component={WorkspaceSettingsScreen as any} />
                 <Stack.Screen name="AdminLeave" component={AdminLeaveScreen as any} />
+                <Stack.Screen name="Calendar" component={CalendarScreen as any} />
                 <Stack.Screen name="AI" component={AIScreen as any} />
                 <Stack.Screen name="Procurement" component={ProcurementScreen as any} />
                 <Stack.Screen name="CreateIndent" component={CreateIndentScreen as any} />
@@ -110,6 +112,8 @@ export default function MainTabNavigator() {
             setCreateTagVisible(true);
         } else if (id === "attendance") {
             (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Attendance" } });
+        } else if (id === "calendar") {
+            (navigation as any).navigate("Main", { screen: "Home", params: { screen: "Calendar" } });
         } else if (id === "ai") {
             (navigation as any).navigate("Main", { screen: "Home", params: { screen: "AI" } });
         } else if (id === "procurement") {
