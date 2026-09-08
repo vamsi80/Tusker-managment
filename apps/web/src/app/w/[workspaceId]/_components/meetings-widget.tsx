@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@tusker/api-client";
 import { calendarDayKey } from "@tusker/core/lib/date-utils";
 import type { MeetingUI } from "@tusker/api-client/meetings";
+import { useMeetingStore } from "@/lib/store/meeting-store";
+import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 /** Sunday 00:00 → Saturday 23:59:59 of the week containing `now`, in local time. */
 function currentWeek() {
@@ -26,6 +28,18 @@ function currentWeek() {
  */
 export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
   const [meetings, setMeetings] = useState<MeetingUI[] | null>(null);
+  const router = useSafeNavigation();
+  const { setSelectedDate } = useMeetingStore();
+
+  /**
+   * Open the calendar on the meeting's own day. The store is global, so setting
+   * the date before navigating means the page lands on that week/month rather
+   * than on today - clicking a meeting three days out should not show today.
+   */
+  const openInCalendar = (m: MeetingUI) => {
+    setSelectedDate(new Date(m.startTime));
+    router.push(`/w/${workspaceId}/calendar`);
+  };
 
   const load = useCallback(() => {
     const { start, end } = currentWeek();
@@ -54,7 +68,12 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
   const renderMeeting = (m: MeetingUI) => {
     const start = new Date(m.startTime);
     return (
-      <div key={m.id} className="py-3 first:pt-0 last:pb-0">
+      <button
+        key={m.id}
+        type="button"
+        onClick={() => openInCalendar(m)}
+        className="w-full text-left py-3 first:pt-0 last:pb-0 cursor-pointer rounded-lg transition-colors hover:bg-muted/50"
+      >
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-sm font-medium text-foreground truncate">{m.title}</span>
           <span className="text-[11px] text-muted-foreground shrink-0">
@@ -76,7 +95,7 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
             </span>
           )}
         </div>
-      </div>
+      </button>
     );
   };
 

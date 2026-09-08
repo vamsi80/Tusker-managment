@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/command";
 import {
     Popover,
+    PopoverClose,
     PopoverContent,
     PopoverTrigger
 } from "@/components/ui/popover";
@@ -404,6 +405,13 @@ export default function EditProjectPage() {
                                                                     ))}
                                                                 </CommandGroup>
                                                             </Command>
+                                                            <div className="border-t p-2">
+                                                                <PopoverClose asChild>
+                                                                    <Button type="button" size="sm" variant="secondary" className="w-full h-8">
+                                                                        Done
+                                                                    </Button>
+                                                                </PopoverClose>
+                                                            </div>
                                                         </PopoverContent>
                                                     </Popover>
                                                 )}
@@ -474,6 +482,13 @@ export default function EditProjectPage() {
                                                                     })}
                                                             </CommandGroup>
                                                         </Command>
+                                                        <div className="border-t p-2">
+                                                            <PopoverClose asChild>
+                                                                <Button type="button" size="sm" variant="secondary" className="w-full h-8">
+                                                                    Done
+                                                                </Button>
+                                                            </PopoverClose>
+                                                        </div>
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
@@ -534,6 +549,13 @@ export default function EditProjectPage() {
                                                                 })}
                                                             </CommandGroup>
                                                         </Command>
+                                                        <div className="border-t p-2">
+                                                            <PopoverClose asChild>
+                                                                <Button type="button" size="sm" variant="secondary" className="w-full h-8">
+                                                                    Done
+                                                                </Button>
+                                                            </PopoverClose>
+                                                        </div>
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>

@@ -124,7 +124,8 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   const rangeFilter: Record<Range, (t: TaskRow) => boolean> = {
     delayed: isDelayed,
     today: (t) => !!t.dueDate && toDateOnlyString(new Date(t.dueDate)) === todayKey,
-    week: inThisWeek,
+    // Overdue work belongs in Delayed only; this tab is what is still coming.
+    week: (t) => inThisWeek(t) && !isDelayed(t),
   };
 
   const tasks = weekTasks === null ? null : weekTasks.filter(rangeFilter[range]);
