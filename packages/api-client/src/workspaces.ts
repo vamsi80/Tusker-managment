@@ -23,7 +23,7 @@ export type { BroadcastMessage as Broadcast } from "@tusker/core/types/workspace
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
-    getMembers(workspaceId: string, page?: number, limit?: number, search?: string, departmentId?: string): Promise<WorkspaceMembersResult>;
+    getMembers(workspaceId: string, page?: number, limit?: number, search?: string, departmentId?: string, maxOpenTasks?: number): Promise<WorkspaceMembersResult>;
     getMembersSlim(workspaceId: string): Promise<any[]>;
     getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
     getBroadcasts(workspaceId: string, limit?: number): Promise<Broadcast[]>;
@@ -98,13 +98,16 @@ export const workspacesClient: WorkspacesClient = {
     /**
      * Get workspace members (paginated)
      */
-    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string, departmentId?: string): Promise<WorkspaceMembersResult> => {
+    getMembers: async (workspaceId: string, page: number = 1, limit: number = 10, search?: string, departmentId?: string, maxOpenTasks?: number): Promise<WorkspaceMembersResult> => {
         let url = `/workspaces/${workspaceId}/members?page=${page}&limit=${limit}`;
         if (departmentId) {
             url += `&departmentId=${encodeURIComponent(departmentId)}`;
         }
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
+        }
+        if (maxOpenTasks !== undefined) {
+            url += `&maxOpenTasks=${maxOpenTasks}`;
         }
         const response = await apiFetch<{ success: boolean; data: WorkspaceMembersResult }>(url);
         return response.data;

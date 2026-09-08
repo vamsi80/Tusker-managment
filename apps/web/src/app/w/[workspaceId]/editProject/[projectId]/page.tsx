@@ -197,6 +197,13 @@ export default function EditProjectPage() {
         }
     }, [projectData, form]);
 
+    // Each picker owns its search text so it can be cleared the moment something
+    // is picked - otherwise the previous name sits there filtering the list and
+    // has to be deleted by hand before the next pick.
+    const [pmSearch, setPmSearch] = useState("");
+    const [memberSearch, setMemberSearch] = useState("");
+    const [tagSearch, setTagSearch] = useState("");
+
     const watchedName = useWatch({ control: form.control, name: "name" });
     const watchedSlug = useWatch({ control: form.control, name: "slug" });
     const watchedPMId = useWatch({ control: form.control, name: "projectManagerId" });
@@ -381,13 +388,14 @@ export default function EditProjectPage() {
                                                         </PopoverTrigger>
                                                         <PopoverContent className="p-0 w-72" align="start">
                                                             <Command>
-                                                                <CommandInput placeholder="Search managers..." />
+                                                                <CommandInput placeholder="Search managers..." value={pmSearch} onValueChange={setPmSearch} />
                                                                 <CommandEmpty>No managers found.</CommandEmpty>
                                                                 <CommandGroup className="max-h-64 overflow-auto">
                                                                     {members.filter(m => m.workspaceRole === "MANAGER").map((m) => (
                                                                         <CommandItem
                                                                             key={m.id}
                                                                             onSelect={() => {
+                                                                                setPmSearch("");
                                                                                 const nextId = field.value === m.id ? "" : m.id;
                                                                                 field.onChange(nextId);
                                                                                 // Automatically remove this person from memberAccess if they were selected there
@@ -449,7 +457,7 @@ export default function EditProjectPage() {
                                                     </PopoverTrigger>
                                                     <PopoverContent className="p-0 w-72" align="start">
                                                         <Command>
-                                                            <CommandInput placeholder="Search members..." />
+                                                            <CommandInput placeholder="Search members..." value={memberSearch} onValueChange={setMemberSearch} />
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
                                                                 {members
@@ -464,6 +472,7 @@ export default function EditProjectPage() {
                                                                                 disabled={isPM}
                                                                                 onSelect={() => {
                                                                                     if (isPM) return; // Safety check
+                                                                                    setMemberSearch("");
                                                                                     const current = field.value || [];
                                                                                     if (isSelected) {
                                                                                         field.onChange(current.filter(id => id !== m.id));
@@ -525,7 +534,7 @@ export default function EditProjectPage() {
                                                     </PopoverTrigger>
                                                     <PopoverContent className="p-0 w-72" align="start">
                                                         <Command>
-                                                            <CommandInput placeholder="Search workspace tags..." />
+                                                            <CommandInput placeholder="Search workspace tags..." value={tagSearch} onValueChange={setTagSearch} />
                                                             <CommandEmpty>No tags found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
                                                                 {(layoutData?.tags || []).map((t: any) => {
@@ -534,6 +543,7 @@ export default function EditProjectPage() {
                                                                         <CommandItem
                                                                             key={t.id}
                                                                             onSelect={() => {
+                                                                                setTagSearch("");
                                                                                 const current = field.value || [];
                                                                                 if (isSelected) {
                                                                                     field.onChange(current.filter(id => id !== t.id));

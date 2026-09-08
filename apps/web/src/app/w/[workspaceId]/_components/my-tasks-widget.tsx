@@ -128,6 +128,10 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
     week: (t) => inThisWeek(t) && !isDelayed(t),
   };
 
+  // An owner's /tasks call already returns the whole workspace, so only the
+  // label is wrong for them — it was never "my" tasks.
+  const isOwner = layoutData?.permissions?.workspaceRole === "OWNER";
+
   const tasks = weekTasks === null ? null : weekTasks.filter(rangeFilter[range]);
   // Counted across everything fetched, not just the open tab, so the badge does
   // not vanish when you switch to Today.
@@ -141,7 +145,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            My Tasks
+            {isOwner ? "All Tasks" : "My Tasks"}
           </h3>
           <span className="text-xs text-muted-foreground">
             {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due this week"}

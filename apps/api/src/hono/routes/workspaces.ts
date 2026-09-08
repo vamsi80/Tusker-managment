@@ -214,6 +214,8 @@ workspaces.get("/:workspaceId/members", async (c) => {
   const limit = parseInt(c.req.query("limit") || "10");
   const search = c.req.query("search");
   const departmentId = c.req.query("departmentId");
+  const maxOpenTasksRaw = c.req.query("maxOpenTasks");
+  const maxOpenTasks = maxOpenTasksRaw ? parseInt(maxOpenTasksRaw) : undefined;
 
   // Accepts ?role=MANAGER, repeated keys, a JSON array or a comma list.
   const roleValues = c.req.queries("role") ?? [];
@@ -233,6 +235,7 @@ workspaces.get("/:workspaceId/members", async (c) => {
     search,
     roles.length > 0 ? roles : undefined,
     departmentId,
+    Number.isFinite(maxOpenTasks) ? maxOpenTasks : undefined,
   );
 
   return c.json({ success: true, data: members });

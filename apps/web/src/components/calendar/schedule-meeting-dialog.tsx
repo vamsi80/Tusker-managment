@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -46,14 +46,17 @@ const MEETING_TYPES = [
   { value: "GENERAL", label: "All Hands / General", color: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
 ] as const;
 
-const COLOR_OPTIONS = [
-  { value: "indigo", label: "Indigo", bg: "bg-indigo-500" },
-  { value: "emerald", label: "Emerald", bg: "bg-emerald-500" },
-  { value: "amber", label: "Amber", bg: "bg-amber-500" },
-  { value: "rose", label: "Rose", bg: "bg-rose-500" },
-  { value: "sky", label: "Sky", bg: "bg-sky-500" },
-  { value: "violet", label: "Violet", bg: "bg-violet-500" },
-];
+/**
+ * The colour picker is gone; the type decides the colour so the calendar still
+ * has meaningful colours without asking anyone to choose one.
+ */
+const TYPE_COLOR: Record<string, string> = {
+  INTERNAL: "indigo",
+  CLIENT: "emerald",
+  PROJECT_REVIEW: "amber",
+  ONE_ON_ONE: "rose",
+  GENERAL: "sky",
+};
 
 export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) {
   const {
@@ -62,6 +65,8 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
     scheduleDefaultDate,
     scheduleDefaultTime,
     addMeetingOptimistic,
+    editingMeeting,
+    updateMeetingOptimistic,
   } = useMeetingStore();
 
   const { data: layoutData } = useWorkspaceLayout();
@@ -73,7 +78,6 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("11:00");
   const [meetingType, setMeetingType] = useState<any>("INTERNAL");
-  const [color, setColor] = useState("indigo");
   const [projectId, setProjectId] = useState<string>("none");
   const [location, setLocation] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
@@ -84,6 +88,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
   // Members list
   const [workspaceMembers, setWorkspaceMembers] = useState<any[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
+  const memberSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isScheduleOpen || !workspaceId) return;
@@ -93,6 +98,31 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
       .getMembers(workspaceId, 1, 200)
       .then((res) => setWorkspaceMembers(res?.workspaceMembers ?? []))
       .catch(() => setWorkspaceMembers([]));
+
+    if (editingMeeting) {
+      const start = new Date(editingMeeting.startTime);
+      const end = new Date(editingMeeting.endTime);
+      const hhmm = (d: Date) =>
+        `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+      setDate(
+        `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(
+          start.getDate()
+        ).padStart(2, "0")}`
+      );
+      setStartTime(hhmm(start));
+      setEndTime(hhmm(end));
+      setTitle(editingMeeting.title);
+      setDescription(editingMeeting.description || "");
+      setLocation(editingMeeting.location || "");
+      setMeetingUrl(editingMeeting.meetingUrl || "");
+      setMeetingType(editingMeeting.type);
+      setProjectId(editingMeeting.projectId || "none");
+      setReminderMinutes(editingMeeting.reminderMinutes ?? 15);
+      setSelectedAttendeeIds(editingMeeting.attendees.map((a) => a.userId));
+      setMemberSearch("");
+      return;
+    }
 
     // Set initial date & time
     const initialDate = scheduleDefaultDate || new Date();
@@ -122,11 +152,11 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
     setLocation("");
     setMeetingUrl("");
     setMeetingType("INTERNAL");
-    setColor("indigo");
     setProjectId("none");
     setSelectedAttendeeIds([]);
     setReminderMinutes(15);
-  }, [isScheduleOpen, workspaceId, scheduleDefaultDate, scheduleDefaultTime]);
+    setMemberSearch("");
+  }, [isScheduleOpen, workspaceId, scheduleDefaultDate, scheduleDefaultTime, editingMeeting]);
 
   const handleDurationClick = (durationMinutes: number) => {
     if (!startTime) return;
@@ -141,6 +171,9 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
     setSelectedAttendeeIds((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
     );
+    // Clear and refocus so the next name can be typed straight away.
+    setMemberSearch("");
+    memberSearchRef.current?.focus();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,23 +208,27 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
         location: location.trim() || undefined,
         meetingUrl: meetingUrl.trim() || undefined,
         type: meetingType,
-        color,
+        color: TYPE_COLOR[meetingType] || "indigo",
         projectId: projectId === "none" ? undefined : projectId,
         reminderMinutes,
         attendeeUserIds: selectedAttendeeIds,
       };
 
-      const meeting = await apiClient.meetings.createMeeting(payload);
+      const meeting = editingMeeting
+        ? await apiClient.meetings.updateMeeting(editingMeeting.id, workspaceId, payload)
+        : await apiClient.meetings.createMeeting(payload);
 
-      addMeetingOptimistic(meeting);
-      toast.success("Meeting scheduled successfully!", {
+      if (editingMeeting) updateMeetingOptimistic(meeting);
+      else addMeetingOptimistic(meeting);
+
+      toast.success(editingMeeting ? "Meeting updated!" : "Meeting scheduled successfully!", {
         description: `${meeting.title} on ${startDateTime.toLocaleDateString()}`,
       });
 
       closeScheduleModal();
     } catch (error: any) {
       console.error("[SCHEDULE_MEETING_ERROR]", error);
-      toast.error(error.message || "Failed to schedule meeting");
+      toast.error(error.message || "Failed to save meeting");
     } finally {
       setIsSubmitting(false);
     }
@@ -211,7 +248,9 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
               <CalendarIcon className="size-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold">Schedule Meeting</DialogTitle>
+              <DialogTitle className="text-xl font-bold">
+                {editingMeeting ? "Edit Meeting" : "Schedule Meeting"}
+              </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 Set up agenda, invite members, and configure reminders.
               </DialogDescription>
@@ -235,8 +274,8 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
             />
           </div>
 
-          {/* Type & Color */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Type */}
+          <div className="grid grid-cols-1 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Meeting Type</Label>
               <Select value={meetingType} onValueChange={setMeetingType}>
@@ -251,27 +290,6 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Color Tag</Label>
-              <div className="flex items-center gap-2 pt-1">
-                {COLOR_OPTIONS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setColor(c.value)}
-                    className={`size-7 rounded-full ${c.bg} transition-all flex items-center justify-center ${
-                      color === c.value
-                        ? "ring-2 ring-ring ring-offset-2 scale-110"
-                        : "opacity-80 hover:opacity-100"
-                    }`}
-                    title={c.label}
-                  >
-                    {color === c.value && <Check className="size-3.5 text-white" />}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -453,6 +471,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
             {/* Search and Picker Grid */}
             <div className="border rounded-xl p-2 space-y-2 max-h-[140px] overflow-y-auto">
               <Input
+                ref={memberSearchRef}
                 placeholder="Search members to invite..."
                 value={memberSearch}
                 onChange={(e) => setMemberSearch(e.target.value)}
@@ -521,7 +540,13 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
               className="rounded-xl gap-1.5 shadow-sm font-semibold"
             >
               <Sparkles className="size-4" />
-              {isSubmitting ? "Scheduling..." : "Schedule Meeting"}
+              {isSubmitting
+                ? editingMeeting
+                  ? "Saving..."
+                  : "Scheduling..."
+                : editingMeeting
+                ? "Save Changes"
+                : "Schedule Meeting"}
             </Button>
           </DialogFooter>
         </form>

@@ -4,7 +4,7 @@ import type { TaskByIdType } from "@tusker/core/server/services/task/tasks.servi
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Tag, User, FileCheck } from "lucide-react";
+import { Calendar, Tag, User, UserPlus, FileCheck } from "lucide-react";
 import { cn, formatIST, toTitleCase } from "@/lib/utils";
 import { memo, useState } from "react";
 
@@ -61,6 +61,9 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
 
     // Assignee calculation
     const assignee = (subTask.assignee as any)?.workspaceMember?.user || subTask.assignee;
+    // Who handed this out. createdBy is already selected and mapped to the same
+    // shape as assignee, so there is nothing new to fetch.
+    const assignedBy = (subTask.createdBy as any)?.workspaceMember?.user || subTask.createdBy;
 
     return (
         <div className="px-4 sm:px-6 pt-6 pb-4 border-b flex-shrink-0">
@@ -148,6 +151,24 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                             });
                                         }}
                                     />
+                                )}
+                            </div>
+
+                            {/* Assigned By */}
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <UserPlus className="size-3.5" />
+                                    <span className="text-[10px] font-bold uppercase tracking-tight">Assigned By</span>
+                                </div>
+                                {assignedBy?.surname ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <Avatar className="size-5 border border-background shadow-sm">
+                                            <AvatarFallback className="text-[8px]">{assignedBy.surname[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-xs font-semibold">{assignedBy.surname}</span>
+                                    </div>
+                                ) : (
+                                    <span className="text-[10px] text-muted-foreground italic">Unknown</span>
                                 )}
                             </div>
 

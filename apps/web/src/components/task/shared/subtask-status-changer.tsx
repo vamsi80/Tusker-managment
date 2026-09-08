@@ -59,10 +59,20 @@ export function SubtaskStatusChanger({
     const [isPending, startTransition] = useTransition();
     const [isActivityOpen, setIsActivityOpen] = useState(false);
     const [pendingStatus, setPendingStatus] = useState<TaskStatus | null>(null);
+    /**
+     * Shown immediately on click instead of waiting for the round-trip, and
+     * rolled back if the server refuses. Keyed by task id because list rows are
+     * reused - without the key a recycled row would wear another task's status.
+     */
+    const [optimistic, setOptimistic] = useState<{ id: string; status: TaskStatus } | null>(null);
 
     if (!subTask.status) {
         return <span className="text-muted-foreground text-xs text-center block">-</span>;
     }
+
+    const displayStatus = (
+        optimistic?.id === subTask.id ? optimistic.status : subTask.status
+    ) as TaskStatus;
 
     const currentUserId = permissions?.userId || userId;
     const currentProjectMemberId = permissions?.projectMember?.id;
@@ -107,7 +117,7 @@ export function SubtaskStatusChanger({
             if (targetStatus === "CANCELLED") {
                 return { allowed: false, reason: "As the assignee, you cannot cancel this task." };
             }
-            if (subTask.status === "REVIEW") {
+            if (displayStatus === "REVIEW") {
                 return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
             }
         }
@@ -123,14 +133,14 @@ export function SubtaskStatusChanger({
 
         // Specific Restriction: Tasks in REVIEW status
         // - Only PM / Coordinator (not assigned as worker) or creating Lead (not assigned as worker) can move task out of REVIEW.
-        if (subTask.status === "REVIEW") {
+        if (displayStatus === "REVIEW") {
             if (!isActingAsManager && !leadCanComplete) {
                 return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the creating Lead can move this task out of Review status." };
             }
         }
 
         // Constraint: COMPLETED status can only be reached from REVIEW
-        if (targetStatus === "COMPLETED" && subTask.status !== "REVIEW") {
+        if (targetStatus === "COMPLETED" && displayStatus !== "REVIEW") {
             return { allowed: false, reason: "Before marking a task as Completed, you must first move it to Review status." };
         }
 
@@ -138,7 +148,7 @@ export function SubtaskStatusChanger({
     };
 
     const isCommentRequired = (targetStatus: TaskStatus) => {
-        const currentStatus = subTask.status;
+        const currentStatus = displayStatus;
         const isMandatory =
             ["HOLD", "CANCELLED", "REVIEW"].includes(targetStatus) ||
             (currentStatus && ["HOLD", "CANCELLED", "COMPLETED"].includes(currentStatus)) ||
@@ -153,6 +163,9 @@ export function SubtaskStatusChanger({
             toast.error("Missing workspace or project context");
             return;
         }
+
+        const previous = displayStatus;
+        setOptimistic({ id: subTask.id, status: targetStatus });
 
         startTransition(async () => {
             try {
@@ -170,6 +183,7 @@ export function SubtaskStatusChanger({
 
                 const json = await res.json();
                 if (!res.ok) {
+                    setOptimistic({ id: subTask.id, status: previous });
                     toast.error(json.message || "Failed to update subtask status");
                     return;
                 }
@@ -180,13 +194,14 @@ export function SubtaskStatusChanger({
                 }
             } catch (err) {
                 console.error(err);
+                setOptimistic({ id: subTask.id, status: previous });
                 toast.error("An error occurred while updating status");
             }
         });
     };
 
     const handleSelectStatus = (targetStatus: TaskStatus) => {
-        if (targetStatus === subTask.status) return;
+        if (targetStatus === displayStatus) return;
 
         const check = isTransitionAllowed(targetStatus);
         if (!check.allowed) {
@@ -209,7 +224,7 @@ export function SubtaskStatusChanger({
         setPendingStatus(null);
     };
 
-    const currentColors = getStatusColors(subTask.status);
+    const currentColors = getStatusColors(displayStatus);
 
     // If the user has absolutely no edit rights, render a static badge
     if (!canEditThisSubTask) {
@@ -223,7 +238,7 @@ export function SubtaskStatusChanger({
                     currentColors.borderColor
                 )}
             >
-                {getStatusLabel(subTask.status)}
+                {getStatusLabel(displayStatus)}
             </Badge>
         );
     }
@@ -245,7 +260,7 @@ export function SubtaskStatusChanger({
                         {isPending ? (
                             <Loader2 className="size-3 animate-spin" />
                         ) : (
-                            getStatusLabel(subTask.status)
+                            getStatusLabel(displayStatus)
                         )}
                     </button>
                 </DropdownMenuTrigger>
@@ -253,7 +268,7 @@ export function SubtaskStatusChanger({
                     {STATUSES.map((status) => {
                         const colors = getStatusColors(status);
                         const { allowed } = isTransitionAllowed(status);
-                        const isCurrent = status === subTask.status;
+                        const isCurrent = status === displayStatus;
 
                         return (
                             <DropdownMenuItem
