@@ -34,6 +34,8 @@ import { useNotifications } from "../context/NotificationContext";
 import { MainTabParamList, RootStackParamList, Workspace, Task } from "../types";
 import WidgetPreviewModal from "../components/WidgetPreviewModal";
 import HeaderMenu from "../components/HeaderMenu";
+import CalendarDateIcon from "../components/CalendarDateIcon";
+import AIBotAvatar from "../components/AIBotAvatar";
 import PressableScale from "../components/PressableScale";
 import { haptics } from "../services/haptics";
 import { useResponsive } from "../hooks/useResponsive";
@@ -101,7 +103,13 @@ export default function HomeScreen({ navigation }: Props) {
     const shimmerAnim = React.useRef(new Animated.Value(0.3)).current;
 
     // Draggable AI Floating Button
-    const pan = useRef(new Animated.ValueXY()).current;
+    const AI_BTN_SIZE = 44;
+    const { width: aiScreenW, height: aiScreenH } = Dimensions.get("window");
+
+    const pan = useRef(new Animated.ValueXY({
+        x: aiScreenW - AI_BTN_SIZE - 20,
+        y: aiScreenH - AI_BTN_SIZE - 80,
+    })).current;
     const [isDraggable, setIsDraggable] = useState(false);
     const longPressTimeout = useRef<any>(null);
 
@@ -154,6 +162,7 @@ export default function HomeScreen({ navigation }: Props) {
                     clearTimeout(longPressTimeout.current);
                     longPressTimeout.current = null;
                 }
+                pan.flattenOffset();
                 setIsDraggable(false);
             }
         })
@@ -396,25 +405,21 @@ export default function HomeScreen({ navigation }: Props) {
                                 )}
                             </View>
                         </View>
-                        <View style={{ flex: 1 }} />
-
-                        <View style={{ flexDirection: "row", gap: SPACING.sm, alignItems: "center", zIndex: 10 }}>
+                        <View style={{ position: "absolute", top: 0, right: 0, flexDirection: "column", gap: SPACING.xs, alignItems: "center", zIndex: 10 }}>
                             <TouchableOpacity
-                                style={[styles.bellBtn, { backgroundColor: "transparent" }]}
-                                onPress={() => {
-                                    haptics.light();
-                                    toggleTheme();
-                                }}
-                                accessibilityLabel={isDark ? "Switch to light theme" : "Switch to dark theme"}
+                                style={[styles.bellBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}
+                                onPress={openMenu}
+                                accessibilityLabel="More"
                                 accessibilityRole="button"
                             >
-                                <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
+                                <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.bellBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}
+                                style={[styles.bellBtn, { backgroundColor: "transparent" }]}
                                 onPress={() => (navigation as any)?.navigate("Notifications")}
                                 accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+                                accessibilityRole="button"
                             >
                                 <Ionicons name="notifications-outline" size={20} color={colors.text} />
                                 {unreadCount > 0 && (
@@ -422,6 +427,18 @@ export default function HomeScreen({ navigation }: Props) {
                                         <Text style={styles.blackBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
                                     </View>
                                 )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.bellBtn, { backgroundColor: "transparent" }]}
+                                onPress={() => {
+                                    haptics.light();
+                                    (navigation as any)?.navigate("Calendar");
+                                }}
+                                accessibilityLabel="Calendar"
+                                accessibilityRole="button"
+                            >
+                                <CalendarDateIcon size={26} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -754,6 +771,12 @@ export default function HomeScreen({ navigation }: Props) {
                         onPress: () => { toggleTheme(); setIsMenuOpen(false); },
                     },
                     {
+                        icon: "time-outline",
+                        label: "Attendance",
+                        color: "#10b981",
+                        onPress: () => { setIsMenuOpen(false); (navigation as any)?.navigate("Attendance"); },
+                    },
+                    {
                         icon: "sparkles-outline",
                         label: "Trava AI",
                         color: colors.primary,
@@ -792,20 +815,10 @@ export default function HomeScreen({ navigation }: Props) {
                             { translateY: pan.y },
                             { scale: isDraggable ? 1.15 : 1 }
                         ],
-                        backgroundColor: "transparent",
                     }
                 ]}
             >
-                <MaterialCommunityIcons 
-                    name="robot" 
-                    size={28} 
-                    color={colors.primary} 
-                    style={{
-                        textShadowColor: colors.primary,
-                        textShadowOffset: { width: 0, height: 1 },
-                        textShadowRadius: 6
-                    }}
-                />
+                <AIBotAvatar size={32} />
             </Animated.View>
         </SafeAreaView>
     );
@@ -1047,11 +1060,10 @@ const styles = StyleSheet.create({
 
     floatingAI: {
         position: "absolute",
-        right: 20,
-        bottom: 80,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        top: 0,
+        left: 0,
+        width: 44,
+        height: 44,
         justifyContent: "center",
         alignItems: "center",
         zIndex: 9999,
