@@ -15,6 +15,8 @@ import {
 import { apiClient } from "@tusker/api-client";
 import { toast } from "@/lib/toast";
 import { pubsub, EVENTS } from "@/lib/pubsub";
+import { cn } from "@/lib/utils";
+import { listDepartments } from "@/actions/department/department-actions";
 import type { Broadcast } from "@tusker/api-client/workspaces";
 import {
   AlertDialog,
@@ -57,6 +59,19 @@ export function BroadcastWidget({
   const [isSending, setIsSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Broadcast | null>(null);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  /** Empty means the whole workspace, which is what an unaddressed broadcast has always meant. */
+  const [deptIds, setDeptIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!canBroadcast) return;
+    listDepartments(workspaceId)
+      .then((res) => setDepartments(res.data ?? []))
+      .catch(() => setDepartments([]));
+  }, [workspaceId, canBroadcast]);
+
+  const toggleDept = (id: string) =>
+    setDeptIds((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
 
   // Anything this component fetched itself wins; otherwise show what the layout
   // already delivered, and only go to the network when it delivered nothing.
@@ -86,6 +101,7 @@ export function BroadcastWidget({
     setTitle("");
     setMessage("");
     setVisibleFor("168");
+    setDeptIds([]);
   };
 
   /** Editing reuses the composer; the pill's own id is per-member, so address the broadcast. */
@@ -107,6 +123,7 @@ export function BroadcastWidget({
         title: title.trim() || undefined,
         message: message.trim(),
         expiresInHours: visibleFor === "0" ? null : Number(visibleFor),
+        departmentIds: deptIds,
       };
 
       if (editingId) {
@@ -114,7 +131,11 @@ export function BroadcastWidget({
         toast.success("Broadcast updated");
       } else {
         await apiClient.workspaces.postBroadcast(workspaceId, values);
-        toast.success("Broadcast sent to the workspace");
+        toast.success(
+          deptIds.length
+            ? `Broadcast sent to ${deptIds.length} department${deptIds.length > 1 ? "s" : ""}`
+            : "Broadcast sent to the workspace"
+        );
       }
 
       resetComposer();
@@ -164,8 +185,43 @@ export function BroadcastWidget({
             maxLength={120}
             className="h-9 rounded-xl text-sm"
           />
+          {!editingId && departments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setDeptIds([])}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors",
+                  deptIds.length === 0
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Everyone
+              </button>
+              {departments.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => toggleDept(d.id)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors",
+                    deptIds.includes(d.id)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {d.name}
+                </button>
+              ))}
+            </div>
+          )}
           <Textarea
-            placeholder="Write a message for everyone in this workspace…"
+            placeholder={
+              deptIds.length
+                ? "Write a message for the selected departments…"
+                : "Write a message for everyone in this workspace…"
+            }
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={2000}
@@ -191,7 +247,13 @@ export function BroadcastWidget({
               className="rounded-xl gap-1.5 font-semibold flex-1"
             >
               <Send className="size-3.5" />
-              {isSending ? "Saving…" : editingId ? "Save changes" : "Send to everyone"}
+              {isSending
+                ? "Saving…"
+                : editingId
+                ? "Save changes"
+                : deptIds.length
+                ? `Send to ${deptIds.length} department${deptIds.length > 1 ? "s" : ""}`
+                : "Send to everyone"}
             </Button>
             {editingId && (
               <Button
@@ -261,6 +323,8 @@ export function BroadcastWidget({
                 </p>
                 <span className="text-[11px] text-muted-foreground/70">
                   {b.metadata?.senderName ? `— ${b.metadata.senderName}` : ""}
+                  {!!b.metadata?.departmentNames?.length &&
+                    ` · to ${b.metadata.departmentNames.join(", ")}`}
                   {b.metadata?.expiresAt &&
                     ` · until ${new Date(b.metadata.expiresAt).toLocaleDateString("en-US", {
                       month: "short",

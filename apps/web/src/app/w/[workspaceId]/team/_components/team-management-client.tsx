@@ -12,6 +12,7 @@ import { WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import { useRealtimeMemberSync } from "@/lib/store/workspace-member-store";
 
 import { listDepartments } from "@/actions/department/department-actions";
+import { cn } from "@/lib/utils";
 interface TeamManagementClientProps {
     workspaceId: string;
 }
@@ -31,6 +32,8 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
     const [departmentIds, setDepartmentIds] = useState<string[]>([]);
+    /** Capacity filter: show only members carrying fewer than this many open tasks. */
+    const [maxOpenTasks, setMaxOpenTasks] = useState<number | null>(null);
 
     useEffect(() => {
         listDepartments(workspaceId).then((res) => setDepartments(res.data));
@@ -59,7 +62,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             if (!silent) {
                 if (members.length === 0) setIsLoadingMembers(true);
             }
-            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch, departmentIds.join(","));
+            const membersRes: WorkspaceMembersResult = await workspacesClient.getMembers(workspaceId, targetPage, targetLimit, targetSearch, departmentIds.join(","), maxOpenTasks ?? undefined);
             setMembers(membersRes.workspaceMembers || []);
             setTotalCount(membersRes.totalCount || 0);
         } catch (error) {
@@ -68,7 +71,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             setIsLoadingMembers(false);
             setIsQuerying(false);
         }
-    }, [workspaceId, debouncedSearch, departmentIds, members.length, setIsQuerying]);
+    }, [workspaceId, debouncedSearch, departmentIds, maxOpenTasks, members.length, setIsQuerying]);
 
     useEffect(() => {
         const handler = (e: any) => {
@@ -132,7 +135,31 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     }
 
     return (
-        <TeamMembers
+        <div className="space-y-3">
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Workload:</span>
+                {[5, 10].map((max) => (
+                    <button
+                        key={max}
+                        type="button"
+                        // Clicking the active one clears it, so no separate "All" button.
+                        onClick={() => {
+                            setMaxOpenTasks((cur) => (cur === max ? null : max));
+                            setPage(1);
+                        }}
+                        className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                            maxOpenTasks === max
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "text-muted-foreground hover:bg-muted"
+                        )}
+                    >
+                        {"<"}{max} tasks
+                    </button>
+                ))}
+            </div>
+
+            <TeamMembers
             data={members}
             isAdmin={layoutData?.permissions?.isWorkspaceAdmin || false}
             workspaceId={workspaceId}
@@ -159,6 +186,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
                     setPage(1); // Reset to first page when the filter changes
                 },
             }}
-        />
+            />
+        </div>
     );
 }

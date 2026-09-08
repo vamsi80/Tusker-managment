@@ -44,7 +44,7 @@ export function BirthdaysWidget({ workspaceId }: { workspaceId: string }) {
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">Loading…</p>
         ) : members.length === 0 ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
-            No birthdays this month
+            No birthdays left this month
           </p>
         ) : (
           <div className="space-y-4">

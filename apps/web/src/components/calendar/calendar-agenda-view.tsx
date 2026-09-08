@@ -22,6 +22,10 @@ export function CalendarAgendaView() {
 
     const filtered = meetings.filter((m) => {
       if (m.status === "CANCELLED") return false;
+      // The store fetches the whole history for the month and week views to page
+      // back through; the agenda is a forward-looking list. Compared by day, so a
+      // meeting earlier today still shows under "Today".
+      if (calendarDayKey(m.startTime) < todayStr) return false;
       if (filterType !== "ALL" && m.type !== filterType) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();

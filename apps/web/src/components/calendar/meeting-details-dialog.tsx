@@ -25,6 +25,7 @@ import {
   Copy,
   Check,
   Trash2,
+  Pencil,
   ExternalLink,
   Briefcase,
 } from "lucide-react";
@@ -37,6 +38,7 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
     removeMeetingOptimistic,
     updateRsvpOptimistic,
     updateMeetingOptimistic,
+    openEditModal,
   } = useMeetingStore();
 
   const { data: session } = authClient.useSession();
@@ -295,6 +297,15 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
         <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t">
           {isOrganizer ? (
             <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openEditModal(selectedMeeting)}
+                className="rounded-xl gap-1.5 text-xs"
+              >
+                <Pencil className="size-3.5" />
+                Edit
+              </Button>
               <Button
                 variant="destructive"
                 size="sm"

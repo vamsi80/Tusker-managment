@@ -40,6 +40,7 @@ model User {
   commentReads        CommentRead[]
   dailyReports        DailyReport[]
   direct_message      direct_message[]
+  messageDeletions    DirectMessageDeletion[]
   notification        notification[]
   sessions            Session[]
   organizedMeetings   Meeting[]           @relation("MeetingOrganizer")
@@ -591,20 +592,42 @@ model conversation {
 }
 
 model direct_message {
-  id             String       @id @default(uuid())
-  content        String
-  createdAt      DateTime     @default(now())
-  senderId       String
-  conversationId String
-  isDeleted      Boolean      @default(false)
-  isRead         Boolean      @default(false)
-  updatedAt      DateTime     @default(now()) @updatedAt
-  conversation   conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  id                   String                  @id @default(uuid())
+  content              String
+  createdAt            DateTime                @default(now())
+  senderId             String
+  conversationId       String
+  isDeleted            Boolean                 @default(false)
+  deletedAt            DateTime?
+  isRead               Boolean                 @default(false)
+  deliveredAt          DateTime?
+  readAt               DateTime?
+  editedAt             DateTime?
+  isForwarded          Boolean                 @default(false)
+  forwardedFromId      String?
+  updatedAt            DateTime                @default(now()) @updatedAt
+  conversation         conversation            @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user                 User                    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  forwardedFrom        direct_message?         @relation("MessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  forwards             direct_message[]        @relation("MessageForwards")
+  deletedFor           DirectMessageDeletion[]
 
   @@index([conversationId])
+  @@index([conversationId, updatedAt])
   @@index([senderId])
   @@index([createdAt])
+  @@index([forwardedFromId])
+}
+
+model DirectMessageDeletion {
+  messageId String
+  userId    String
+  deletedAt DateTime       @default(now())
+  message   direct_message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
 }
 
 model notification {

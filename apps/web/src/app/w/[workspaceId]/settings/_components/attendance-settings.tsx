@@ -4,13 +4,13 @@ import { useState } from "react";
 import { CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Clock, Save, Loader2, Moon, Sun, AlertCircle, Timer, ChevronRight, Send, Plus, Trash2, CalendarIcon, MapPin } from "lucide-react";
+import { Clock, Save, Loader2, ChevronRight, Send, Plus, Trash2, CalendarIcon, MapPin } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import type { AttendanceSettingsData, PublicHoliday } from "@/data/attendance/get-attendance-settings";
-import { TimePicker12 } from "@/components/shared/time-picker-12";
+import { ShiftTimings, type Schedule } from "./department/shift-timings";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -18,9 +18,11 @@ interface AttendanceSettingsProps {
     workspaceId: string;
     initialData: AttendanceSettingsData;
     isAdmin: boolean;
+    /** Per-shift timings, which replaced the single workspace-wide set of rows. */
+    schedules: Schedule[];
 }
 
-export function AttendanceSettings({ workspaceId, initialData, isAdmin }: AttendanceSettingsProps) {
+export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedules }: AttendanceSettingsProps) {
     const [shiftStartTime, setShiftStartTime] = useState(initialData.shiftStartTime || "21:30");
     const [lateThreshold, setLateThreshold] = useState(initialData.lateThreshold || "21:30");
     const [halfDayThreshold, setHalfDayThreshold] = useState(initialData.halfDayThreshold || "23:00");
@@ -171,56 +173,14 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
         }
     };
 
+    // Shift times are per-schedule now (see ShiftTimings below); what is left here
+    // is workspace-wide and has no per-shift equivalent.
     const rows = [
-        {
-            id: "shiftStartTime",
-            label: "Shift Begins",
-            description: "Official start of the working window.",
-            value: shiftStartTime,
-            onChange: setShiftStartTime,
-            icon: <Moon className="size-4 text-indigo-500" />,
-            hint: "EARLY / ON-TIME",
-            hintClass: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
-        },
-        {
-            id: "lateThreshold",
-            label: "Late Cutoff",
-            description: "Mark as LATE after this time.",
-            value: lateThreshold,
-            onChange: setLateThreshold,
-            icon: <AlertCircle className="size-4 text-amber-500" />,
-            hint: "LATE",
-            hintClass: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-        },
-        {
-            id: "halfDayThreshold",
-            label: "Half Day Cutoff",
-            description: "Mark as HALF DAY after this time.",
-            value: halfDayThreshold,
-            onChange: setHalfDayThreshold,
-            icon: <Timer className="size-4 text-orange-500" />,
-            hint: "HALF DAY",
-            hintClass: "bg-orange-500/10 text-orange-600 border-orange-500/20",
-        },
-        {
-            id: "overtimeThreshold",
-            label: "Shift Ends / OT",
-            description: "Overtime begins after this threshold.",
-            value: overtimeThreshold,
-            onChange: (val: string) => {
-                setOvertimeThreshold(val);
-                setShiftEndTime(val);
-            },
-            icon: <Sun className="size-4 text-purple-500" />,
-            hint: "OT",
-            hintClass: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-        },
         {
             id: "sickLeaveLimit",
             label: "Yearly Sick Leave Quota",
             description: "Fixed number of sick leaves granted per year.",
             value: sickLeaveLimit,
-            isInput: true,
             onChange: setSickLeaveLimit,
             icon: <Plus className="size-4 text-rose-500" />,
             hint: "SICK",
@@ -231,7 +191,6 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
             label: "Casual Leave Accrual",
             description: "Days of presence required to earn 1 casual leave.",
             value: casualLeaveAccrualDays,
-            isInput: true,
             onChange: setCasualLeaveAccrualDays,
             icon: <Plus className="size-4 text-emerald-500" />,
             hint: "CASUAL",
@@ -241,16 +200,22 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
 
     return (
         <div className="space-y-6">
+            <ShiftTimings
+                workspaceId={workspaceId}
+                schedules={schedules}
+                isWorkspaceAdmin={isAdmin}
+            />
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Left Side: Attendance Rules */}
                 <div className="lg:col-span-8 space-y-6">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
                             <Clock className="size-4" />
-                            Attendance Rules
+                            Leave Rules
                         </CardTitle>
                         <CardDescription className="text-base">
-                            Define the thresholds for check-ins and overtime tracking.
+                            Yearly quotas and accrual, applied across every shift.
                         </CardDescription>
                     </div>
 
@@ -273,26 +238,18 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin }: Attend
                                         <div className={cn("px-2 py-1 rounded-md border text-[10px] font-black uppercase tracking-tighter shrink-0", r.hintClass)}>
                                             {r.hint}
                                         </div>
-                                        {(r as any).isInput ? (
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type="number"
-                                                    value={r.value}
-                                                    onChange={(e) => (r as any).onChange(parseInt(e.target.value) || 0)}
-                                                    className="w-20 h-9 bg-background/50 border-muted-foreground/20 text-center font-bold"
-                                                    disabled={!isAdmin || isLoading}
-                                                />
-                                                <span className="text-xs text-muted-foreground font-medium">
-                                                    {r.id === "sickLeaveLimit" ? "Days" : "Days Presence"}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <TimePicker12
-                                                value={r.value as string}
-                                                onChange={r.onChange as any}
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="number"
+                                                value={r.value}
+                                                onChange={(e) => r.onChange(parseInt(e.target.value) || 0)}
+                                                className="w-20 h-9 bg-background/50 border-muted-foreground/20 text-center font-bold"
                                                 disabled={!isAdmin || isLoading}
                                             />
-                                        )}
+                                            <span className="text-xs text-muted-foreground font-medium">
+                                                {r.id === "sickLeaveLimit" ? "Days" : "Days Presence"}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             ))}

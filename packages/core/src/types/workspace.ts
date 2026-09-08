@@ -58,6 +58,8 @@ export type WorkspaceMemberRow = {
   status?: string;
   casualLeaveBalance?: number;
   sickLeaveBalance?: number;
+  /** Tasks assigned to them that are still TO_DO / IN_PROGRESS / REVIEW. */
+  openTaskCount?: number;
 };
 
 
@@ -91,7 +93,13 @@ export type BroadcastMessage = {
   body: string;
   createdAt: string | Date;
   isRead?: boolean;
-  metadata?: { senderName?: string; expiresAt?: string | null } | null;
+  metadata?: {
+    senderName?: string;
+    expiresAt?: string | null;
+    /** Departments it was addressed to; empty or absent means the whole workspace. */
+    departmentIds?: string[];
+    departmentNames?: string[];
+  } | null;
 };
 
 export interface WorkspaceLayoutData {

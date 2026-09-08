@@ -1,6 +1,46 @@
 import prisma from "@tusker/db";
+import { AppError } from "../../../lib/errors/app-error";
+
+const EDIT_WINDOW_MS = 10 * 60 * 1000;
+
+const messageSelect = {
+  id: true,
+  content: true,
+  senderId: true,
+  conversationId: true,
+  createdAt: true,
+  updatedAt: true,
+  isDeleted: true,
+  deletedAt: true,
+  isRead: true,
+  deliveredAt: true,
+  readAt: true,
+  editedAt: true,
+  isForwarded: true,
+  forwardedFromId: true,
+  user: {
+    select: {
+      id: true,
+      surname: true,
+    },
+  },
+} as const;
 
 export class ConversationService {
+  private static async requireParticipant(conversationId: string, userId: string, workspaceId?: string) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        ...(workspaceId ? { workspaceId } : {}),
+        UserConversations: { some: { A: userId } },
+      },
+      select: { id: true, workspaceId: true, createdAt: true },
+    });
+
+    if (!conversation) throw AppError.Forbidden("You do not have access to this conversation");
+    return conversation;
+  }
+
   /**
    * Get all conversations for a user in a workspace
    * Optimized with lean selects
@@ -33,13 +73,21 @@ export class ConversationService {
         direct_message: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          where: { isDeleted: false },
+          where: {
+            isDeleted: false,
+            deletedFor: { none: { userId } },
+          },
           select: {
             id: true,
             content: true,
-            createdAt: true,
-            isRead: true,
-            senderId: true
+             createdAt: true,
+             updatedAt: true,
+             isRead: true,
+             deliveredAt: true,
+             readAt: true,
+             editedAt: true,
+             isForwarded: true,
+             senderId: true
           }
         }
       },
@@ -134,31 +182,31 @@ export class ConversationService {
    * without this, scroll-up pagination in a chat had no way to know it
    * should keep going and silently stopped after the first page.
    */
-  static async getConversationMessages(conversationId: string, limit: number = 50, cursor?: string, since?: string) {
+  static async getConversationMessages(conversationId: string, userId: string, limit: number = 50, cursor?: string, since?: string) {
+    await this.requireParticipant(conversationId, userId);
+
+    await prisma.direct_message.updateMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        deliveredAt: null,
+        isDeleted: false,
+      },
+      data: { deliveredAt: new Date() },
+    });
+
     const rows = await prisma.direct_message.findMany({
       where: {
         conversationId,
-        isDeleted: false,
-        ...(since ? { createdAt: { gt: new Date(since) } } : {})
+        deletedFor: { none: { userId } },
+        ...(since ? { updatedAt: { gt: new Date(since) } } : {})
       },
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: {
         createdAt: 'desc'
       },
-      select: {
-        id: true,
-        content: true,
-        senderId: true,
-        createdAt: true,
-        isRead: true,
-        user: {
-          select: {
-            id: true,
-            surname: true,
-          }
-        }
-      }
+      select: messageSelect,
     });
 
     const hasMore = rows.length > limit;
@@ -176,6 +224,7 @@ export class ConversationService {
    */
   static async sendMessage(conversationId: string, senderId: string, content: string, workspaceId: string) {
     const { recordActivity } = await import("../../../lib/audit");
+    await this.requireParticipant(conversationId, senderId, workspaceId);
 
     return prisma.$transaction(async (tx) => {
       // 1. Create message
@@ -185,19 +234,7 @@ export class ConversationService {
           senderId,
           content
         },
-        select: {
-          id: true,
-          content: true,
-          senderId: true,
-          createdAt: true,
-          isRead: true,
-          user: {
-            select: {
-              id: true,
-              surname: true,
-            }
-          }
-        }
+        select: messageSelect,
       });
 
       // 2. Update conversation
@@ -248,16 +285,152 @@ export class ConversationService {
    * Mark messages as read
    */
   static async markAsRead(conversationId: string, userId: string) {
+    await this.requireParticipant(conversationId, userId);
+    const now = new Date();
+    await prisma.direct_message.updateMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        deliveredAt: null,
+        isDeleted: false,
+      },
+      data: { deliveredAt: now },
+    });
     return prisma.direct_message.updateMany({
       where: {
         conversationId,
         senderId: { not: userId },
-        isRead: false
+        isRead: false,
+        isDeleted: false,
       },
       data: {
-        isRead: true
+        isRead: true,
+        readAt: now,
       }
     });
+  }
+
+  static async editMessage(conversationId: string, messageId: string, userId: string, content: string) {
+    await this.requireParticipant(conversationId, userId);
+    const message = await prisma.direct_message.findFirst({
+      where: { id: messageId, conversationId },
+      select: { id: true, senderId: true, createdAt: true, isDeleted: true },
+    });
+
+    if (!message) throw AppError.NotFound("Message not found");
+    if (message.senderId !== userId) throw AppError.Forbidden("You can only edit your own messages");
+    if (message.isDeleted) throw AppError.ValidationError("Deleted messages cannot be edited");
+    if (Date.now() - message.createdAt.getTime() > EDIT_WINDOW_MS) {
+      throw AppError.ValidationError("Messages can only be edited within 10 minutes");
+    }
+
+    return prisma.direct_message.update({
+      where: { id: messageId },
+      data: { content: content.trim(), editedAt: new Date() },
+      select: messageSelect,
+    });
+  }
+
+  static async deleteMessages(
+    conversationId: string,
+    messageIds: string[],
+    userId: string,
+    scope: "me" | "everyone",
+  ) {
+    const conversation = await this.requireParticipant(conversationId, userId);
+    const uniqueIds = [...new Set(messageIds)];
+    const messages = await prisma.direct_message.findMany({
+      where: { id: { in: uniqueIds }, conversationId },
+      select: { id: true, senderId: true },
+    });
+
+    if (messages.length !== uniqueIds.length) throw AppError.NotFound("One or more messages were not found");
+
+    if (scope === "me") {
+      await prisma.directMessageDeletion.createMany({
+        data: uniqueIds.map((messageId) => ({ messageId, userId })),
+        skipDuplicates: true,
+      });
+      return { messageIds: uniqueIds, scope };
+    }
+
+    if (messages.some((message) => message.senderId !== userId)) {
+      throw AppError.Forbidden("Delete for everyone is only available for messages you sent");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.direct_message.updateMany({
+        where: { id: { in: uniqueIds }, conversationId },
+        data: { content: "", isDeleted: true, deletedAt: new Date() },
+      });
+
+      const latestVisible = await tx.direct_message.findFirst({
+        where: { conversationId, isDeleted: false },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      });
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: { lastMessageAt: latestVisible?.createdAt ?? conversation.createdAt },
+      });
+    });
+
+    return { messageIds: uniqueIds, scope };
+  }
+
+  static async forwardMessages(
+    sourceConversationId: string,
+    messageIds: string[],
+    targetConversationIds: string[],
+    userId: string,
+  ) {
+    const source = await this.requireParticipant(sourceConversationId, userId);
+    const uniqueMessageIds = [...new Set(messageIds)];
+    const uniqueTargetIds = [...new Set(targetConversationIds)].filter((id) => id !== sourceConversationId);
+    if (uniqueTargetIds.length === 0) throw AppError.ValidationError("Choose at least one other chat");
+
+    const targets = await prisma.conversation.findMany({
+      where: {
+        id: { in: uniqueTargetIds },
+        workspaceId: source.workspaceId,
+        UserConversations: { some: { A: userId } },
+      },
+      select: { id: true },
+    });
+    if (targets.length !== uniqueTargetIds.length) throw AppError.Forbidden("One or more target chats are unavailable");
+
+    const messages = await prisma.direct_message.findMany({
+      where: {
+        id: { in: uniqueMessageIds },
+        conversationId: sourceConversationId,
+        isDeleted: false,
+        deletedFor: { none: { userId } },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, content: true },
+    });
+    if (messages.length !== uniqueMessageIds.length) throw AppError.NotFound("One or more messages cannot be forwarded");
+
+    const forwardedAt = new Date();
+    await prisma.$transaction(async (tx) => {
+      for (const target of targets) {
+        await tx.direct_message.createMany({
+          data: messages.map((message) => ({
+            conversationId: target.id,
+            senderId: userId,
+            content: message.content,
+            isForwarded: true,
+            forwardedFromId: message.id,
+          })),
+        });
+        await tx.conversation.update({
+          where: { id: target.id },
+          data: { lastMessageAt: forwardedAt },
+        });
+      }
+    });
+
+    return { count: messages.length * targets.length, targetConversationIds: targets.map((target) => target.id) };
   }
 
   /**

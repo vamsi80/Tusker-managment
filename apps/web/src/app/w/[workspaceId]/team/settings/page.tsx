@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { AppLoader } from "@/components/shared/app-loader";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getAttendanceSettings } from "@/data/attendance/get-attendance-settings";
+import { getWorkspaceShiftSchedules } from "@/data/department/get-departments";
 import { AttendanceSettings } from "../../settings/_components/attendance-settings";
 import { ShieldAlert, Clock, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,9 +14,10 @@ interface TeamSettingsPageProps {
 }
 
 async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
-    const [permissions, attendanceSettings] = await Promise.all([
+    const [permissions, attendanceSettings, schedules] = await Promise.all([
         getWorkspacePermissions(workspaceId),
         getAttendanceSettings(workspaceId),
+        getWorkspaceShiftSchedules(workspaceId),
     ]);
 
     // Strict blockage for Managers and regular Members
@@ -55,6 +57,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                         workspaceId={workspaceId}
                         initialData={attendanceSettings}
                         isAdmin={permissions.isWorkspaceAdmin}
+                        schedules={schedules}
                     />
                 </TabsContent>
 

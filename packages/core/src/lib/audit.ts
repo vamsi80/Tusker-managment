@@ -2,6 +2,7 @@ import prisma from "@tusker/db";
 import { pusherServer } from "./pusher";
 import { randomUUID } from "crypto";
 import { Expo, ExpoPushMessage } from "expo-server-sdk";
+import { LEAVE_TITLES, leaveNotificationBody, type LeaveAction } from "./notification-copy";
 
 const expo = new Expo();
 
@@ -42,6 +43,13 @@ interface RecordActivityOptions {
   userAgent?: string;
   broadcastEvent?: string;
   targetUserIds?: string[]; // New: list of specific users to notify
+  /**
+   * The person an event is *about*, when that differs from the actor. Leave
+   * notifications go to the requester, their manager and every admin, so the
+   * copy has to name the subject or "Leave approved" says nothing useful.
+   */
+  subjectUserId?: string;
+  subjectName?: string;
 }
 
 // ─── In-Memory Audit Buffer ───────────────────────────────
@@ -227,6 +235,9 @@ export async function recordActivity(options: RecordActivityOptions) {
           actionLabel = `updated the ${entityType === "SUBTASK" ? "subtask" : "task"} ${namePart}`;
         }
       }
+      const isLeaveAction = action.startsWith("LEAVE_");
+      const leaveSubjectName = options.subjectName || userName;
+
       if (action === "COMMENT_CREATED") actionLabel = "added a comment";
       if ((action as any) === "DM_MESSAGE") actionLabel = "sent you a message";
       if (action === "REQUESTED_PASSWORD_RESET") {
@@ -234,7 +245,17 @@ export async function recordActivity(options: RecordActivityOptions) {
         actionLabel = `requested a password reset for ${targetName}`;
       }
 
-      const message = `${userName} ${actionLabel}`;
+      // Leave copy is written whole rather than as `${userName} ${actionLabel}`,
+      // because the subject is not always the actor.
+      const message = isLeaveAction
+        ? leaveNotificationBody({
+            action: action as LeaveAction,
+            actorName: userName,
+            subjectName: leaveSubjectName,
+            leave: newData || oldData || {},
+            viewerIsSubject: false,
+          })
+        : `${userName} ${actionLabel}`;
       const eventPayload = {
         userId,
         userName,
@@ -265,12 +286,25 @@ export async function recordActivity(options: RecordActivityOptions) {
 
         // 3c. Persistent Notifications (DB storage for later retrieval)
         if (finalTargetUserIds.length > 0) {
+          const bodyFor = (tid: string) =>
+            isLeaveAction
+              ? leaveNotificationBody({
+                  action: action as LeaveAction,
+                  actorName: userName,
+                  subjectName: leaveSubjectName,
+                  leave: newData || oldData || {},
+                  viewerIsSubject: tid === (options.subjectUserId ?? userId),
+                })
+              : message;
+
           const notifications = finalTargetUserIds.map(tid => ({
             id: randomUUID(),
             userId: tid,
             workspaceId,
-            title: action.replace(/_/g, " "),
-            body: message,
+            // Other actions keep the raw enum title: mobile still matches on
+            // `title === "CHECKED IN"` in NotificationContext.tsx.
+            title: isLeaveAction ? LEAVE_TITLES[action as LeaveAction] : action.replace(/_/g, " "),
+            body: bodyFor(tid),
             type: action,
             entityId,
             entityType,
@@ -305,8 +339,16 @@ export async function recordActivity(options: RecordActivityOptions) {
                 .map(r => ({
                   to: r.pushToken!,
                   sound: "default",
-                  title: action.replace(/_/g, " "),
-                  body: message,
+                  title: isLeaveAction ? LEAVE_TITLES[action as LeaveAction] : action.replace(/_/g, " "),
+                  body: isLeaveAction
+                    ? leaveNotificationBody({
+                        action: action as LeaveAction,
+                        actorName: userName,
+                        subjectName: leaveSubjectName,
+                        leave: newData || oldData || {},
+                        viewerIsSubject: r.id === (options.subjectUserId ?? userId),
+                      })
+                    : message,
                   data: { action, entityType, entityId, workspaceId, newData, metadata, ...dmExtra },
                 }));
 

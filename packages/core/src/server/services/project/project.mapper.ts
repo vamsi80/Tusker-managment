@@ -91,6 +91,7 @@ export class ProjectMapper {
       slug: project.slug,
       color: project.color,
       workspaceId: project.workspaceId,
+      category: (project.category as ProjectCategory) ?? null,
       userId,
       canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER" || projectMember?.projectRole === "PROJECT_COORDINATOR"),
       userRole

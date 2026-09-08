@@ -83,6 +83,7 @@ export class ProjectRepository {
         name: true,
         slug: true,
         color: true,
+        category: true,
         workspaceId: true,
         workspace: {
           select: {

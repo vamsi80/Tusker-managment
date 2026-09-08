@@ -37,7 +37,7 @@ export function GlobalSubTaskSheet() {
                         subTask={subTask}
                         isOpen={isOpen}
                         onClose={closeSubTaskSheet}
-                        onSubTaskAssigned={patchSubTask}
+                        onSubTaskAssigned={(_subTaskId, updatedData) => patchSubTask(updatedData)}
                     />
                 )}
             </SheetContent>

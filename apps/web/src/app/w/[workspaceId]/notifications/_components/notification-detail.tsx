@@ -50,6 +50,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
 
   const projectId = task?.projectId;
   const tags = useProjectTags(workspaceId, projectId);
+  const currentProjectMember = projectMembers.find((member) => member.userId === workspacePerms?.userId);
 
   const permissions = {
     userId: workspacePerms?.userId,
@@ -59,6 +60,11 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     isProjectManager: isUserWorkspaceAdmin || !!workspacePerms?.managedProjectIds?.includes(projectId || ""),
     isProjectCoordinator: !!workspacePerms?.coordinatorProjectIds?.includes(projectId || ""),
     isProjectLead: !!workspacePerms?.leadProjectIds?.includes(projectId || ""),
+    isMember: !isUserWorkspaceAdmin && currentProjectMember?.projectRole === "MEMBER",
+    projectMember: currentProjectMember ? {
+      id: currentProjectMember.projectMemberId,
+      projectRole: currentProjectMember.projectRole,
+    } : null,
   };
 
   const currentUserId = permissions.userId;
@@ -73,14 +79,25 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     if (indentId) router.replace(`/w/${workspaceId}/procurement/indents/${indentId}`);
   }, [indentId, router, workspaceId]);
 
+  // A leave, broadcast or attendance notification carries no task at all, so
+  // asking the task API for one with the notification's own id only ever 404s
+  // ("Task not found") — the same trap the Indent branch above works around.
+  // When the notification is not in the loaded list there is nothing to judge
+  // by, so keep the old behaviour of trying the id as a slug.
+  const taskRef = matchedNotif ? matchedNotif.taskId : notificationId;
+
   // 1. Fetch Task by slug or ID
   useEffect(() => {
-    if (indentId) return;
+    if (indentId || !taskRef) {
+      // isTaskLoading starts true and gates the whole view behind a spinner.
+      setIsTaskLoading(false);
+      return;
+    }
     let active = true;
     const fetchTask = async () => {
-      if (!workspaceId || !notificationId) return;
+      if (!workspaceId) return;
       setIsTaskLoading(true);
-      const targetId = matchedNotif?.taskId || notificationId;
+      const targetId = taskRef;
       try {
         const res = await apiClient.tasks.getTaskBySlug(workspaceId, targetId);
         if (active) {
@@ -102,7 +119,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     return () => {
       active = false;
     };
-  }, [workspaceId, notificationId, matchedNotif?.taskId, indentId]);
+  }, [workspaceId, taskRef, indentId]);
 
   // 2. Fetch Project Members once we have task details
   useEffect(() => {
@@ -289,7 +306,11 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
         tags={tags}
         isAdmin={isAdmin}
         isProjectManager={isProjectManager}
+        permissions={permissions as any}
         onSubTaskUpdated={handleSubTaskUpdated}
+        onSubTaskStatusUpdated={(updatedData) => {
+          setTask((previous: any) => previous ? { ...previous, ...updatedData } : previous);
+        }}
         onSubTaskAssigned={(memberObj) => {
           const updatedData = {
             assigneeId: memberObj.id

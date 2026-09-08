@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/command";
 import {
     Popover,
+    PopoverClose,
     PopoverContent,
     PopoverTrigger
 } from "@/components/ui/popover";
@@ -73,6 +74,7 @@ export default function EditProjectPage() {
     const [existingClients, setExistingClients] = useState<any[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isLoadingClients, setIsLoadingClients] = useState(true);
+    const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
 
     // --- Access Control ---
     const isWorkspaceAdmin = permissions?.workspaceRole === "ADMIN" || permissions?.workspaceRole === "OWNER";
@@ -194,6 +196,13 @@ export default function EditProjectPage() {
             } as any);
         }
     }, [projectData, form]);
+
+    // Each picker owns its search text so it can be cleared the moment something
+    // is picked - otherwise the previous name sits there filtering the list and
+    // has to be deleted by hand before the next pick.
+    const [pmSearch, setPmSearch] = useState("");
+    const [memberSearch, setMemberSearch] = useState("");
+    const [tagSearch, setTagSearch] = useState("");
 
     const watchedName = useWatch({ control: form.control, name: "name" });
     const watchedSlug = useWatch({ control: form.control, name: "slug" });
@@ -379,13 +388,14 @@ export default function EditProjectPage() {
                                                         </PopoverTrigger>
                                                         <PopoverContent className="p-0 w-72" align="start">
                                                             <Command>
-                                                                <CommandInput placeholder="Search managers..." />
+                                                                <CommandInput placeholder="Search managers..." value={pmSearch} onValueChange={setPmSearch} />
                                                                 <CommandEmpty>No managers found.</CommandEmpty>
                                                                 <CommandGroup className="max-h-64 overflow-auto">
                                                                     {members.filter(m => m.workspaceRole === "MANAGER").map((m) => (
                                                                         <CommandItem
                                                                             key={m.id}
                                                                             onSelect={() => {
+                                                                                setPmSearch("");
                                                                                 const nextId = field.value === m.id ? "" : m.id;
                                                                                 field.onChange(nextId);
                                                                                 // Automatically remove this person from memberAccess if they were selected there
@@ -403,6 +413,13 @@ export default function EditProjectPage() {
                                                                     ))}
                                                                 </CommandGroup>
                                                             </Command>
+                                                            <div className="border-t p-2">
+                                                                <PopoverClose asChild>
+                                                                    <Button type="button" size="sm" variant="secondary" className="w-full h-8">
+                                                                        Done
+                                                                    </Button>
+                                                                </PopoverClose>
+                                                            </div>
                                                         </PopoverContent>
                                                     </Popover>
                                                 )}
@@ -440,7 +457,7 @@ export default function EditProjectPage() {
                                                     </PopoverTrigger>
                                                     <PopoverContent className="p-0 w-72" align="start">
                                                         <Command>
-                                                            <CommandInput placeholder="Search members..." />
+                                                            <CommandInput placeholder="Search members..." value={memberSearch} onValueChange={setMemberSearch} />
                                                             <CommandEmpty>No members found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
                                                                 {members
@@ -455,6 +472,7 @@ export default function EditProjectPage() {
                                                                                 disabled={isPM}
                                                                                 onSelect={() => {
                                                                                     if (isPM) return; // Safety check
+                                                                                    setMemberSearch("");
                                                                                     const current = field.value || [];
                                                                                     if (isSelected) {
                                                                                         field.onChange(current.filter(id => id !== m.id));
@@ -473,6 +491,13 @@ export default function EditProjectPage() {
                                                                     })}
                                                             </CommandGroup>
                                                         </Command>
+                                                        <div className="border-t p-2">
+                                                            <PopoverClose asChild>
+                                                                <Button type="button" size="sm" variant="secondary" className="w-full h-8">
+                                                                    Done
+                                                                </Button>
+                                                            </PopoverClose>
+                                                        </div>
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
@@ -509,7 +534,7 @@ export default function EditProjectPage() {
                                                     </PopoverTrigger>
                                                     <PopoverContent className="p-0 w-72" align="start">
                                                         <Command>
-                                                            <CommandInput placeholder="Search workspace tags..." />
+                                                            <CommandInput placeholder="Search workspace tags..." value={tagSearch} onValueChange={setTagSearch} />
                                                             <CommandEmpty>No tags found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
                                                                 {(layoutData?.tags || []).map((t: any) => {
@@ -518,6 +543,7 @@ export default function EditProjectPage() {
                                                                         <CommandItem
                                                                             key={t.id}
                                                                             onSelect={() => {
+                                                                                setTagSearch("");
                                                                                 const current = field.value || [];
                                                                                 if (isSelected) {
                                                                                     field.onChange(current.filter(id => id !== t.id));
@@ -533,6 +559,13 @@ export default function EditProjectPage() {
                                                                 })}
                                                             </CommandGroup>
                                                         </Command>
+                                                        <div className="border-t p-2">
+                                                            <PopoverClose asChild>
+                                                                <Button type="button" size="sm" variant="secondary" className="w-full h-8">
+                                                                    Done
+                                                                </Button>
+                                                            </PopoverClose>
+                                                        </div>
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
@@ -594,9 +627,9 @@ export default function EditProjectPage() {
                             </div>
 
                             {existingClients.length > 0 && !form.watch("isInternal") && (
-                                <Popover>
+                                <Popover open={isClientPickerOpen} onOpenChange={setIsClientPickerOpen}>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-8 gap-2">
+                                        <Button type="button" variant="outline" size="sm" className="h-8 gap-2">
                                             <Users className="size-3.5" />
                                             Use Existing Client
                                         </Button>
@@ -621,6 +654,7 @@ export default function EditProjectPage() {
                                                                 form.setValue("contactPerson", member.name || "", { shouldDirty: true });
                                                                 form.setValue("phoneNumber", member.phoneNumber || "", { shouldDirty: true });
                                                             }
+                                                            setIsClientPickerOpen(false);
                                                             toast.success(`Loaded details for ${client.name}`);
                                                         }}
                                                     >

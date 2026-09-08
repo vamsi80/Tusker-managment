@@ -47,6 +47,10 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
     const { triggerConfetti } = useConfetti();
     const [mounted, setMounted] = useState(false);
     const [open, setOpen] = useState(false);
+    // Cleared on every pick so the box is ready for the next name instead of
+    // still filtering by the previous one.
+    const [managerSearch, setManagerSearch] = useState("");
+    const [tagSearch, setTagSearch] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -398,7 +402,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                                         <PopoverContent className="p-0 w-64" align="start">
                                                             <Command>
-                                                                <CommandInput placeholder="Search managers..." />
+                                                                <CommandInput placeholder="Search managers..." value={managerSearch} onValueChange={setManagerSearch} />
                                                                 <CommandEmpty>No workspace managers found.</CommandEmpty>
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">
@@ -410,6 +414,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                             <CommandItem
                                                                                 key={member.id}
                                                                                 onSelect={() => {
+                                                                                    setManagerSearch("");
                                                                                     field.onChange(isSelected ? "" : member.id);
                                                                                 }}
                                                                             >
@@ -467,7 +472,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                                                     <PopoverContent className="p-0 w-64" align="start">
                                                         <Command>
-                                                            <CommandInput placeholder="Search tags..." />
+                                                            <CommandInput placeholder="Search tags..." value={tagSearch} onValueChange={setTagSearch} />
                                                             <CommandEmpty>No tags found.</CommandEmpty>
 
                                                                 <CommandGroup className="max-h-64 overflow-y-auto">
@@ -478,6 +483,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                                                             <CommandItem
                                                                                 key={t.id}
                                                                                 onSelect={() => {
+                                                                                    setTagSearch("");
                                                                                     const current = field.value || [];
                                                                                     if (isSelected) {
                                                                                         field.onChange(current.filter(id => id !== t.id));

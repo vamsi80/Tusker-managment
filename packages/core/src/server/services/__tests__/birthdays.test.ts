@@ -26,19 +26,32 @@ describe("WorkspaceService.getBirthdaysThisMonth", () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it("keeps only this month's birthdays, sorted by day", async () => {
+  it("keeps only the rest of this month's birthdays, sorted by day", async () => {
     (prisma.workspaceMember.findMany as any).mockResolvedValue([
       member("Ravi", "1990-09-22"),
       member("Priya", "1988-10-01"),
       member("Amit", "1995-09-01"),
+      member("Neha", "1992-09-28"),
     ]);
 
     const result = await WorkspaceService.getBirthdaysThisMonth("w1");
 
+    // Amit's was the 1st and has gone by; Priya's is next month.
     expect(result.map((m) => [m.surname, m.day])).toEqual([
-      ["Amit", 1],
       ["Ravi", 22],
+      ["Neha", 28],
     ]);
+  });
+
+  it("still shows a birthday falling today", async () => {
+    (prisma.workspaceMember.findMany as any).mockResolvedValue([
+      member("Ravi", "1990-09-15"),
+      member("Amit", "1995-09-14"),
+    ]);
+
+    const result = await WorkspaceService.getBirthdaysThisMonth("w1");
+
+    expect(result.map((m) => [m.surname, m.isToday])).toEqual([["Ravi", true]]);
   });
 
   it("uses the IST calendar day, not the server's UTC day, at a month boundary", async () => {
@@ -57,14 +70,14 @@ describe("WorkspaceService.getBirthdaysThisMonth", () => {
   it("flags only the viewer's own birthday, which is what triggers the animation", async () => {
     (prisma.workspaceMember.findMany as any).mockResolvedValue([
       member("Ravi", "1990-09-22", "user-ravi"),
-      member("Amit", "1995-09-01", "user-amit"),
+      member("Amit", "1995-09-28", "user-amit"),
     ]);
 
     const result = await WorkspaceService.getBirthdaysThisMonth("w1", "user-ravi");
 
     expect(result.map((m) => [m.surname, m.isSelf])).toEqual([
-      ["Amit", false],
       ["Ravi", true],
+      ["Amit", false],
     ]);
   });
 });

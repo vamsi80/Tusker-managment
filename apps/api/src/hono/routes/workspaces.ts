@@ -214,6 +214,8 @@ workspaces.get("/:workspaceId/members", async (c) => {
   const limit = parseInt(c.req.query("limit") || "10");
   const search = c.req.query("search");
   const departmentId = c.req.query("departmentId");
+  const maxOpenTasksRaw = c.req.query("maxOpenTasks");
+  const maxOpenTasks = maxOpenTasksRaw ? parseInt(maxOpenTasksRaw) : undefined;
 
   // Accepts ?role=MANAGER, repeated keys, a JSON array or a comma list.
   const roleValues = c.req.queries("role") ?? [];
@@ -233,6 +235,7 @@ workspaces.get("/:workspaceId/members", async (c) => {
     search,
     roles.length > 0 ? roles : undefined,
     departmentId,
+    Number.isFinite(maxOpenTasks) ? maxOpenTasks : undefined,
   );
 
   return c.json({ success: true, data: members });
@@ -510,7 +513,8 @@ workspaces.get("/:workspaceId/broadcasts", async (c) => {
 
 /**
  * POST /api/v1/workspaces/:workspaceId/broadcasts
- * Post a broadcast message to every member. Owners and admins only.
+ * Post a broadcast message. Owners and admins only. Addressed to the whole
+ * workspace, or to one or more departments via departmentIds.
  */
 workspaces.post("/:workspaceId/broadcasts", async (c) => {
   const user = c.get("user");
@@ -536,12 +540,20 @@ workspaces.post("/:workspaceId/broadcasts", async (c) => {
   }
   const expiresAt = hours === null ? null : new Date(Date.now() + hours * 60 * 60 * 1000);
 
+  // Accepts an array or a comma list, matching how ?departmentId= is read on
+  // the members route. Empty means the whole workspace.
+  const raw = body?.departmentIds;
+  const departmentIds = (Array.isArray(raw) ? raw : String(raw ?? "").split(","))
+    .map((id: unknown) => String(id).trim())
+    .filter(Boolean);
+
   const broadcast = await WorkspaceService.createBroadcast(
     workspaceId,
     { id: user.id, name: perms.userSurname || user.name || "Admin" },
     title,
     message,
-    expiresAt
+    expiresAt,
+    departmentIds
   );
 
   return c.json({ success: true, data: broadcast }, 201);

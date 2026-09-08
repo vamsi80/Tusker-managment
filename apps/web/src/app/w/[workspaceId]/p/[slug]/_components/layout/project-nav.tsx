@@ -9,6 +9,8 @@ import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-
 import { can } from "@tusker/core/lib/constants/capabilities";
 import { CreateTaskForm } from "../forms/create-task-form";
 import { BulkUploadForm } from "../forms/bulk-upload-form";
+import { PROJECT_CATEGORY_LABELS } from "@tusker/core/lib/zodSchemas";
+import type { ProjectCategory } from "@tusker/core/types/project";
 
 interface ProjectNavProps {
     workspaceId: string;
@@ -16,6 +18,7 @@ interface ProjectNavProps {
     projectId: string;
     projectName: string;
     projectColor: string | null;
+    projectCategory?: ProjectCategory | null;
     userRole?: string;
     canPerformBulkOperations: boolean;
 }
@@ -26,6 +29,7 @@ export function ProjectNav({
     projectId,
     projectName,
     projectColor,
+    projectCategory,
     userRole,
     canPerformBulkOperations 
 }: ProjectNavProps) {
@@ -95,6 +99,11 @@ export function ProjectNav({
                         style={{ backgroundColor: projectColor || '#888' }}
                     />
                     <span className="text-sm font-bold truncate max-w-[150px]">{projectName}</span>
+                    {projectCategory && (
+                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/50 shrink-0">
+                            {PROJECT_CATEGORY_LABELS[projectCategory]}
+                        </span>
+                    )}
                     {userRole && (
                         <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20 shrink-0">
                             {userRole}

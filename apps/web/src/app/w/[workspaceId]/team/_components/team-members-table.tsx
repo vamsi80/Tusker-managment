@@ -28,7 +28,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatIST } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation";
 import { apiClient, type ApiResponse } from "@tusker/api-client";
 import { type WorkspaceMemberRow } from "@tusker/core/types/workspace";
 import { format } from "date-fns";
+import { formatDateOnly } from "@tusker/core/lib/date-utils";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,9 +54,44 @@ import { Input } from "@/components/ui/input";
 
 
 import { listDepartments } from "@/actions/department/department-actions";
+import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
 
 // Radix Select cannot hold an empty string, so "no department" needs a sentinel.
 const NO_DEPARTMENT = "__none__";
+
+/** The slice of a task row the member dialog renders. */
+type MemberTask = {
+    id: string;
+    name: string;
+    status?: string | null;
+    dueDate?: string | null;
+    projectId?: string | null;
+};
+
+/**
+ * The only statuses ever fetched for a member. Completed and cancelled work is
+ * not a workload, and HOLD is not something the team page asks about.
+ */
+const OPEN_STATUSES = "TO_DO,IN_PROGRESS,REVIEW";
+
+const TASK_STATUS_TABS = [
+    { value: "ALL", label: "All" },
+    { value: "TO_DO", label: "To Do" },
+    { value: "IN_PROGRESS", label: "In Progress" },
+    { value: "REVIEW", label: "In Review" },
+] as const;
+
+/** One page of the member's task list. Small on purpose - it grows on scroll. */
+const TASK_PAGE_SIZE = 10;
+
+const TASK_STATUS_COLORS: Record<string, string> = {
+    TO_DO: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    IN_PROGRESS: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    REVIEW: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    HOLD: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
+    COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    CANCELLED: "bg-muted text-muted-foreground",
+};
 interface TeamMembersProps {
     data: WorkspaceMemberRow[];
     isAdmin: boolean;
@@ -126,10 +162,89 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
         },
     });
 
+    // Open tasks assigned to the member being viewed. null = first page loading.
+    const [memberTasks, setMemberTasks] = useState<MemberTask[] | null>(null);
+    const [taskStatus, setTaskStatus] = useState<string>("ALL");
+    const [taskCursor, setTaskCursor] = useState<any>(null);
+    const [hasMoreTasks, setHasMoreTasks] = useState(false);
+    const [isLoadingMoreTasks, setIsLoadingMoreTasks] = useState(false);
+    const { data: layoutData } = useWorkspaceLayout();
+
     const handleViewMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToView(member);
         setViewDialogOpen(true);
     }, []);
+
+    /**
+     * One page of the member's tasks. The list route accepts a userId in `a`
+     * (buildAssigneeFilter matches either the project-member id or the user id)
+     * and, because a filter is present, drops the root-only constraint - so this
+     * returns their parent tasks and subtasks alike, not just the roots.
+     */
+    const loadMemberTasks = React.useCallback(
+        async (cursor: any) => {
+            const userId = memberToView?.userId;
+            if (!userId) return;
+
+            const params = new URLSearchParams({
+                w: workspaceId,
+                vm: "list",
+                a: userId,
+                l: String(TASK_PAGE_SIZE),
+                s: taskStatus === "ALL" ? OPEN_STATUSES : taskStatus,
+            });
+            if (cursor) params.set("c", JSON.stringify(cursor));
+
+            try {
+                const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+                const json = await res.json();
+                const raw: MemberTask[] = json?.success ? json.data?.tasks ?? [] : [];
+
+                // The status filter is an OR with "has a subtask in that status",
+                // so a completed parent can ride in on an open child. Filter the
+                // page to what was actually asked for.
+                const allowed = taskStatus === "ALL" ? OPEN_STATUSES.split(",") : [taskStatus];
+                const page = raw.filter((t) => !!t.status && allowed.includes(t.status));
+
+                // A cursor means this is a scroll-triggered page, so append.
+                setMemberTasks((prev) => (cursor && prev ? [...prev, ...page] : page));
+                setHasMoreTasks(!!json?.data?.hasMore);
+                setTaskCursor(json?.data?.nextCursor ?? null);
+            } catch {
+                setMemberTasks((prev) => prev ?? []);
+                setHasMoreTasks(false);
+            }
+        },
+        [memberToView?.userId, workspaceId, taskStatus],
+    );
+
+    // First page: on open, and again whenever the member or status tab changes.
+    React.useEffect(() => {
+        if (!viewDialogOpen || !memberToView?.userId) return;
+        setMemberTasks(null);
+        setTaskCursor(null);
+        setHasMoreTasks(false);
+        loadMemberTasks(null);
+    }, [viewDialogOpen, memberToView?.userId, taskStatus, loadMemberTasks]);
+
+    /** Pull the next page once the scroller is within a row of the bottom. */
+    const handleTaskScroll = React.useCallback(
+        async (e: React.UIEvent<HTMLDivElement>) => {
+            if (!hasMoreTasks || isLoadingMoreTasks) return;
+            const el = e.currentTarget;
+            if (el.scrollTop + el.clientHeight < el.scrollHeight - 60) return;
+
+            setIsLoadingMoreTasks(true);
+            await loadMemberTasks(taskCursor);
+            setIsLoadingMoreTasks(false);
+        },
+        [hasMoreTasks, isLoadingMoreTasks, taskCursor, loadMemberTasks],
+    );
+
+    // The tab resets with the dialog so the next member opens on "All".
+    React.useEffect(() => {
+        if (!viewDialogOpen) setTaskStatus("ALL");
+    }, [viewDialogOpen]);
 
     const handleEditMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToEdit(member);
@@ -277,77 +392,200 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
 
             {/* View Member Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Member Details</DialogTitle>
-                    </DialogHeader>
-                    {memberToView && (
-                        <div className="space-y-4 py-4">
-                            <div className="flex items-center gap-4">
-                                <Avatar className="size-16">
-                                    <AvatarFallback className="text-xl">
-                                        {memberToView.name?.charAt(0) || "?"}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <h3 className="text-lg font-medium">
-                                        {memberToView.name}
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {memberToView.email}
-                                    </p>
-                                </div>
+                <DialogContent className="sm:max-w-3xl max-h-[88vh] overflow-y-auto rounded-3xl border-none shadow-2xl p-0">
+                    {memberToView && (() => {
+                        const member = memberToView;
+                        const projectNames = new Map<string, string>(
+                            (layoutData?.projects ?? []).map((p: any) => [p.id, p.name])
+                        );
+
+                        // Grouped over what has loaded so far, so a page that
+                        // scrolls in lands under its own project rather than at
+                        // the bottom of the list.
+                        const groups = new Map<string, MemberTask[]>();
+                        (memberTasks ?? []).forEach((t) => {
+                            const key = t.projectId || "none";
+                            if (!groups.has(key)) groups.set(key, []);
+                            groups.get(key)!.push(t);
+                        });
+                        const taskGroups = [...groups.entries()];
+                        const initials = (member.name?.[0] || member.surname?.[0])?.toUpperCase() || "?";
+                        const isVerified = member.status === "Verified";
+                        const role = member.workspaceRole.toLowerCase().replace(/_/g, " ");
+
+                        /** One labelled cell of the detail grid. */
+                        const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+                            <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
+                                <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">{label}</p>
+                                <p className="font-medium">{value || "-"}</p>
                             </div>
-                            <div className="grid gap-3">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Surname:</span>
-                                    <span className="font-medium">
-                                        {memberToView.surname || "N/A"}
+                        );
+
+                        return (
+                            <div className="p-8 space-y-6">
+                                <DialogHeader className="flex flex-row items-start justify-between gap-4 w-full pr-4">
+                                    <div className="flex items-center gap-4">
+                                        <Avatar className="size-16 border-2 border-primary/20">
+                                            <AvatarFallback className="text-xl font-medium">{initials}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="text-left">
+                                            <DialogTitle className="text-2xl font-medium">
+                                                {member.name} {member.surname}
+                                            </DialogTitle>
+                                            <p className="text-sm text-muted-foreground font-medium">{member.email}</p>
+                                            {member.designation && (
+                                                <p className="text-xs text-muted-foreground/80">{member.designation}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <span className={cn(
+                                        "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                                        isVerified ? "bg-green-500/10 text-green-500" : "bg-amber-500/10 text-amber-500"
+                                    )}>
+                                        {member.status}
                                     </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Role:</span>
-                                    <span className="font-medium capitalize">
-                                        {memberToView.workspaceRole.toLowerCase().replace("_", " ")}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Employee ID:</span>
-                                    <span className="font-medium font-mono text-xs">
-                                        {memberToView.employeeId || "N/A"}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">DOB:</span>
-                                    <span className="font-medium">
-                                        {memberToView.dateOfBirth ? format(new Date(memberToView.dateOfBirth), "dd MMM yyyy") : "N/A"}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Phone:</span>
-                                    <span className="font-medium">
-                                        {memberToView.phoneNumber || "N/A"}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Status:</span>
-                                    {(() => {
-                                        const isVerified = memberToView.status === "Verified";
-                                        return (
-                                            <span className={cn(
-                                                "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium border-transparent",
-                                                isVerified
-                                                    ? "bg-green-500/10 text-green-500"
-                                                    : "bg-amber-500/10 text-amber-500"
-                                            )}>
-                                                {memberToView.status}
+                                </DialogHeader>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                    <Field
+                                        label="Role"
+                                        value={
+                                            <span className="flex items-center gap-2 capitalize">
+                                                <span className="size-2 rounded-full bg-primary" />
+                                                {role}
                                             </span>
-                                        );
-                                    })()}
+                                        }
+                                    />
+                                    <Field label="Department" value={member.departmentName} />
+                                    <Field
+                                        label="Employee ID"
+                                        value={member.employeeId ? <span className="font-mono text-xs">{member.employeeId}</span> : null}
+                                    />
+                                    <Field label="Phone" value={member.phoneNumber} />
+                                    <Field
+                                        label="Date of Birth"
+                                        value={member.dateOfBirth ? formatDateOnly(member.dateOfBirth, "d MMM yyyy") : null}
+                                    />
+                                    <Field label="Reports To" value={member.reportToName} />
+                                </div>
+
+                                {(member.casualLeaveBalance !== undefined || member.sickLeaveBalance !== undefined) && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">
+                                            Leave Balance
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
+                                                <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                                    <span className="size-2 rounded-full bg-blue-500" />
+                                                    Casual
+                                                </p>
+                                                <p className="font-medium">{member.casualLeaveBalance ?? 0} days</p>
+                                            </div>
+                                            <div className="p-4 rounded-2xl bg-muted/30 border border-muted-foreground/5 space-y-1">
+                                                <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                                    <span className="size-2 rounded-full bg-rose-500" />
+                                                    Sick
+                                                </p>
+                                                <p className="font-medium">{member.sickLeaveBalance ?? 0} days</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    <div className="flex items-baseline justify-between">
+                                        <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-widest">
+                                            Assigned Tasks
+                                        </p>
+                                        {memberTasks && (
+                                            <span className="text-xs text-muted-foreground">
+                                                {memberTasks.length}{hasMoreTasks ? "+" : ""} shown
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center p-1 rounded-xl bg-muted border text-xs w-fit">
+                                        {TASK_STATUS_TABS.map((t) => (
+                                            <button
+                                                key={t.value}
+                                                type="button"
+                                                onClick={() => setTaskStatus(t.value)}
+                                                className={cn(
+                                                    "px-3 py-1 rounded-lg font-semibold transition-all",
+                                                    taskStatus === t.value
+                                                        ? "bg-background text-foreground shadow-xs"
+                                                        : "text-muted-foreground hover:text-foreground"
+                                                )}
+                                            >
+                                                {t.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {memberTasks === null ? (
+                                        <div className="space-y-2">
+                                            {[0, 1, 2].map((i) => (
+                                                <div key={i} className="h-12 rounded-2xl bg-muted/40 animate-pulse" />
+                                            ))}
+                                        </div>
+                                    ) : memberTasks.length === 0 ? (
+                                        <p className="text-sm italic text-muted-foreground/60 py-4 text-center">
+                                            No open tasks assigned
+                                        </p>
+                                    ) : (
+                                        <div
+                                            onScroll={handleTaskScroll}
+                                            className="max-h-[340px] overflow-y-auto space-y-4 pr-1"
+                                        >
+                                            {taskGroups.map(([projectId, tasks]) => (
+                                                <div key={projectId} className="space-y-2">
+                                                    <div className="flex items-center gap-2 sticky top-0 bg-background/95 backdrop-blur-sm py-1 z-10">
+                                                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                            {projectNames.get(projectId) || "No project"}
+                                                        </span>
+                                                        <span className="text-[10px] text-muted-foreground/60">
+                                                            {tasks.length}
+                                                        </span>
+                                                        <div className="h-px flex-1 bg-border/60" />
+                                                    </div>
+
+                                                    {tasks.map((task) => (
+                                                        <div
+                                                            key={task.id}
+                                                            className="p-3 rounded-2xl bg-muted/30 border border-muted-foreground/5"
+                                                        >
+                                                            <p className="text-sm font-medium truncate">{task.name}</p>
+                                                            <div className="flex items-center flex-wrap gap-2 mt-1">
+                                                                {task.status && (
+                                                                    <span className={cn(
+                                                                        "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                                                        TASK_STATUS_COLORS[task.status] || "bg-muted text-muted-foreground"
+                                                                    )}>
+                                                                        {task.status.replace(/_/g, " ")}
+                                                                    </span>
+                                                                )}
+                                                                {task.dueDate && (
+                                                                    <span className="text-[11px] text-muted-foreground">
+                                                                        Due {formatIST(task.dueDate, "d MMM yyyy")}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+
+                                            {isLoadingMoreTasks && (
+                                                <div className="h-12 rounded-2xl bg-muted/40 animate-pulse" />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
 

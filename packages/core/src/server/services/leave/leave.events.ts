@@ -6,9 +6,10 @@ export class LeaveEvents {
         // 1. Get the requester's user ID and their reporting manager's user ID
         const requester = await prisma.workspaceMember.findUnique({
             where: { id: requesterMemberId },
-            select: { 
-                userId: true, 
-                reportTo: { select: { userId: true } } 
+            select: {
+                userId: true,
+                user: { select: { name: true, surname: true } },
+                reportTo: { select: { userId: true } }
             }
         });
 
@@ -26,7 +27,12 @@ export class LeaveEvents {
         if (requester?.reportTo?.userId) targetUserIds.add(requester.reportTo.userId);
         admins.forEach(a => targetUserIds.add(a.userId));
 
-        return Array.from(targetUserIds);
+        return {
+            targetUserIds: Array.from(targetUserIds),
+            // The leave is *about* the requester, whoever approved or deleted it.
+            subjectUserId: requester?.userId,
+            subjectName: requester?.user?.surname || requester?.user?.name || "A member",
+        };
     }
 
     static async emitLeaveRequested(userId: string, workspaceId: string, leaveRequest: any) {
@@ -35,7 +41,7 @@ export class LeaveEvents {
             select: { surname: true } 
         });
         
-        const targetUserIds = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
+        const { targetUserIds, subjectUserId, subjectName } = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
 
         await recordActivity({
             userId,
@@ -47,6 +53,8 @@ export class LeaveEvents {
             newData: leaveRequest,
             broadcastEvent: "team_update",
             targetUserIds,
+            subjectUserId,
+            subjectName,
         });
     }
 
@@ -56,7 +64,7 @@ export class LeaveEvents {
             select: { surname: true } 
         });
 
-        const targetUserIds = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
+        const { targetUserIds, subjectUserId, subjectName } = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
 
         await recordActivity({
             userId: actorId,
@@ -68,6 +76,8 @@ export class LeaveEvents {
             newData: leaveRequest,
             broadcastEvent: "team_update",
             targetUserIds,
+            subjectUserId,
+            subjectName,
         });
     }
 
@@ -77,7 +87,7 @@ export class LeaveEvents {
             select: { surname: true } 
         });
 
-        const targetUserIds = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
+        const { targetUserIds, subjectUserId, subjectName } = await this.getInvolvedUsers(workspaceId, leaveRequest.workspaceMemberId);
 
         await recordActivity({
             userId: actorId,
@@ -89,6 +99,8 @@ export class LeaveEvents {
             oldData: leaveRequest,
             broadcastEvent: "team_update",
             targetUserIds,
+            subjectUserId,
+            subjectName,
         });
     }
 }

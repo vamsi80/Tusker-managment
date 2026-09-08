@@ -8,7 +8,7 @@ import { toDateOnlyString } from "@tusker/core/lib/date-utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 import { useWorkspaceLayout } from "./workspace-layout-context";
 
-type Range = "today" | "week";
+type Range = "delayed" | "today" | "week";
 
 interface TaskRow {
   id: string;
@@ -81,17 +81,18 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
     () => weekTaskCache.get(workspaceId) ?? null
   );
 
-  // The whole week is fetched once and Today is filtered out of it — the task
-  // API is an expensive call (it resolves project permissions before querying),
-  // so switching ranges should not pay for it again.
+  // Fetched once and filtered per range — the task API is an expensive call
+  // (it resolves project permissions before querying), so switching ranges
+  // should not pay for it again. There is deliberately no lower bound: a
+  // delayed task is usually overdue from before this week, and bounding the
+  // window to the week is what would hide exactly the ones that matter.
   useEffect(() => {
     let active = true;
-    const { start, end } = currentWeek();
+    const { end } = currentWeek();
     const params = new URLSearchParams({
       w: workspaceId,
       vm: "list",
-      l: "50",
-      da: start.toISOString(),
+      l: "200",
       db: end.toISOString(),
       sub: "false",
     });
@@ -113,15 +114,28 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   }, [workspaceId]);
 
   const todayKey = toDateOnlyString(new Date());
-  const tasks =
-    weekTasks === null
-      ? null
-      : range === "week"
-      ? weekTasks
-      : weekTasks.filter(
-          (t) => t.dueDate && toDateOnlyString(new Date(t.dueDate)) === todayKey
-        );
-  const delayedCount = (tasks ?? []).filter(isDelayed).length;
+  const { start: weekStart, end: weekEnd } = currentWeek();
+  const inThisWeek = (t: TaskRow) => {
+    if (!t.dueDate) return false;
+    const key = toDateOnlyString(new Date(t.dueDate));
+    return key >= toDateOnlyString(weekStart) && key <= toDateOnlyString(weekEnd);
+  };
+
+  const rangeFilter: Record<Range, (t: TaskRow) => boolean> = {
+    delayed: isDelayed,
+    today: (t) => !!t.dueDate && toDateOnlyString(new Date(t.dueDate)) === todayKey,
+    // Overdue work belongs in Delayed only; this tab is what is still coming.
+    week: (t) => inThisWeek(t) && !isDelayed(t),
+  };
+
+  // An owner's /tasks call already returns the whole workspace, so only the
+  // label is wrong for them — it was never "my" tasks.
+  const isOwner = layoutData?.permissions?.workspaceRole === "OWNER";
+
+  const tasks = weekTasks === null ? null : weekTasks.filter(rangeFilter[range]);
+  // Counted across everything fetched, not just the open tab, so the badge does
+  // not vanish when you switch to Today.
+  const delayedCount = (weekTasks ?? []).filter(isDelayed).length;
   const projectNames = new Map<string, string>(
     (layoutData?.projects ?? []).map((p: any) => [p.id, p.name])
   );
@@ -131,11 +145,11 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            My Tasks
+            {isOwner ? "All Tasks" : "My Tasks"}
           </h3>
           <span className="text-xs text-muted-foreground">
-            {range === "today" ? "Due today" : "Due this week"}
-            {delayedCount > 0 && (
+            {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due this week"}
+            {range !== "delayed" && delayedCount > 0 && (
               <span className="text-rose-600 dark:text-rose-400 font-semibold">
                 {" "}
                 · {delayedCount} delayed
@@ -149,7 +163,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
       </div>
 
       <div className="flex items-center p-1 rounded-xl bg-muted border text-xs mb-4 w-fit">
-        {(["today", "week"] as Range[]).map((r) => (
+        {(["delayed", "today", "week"] as Range[]).map((r) => (
           <button
             key={r}
             type="button"
@@ -161,7 +175,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {r === "today" ? "Today" : "This Week"}
+            {r === "delayed" ? "Delayed" : r === "today" ? "Today" : "This Week"}
           </button>
         ))}
       </div>
@@ -175,7 +189,11 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
           </div>
         ) : tasks.length === 0 ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
-            {range === "today" ? "No tasks due today" : "No tasks due this week"}
+            {range === "delayed"
+              ? "Nothing overdue"
+              : range === "today"
+              ? "No tasks due today"
+              : "No tasks due this week"}
           </p>
         ) : (
           <div className="space-y-2">

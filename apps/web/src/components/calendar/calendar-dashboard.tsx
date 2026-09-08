@@ -119,8 +119,17 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-4">
       {/* Calendar Control Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl border bg-card text-card-foreground shadow-xs">
-        {/* Date Title & Prev/Today/Next Navigation */}
+        {/* Today, then prev/next flanking the period they move */}
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToday}
+            className="h-8 px-3 rounded-xl text-xs font-semibold"
+          >
+            Today
+          </Button>
+
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -131,14 +140,9 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleToday}
-              className="h-8 px-3 rounded-xl text-xs font-semibold"
-            >
-              Today
-            </Button>
+            <h2 className="text-lg sm:text-xl font-bold text-foreground text-center min-w-[170px]">
+              {headerTitle}
+            </h2>
             <Button
               variant="outline"
               size="sm"
@@ -149,10 +153,6 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
               <ChevronRight className="size-4" />
             </Button>
           </div>
-
-          <h2 className="text-lg sm:text-xl font-bold text-foreground min-w-[170px]">
-            {headerTitle}
-          </h2>
         </div>
 
         {/* Center: Search and Filters */}

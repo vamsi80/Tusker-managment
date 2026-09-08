@@ -14,11 +14,19 @@ import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus } from "lucide-react";
+import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+
+/** Sidebar-width labels for the three verticals. The full names live in PROJECT_CATEGORY_LABELS. */
+const CATEGORY_CHIPS = [
+  { value: "WHITE_TUSKER", label: "TWT" },
+  { value: "LATTICE_LANE", label: "PL/LL" },
+  { value: "MISCELLANEOUS", label: "Others" },
+] as const;
 
 interface iAppProps {
   workspaceId: string;
@@ -35,6 +43,14 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
   // Optimized loading: only show skeleton if we have NO data yet.
   // We avoid showing skeletons during silent revalidations to keep the UI stable (Surgical Sync).
   const isInitialLoading = isLayoutLoading && projects.length === 0;
+
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+
+  const visibleProjects = projects.filter((p: any) => {
+    if (category && p.category !== category) return false;
+    return !search || p.name?.toLowerCase().includes(search.toLowerCase());
+  });
 
   const { isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
@@ -182,8 +198,42 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
             )}
           </div>
         </SidebarGroupLabel>
+
+        <div className="px-1 pb-2 space-y-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search projects"
+              className="h-8 pl-7 text-xs"
+            />
+          </div>
+          <div className="flex gap-1">
+            {CATEGORY_CHIPS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                // Clicking the active chip clears the filter, so there is no "All" button.
+                onClick={() => setCategory((cur) => (cur === c.value ? null : c.value))}
+                className={cn(
+                  "flex-1 rounded-md border px-1 py-1 text-[11px] font-medium transition-colors",
+                  category === c.value
+                    ? "bg-foreground/10 dark:bg-foreground/20 text-foreground border-foreground/30"
+                    : "text-muted-foreground hover:bg-sidebar-accent"
+                )}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <SidebarMenu className="max-h-[40vh] overflow-y-auto custom-scrollbar">
-          {projects?.map((proj: any) => {
+          {visibleProjects.length === 0 && (
+            <p className="px-2 py-3 text-xs text-muted-foreground">No projects match.</p>
+          )}
+          {visibleProjects?.map((proj: any) => {
             const href = `/w/${workspaceId}/p/${proj.slug}`;
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
 

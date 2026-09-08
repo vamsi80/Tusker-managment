@@ -19,7 +19,7 @@ import { NavProjects } from "./projectsList/nav-projects";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
 import { NavFooter } from "./footer/nav-footer";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { LayoutDashboard, Users, CheckSquare, Truck, Calendar } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, Truck, Calendar, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
@@ -43,6 +43,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     { id: "calendar", title: "Calendar", url: `/w/${workspaceId}/calendar`, icon: Calendar },
     { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
     { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
+    { id: "chat", title: "Chat", url: `/w/${workspaceId}/myspace/conversations`, icon: MessageSquare },
     { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck, capability: "procurement:view" as const },
     { id: "vendors", title: "Suppliers / Contractors", url: `/w/${workspaceId}/vendors`, icon: Users, capability: "vendors:view" as const },
   ].filter((item) => !item.capability || can(capabilities, item.capability));

@@ -69,6 +69,11 @@ export default function CreateProjectPage() {
     const [existingClients, setExistingClients] = useState<any[]>([]);
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [isLoadingClients, setIsLoadingClients] = useState(true);
+    const [isMemberPickerOpen, setIsMemberPickerOpen] = useState(false);
+    const [draftMemberAccess, setDraftMemberAccess] = useState<string[]>([]);
+    const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
+    const [draftTagIds, setDraftTagIds] = useState<string[]>([]);
+    const [isClientPickerOpen, setIsClientPickerOpen] = useState(false);
 
     // --- Access Control ---
     const isManager = permissions?.workspaceRole === "MANAGER";
@@ -385,9 +390,15 @@ export default function CreateProjectPage() {
                                                 Team Members
                                             </FormLabel>
                                             <div className="pt-1">
-                                                <Popover>
+                                                <Popover
+                                                    open={isMemberPickerOpen}
+                                                    onOpenChange={(open) => {
+                                                        if (open) setDraftMemberAccess(field.value || []);
+                                                        setIsMemberPickerOpen(open);
+                                                    }}
+                                                >
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
+                                                        <Button type="button" variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
                                                             <div className="flex flex-wrap gap-1">
                                                                 {field.value.length > 0 ? (
                                                                     field.value.map(id => (
@@ -409,7 +420,7 @@ export default function CreateProjectPage() {
                                                                 {members
                                                                     .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
                                                                     .map((m) => {
-                                                                        const isSelected = field.value.includes(m.id);
+                                                                        const isSelected = draftMemberAccess.includes(m.id);
                                                                         const isPM = watchedPMId === m.id;
 
                                                                         return (
@@ -418,11 +429,11 @@ export default function CreateProjectPage() {
                                                                                 disabled={isPM}
                                                                                 onSelect={() => {
                                                                                     if (isPM) return; // Safety check
-                                                                                    if (isSelected) {
-                                                                                        field.onChange(field.value.filter(id => id !== m.id));
-                                                                                    } else {
-                                                                                        field.onChange([...field.value, m.id]);
-                                                                                    }
+                                                                                    setDraftMemberAccess((current) =>
+                                                                                        isSelected
+                                                                                            ? current.filter(id => id !== m.id)
+                                                                                            : [...current, m.id]
+                                                                                    );
                                                                                 }}
                                                                             >
                                                                                 <Check className={cn("mr-2 size-4", isSelected ? "opacity-100" : "opacity-0")} />
@@ -434,6 +445,21 @@ export default function CreateProjectPage() {
                                                                         );
                                                                     })}
                                                             </CommandGroup>
+                                                            <div className="flex items-center justify-between gap-3 border-t p-2">
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {draftMemberAccess.length} selected
+                                                                </span>
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        field.onChange(draftMemberAccess.filter(id => id !== watchedPMId));
+                                                                        setIsMemberPickerOpen(false);
+                                                                    }}
+                                                                >
+                                                                    Done
+                                                                </Button>
+                                                            </div>
                                                         </Command>
                                                     </PopoverContent>
                                                 </Popover>
@@ -453,9 +479,15 @@ export default function CreateProjectPage() {
                                                 Project Tags
                                             </FormLabel>
                                             <div className="pt-1">
-                                                <Popover>
+                                                <Popover
+                                                    open={isTagPickerOpen}
+                                                    onOpenChange={(open) => {
+                                                        if (open) setDraftTagIds(field.value || []);
+                                                        setIsTagPickerOpen(open);
+                                                    }}
+                                                >
                                                     <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
+                                                        <Button type="button" variant="outline" className="w-full justify-between min-h-[44px] h-auto py-2">
                                                             <div className="flex flex-wrap gap-1">
                                                                 {field.value && field.value.length > 0 ? (
                                                                     field.value.map(id => (
@@ -475,17 +507,16 @@ export default function CreateProjectPage() {
                                                             <CommandEmpty>No tags found.</CommandEmpty>
                                                             <CommandGroup className="max-h-64 overflow-auto">
                                                                 {(layoutData?.tags || []).map((t: any) => {
-                                                                    const isSelected = field.value?.includes(t.id);
+                                                                    const isSelected = draftTagIds.includes(t.id);
                                                                     return (
                                                                         <CommandItem
                                                                             key={t.id}
                                                                             onSelect={() => {
-                                                                                const current = field.value || [];
-                                                                                if (isSelected) {
-                                                                                    field.onChange(current.filter(id => id !== t.id));
-                                                                                } else {
-                                                                                    field.onChange([...current, t.id]);
-                                                                                }
+                                                                                setDraftTagIds((current) =>
+                                                                                    isSelected
+                                                                                        ? current.filter(id => id !== t.id)
+                                                                                        : [...current, t.id]
+                                                                                );
                                                                             }}
                                                                         >
                                                                             <Check className={cn("mr-2 size-4", isSelected ? "opacity-100" : "opacity-0")} />
@@ -494,6 +525,21 @@ export default function CreateProjectPage() {
                                                                     );
                                                                 })}
                                                             </CommandGroup>
+                                                            <div className="flex items-center justify-between gap-3 border-t p-2">
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {draftTagIds.length} selected
+                                                                </span>
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        field.onChange(draftTagIds);
+                                                                        setIsTagPickerOpen(false);
+                                                                    }}
+                                                                >
+                                                                    Done
+                                                                </Button>
+                                                            </div>
                                                         </Command>
                                                     </PopoverContent>
                                                 </Popover>
@@ -557,9 +603,9 @@ export default function CreateProjectPage() {
                             </div>
 
                             {existingClients.length > 0 && !form.watch("isInternal") && (
-                                <Popover>
+                                <Popover open={isClientPickerOpen} onOpenChange={setIsClientPickerOpen}>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-8 gap-2">
+                                        <Button type="button" variant="outline" size="sm" className="h-8 gap-2">
                                             <Users className="size-3.5" />
                                             Use Existing Client
                                         </Button>
@@ -585,6 +631,7 @@ export default function CreateProjectPage() {
                                                                 form.setValue("contactPerson", member.name || "", { shouldDirty: true });
                                                                 form.setValue("phoneNumber", member.phoneNumber || "", { shouldDirty: true });
                                                             }
+                                                            setIsClientPickerOpen(false);
                                                             toast.success(`Loaded details for ${client.name}`);
                                                         }}
                                                     >
