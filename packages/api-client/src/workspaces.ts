@@ -27,7 +27,7 @@ export interface WorkspacesClient {
     getMembersSlim(workspaceId: string): Promise<any[]>;
     getBirthdays(workspaceId: string): Promise<BirthdayMember[]>;
     getBroadcasts(workspaceId: string, limit?: number): Promise<Broadcast[]>;
-    postBroadcast(workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast>;
+    postBroadcast(workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null; departmentIds?: string[] }): Promise<Broadcast>;
     updateBroadcast(workspaceId: string, broadcastId: string, values: { title?: string; message?: string; expiresInHours?: number | null }): Promise<ApiResponse>;
     deleteBroadcast(workspaceId: string, broadcastId: string): Promise<ApiResponse>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
@@ -123,7 +123,7 @@ export const workspacesClient: WorkspacesClient = {
         return response.data;
     },
 
-    postBroadcast: async (workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null }): Promise<Broadcast> => {
+    postBroadcast: async (workspaceId: string, values: { title?: string; message: string; expiresInHours?: number | null; departmentIds?: string[] }): Promise<Broadcast> => {
         const response = await apiFetch<{ success: boolean; data: Broadcast }>(`/workspaces/${workspaceId}/broadcasts`, {
             method: "POST",
             body: JSON.stringify(values),

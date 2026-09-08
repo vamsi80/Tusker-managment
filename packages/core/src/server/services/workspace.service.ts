@@ -1558,10 +1558,35 @@ export class WorkspaceService {
     sender: { id: string; name: string },
     title: string,
     message: string,
-    expiresAt?: Date | null
+    expiresAt?: Date | null,
+    departmentIds?: string[] | null
   ) {
+    // A broadcast is one notification row per recipient, so "who can see it" is
+    // decided here by who gets a row - no filtering needed on the read side.
+    // Owners and admins are always included so they can see every broadcast,
+    // whatever department it was addressed to.
+    const targeted = (departmentIds ?? []).filter(Boolean);
+    const departments = targeted.length
+      ? await prisma.department.findMany({
+          where: { workspaceId, id: { in: targeted } },
+          select: { id: true, name: true },
+        })
+      : [];
+
+    if (targeted.length && departments.length !== targeted.length) {
+      throw AppError.ValidationError("A selected department does not belong to this workspace");
+    }
+
     const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: departments.length
+        ? {
+            workspaceId,
+            OR: [
+              { departmentId: { in: departments.map((d) => d.id) } },
+              { workspaceRole: { in: ["OWNER", "ADMIN"] } },
+            ],
+          }
+        : { workspaceId },
       select: { userId: true },
     });
 
@@ -1572,6 +1597,9 @@ export class WorkspaceService {
       senderId: sender.id,
       senderName: sender.name,
       expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      // Kept for display ("To: Site, Accounts"); an empty list means everyone.
+      departmentIds: departments.map((d) => d.id),
+      departmentNames: departments.map((d) => d.name),
     };
 
     await prisma.notification.createMany({

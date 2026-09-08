@@ -11,6 +11,16 @@ import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/**
+ * How many of each kind a day cell shows before the rest roll into "+N more".
+ * The overflow count is derived from these, so changing one here keeps the
+ * label honest; the popover always lists the day in full regardless.
+ */
+const HOLIDAY_CAP = 1;
+const LEAVE_CAP = 1;
+const MEETING_CAP = 3;
+const TASK_CAP = 1;
+
 export function CalendarMonthView() {
   const {
     selectedDate,
@@ -194,7 +204,11 @@ export function CalendarMonthView() {
           const dayLeaves = entry?.leaves || [];
 
           const totalItems = dayMeetings.length + dayTasks.length + dayHolidays.length + dayLeaves.length;
-          const displayItemsLimit = 3;
+          const shownItems =
+            Math.min(dayHolidays.length, HOLIDAY_CAP) +
+            Math.min(dayLeaves.length, LEAVE_CAP) +
+            Math.min(dayMeetings.length, MEETING_CAP) +
+            Math.min(dayTasks.length, TASK_CAP);
 
           return (
             <div
@@ -233,7 +247,7 @@ export function CalendarMonthView() {
               {/* Items List */}
               <div className="flex-1 space-y-1 overflow-hidden">
                 {/* Public Holidays */}
-                {dayHolidays.slice(0, 1).map((h) => (
+                {dayHolidays.slice(0, HOLIDAY_CAP).map((h) => (
                   <div
                     key={h.id}
                     className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 truncate"
@@ -245,7 +259,7 @@ export function CalendarMonthView() {
                 ))}
 
                 {/* Team Leaves */}
-                {dayLeaves.slice(0, 1).map((l, i) => (
+                {dayLeaves.slice(0, LEAVE_CAP).map((l, i) => (
                   <div
                     key={`${l.id}-${i}`}
                     className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 truncate"
@@ -257,7 +271,7 @@ export function CalendarMonthView() {
                 ))}
 
                 {/* Meetings */}
-                {dayMeetings.slice(0, displayItemsLimit).map((m) => {
+                {dayMeetings.slice(0, MEETING_CAP).map((m) => {
                   const startTime = new Date(m.startTime).toLocaleTimeString([], {
                     hour: "numeric",
                     minute: "2-digit",
@@ -281,7 +295,7 @@ export function CalendarMonthView() {
                 })}
 
                 {/* Tasks */}
-                {dayTasks.slice(0, 1).map((t) => (
+                {dayTasks.slice(0, TASK_CAP).map((t) => (
                   <div
                     key={t.id}
                     onClick={(e) => {
@@ -297,14 +311,14 @@ export function CalendarMonthView() {
                 ))}
 
                 {/* Overflow Popover if more items */}
-                {totalItems > displayItemsLimit && (
+                {totalItems > shownItems && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
                         className="text-[10px] font-semibold text-muted-foreground hover:text-foreground pl-1 transition-colors block"
                       >
-                        +{totalItems - displayItemsLimit} more
+                        +{totalItems - shownItems} more
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-64 p-3 space-y-2 rounded-xl shadow-lg">
