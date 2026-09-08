@@ -314,7 +314,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 Alert.alert(alertTitle, detail, [
                     { text: "OK", style: "cancel" }
                 ]);
-            } else if ((data?.type === "direct_message" || actionType === "direct_message") && data?.conversationId) {
+            } else if (
+                (data?.type === "direct_message" || actionType === "direct_message" || actionType === "DM_MESSAGE")
+                && data?.conversationId
+            ) {
                 if (navigationRef.isReady()) {
                     navigationRef.navigate("DirectChat", {
                         conversationId: data.conversationId as string,
@@ -323,13 +326,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     });
                 }
             } else if (
-                actionType === "LEAVE_REQUEST_SUBMITTED" ||
-                actionType === "LEAVE_REQUEST_PENDING" ||
-                actionType === "LEAVE_REQUEST_APPROVED" ||
-                actionType === "LEAVE_REQUEST_REJECTED"
+                // Real AuditAction values (audit.ts) — the previous
+                // LEAVE_REQUEST_SUBMITTED/PENDING/APPROVED/REJECTED strings never
+                // matched anything the backend actually sends, so every leave
+                // notification silently fell through to the generic screen.
+                actionType === "LEAVE_REQUESTED" ||
+                actionType === "LEAVE_APPROVED" ||
+                actionType === "LEAVE_REJECTED" ||
+                actionType === "LEAVE_DELETED"
             ) {
                 if (navigationRef.isReady()) {
-                    if (actionType === "LEAVE_REQUEST_SUBMITTED" || actionType === "LEAVE_REQUEST_PENDING") {
+                    if (actionType === "LEAVE_REQUESTED") {
                         (navigationRef as any).navigate("Main", { screen: "Home", params: { screen: "AdminLeave" } });
                     } else {
                         (navigationRef as any).navigate("Main", { screen: "Home", params: { screen: "Leave" } });
@@ -368,9 +375,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             };
 
-            // Subscribe to workspace-wide activity
+            // Subscribe to workspace-wide activity. The server only ever
+            // triggers "activity_log" on per-user channels (see audit.ts),
+            // never here — this channel's live signal is "conversation_update",
+            // broadcast by the POST /messages route so every participant's
+            // conversation list refreshes, not just the two people involved.
             teamChannel = pusher.subscribe(`team-${activeWorkspace.id}`);
-            teamChannel.bind("activity_log", handleLiveUpdate);
+            teamChannel.bind("conversation_update", handleLiveUpdate);
 
             // Subscribe to user-specific targeted events
             const session = await getCachedSession();
@@ -379,6 +390,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 userChannel.bind("activity_log", handleLiveUpdate);
                 userChannel.bind("new_notification", handleLiveUpdate);
                 userChannel.bind("new-message", handleLiveUpdate);
+                // Most business events (task/comment/leave/attendance/member/
+                // workspace changes) broadcast under these names instead —
+                // see recordActivity's `broadcastEvent` in packages/core's
+                // audit.ts. Without binding them, the socket receives the
+                // messages but nothing is listening, so nothing ever updates.
+                userChannel.bind("team_update", handleLiveUpdate);
+                userChannel.bind("workspace_update", handleLiveUpdate);
+                userChannel.bind("conversation_update", handleLiveUpdate);
             }
         };
 
