@@ -140,10 +140,47 @@ export class WorkspaceService {
      */
     roles?: string[],
     departmentId?: string,
+    /**
+     * Capacity filter: keep only members with fewer than this many open tasks.
+     * "Open" is TO_DO / IN_PROGRESS / REVIEW - finished and dropped work is not
+     * load anyone is carrying.
+     */
+    maxOpenTasks?: number,
   ) {
     const skip = (page - 1) * limit;
 
+    // One pass over project memberships gives the workload for every member.
+    // A member sits in several projects, so their counts are summed.
+    const projectMemberships = await prisma.projectMember.findMany({
+      where: { workspaceMember: { workspaceId } },
+      select: {
+        workspaceMemberId: true,
+        _count: {
+          select: {
+            assignedTasks: { where: { status: { in: ["TO_DO", "IN_PROGRESS", "REVIEW"] } } },
+          },
+        },
+      },
+    });
+
+    const openTaskCounts = new Map<string, number>();
+    for (const pm of projectMemberships) {
+      openTaskCounts.set(
+        pm.workspaceMemberId,
+        (openTaskCounts.get(pm.workspaceMemberId) ?? 0) + pm._count.assignedTasks,
+      );
+    }
+
     const where: any = { workspaceId };
+
+    if (maxOpenTasks !== undefined) {
+      // Excluding the overloaded rather than listing the eligible: a member with
+      // no project row has no entry in the map and still has capacity.
+      const overloaded = [...openTaskCounts.entries()]
+        .filter(([, count]) => count >= maxOpenTasks)
+        .map(([id]) => id);
+      if (overloaded.length > 0) where.id = { notIn: overloaded };
+    }
     if (roles && roles.length > 0) {
       where.workspaceRole = { in: roles };
     }
@@ -229,6 +266,7 @@ export class WorkspaceService {
         userId: m.userId,
         status: m.user?.emailVerified || (m.user as any)?._count?.accounts > 0 ? "Verified" : "Pending",
         emailVerified: m.user?.emailVerified ?? false,
+        openTaskCount: openTaskCounts.get(m.id) ?? 0,
       })),
       totalCount,
     };
@@ -290,7 +328,13 @@ export class WorkspaceService {
     });
 
     return members
-      .filter((m) => m.dateOfBirth!.getUTCMonth() === month)
+      // Today and the rest of the month only - a birthday that has already gone
+      // by is not something anyone needs reminding about.
+      .filter(
+        (m) =>
+          m.dateOfBirth!.getUTCMonth() === month &&
+          m.dateOfBirth!.getUTCDate() >= today.getUTCDate()
+      )
       .map((m) => ({
         id: m.id,
         surname: m.user?.surname || "Member",

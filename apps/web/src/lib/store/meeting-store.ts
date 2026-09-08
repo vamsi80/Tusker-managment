@@ -28,6 +28,8 @@ interface MeetingStoreState {
   isScheduleOpen: boolean;
   scheduleDefaultDate: Date | null;
   scheduleDefaultTime: string | null;
+  /** Non-null while the schedule dialog is being reused to edit an existing meeting. */
+  editingMeeting: MeetingUI | null;
   selectedMeeting: MeetingUI | null;
   isDetailsOpen: boolean;
 
@@ -38,6 +40,7 @@ interface MeetingStoreState {
   setFilterType: (type: string) => void;
   setSearchQuery: (query: string) => void;
   openScheduleModal: (defaults?: { date?: Date; time?: string }) => void;
+  openEditModal: (meeting: MeetingUI) => void;
   closeScheduleModal: () => void;
   openDetailsModal: (meeting: MeetingUI) => void;
   closeDetailsModal: () => void;
@@ -73,6 +76,7 @@ export const useMeetingStore = create<MeetingStoreState>((set, get) => ({
   isScheduleOpen: false,
   scheduleDefaultDate: null,
   scheduleDefaultTime: null,
+  editingMeeting: null,
   selectedMeeting: null,
   isDetailsOpen: false,
 
@@ -91,12 +95,23 @@ export const useMeetingStore = create<MeetingStoreState>((set, get) => ({
   openScheduleModal: (defaults) =>
     set({
       isScheduleOpen: true,
+      editingMeeting: null,
       scheduleDefaultDate: defaults?.date || get().selectedDate,
       scheduleDefaultTime: defaults?.time || null,
+    }),
+  // Same dialog, prefilled. Closes the details view so the two are never stacked.
+  openEditModal: (meeting) =>
+    set({
+      isScheduleOpen: true,
+      editingMeeting: meeting,
+      scheduleDefaultDate: null,
+      scheduleDefaultTime: null,
+      isDetailsOpen: false,
     }),
   closeScheduleModal: () =>
     set({
       isScheduleOpen: false,
+      editingMeeting: null,
       scheduleDefaultDate: null,
       scheduleDefaultTime: null,
     }),

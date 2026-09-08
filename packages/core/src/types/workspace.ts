@@ -58,6 +58,8 @@ export type WorkspaceMemberRow = {
   status?: string;
   casualLeaveBalance?: number;
   sickLeaveBalance?: number;
+  /** Tasks assigned to them that are still TO_DO / IN_PROGRESS / REVIEW. */
+  openTaskCount?: number;
 };
 
 

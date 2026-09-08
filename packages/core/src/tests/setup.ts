@@ -8,7 +8,9 @@ vi.mock("@tusker/db", async (importOriginal) => {
         count: vi.fn(),
         findUnique: vi.fn(),
         create: vi.fn(async (args: any) => ({ id: `mock-${name}-id`, ...args?.data })),
+        createMany: vi.fn(async (args: any) => ({ count: args?.data?.length || 0 })),
         update: vi.fn(async (args: any) => ({ id: args?.where?.id || `mock-${name}-id`, ...args?.data })),
+        updateMany: vi.fn(() => ({ count: 0 })),
         delete: vi.fn(async (args: any) => ({ id: args?.where?.id || `mock-${name}-id` })),
         findFirst: vi.fn(),
         findMany: vi.fn(() => []),
@@ -27,6 +29,9 @@ vi.mock("@tusker/db", async (importOriginal) => {
         board: mockModel("board"),
         dailyReport: mockModel("dailyReport"),
         comment: mockModel("comment"),
+        conversation: mockModel("conversation"),
+        direct_message: mockModel("direct_message"),
+        directMessageDeletion: mockModel("directMessageDeletion"),
         $transaction: vi.fn(async (cb: any) => {
             if (typeof cb === "function") return await cb(prismaMock);
             return Array.isArray(cb) ? await Promise.all(cb) : cb;

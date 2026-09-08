@@ -4,19 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, MapPin, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@tusker/api-client";
-import { calendarDayKey } from "@tusker/core/lib/date-utils";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { useMeetingStore } from "@/lib/store/meeting-store";
+import { cn } from "@/lib/utils";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 
-/** Sunday 00:00 → Saturday 23:59:59 of the week containing `now`, in local time. */
-function currentWeek() {
+/**
+ * A month either side of today. Wide enough that "Previous" has something in it
+ * without pulling the whole meeting history into the dashboard.
+ */
+function window30() {
   const start = new Date();
-  start.setDate(start.getDate() - start.getDay());
+  start.setDate(start.getDate() - 30);
   start.setHours(0, 0, 0, 0);
 
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
+  const end = new Date();
+  end.setDate(end.getDate() + 30);
   end.setHours(23, 59, 59, 999);
 
   return { start, end };
@@ -28,6 +31,7 @@ function currentWeek() {
  */
 export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
   const [meetings, setMeetings] = useState<MeetingUI[] | null>(null);
+  const [tab, setTab] = useState<"upcoming" | "previous">("upcoming");
   const router = useSafeNavigation();
   const { setSelectedDate } = useMeetingStore();
 
@@ -42,7 +46,7 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
   };
 
   const load = useCallback(() => {
-    const { start, end } = currentWeek();
+    const { start, end } = window30();
     apiClient.meetings
       .getMeetings({
         workspaceId,
@@ -60,10 +64,20 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
     return () => window.removeEventListener("realtime-meeting-sync", onSync);
   }, [load]);
 
-  const todayKey = calendarDayKey(new Date());
+  const now = Date.now();
   const active = (meetings ?? []).filter((m) => m.status !== "CANCELLED");
-  const todays = active.filter((m) => calendarDayKey(m.startTime) === todayKey);
-  const rest = active.filter((m) => calendarDayKey(m.startTime) !== todayKey);
+  // Upcoming reads forwards from the next one; previous reads backwards from the
+  // most recent, which is the order you actually want in each case.
+  const shown = active
+    .filter((m) =>
+      tab === "upcoming"
+        ? new Date(m.startTime).getTime() >= now
+        : new Date(m.startTime).getTime() < now
+    )
+    .sort((a, b) => {
+      const diff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+      return tab === "upcoming" ? diff : -diff;
+    });
 
   const renderMeeting = (m: MeetingUI) => {
     const start = new Date(m.startTime);
@@ -106,11 +120,31 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Meetings
           </h3>
-          <span className="text-xs text-muted-foreground">Today & this week</span>
+          <span className="text-xs text-muted-foreground">
+            {tab === "upcoming" ? "Next 30 days" : "Past 30 days"}
+          </span>
         </div>
         <div className="p-1.5 rounded-xl bg-indigo-500/10 text-indigo-500">
           <CalendarClock className="size-4.5" />
         </div>
+      </div>
+
+      <div className="flex items-center p-1 rounded-xl bg-muted border text-xs mb-4 w-fit">
+        {(["previous", "upcoming"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn(
+              "px-3 py-1 rounded-lg font-semibold capitalize transition-all",
+              tab === t
+                ? "bg-background text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t}
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 overflow-auto max-h-[380px] pr-1">
@@ -120,32 +154,12 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
               <div key={i} className="h-12 rounded-xl bg-muted/40 animate-pulse" />
             ))}
           </div>
-        ) : active.length === 0 ? (
+        ) : shown.length === 0 ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
-            No meetings scheduled this week
+            {tab === "upcoming" ? "No upcoming meetings" : "No previous meetings"}
           </p>
         ) : (
-          <div className="space-y-4">
-            <div>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Today
-              </span>
-              {todays.length === 0 ? (
-                <p className="text-sm italic text-muted-foreground/60 py-2">No meetings today</p>
-              ) : (
-                <div className="divide-y divide-border mt-1">{todays.map(renderMeeting)}</div>
-              )}
-            </div>
-
-            {rest.length > 0 && (
-              <div>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Rest of the week
-                </span>
-                <div className="divide-y divide-border mt-1">{rest.map(renderMeeting)}</div>
-              </div>
-            )}
-          </div>
+          <div className="divide-y divide-border">{shown.map(renderMeeting)}</div>
         )}
       </div>
     </div>
