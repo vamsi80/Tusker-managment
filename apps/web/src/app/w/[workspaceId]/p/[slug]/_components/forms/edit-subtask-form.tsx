@@ -28,6 +28,11 @@ import { parseIST } from "@/lib/utils";
 import { ProjectReviewer } from "@tusker/core/types/project";
 import { DateTimePicker } from "@/components/ui/date-picker";
 import { MultiSelectTags } from "@/components/ui/multi-select-tags";
+import {
+    resolveProjectPermissions,
+    canSetStatus,
+    isMandatoryTransition,
+} from "@tusker/core/lib/constants/project-permissions";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 
 type SubTaskBase = {
@@ -132,7 +137,28 @@ export function EditSubTaskForm<T extends SubTaskBase>({
         (permissions?.workspaceMemberId && subTaskAssigneeMemberId && permissions.workspaceMemberId === subTaskAssigneeMemberId)
     );
 
-    const isActingAsManager = !isAssignee && (isPM || isCoordinator);
+    /**
+     * The same matrix the API gates on, so this form can never offer a move the
+     * server rejects. Falls back to the role defaults when project-scoped
+     * permissions are not in hand — the behaviour this form had before.
+     */
+    const projectPermissions =
+        (permissions as { projectPermissions?: ReturnType<typeof resolveProjectPermissions> })
+            ?.projectPermissions ??
+        resolveProjectPermissions(
+            isPM ? "PROJECT_MANAGER" : isCoordinator ? "PROJECT_COORDINATOR" : isLead ? "LEAD" : "MEMBER",
+            undefined,
+            null,
+            permissions?.isWorkspaceAdmin,
+        );
+
+    // Ownership scoping stays orthogonal: only Admin / PM / Coordinator approve
+    // tasks that are not their own.
+    const hasProjectWideStanding = !!(permissions?.isWorkspaceAdmin || isPM || isCoordinator);
+    const isCreator = (subTask as any).createdById === permissions?.workspaceMemberId;
+    const canApprove = (target: string) =>
+        canSetStatus(projectPermissions, target, isAssignee) &&
+        (hasProjectWideStanding || isCreator);
 
     const isStatusOptionDisabled = (statusOption: string) => {
         if (statusOption === subTask.status) return false;
@@ -142,33 +168,19 @@ export function EditSubTaskForm<T extends SubTaskBase>({
             return true;
         }
 
-        // 2. Role check: COMPLETED, HOLD, CANCELLED require acting as manager/creator lead
-        const leadCanComplete = !isAssignee && isLead && ((subTask as any).createdById === permissions?.workspaceMemberId);
-        const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
-
-        if (["COMPLETED", "HOLD", "CANCELLED"].includes(statusOption) && !canCompleteOrHoldOrCancel) {
+        // 2. Matrix check: COMPLETED / HOLD / CANCELLED each have their own column
+        if (["COMPLETED", "HOLD", "CANCELLED"].includes(statusOption) && !canApprove(statusOption)) {
             return true;
         }
 
-        // 3. Review check: If currently in REVIEW, moving out requires acting as manager/creator lead
-        if (subTask.status === "REVIEW" && !canCompleteOrHoldOrCancel) {
+        // 3. Review check: moving out of REVIEW is the same approval decision
+        if (subTask.status === "REVIEW" && !canApprove("COMPLETED")) {
             return true;
         }
 
         // 4. Comment check: Since general task editing does not collect comments,
-        // block any move that requires a comment.
-        const isMandatoryTransition =
-          ["HOLD", "CANCELLED", "REVIEW"].includes(statusOption) ||
-          (subTask.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(subTask.status)) ||
-          (subTask.status === "REVIEW" &&
-            (statusOption === "TO_DO" || statusOption === "IN_PROGRESS")) ||
-          (subTask.status === "IN_PROGRESS" && statusOption === "TO_DO");
-
-        if (isMandatoryTransition) {
-            return true;
-        }
-
-        return false;
+        // block any move that requires an explanation.
+        return isMandatoryTransition(subTask.status, statusOption);
     };
 
     // Memoize filtered parent tasks to prevent infinite loops

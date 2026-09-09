@@ -459,6 +459,13 @@ export interface ProjectPermissions {
     isMember: boolean;
     workspaceMemberId: string | null;
     userId: string | null;
+    /**
+     * The project's permission matrix, already resolved server-side (role
+     * defaults + per-member overrides, capped by the workspace grid). Mobile
+     * cannot import @tusker/core, so it consumes the resolved map rather than
+     * re-deriving it. Null when the API predates the matrix.
+     */
+    projectPermissions: Record<string, boolean> | null;
 }
 
 /**
@@ -485,6 +492,10 @@ export async function getProjectPermissions(
             isMember: !!d.isMember,
             workspaceMemberId: d.workspaceMemberId ?? null,
             userId: d.userId ?? null,
+            projectPermissions:
+                d.projectPermissions && typeof d.projectPermissions === "object"
+                    ? d.projectPermissions
+                    : null,
         };
     } catch {
         return null;

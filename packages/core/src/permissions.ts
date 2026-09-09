@@ -5,8 +5,14 @@
  */
 import prisma from "@tusker/db";
 import { resolveCapabilities, type CapabilityMap } from "./lib/constants/capabilities";
+import {
+    resolveProjectPermissions,
+    coerceProjectSettings,
+    DEFAULT_PROJECT_SETTINGS,
+} from "./lib/constants/project-permissions";
 
 const NO_CAPABILITIES = resolveCapabilities(null);
+const NO_PROJECT_PERMISSIONS = resolveProjectPermissions(null);
 
 /**
  * Get workspace-level permissions for the current user
@@ -186,7 +192,7 @@ export async function fetchWorkspacePermissions(workspaceId: string, userId: str
  */
 export async function fetchUserPermissions(workspaceId: string, projectId: string, userId: string) {
     try {
-        const [workspaceMember, projectMember] = await Promise.all([
+        const [workspaceMember, projectMember, project] = await Promise.all([
             prisma.workspaceMember.findFirst({
                 where: { workspaceId, userId },
                 include: {
@@ -210,6 +216,10 @@ export async function fetchUserPermissions(workspaceId: string, projectId: strin
                     workspaceMember: { userId },
                 },
             }),
+            prisma.project.findUnique({
+                where: { id: projectId },
+                select: { settings: true },
+            }),
         ]);
 
         if (!workspaceMember) {
@@ -226,6 +236,8 @@ export async function fetchUserPermissions(workspaceId: string, projectId: strin
                 userSurname: null,
                 projectMember: null,
                 capabilities: NO_CAPABILITIES,
+                projectPermissions: NO_PROJECT_PERMISSIONS,
+                projectSettings: DEFAULT_PROJECT_SETTINGS,
             };
         }
 
@@ -245,13 +257,20 @@ export async function fetchUserPermissions(workspaceId: string, projectId: strin
             workspaceMember.permissionOverrides
         );
 
-        // Only PM, Coordinator and Lead can create subtasks or perform bulk operations.
-        // The workspace capability grid is a ceiling on top of that, never a grant.
-        const hasExecutionRole = isProjectManager || isProjectLead || isProjectCoordinator;
-        const canCreateSubTask = hasExecutionRole && capabilities["task:create"];
-        const canPerformBulkOperations = hasExecutionRole && capabilities["task:edit"];
+        // The project matrix decides who may create or bulk-upload; the workspace
+        // capability grid is already folded in as the outer ceiling by the resolver.
+        const projectPermissions = resolveProjectPermissions(
+            projectMember?.projectRole ?? null,
+            (projectMember as { permissionOverrides?: unknown } | null)?.permissionOverrides,
+            capabilities,
+            isWorkspaceAdmin,
+        );
+        const canCreateSubTask = projectPermissions["task:create"];
+        const canPerformBulkOperations = projectPermissions["bulk:upload"];
 
         return {
+            projectPermissions,
+            projectSettings: coerceProjectSettings(project?.settings),
             isWorkspaceAdmin,
             isProjectManager,
             isProjectCoordinator,
@@ -285,6 +304,8 @@ export async function fetchUserPermissions(workspaceId: string, projectId: strin
             userSurname: null,
             projectMember: null,
             capabilities: NO_CAPABILITIES,
+            projectPermissions: NO_PROJECT_PERMISSIONS,
+            projectSettings: DEFAULT_PROJECT_SETTINGS,
         };
     }
 }

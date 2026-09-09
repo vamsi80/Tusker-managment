@@ -13,6 +13,7 @@ const repositoryMocks = vi.hoisted(() => ({
 const dbMocks = vi.hoisted(() => {
   const db: any = {
     project: { findFirst: vi.fn() },
+    projectMember: { findFirst: vi.fn() },
     workspaceMember: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
     vendor: { findFirst: vi.fn() },
     notification: { createMany: vi.fn() },
@@ -60,6 +61,12 @@ const baseIndent = (overrides: Record<string, any> = {}) => ({
 describe("Indent approval workflow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Raising an indent inside a project now reads that project's permission
+    // matrix; a PROJECT_MANAGER row is the default these cases assume.
+    dbMocks.projectMember.findFirst.mockResolvedValue({
+      projectRole: "PROJECT_MANAGER",
+      permissionOverrides: null,
+    });
     repositoryMocks.updateStatus.mockImplementation(async (_id, status, extra) => ({ status, ...extra }));
     dbMocks.workspaceMember.findMany.mockResolvedValue([]);
     dbMocks.notification.createMany.mockResolvedValue({ count: 1 });
@@ -972,6 +979,10 @@ describe("Standing in for the requester on final rates", () => {
 describe("General indents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    dbMocks.projectMember.findFirst.mockResolvedValue({
+      projectRole: "PROJECT_MANAGER",
+      permissionOverrides: null,
+    });
     repositoryMocks.findWorkspaceMember.mockResolvedValue({ id: "requester-member", workspaceRole: "MEMBER" });
     dbMocks.workspaceMember.count.mockResolvedValue(1);
     repositoryMocks.create.mockImplementation(async (data: any) => data);
@@ -1005,5 +1016,33 @@ describe("General indents", () => {
     await expect(
       IndentService.createIndent(payload({ projectId: "missing" }) as any, "requester-user")
     ).rejects.toThrow("Project not found in this workspace");
+  });
+
+  test("a plain project MEMBER cannot raise a project indent, but a ticked one can", async () => {
+    dbMocks.projectMember.findFirst.mockResolvedValue({
+      projectRole: "MEMBER",
+      permissionOverrides: null,
+    });
+
+    await expect(
+      IndentService.createIndent(payload({ projectId: "project-1" }) as any, "requester-user")
+    ).rejects.toThrow("You don't have permission to raise indents on this project");
+
+    dbMocks.projectMember.findFirst.mockResolvedValue({
+      projectRole: "MEMBER",
+      permissionOverrides: { "indent:raise": true },
+    });
+    dbMocks.project.findFirst.mockResolvedValue({ name: "Site A" });
+
+    const created: any = await IndentService.createIndent(
+      payload({ projectId: "project-1" }) as any,
+      "requester-user"
+    );
+    expect(created.projectId).toBe("project-1");
+  });
+
+  test("a general indent never consults the project matrix", async () => {
+    await IndentService.createIndent(payload() as any, "requester-user");
+    expect(dbMocks.projectMember.findFirst).not.toHaveBeenCalled();
   });
 });

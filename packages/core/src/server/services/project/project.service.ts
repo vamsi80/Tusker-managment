@@ -12,6 +12,15 @@ import { ProjectEvents } from "./project.events";
 import { ProjectMapper } from "./project.mapper";
 import { projectSchema, editProjectSchema, ProjectSchemaType, EditProjectSchemaType } from "../../../lib/zodSchemas";
 import { resolveCapabilities } from "../../../lib/constants/capabilities";
+import {
+  resolveProjectPermissions,
+  coerceProjectSettings,
+  coerceProjectOverrides,
+  DEFAULT_PROJECT_SETTINGS,
+  PROJECT_PERMISSIONS,
+  type ProjectPermissionId,
+  type ProjectSettings,
+} from "../../../lib/constants/project-permissions";
 import { isProjectAdmin } from "../../../lib/constants/project-access";
 import { getUniqueRandomColor } from "../../../lib/colors/project-colors";
 import prisma from "@tusker/db";
@@ -606,7 +615,7 @@ export class ProjectService {
   }
 
   static async getPermissions(workspaceId: string, projectId: string, userId: string) {
-    const [workspaceMember, projectMember] = await Promise.all([
+    const [workspaceMember, projectMember, project] = await Promise.all([
       prisma.workspaceMember.findFirst({
         where: { workspaceId, userId },
         include: {
@@ -617,13 +626,19 @@ export class ProjectService {
       prisma.projectMember.findFirst({
         where: { projectId, workspaceMember: { userId } },
       }),
+      prisma.project.findUnique({
+        where: { id: projectId },
+        select: { settings: true },
+      }),
     ]);
 
     if (!workspaceMember) return {
       isWorkspaceAdmin: false, isProjectLead: false, isProjectCoordinator: false, isProjectManager: false, isMember: false,
       canCreateSubTask: false, canPerformBulkOperations: false, workspaceMemberId: null,
       workspaceRole: null, userId: null, userSurname: null, projectMember: null,
-      capabilities: resolveCapabilities(null)
+      capabilities: resolveCapabilities(null),
+      projectPermissions: resolveProjectPermissions(null),
+      projectSettings: DEFAULT_PROJECT_SETTINGS,
     };
 
     const mapped = ProjectMapper.toPermissions(workspaceMember, projectMember);
@@ -633,13 +648,144 @@ export class ProjectService {
       workspaceMember.permissionOverrides
     );
 
-    // Settings -> Permissions is a ceiling on the project role, never a grant.
+    // The project matrix is authoritative for its nine ids; the workspace grid
+    // is already folded in as the outer ceiling by the resolver.
+    const projectPermissions = resolveProjectPermissions(
+      projectMember?.projectRole ?? null,
+      (projectMember as { permissionOverrides?: unknown } | null)?.permissionOverrides,
+      capabilities,
+      mapped.isWorkspaceAdmin,
+    );
+
     return {
       ...mapped,
       capabilities,
-      canCreateSubTask: mapped.canCreateSubTask && capabilities["task:create"],
-      canPerformBulkOperations: mapped.canPerformBulkOperations && capabilities["task:edit"],
+      projectPermissions,
+      projectSettings: coerceProjectSettings(project?.settings),
+      canCreateSubTask: projectPermissions["task:create"],
+      canPerformBulkOperations: projectPermissions["bulk:upload"],
     };
+  }
+
+  /**
+   * Everything the Project Settings dialog renders: the project-wide defaults
+   * plus one row per member with their stored deltas. Workspace OWNER/ADMIN are
+   * listed read-only — they may have no ProjectMember row to hang an override
+   * on, and they are never locked out of a project anyway.
+   */
+  static async getProjectSettings(workspaceId: string, projectId: string, userId: string) {
+    const permissions = await this.getPermissions(workspaceId, projectId, userId);
+    if (!permissions.isWorkspaceAdmin && !isProjectAdmin(permissions.projectMember?.projectRole as any)) {
+      throw AppError.Forbidden("Insufficient permissions");
+    }
+
+    const [project, members] = await Promise.all([
+      prisma.project.findFirst({
+        where: { id: projectId, workspaceId },
+        select: { id: true, name: true, settings: true },
+      }),
+      prisma.projectMember.findMany({
+        where: { projectId },
+        select: {
+          id: true,
+          projectRole: true,
+          permissionOverrides: true,
+          workspaceMember: {
+            select: {
+              workspaceRole: true,
+              user: { select: { id: true, name: true, surname: true, email: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+    if (!project) throw AppError.NotFound("Project not found");
+
+    return {
+      projectId: project.id,
+      projectName: project.name,
+      settings: coerceProjectSettings(project.settings),
+      members: members.map((m) => ({
+        projectMemberId: m.id,
+        projectRole: m.projectRole,
+        name: m.workspaceMember.user?.surname || m.workspaceMember.user?.name || "Unknown",
+        email: m.workspaceMember.user?.email ?? null,
+        // A workspace admin's project row cannot be restricted, so the dialog
+        // shows it locked rather than pretending a checkbox would bite.
+        locked:
+          m.workspaceMember.workspaceRole === "OWNER" ||
+          m.workspaceMember.workspaceRole === "ADMIN",
+        overrides: coerceProjectOverrides(m.permissionOverrides),
+      })),
+    };
+  }
+
+  /** Write one matrix cell, or the project-wide defaults, or both. */
+  static async updateProjectSettings(
+    workspaceId: string,
+    projectId: string,
+    userId: string,
+    input: {
+      settings?: Partial<ProjectSettings>;
+      member?: { projectMemberId: string; permission: ProjectPermissionId; value: boolean | null };
+    },
+  ) {
+    const permissions = await this.getPermissions(workspaceId, projectId, userId);
+    if (!permissions.isWorkspaceAdmin && !isProjectAdmin(permissions.projectMember?.projectRole as any)) {
+      throw AppError.Forbidden("Insufficient permissions");
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, workspaceId },
+      select: { settings: true },
+    });
+    if (!project) throw AppError.NotFound("Project not found");
+
+    if (input.settings) {
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { settings: { ...coerceProjectSettings(project.settings), ...input.settings } },
+      });
+    }
+
+    if (input.member) {
+      const { projectMemberId, permission, value } = input.member;
+      const member = await prisma.projectMember.findFirst({
+        where: { id: projectMemberId, projectId },
+        select: {
+          id: true,
+          permissionOverrides: true,
+          workspaceMember: { select: { workspaceRole: true } },
+        },
+      });
+      if (!member) throw AppError.NotFound("Project member not found");
+      if (
+        member.workspaceMember.workspaceRole === "OWNER" ||
+        member.workspaceMember.workspaceRole === "ADMIN"
+      ) {
+        throw AppError.Forbidden("Workspace owners and admins cannot be restricted per project");
+      }
+      if (!PROJECT_PERMISSIONS.some((p) => p.id === permission)) {
+        throw AppError.ValidationError("Unknown permission");
+      }
+
+      const overrides = coerceProjectOverrides(member.permissionOverrides);
+      if (value === null) delete overrides[permission];
+      else overrides[permission] = value;
+
+      await prisma.projectMember.update({
+        where: { id: member.id },
+        // Prisma reads `undefined` as "leave alone", so write the empty object
+        // rather than skipping the clear entirely.
+        data: { permissionOverrides: overrides },
+      });
+    }
+
+    // Other open sessions cache the resolved matrix; tell them to refetch.
+    await ProjectEvents.onProjectSettingsChanged(workspaceId, projectId);
+
+    return this.getProjectSettings(workspaceId, projectId, userId);
   }
 
   static async getProjectLayoutData(workspaceId: string, projectId: string, userId: string) {

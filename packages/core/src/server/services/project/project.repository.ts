@@ -95,7 +95,7 @@ export class ProjectRepository {
         },
         projectMembers: {
           where: { workspaceMember: { userId } },
-          select: { projectRole: true }
+          select: { projectRole: true, permissionOverrides: true }
         }
       }
     });

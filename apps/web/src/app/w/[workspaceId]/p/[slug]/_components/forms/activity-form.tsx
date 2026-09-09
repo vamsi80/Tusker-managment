@@ -28,6 +28,8 @@ interface ActivityDialogProps {
     workspaceId?: string;
     projectId?: string;
     taskId?: string;
+    /** Project setting: this transition needs a link or a file, not just a comment. */
+    requireAttachment?: boolean;
 }
 
 interface PendingUpload {
@@ -88,6 +90,7 @@ export function ActivityDialog({
     workspaceId,
     projectId,
     taskId,
+    requireAttachment = false,
 }: ActivityDialogProps) {
     const [comment, setComment] = useState("");
     const [attachmentLink, setAttachmentLink] = useState("");
@@ -158,7 +161,15 @@ export function ActivityDialog({
         setErrors({});
     };
 
+    const hasAttachment = !!attachmentLink.trim() || uploadedFiles.length > 0;
+
     const handleSubmit = async () => {
+        if (requireAttachment && !hasAttachment) {
+            setErrors({ attachmentLink: "This project requires an attachment for this transition." });
+            toast.error("This project requires an attachment for this transition.");
+            return;
+        }
+
         const validation = activitySchema.safeParse({ comment, attachmentLink, files: uploadedFiles });
         if (!validation.success) {
             const formattedErrors: Record<string, string> = {};
@@ -334,7 +345,12 @@ export function ActivityDialog({
                     <Button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={isSubmitting || isUploading || !comment.trim()}
+                        disabled={
+                            isSubmitting ||
+                            isUploading ||
+                            !comment.trim() ||
+                            (requireAttachment && !hasAttachment)
+                        }
                     >
                         {isSubmitting ? "Submitting..." : isUploading ? "Uploading..." : "Submit"}
                     </Button>

@@ -4,20 +4,22 @@ Project-level settings — per-member permission matrix
 Context
 Today a project's behaviour is governed by hard-coded project-role rules in the service layer. There is no way to say "Vaishnavi may bulk upload on this project". The workspace capability grid looks like it should do this, but it cannot: it holds only 6 capabilities (project:create, task:create, task:edit, task:status, procurement:view, vendors:view), and every task capability already defaults to true for every role. It is documented as "a ceiling, not a grant" (capabilities.ts:6-9). That is exactly why ticking every workspace permission for a user changes nothing — the real gate is hasExecutionRole (PM / Coordinator / Lead) in permissions.ts:250-252.
 
-This adds a Project Settings dialog off the project kebab menu: a matrix of 8 permissions (columns) × project members (rows) with checkboxes, plus 4 project-wide defaults beneath it.
+This adds a Project Settings dialog off the project kebab menu: a matrix of 9 permissions (columns) × project members (rows) with checkboxes, plus 2 project-wide defaults beneath it.
 
 Decisions settled with the user
 Question Decision
 Matrix rows Individual members, not roles
-The 12 asked-for settings Split: 8 in the matrix, 4 as project-wide defaults
+The 11 asked-for settings Split: 9 in the matrix, 2 as project-wide defaults
 Precedence Project matrix is authoritative — it may grant and revoke
-Existing role rules Replaced for these 8 permissions
+Existing role rules Replaced for these 9 permissions
 The split
-Matrix (per member, checkbox): create task · edit task · change status · set COMPLETED · set HOLD · set CANCELLED · bulk upload · raise indent
+Matrix (per member, checkbox): create task · edit task · change status · set COMPLETED · set HOLD · set CANCELLED · change assignee · bulk upload · raise indent
 
-Project-wide defaults (one value each, below the matrix): mandatory comment · mandatory attachment · default task duration · default assignee
+Project-wide defaults (one value each, below the matrix): mandatory comment · mandatory attachment
 
-Only 3 of the 8 map to an existing workspace capability. The other 5 have no workspace representation at all and are hard-coded today.
+Dropped from an earlier draft: default task duration and default assignee/reviewer. Both were auto-fill conveniences rather than access control, and neither exists on the server today — the duration lives as a hard-coded `days: 1` in two client forms, and the reviewer already falls back to the creator. Nothing named "require review" was ever in this plan; the REVIEW gate stays where it is, governed by the three status columns.
+
+Only 3 of the 9 map to an existing workspace capability. The other 6 have no workspace representation at all and are hard-coded today.
 
 Assumptions worth confirming during build
 Ownership scoping survives. Today a MEMBER may only change status on a task they created or are assigned (tasks.service.ts:1960-1974). The matrix decides whether the person may perform the action at all; that "own task" scoping stays as an orthogonal rule. Dropping it would let any ticked member restatus anyone's task.
@@ -26,7 +28,7 @@ Rows are real ProjectMember rows. getMembers injects workspace OWNER/ADMIN who h
 Design
 Storage — two additive nullable columns
 model ProjectMember { permissionOverrides Json? } // { "bulk:upload": true, ... } per member
-model Project { settings Json? } // the 4 project-wide defaults
+model Project { settings Json? } // the 2 project-wide defaults
 One migration, both nullable, no backfill — copying 20260825120000_add_permission_overrides verbatim in shape. Sparse deltas mean an unconfigured project stores nothing and behaves exactly as today.
 
 Migration trap: this database connects with search_path = boq, public. ALTER TABLE ... ADD COLUMN ... JSONB is safe, but any CREATE TYPE must be written public."Foo" or Prisma fails with 42704. This migration needs no new type.
@@ -34,12 +36,12 @@ Migration trap: this database connects with search_path = boq, public. ALTER TAB
 Resolution — one new module
 packages/core/src/lib/constants/project-permissions.ts, deliberately mirroring capabilities.ts: no server-only (so the dialog can preview resolution live), and the same junk-tolerant coercers so malformed JSON degrades to {} instead of throwing. Reuse coerceOverrides' pattern directly.
 
-export const PROJECT_PERMISSIONS = [ /* 8 × {id, label, group} */ ] as const;
+export const PROJECT_PERMISSIONS = [ /* 9 × {id, label, group} */ ] as const;
 
 export const DEFAULT_PROJECT_PERMISSIONS: Record<ProjectRole, ProjectPermissionMap>;
 // Seeded from behaviour as it ships today, so nothing changes until a box is ticked:
 // PROJECT_MANAGER | PROJECT_COORDINATOR | LEAD -> all true
-// MEMBER -> task:status only (still ownership-scoped); create/edit/bulk false
+// MEMBER -> task:status only (still ownership-scoped); create/edit/assign/bulk false
 // VIEWER -> all false
 
 export function resolveProjectPermissions(
@@ -58,11 +60,10 @@ create task tasks.ts:321, :377; role gate tasks.service.ts:48-49, :1795-1799
 edit task tasks.ts:743 (+ :651, :699, :512, :1111); tasks.service.ts:2146-2192
 change status tasks.ts:551, :588; tasks.service.ts:1960-1974
 COMPLETED / HOLD / CANCELLED tasks.service.ts:1980-1991 — one shared predicate today, no per-status branching. Splitting into 3 columns means 3 flags here
+change assignee tasks.service.ts:2270-2278 (the updateTask assigneeId branch) and the create path at :1820-1827 — no dedicated gate today, it rides on task:edit
 bulk upload tasks.ts:429-433 — the only real gate; the service does no role check
 raise indent indent.service.ts:280-281 via procurement-indents.ts:318-322; ensureCanMutate blocks only ACCOUNTS today
 mandatory comment/attachment tasks.service.ts:2015-2026 and the edit-path copy at :2252-2262
-default duration no server default; hard-coded days: 1 in create-subTask-form.tsx:80-107 and inline-subtask-form.tsx:74-83
-default assignee no auto-assign exists; tasks.service.ts:1820-1827
 API
 GET / PATCH /projects/:projectId/settings in apps/api/src/hono/routes/projects.ts, beside the existing GET /:projectId/permissions. Zod at the boundary. Guard reuses permissions.isWorkspaceAdmin || isProjectAdmin(...), the same one already on updateProject.
 
@@ -89,9 +90,9 @@ Stage 1 — the 3 mapped permissions. create / edit / change-status. Wire the ma
 
 Stage 2 — the 3 status permissions. COMPLETED / HOLD / CANCELLED. Requires splitting the single canCompleteOrHoldOrCancel predicate into three, in both server copies and the client.
 
-Stage 3 — bulk upload + raise indent. Bulk is a one-line route change. Indent adds a project-role gate where none exists today — check it does not break workspace-level indent creation outside a project.
+Stage 3 — change assignee + bulk upload + raise indent. Bulk is a one-line route change. Indent adds a project-role gate where none exists today — check it does not break workspace-level indent creation outside a project.
 
-Stage 4 — the 4 project defaults. Mandatory comment/attachment (splitting the existing OR), default duration, default assignee.
+Stage 4 — the 2 project defaults. Mandatory comment/attachment, splitting the existing comment || attachment OR into two independent flags.
 
 Verification
 pnpm --filter @tusker/db exec prisma migrate dev then prisma validate; confirm both columns exist and no project data moved.

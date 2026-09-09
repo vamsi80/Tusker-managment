@@ -25,6 +25,13 @@ import { TaskMapper } from "./task.mapper";
 import { TaskEvents } from "./task.events";
 
 import { TaskStatus, CreateTaskParams, CreateSubTaskParams } from "../../../types/task";
+import {
+  canProject,
+  canSetStatus,
+  isMandatoryTransition,
+  missingTransitionEvidence,
+  DEFAULT_PROJECT_SETTINGS,
+} from "../../../lib/constants/project-permissions";
 
 const toArray = <T>(v: T | T[] | undefined): T[] | undefined => {
   if (v === undefined) return undefined;
@@ -45,8 +52,9 @@ export class TasksService {
     permissions,
     tagIds,
   }: CreateTaskParams) {
-    const canSucceed = permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
-    if (!canSucceed) throw AppError.Forbidden("You don't have permission to create tasks.");
+    if (!canProject(permissions.projectPermissions, "task:create")) {
+      throw AppError.Forbidden("You don't have permission to create tasks.");
+    }
 
     let projectMember = permissions.projectMember;
     if (!projectMember && permissions.isWorkspaceAdmin) {
@@ -1792,10 +1800,13 @@ export class TasksService {
     days,
     status = "TO_DO",
   }: CreateSubTaskParams) {
-    const canSucceed =
-      permissions.isWorkspaceAdmin || permissions.canCreateSubTask;
-    if (!canSucceed) {
+    if (!canProject(permissions.projectPermissions, "task:create")) {
       throw AppError.Forbidden("You don't have permission to create subtasks.");
+    }
+    if (assigneeUserId && !canProject(permissions.projectPermissions, "task:assign")) {
+      throw AppError.Forbidden(
+        "You don't have permission to change the assignee on this project.",
+      );
     }
 
     let projectMember = permissions.projectMember;
@@ -1945,10 +1956,7 @@ export class TasksService {
 
     // 2. Authorization Checks
     const currentProjectMemberId = permissions.projectMember?.id;
-    const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
-    const isProjectManager = permissions.isProjectManager;
-    const isProjectCoordinator = permissions.isProjectCoordinator;
-    const isProjectLead = permissions.isProjectLead;
+    const projectPermissions = permissions.projectPermissions;
 
     const isCreator = currentProjectMemberId
       ? subTask.createdById === currentProjectMemberId
@@ -1957,47 +1965,43 @@ export class TasksService {
       ? subTask.assigneeId === currentProjectMemberId
       : false;
 
-    if (!isWorkspaceAdmin && !isProjectManager && !isProjectCoordinator) {
-      if (isProjectLead) {
-        if (!isCreator && !isAssignee) {
-          throw AppError.Forbidden(
-            "As a Project Lead, you can only update tasks you created or are assigned to.",
-          );
-        }
-      } else {
-        if (!isCreator && !isAssignee) {
-          throw AppError.Forbidden(
-            "You can only update tasks that you created or are assigned to.",
-          );
-        }
-      }
+    // The matrix says whether you may change status at all.
+    if (!canProject(projectPermissions, "task:status")) {
+      throw AppError.Forbidden("You don't have permission to change task status on this project.");
     }
 
-    // 🔒 COMPLETED / HOLD / CANCELLED rule:
-    // - Workspace Admin, Project Manager, Project Coordinator (not assigned as worker): always allowed.
-    // - Project Lead: allowed ONLY on tasks they personally created (and not assigned as worker).
-    // - Member / others: never allowed.
-    const isActingAsManager = !isAssignee && (isWorkspaceAdmin || isProjectManager || isProjectCoordinator);
-    const leadCanComplete = !isAssignee && isProjectLead && isCreator;
-    const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
+    // Ownership scoping is orthogonal to the matrix and unchanged: only Admin /
+    // PM / Coordinator act on tasks that are not theirs. Ticking a box grants the
+    // action, it does not widen whose tasks you may touch.
+    const hasProjectWideStanding =
+      permissions.isWorkspaceAdmin ||
+      permissions.isProjectManager ||
+      permissions.isProjectCoordinator;
 
-    if (
-      ["COMPLETED", "HOLD", "CANCELLED"].includes(newStatus) &&
-      !canCompleteOrHoldOrCancel
-    ) {
+    if (!hasProjectWideStanding && !isCreator && !isAssignee) {
       throw AppError.Forbidden(
-        "Only the Project Manager, Coordinator, or Admin (not personally assigned) or the Lead who created this task can mark tasks as Completed, On Hold, or Cancelled.",
+        "You can only update tasks that you created or are assigned to.",
       );
     }
 
-    // Specific Restriction: Tasks in REVIEW status
-    // - Only PM, Coordinator, or creating Lead (not personally assigned) can move it out of REVIEW.
-    if (subTask.status === "REVIEW") {
-      if (!canCompleteOrHoldOrCancel) {
-        throw AppError.Forbidden(
-          "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or Admin (not personally assigned) or the creating Lead can.",
-        );
-      }
+    // 🔒 COMPLETED / HOLD / CANCELLED: one matrix column each, and the assignee of
+    // a task is never its approver no matter what the matrix says.
+    const canApprove = (target: string) =>
+      canSetStatus(projectPermissions, target, isAssignee) &&
+      (hasProjectWideStanding || isCreator);
+
+    if (["COMPLETED", "HOLD", "CANCELLED"].includes(newStatus) && !canApprove(newStatus)) {
+      throw AppError.Forbidden(
+        `You don't have permission to set this task to ${newStatus === "COMPLETED" ? "Completed" : newStatus === "HOLD" ? "On Hold" : "Cancelled"}.`,
+      );
+    }
+
+    // Moving a task out of REVIEW is an approval decision, so it carries the same
+    // standing as marking it Completed.
+    if (subTask.status === "REVIEW" && !canApprove("COMPLETED")) {
+      throw AppError.Forbidden(
+        "You cannot move this task out of Review status.",
+      );
     }
 
     // 3. Status Transition Validation
@@ -2012,17 +2016,12 @@ export class TasksService {
       );
     }
 
-    const isMandatoryTransition =
-      ["HOLD", "CANCELLED", "REVIEW"].includes(newStatus) ||
-      (subTask.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(subTask.status)) ||
-      (subTask.status === "REVIEW" &&
-        (newStatus === "TO_DO" || newStatus === "IN_PROGRESS")) ||
-      (subTask.status === "IN_PROGRESS" && newStatus === "TO_DO");
-
-    if (isMandatoryTransition && !comment && !attachmentData) {
-      throw AppError.ValidationError(
-        "A comment or attachment link is required for this status transition.",
-      );
+    if (isMandatoryTransition(subTask.status, newStatus)) {
+      const missing = missingTransitionEvidence(permissions.projectSettings ?? DEFAULT_PROJECT_SETTINGS, {
+        comment: !!comment,
+        attachment: !!attachmentData,
+      });
+      if (missing) throw AppError.ValidationError(missing);
     }
 
     // Business rule: We record an activity showing the status transition and any user comment.
@@ -2138,6 +2137,7 @@ export class TasksService {
     const isProjectManager = permissions.isProjectManager;
     const isProjectCoordinator = permissions.isProjectCoordinator;
     const isProjectLead = permissions.isProjectLead;
+    const projectPermissions = permissions.projectPermissions;
 
     const isAssignee = currentProjectMemberId
       ? task.assigneeId === currentProjectMemberId
@@ -2151,9 +2151,14 @@ export class TasksService {
       );
     }
 
-    // 1. Base Authorization
-    // Assignees cannot edit task metadata (Name, Description, Dates, Assignee, Reviewer, Tags)
-    // even if they are Project Manager, Coordinator, or Lead, unless they are Workspace Admin.
+    // 1. Base Authorization — the matrix decides whether you may edit at all.
+    if (!canProject(projectPermissions, "task:edit")) {
+      throw AppError.Forbidden("You don't have permission to edit tasks on this project.");
+    }
+
+    // Ownership scoping, unchanged: assignees cannot edit task metadata (Name,
+    // Description, Dates, Assignee, Reviewer, Tags) even as PM/Coordinator/Lead,
+    // and a Lead only edits tasks they created.
     const isAuthorized =
       isWorkspaceAdmin ||
       (!isAssignee && (
@@ -2208,20 +2213,15 @@ export class TasksService {
     } else {
       // It's a subtask, allow updates to execution fields
       if (data.status && data.status !== task.status) {
-        const isAssignee = currentProjectMemberId
-          ? task.assigneeId === currentProjectMemberId
-          : false;
+        if (!canProject(projectPermissions, "task:status")) {
+          throw AppError.Forbidden("You don't have permission to change task status on this project.");
+        }
 
-        const isActingAsManager =
-          !isAssignee &&
-          (isWorkspaceAdmin || isProjectManager || isProjectCoordinator);
-
-        const leadCanComplete =
-          !isAssignee &&
-          isProjectLead &&
-          task.createdById === currentProjectMemberId;
-
-        const canCompleteOrHoldOrCancel = isActingAsManager || leadCanComplete;
+        const hasProjectWideStanding =
+          isWorkspaceAdmin || isProjectManager || isProjectCoordinator;
+        const canApprove = (target: string) =>
+          canSetStatus(projectPermissions, target, isAssignee) &&
+          (hasProjectWideStanding || task.createdById === currentProjectMemberId);
 
         // 1. Workflow check: COMPLETED can only come from REVIEW
         if (data.status === "COMPLETED" && task.status !== "REVIEW") {
@@ -2230,35 +2230,23 @@ export class TasksService {
           );
         }
 
-        // 2. Role check: COMPLETED/HOLD/CANCELLED
-        if (
-          ["COMPLETED", "HOLD", "CANCELLED"].includes(data.status) &&
-          !canCompleteOrHoldOrCancel
-        ) {
+        // 2. Matrix check: COMPLETED/HOLD/CANCELLED each have their own column
+        if (["COMPLETED", "HOLD", "CANCELLED"].includes(data.status) && !canApprove(data.status)) {
           throw AppError.Forbidden(
-            "Only the Project Manager, Coordinator, or Admin (not personally assigned) can mark tasks as Completed, On Hold, or Cancelled.",
+            `You don't have permission to set this task to ${data.status === "COMPLETED" ? "Completed" : data.status === "HOLD" ? "On Hold" : "Cancelled"}.`,
           );
         }
 
         // 3. Review check: Moving out of REVIEW
-        if (task.status === "REVIEW" && !canCompleteOrHoldOrCancel) {
-          throw AppError.Forbidden(
-            "You cannot move this task out of Review status. Only the Project Manager, Coordinator, or Admin (not personally assigned) can.",
-          );
+        if (task.status === "REVIEW" && !canApprove("COMPLETED")) {
+          throw AppError.Forbidden("You cannot move this task out of Review status.");
         }
 
         // 4. Comment check: Since general task editing does not collect transition comments,
         // block any move that requires a comment and tell them to do it from the list/board status changer.
-        const isMandatoryTransition =
-          ["HOLD", "CANCELLED", "REVIEW"].includes(data.status) ||
-          (task.status && ["HOLD", "CANCELLED", "COMPLETED"].includes(task.status)) ||
-          (task.status === "REVIEW" &&
-            (data.status === "TO_DO" || data.status === "IN_PROGRESS")) ||
-          (task.status === "IN_PROGRESS" && data.status === "TO_DO");
-
-        if (isMandatoryTransition) {
+        if (isMandatoryTransition(task.status, data.status)) {
           throw AppError.ValidationError(
-            "This status transition requires an explanation comment. Please update the status directly from the board or list view.",
+            "This status transition requires an explanation. Please update the status directly from the board or list view.",
           );
         }
 
@@ -2271,6 +2259,11 @@ export class TasksService {
         updateData.dueDate = parseIST(data.dueDate as any);
 
       if (data.assigneeUserId !== undefined) {
+        if (!canProject(projectPermissions, "task:assign")) {
+          throw AppError.Forbidden(
+            "You don't have permission to change the assignee on this project.",
+          );
+        }
         updateData.assigneeId = data.assigneeUserId
           ? await this.resolveOrJoinProjectMember(
             data.assigneeUserId,

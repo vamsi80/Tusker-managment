@@ -30,6 +30,19 @@ export interface StatusPermission {
 
 const RESTRICTED = ["COMPLETED", "HOLD", "CANCELLED"];
 
+/** Matrix column governing each approval status — mirrors PROJECT_PERMISSIONS. */
+const STATUS_COLUMN: Record<string, string> = {
+    COMPLETED: "status:completed",
+    HOLD: "status:hold",
+    CANCELLED: "status:cancelled",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+    COMPLETED: "Completed",
+    HOLD: "On Hold",
+    CANCELLED: "Cancelled",
+};
+
 export function getStatusPermission(
     targetStatus: string,
     ctx: StatusPermissionContext
@@ -72,21 +85,42 @@ export function getStatusPermission(
         permissions.isProjectCoordinator
     );
 
-    if (RESTRICTED.includes(targetStatus) && !isActingAsManager) {
-        // A Project Lead may still act on a task they personally created. When
-        // the creator is unknown we cannot rule that out, so let the server
-        // decide rather than disabling a legitimate action.
-        if (permissions.isProjectLead) {
+    if (RESTRICTED.includes(targetStatus)) {
+        // The project's Settings matrix has a column per approval status, resolved
+        // server-side. An unticked box disables the option here too.
+        const matrix = permissions.projectPermissions;
+        if (matrix && matrix[STATUS_COLUMN[targetStatus]] === false) {
+            return {
+                allowed: false,
+                reason: `You don't have permission to set this task to ${STATUS_LABEL[targetStatus]} on this project.`,
+            };
+        }
+
+        if (!isActingAsManager) {
+            // Ownership scoping is orthogonal to the matrix: without project-wide
+            // standing you may only approve tasks you created. Where there is no
+            // matrix to consult, only a Lead had that standing.
+            const mayApproveOwn = matrix ? matrix[STATUS_COLUMN[targetStatus]] === true : permissions.isProjectLead;
+            if (!mayApproveOwn) {
+                return {
+                    allowed: false,
+                    reason: `You don't have permission to set this task to ${STATUS_LABEL[targetStatus]}.`,
+                };
+            }
+
+            // When the creator is unknown we cannot rule it out, so let the server
+            // decide rather than disabling a legitimate action.
             if (createdById == null) return { allowed: true };
             const isCreator =
                 createdById === currentUserId ||
                 createdById === permissions.workspaceMemberId;
             if (isCreator) return { allowed: true };
+
+            return {
+                allowed: false,
+                reason: `You can only set ${STATUS_LABEL[targetStatus]} on tasks you created.`,
+            };
         }
-        return {
-            allowed: false,
-            reason: "Only the Project Manager, Coordinator, or Admin (not personally assigned) or the Lead who created this task can mark tasks as Completed, On Hold, or Cancelled.",
-        };
     }
 
     return { allowed: true };

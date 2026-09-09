@@ -16,21 +16,28 @@ import {
 } from "@tusker/core/lib/tasks/get-task-detail";
 import { fetchUserPermissions } from "@tusker/core/permissions";
 import { CommentService } from "@tusker/core/server/services/comment/comment.service";
-import { can, type Capability, type CapabilityMap } from "@tusker/core/lib/constants/capabilities";
+import {
+  canProject,
+  type ProjectPermissionId,
+  type ProjectPermissionMap,
+} from "@tusker/core/lib/constants/project-permissions";
 
 const tasks = new Hono<{ Variables: HonoVariables }>();
 
 /**
- * Workspace capability grid check (Settings -> Permissions).
- * Runs alongside the project-role checks the services already do. This layer can
- * only take access away, never grant it, so both must pass.
+ * Project Settings matrix check.
+ *
+ * This is now the single gate: `resolveProjectPermissions` has already folded
+ * the workspace capability grid in as the outer ceiling, so one read covers
+ * both layers. Ownership scoping ("your own tasks only") stays an orthogonal
+ * rule in the service — the matrix says whether you may act at all.
  */
 function requireCapability(
-  permissions: { capabilities?: CapabilityMap },
-  capability: Capability,
+  permissions: { projectPermissions?: ProjectPermissionMap },
+  permission: ProjectPermissionId,
   message: string,
 ) {
-  if (!can(permissions.capabilities, capability)) {
+  if (!canProject(permissions.projectPermissions, permission)) {
     throw AppError.Forbidden(message);
   }
 }
@@ -428,8 +435,8 @@ tasks.post("/bulk", async (c) => {
 
   requireCapability(
     await fetchUserPermissions(bulkProject.workspaceId, projectId, user.id),
-    "task:create",
-    "You don't have permission to create tasks.",
+    "bulk:upload",
+    "You don't have permission to bulk upload tasks.",
   );
 
   const result = await TasksService.bulkUploadTasksAndSubtasks({
@@ -509,8 +516,8 @@ tasks.patch("/:taskId/assignee", async (c) => {
 
   requireCapability(
     await fetchUserPermissions(workspaceId, projectId, user.id),
-    "task:edit",
-    "You don't have permission to edit tasks.",
+    "task:assign",
+    "You don't have permission to change the assignee on this project.",
   );
 
   const result = await TasksService.updateTaskAssignee({
