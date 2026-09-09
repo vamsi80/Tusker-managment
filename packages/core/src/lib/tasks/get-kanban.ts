@@ -40,7 +40,7 @@ export async function getKanbanBoard(options: GetKanbanOptions, userId: string) 
         restrictedProjectIds,
     } = await TasksService.resolveTaskPermissions(options.workspaceId, undefined, userId);
 
-    if (!permissions.WorkspaceMemberId && !isWorkspaceAdmin) {
+    if (!permissions.workspaceMemberId && !isWorkspaceAdmin) {
         return { columns: emptyColumns() };
     }
 
