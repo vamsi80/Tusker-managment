@@ -29,27 +29,28 @@ export default function WorkSpacePage() {
 
   return (
     <div className="space-y-6 pb-10 animate-in fade-in duration-300">
-      {/* Header Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-br from-card via-card to-primary/5 border shadow-xs">
-        <div className="space-y-1.5 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-              <Sparkles className="size-3.5" /> Workspace Dashboard
-            </span>
-            <span className="text-muted-foreground/40">•</span>
-            <span className="text-xs font-medium text-muted-foreground">{formattedToday}</span>
+      {/* Welcome and announcements sit side by side, in boxes of their own. */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        <div className="lg:flex-1 p-6 rounded-3xl bg-gradient-to-br from-card via-card to-primary/5 border shadow-xs">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                <Sparkles className="size-3.5" /> Workspace Dashboard
+              </span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="text-xs font-medium text-muted-foreground">{formattedToday}</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Welcome, {displayName}
+            </h1>
+
+            <p className="text-sm text-muted-foreground">
+              Announcements, your tasks and this week&apos;s meetings across {workspaceName}.
+            </p>
           </div>
-
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Welcome, {displayName}
-          </h1>
-
-          <p className="text-sm text-muted-foreground">
-            Announcements, your tasks and this week&apos;s meetings across {workspaceName}.
-          </p>
         </div>
 
-        {/* Announcements scroll past the welcome line, news-channel style. */}
         <BroadcastTicker
           key={`ticker-${workspaceId}`}
           workspaceId={workspaceId}

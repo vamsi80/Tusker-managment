@@ -112,7 +112,7 @@ export function BroadcastTicker({
     <span key={key} className="flex shrink-0 items-center" aria-hidden={key === "b"}>
       {line.map((m, i) => (
         <span key={i} className="flex items-center">
-          <span className="px-4 text-sm font-medium text-foreground">{m}</span>
+          <span className="px-3 text-xs font-medium text-foreground">{m}</span>
           <span className="text-primary/50">•</span>
         </span>
       ))}
@@ -120,9 +120,9 @@ export function BroadcastTicker({
   );
 
   return (
-    <div className="broadcast-ticker flex min-w-0 flex-1 items-center overflow-hidden rounded-2xl border bg-card shadow-xs">
-      <span className="flex shrink-0 items-center gap-1.5 self-stretch rounded-l-2xl bg-rose-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white">
-        <Megaphone className="size-3.5" />
+    <div className="broadcast-ticker flex min-w-0 lg:flex-1 items-center overflow-hidden rounded-xl border bg-card shadow-xs">
+      <span className="flex shrink-0 items-center gap-1.5 self-stretch rounded-l-xl bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white">
+        <Megaphone className="size-3" />
         Broadcast
       </span>
       <div className="min-w-0 flex-1 overflow-hidden">
