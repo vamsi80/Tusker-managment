@@ -1,11 +1,35 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { HonoVariables } from "../types";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import { ProjectService } from "@tusker/core/server/services/project/index";
 import { zValidator } from "../validator";
 import { projectSchema, editProjectSchema } from "@tusker/core/lib/zodSchemas";
+import {
+  PROJECT_PERMISSIONS,
+  type ProjectPermissionId,
+} from "@tusker/core/lib/constants/project-permissions";
 
 const projects = new Hono<{ Variables: HonoVariables }>();
+
+const projectSettingsSchema = z.object({
+  settings: z
+    .object({
+      mandatoryComment: z.boolean().optional(),
+      mandatoryAttachment: z.boolean().optional(),
+    })
+    .optional(),
+  member: z
+    .object({
+      projectMemberId: z.string().min(1),
+      permission: z.enum(
+        PROJECT_PERMISSIONS.map((p) => p.id) as [ProjectPermissionId, ...ProjectPermissionId[]],
+      ),
+      /** null clears the override and falls back to the role default. */
+      value: z.boolean().nullable(),
+    })
+    .optional(),
+});
 
 /**
  * POST /api/v1/projects
@@ -275,6 +299,51 @@ projects.get("/:projectId/permissions", async (c) => {
   const permissions = await ProjectService.getPermissions(workspaceId, projectId, user.id);
   return c.json({ success: true, data: permissions });
 });
+
+/**
+ * GET /api/v1/projects/:projectId/settings
+ * The per-member permission matrix plus the project-wide defaults.
+ */
+projects.get("/:projectId/settings", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.param("projectId");
+  const workspaceId = c.req.query("workspaceId");
+
+  if (!workspaceId) {
+    throw AppError.ValidationError("workspaceId query parameter is required");
+  }
+
+  const data = await ProjectService.getProjectSettings(workspaceId, projectId, user.id);
+  return c.json({ success: true, data });
+});
+
+/**
+ * PATCH /api/v1/projects/:projectId/settings
+ * One matrix cell, the project-wide defaults, or both. `member.value: null`
+ * clears the override and falls back to the role default.
+ */
+projects.patch(
+  "/:projectId/settings",
+  zValidator("json", projectSettingsSchema),
+  async (c) => {
+    const user = c.get("user");
+    const projectId = c.req.param("projectId");
+    const workspaceId = c.req.query("workspaceId");
+    const body = c.req.valid("json");
+
+    if (!workspaceId) {
+      throw AppError.ValidationError("workspaceId query parameter is required");
+    }
+
+    const data = await ProjectService.updateProjectSettings(
+      workspaceId,
+      projectId,
+      user.id,
+      body,
+    );
+    return c.json({ success: true, data });
+  },
+);
 
 /**
  * Mobile-shaped variants.

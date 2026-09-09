@@ -15,11 +15,38 @@ import { cn } from "@/lib/utils";
 
 export function createTeamMemberColumns(
     isAdmin: boolean,
+    /** Workload is management information: owners, admins and managers only. */
+    canSeeWorkload: boolean,
     onView: (member: WorkspaceMemberRow) => void,
     onEdit: (member: WorkspaceMemberRow) => void,
     onDelete: (member: WorkspaceMemberRow) => void,
     onResend: (member: WorkspaceMemberRow) => void
 ): ColumnDef<WorkspaceMemberRow>[] {
+    const tasksAssignedColumn: ColumnDef<WorkspaceMemberRow> = {
+            id: "tasksAssigned",
+            accessorKey: "openTaskCount",
+            header: "Tasks Assigned",
+            cell: ({ row }) => {
+                const count = row.original.openTaskCount ?? 0;
+                return (
+                    <div
+                        className={cn(
+                            "w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                            count === 0
+                                ? "bg-muted text-muted-foreground"
+                                : count < 5
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : count < 10
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                        )}
+                    >
+                        {count}
+                    </div>
+                );
+            },
+        };
+
     const columns: ColumnDef<WorkspaceMemberRow>[] = [
         // createSelectColumn<WorkspaceMemberRow>(),
 
@@ -117,30 +144,7 @@ export function createTeamMemberColumns(
             },
         },
 
-        {
-            id: "tasksAssigned",
-            accessorKey: "openTaskCount",
-            header: "Tasks Assigned",
-            cell: ({ row }) => {
-                const count = row.original.openTaskCount ?? 0;
-                return (
-                    <div
-                        className={cn(
-                            "w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                            count === 0
-                                ? "bg-muted text-muted-foreground"
-                                : count < 5
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : count < 10
-                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                        )}
-                    >
-                        {count}
-                    </div>
-                );
-            },
-        },
+        ...(canSeeWorkload ? [tasksAssignedColumn] : []),
 
         {
             id: "reportedTo",

@@ -10,7 +10,8 @@ import {
   Search, 
   ArrowRight, 
   Calendar, 
-  FolderKanban
+  FolderKanban,
+  X
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { projectCategory, PROJECT_CATEGORY_LABELS } from "@tusker/core/lib/zodSchemas";
@@ -241,8 +242,18 @@ export default function WorkspaceProjectsPage() {
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-card/45 hover:bg-card/85 focus:bg-card border border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl text-sm font-medium outline-none transition-all placeholder:text-muted-foreground/50 shadow-sm"
+            className="w-full pl-10 pr-10 py-2 bg-card/45 hover:bg-card/85 focus:bg-card border border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl text-sm font-medium outline-none transition-all placeholder:text-muted-foreground/50 shadow-sm"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </div>
 
         {/* Custom Tab Filters */}

@@ -17,6 +17,13 @@ import { cn } from "@/lib/utils";
 import type { SubTaskType } from "@tusker/core/types/task";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import type { ActivityAttachment } from "@tusker/core/lib/attachments";
+import {
+    resolveProjectPermissions,
+    canProject,
+    canSetStatus,
+    isMandatoryTransition,
+    DEFAULT_PROJECT_SETTINGS,
+} from "@tusker/core/lib/constants/project-permissions";
 
 type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
 
@@ -94,49 +101,53 @@ export function SubtaskStatusChanger({
         (currentProjectMemberId && subTaskAssigneeMemberId && currentProjectMemberId === subTaskAssigneeMemberId)
     );
 
-    // A user can change status if they are Admin/PM/Coordinator, or if they are Lead & creator/assignee, or if they are Member & creator/assignee
-    const canEditThisSubTask = isPM || isCoordinator || isCreator || isAssignee;
+    /**
+     * The same matrix the API gates on. The workspace-wide task list renders this
+     * component without project-scoped permissions in hand, so fall back to the
+     * role defaults there — which is exactly the behaviour it had before.
+     */
+    const projectPermissions =
+        (permissions as { projectPermissions?: ReturnType<typeof resolveProjectPermissions> })
+            ?.projectPermissions ??
+        resolveProjectPermissions(
+            isPM ? "PROJECT_MANAGER" : isCoordinator ? "PROJECT_COORDINATOR" : isLead ? "LEAD" : "MEMBER",
+            undefined,
+            null,
+            isWorkspaceAdmin,
+        );
 
-    const isActingAsManager = !isAssignee && (isPM || isCoordinator);
+    // Ownership scoping is orthogonal to the matrix: only Admin / PM / Coordinator
+    // act on tasks that are neither theirs nor assigned to them.
+    const hasProjectWideStanding = !!(isWorkspaceAdmin || isPM || isCoordinator);
+    const canEditThisSubTask =
+        canProject(projectPermissions, "task:status") &&
+        (hasProjectWideStanding || isCreator || isAssignee);
+
+    const canApprove = (target: TaskStatus) =>
+        canSetStatus(projectPermissions, target, isAssignee) &&
+        (hasProjectWideStanding || isCreator);
 
     const isTransitionAllowed = (targetStatus: TaskStatus): { allowed: boolean; reason?: string } => {
         if (!canEditThisSubTask) {
             return { allowed: false, reason: "You do not have permission to update this task." };
         }
 
-        // If the user is the assignee of this subtask, they are ALWAYS treated as a worker/member for this subtask
-        // and can only change the status till REVIEW (cannot mark COMPLETED, HOLD, CANCELLED, cannot move out of REVIEW),
-        // even if they are a Project Manager or Coordinator.
-        if (isAssignee) {
-            if (targetStatus === "COMPLETED") {
-                return { allowed: false, reason: "As the assignee, you cannot mark this task as Completed." };
-            }
-            if (targetStatus === "HOLD") {
-                return { allowed: false, reason: "As the assignee, you cannot put this task on Hold." };
-            }
-            if (targetStatus === "CANCELLED") {
-                return { allowed: false, reason: "As the assignee, you cannot cancel this task." };
-            }
-            if (displayStatus === "REVIEW") {
-                return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
-            }
+        // The assignee is always the worker on their own task, never its approver,
+        // no matter what the matrix says.
+        if (isAssignee && ["COMPLETED", "HOLD", "CANCELLED"].includes(targetStatus)) {
+            return { allowed: false, reason: `As the assignee, you cannot set this task to ${getStatusLabel(targetStatus)}.` };
+        }
+        if (isAssignee && displayStatus === "REVIEW") {
+            return { allowed: false, reason: "As the assignee, you cannot move this task out of Review status." };
         }
 
-        // ðŸ”’ COMPLETED rule:
-        // - Project Manager / Coordinator (not assigned as worker): always allowed.
-        // - Project Lead: allowed ONLY on subtasks they personally created (and not assigned as worker).
-        // - Member / others: never allowed.
-        const leadCanComplete = !isAssignee && isLead && isCreator;
-        if (targetStatus === "COMPLETED" && !isActingAsManager && !leadCanComplete) {
-            return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the Lead who created this task can mark tasks as Completed." };
+        if (["COMPLETED", "HOLD", "CANCELLED"].includes(targetStatus) && !canApprove(targetStatus)) {
+            return { allowed: false, reason: `You don't have permission to set this task to ${getStatusLabel(targetStatus)}.` };
         }
 
-        // Specific Restriction: Tasks in REVIEW status
-        // - Only PM / Coordinator (not assigned as worker) or creating Lead (not assigned as worker) can move task out of REVIEW.
-        if (displayStatus === "REVIEW") {
-            if (!isActingAsManager && !leadCanComplete) {
-                return { allowed: false, reason: "Only the Project Manager / Coordinator (not assigned as worker) or the creating Lead can move this task out of Review status." };
-            }
+        // Moving out of REVIEW is an approval decision, same standing as Completed.
+        if (displayStatus === "REVIEW" && !canApprove("COMPLETED")) {
+            return { allowed: false, reason: "You cannot move this task out of Review status." };
         }
 
         // Constraint: COMPLETED status can only be reached from REVIEW
@@ -147,16 +158,12 @@ export function SubtaskStatusChanger({
         return { allowed: true };
     };
 
-    const isCommentRequired = (targetStatus: TaskStatus) => {
-        const currentStatus = displayStatus;
-        const isMandatory =
-            ["HOLD", "CANCELLED", "REVIEW"].includes(targetStatus) ||
-            (currentStatus && ["HOLD", "CANCELLED", "COMPLETED"].includes(currentStatus)) ||
-            (currentStatus === "REVIEW" && (targetStatus === "TO_DO" || targetStatus === "IN_PROGRESS")) ||
-            (currentStatus === "IN_PROGRESS" && targetStatus === "TO_DO");
+    const projectSettings =
+        (permissions as { projectSettings?: typeof DEFAULT_PROJECT_SETTINGS })?.projectSettings ??
+        DEFAULT_PROJECT_SETTINGS;
 
-        return !!isMandatory;
-    };
+    const isCommentRequired = (targetStatus: TaskStatus) =>
+        isMandatoryTransition(displayStatus, targetStatus);
 
     const updateStatus = async (targetStatus: TaskStatus, comment?: string, attachmentData?: ActivityAttachment) => {
         if (!workspaceId || !projectId) {
@@ -302,6 +309,7 @@ export function SubtaskStatusChanger({
                     workspaceId={workspaceId}
                     projectId={projectId}
                     taskId={subTask.id}
+                    requireAttachment={projectSettings.mandatoryAttachment}
                 />
             )}
         </>

@@ -10,9 +10,14 @@ import { ProjectLayoutContext, type ProjectLayoutContextType } from "./project-l
 
 import { useProjectTags } from "@/hooks/use-project-tags";
 import { resolveCapabilities } from "@tusker/core/lib/constants/capabilities";
+import {
+    resolveProjectPermissions,
+    DEFAULT_PROJECT_SETTINGS,
+} from "@tusker/core/lib/constants/project-permissions";
 
 // Deny-by-default until the real permissions land.
 const NO_CAPABILITIES = resolveCapabilities(null);
+const NO_PROJECT_PERMISSIONS = resolveProjectPermissions(null);
 
 export function ProjectLayoutProvider({
     children,
@@ -72,6 +77,8 @@ export function ProjectLayoutProvider({
             userSurname: null,
             projectMember: null,
             capabilities: NO_CAPABILITIES,
+            projectPermissions: NO_PROJECT_PERMISSIONS,
+            projectSettings: DEFAULT_PROJECT_SETTINGS,
         },
         workspaceTags: projectTags || [],
         workspaceId,

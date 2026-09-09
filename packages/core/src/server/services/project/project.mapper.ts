@@ -6,6 +6,7 @@ import {
   ProjectMember,
   FullProjectData
 } from "../../../types/project";
+import { resolveProjectPermissions } from "../../../lib/constants/project-permissions";
 
 export class ProjectMapper {
   /**
@@ -93,7 +94,13 @@ export class ProjectMapper {
       workspaceId: project.workspaceId,
       category: (project.category as ProjectCategory) ?? null,
       userId,
-      canPerformBulkOperations: isWorkspaceAdmin || (projectMember?.projectRole === "LEAD" || projectMember?.projectRole === "PROJECT_MANAGER" || projectMember?.projectRole === "PROJECT_COORDINATOR"),
+      // Same matrix the API gate reads, so the button and the endpoint agree.
+      canPerformBulkOperations: resolveProjectPermissions(
+        projectMember?.projectRole ?? null,
+        projectMember?.permissionOverrides,
+        null,
+        isWorkspaceAdmin,
+      )["bulk:upload"],
       userRole
     };
   }

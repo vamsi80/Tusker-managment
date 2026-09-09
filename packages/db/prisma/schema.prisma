@@ -254,6 +254,9 @@ model Project {
   /// Which of the three business verticals this project belongs to. Nullable
   /// because projects created before categories existed have no answer yet.
   category         ProjectCategory?
+  /// Project-wide defaults from the Project Settings dialog. NULL means "use the
+  /// built-in defaults", so a project that was never configured behaves as before.
+  settings         Json?
   legacyClints     Clints[]              @relation("LegacyProjectClints")
   clint            Clints?               @relation(fields: [clintId], references: [id])
   projectManager   WorkspaceMember?      @relation("ProjectManager", fields: [projectManagerId], references: [id])
@@ -278,6 +281,9 @@ model ProjectMember {
   projectRole       ProjectRole     @default(MEMBER)
   updatedAt         DateTime        @updatedAt
   workspaceMemberId String
+  /// Sparse per-member deltas off DEFAULT_PROJECT_PERMISSIONS[projectRole].
+  /// NULL means "pure role default".
+  permissionOverrides Json?
   project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
   assignedTasks     Task[]          @relation("TaskAssignee")

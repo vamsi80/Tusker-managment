@@ -97,6 +97,13 @@ export function DataTable<TData, TValue>({
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [internalRowSelection, setInternalRowSelection] = React.useState({});
     const [globalFilter, setGlobalFilter] = React.useState("");
+    /**
+     * What the search box shows while it is being typed in. With server-side
+     * filtering every keystroke is a network round trip, and the table reloading
+     * under the cursor made the box unusable mid-word — so there the draft is
+     * only handed to the table on Enter, on blur, or when it is cleared.
+     */
+    const [searchDraft, setSearchDraft] = React.useState("");
     const mounted = useMounted();
 
     const rowSelection = controlledRowSelection ?? internalRowSelection;
@@ -146,6 +153,27 @@ export function DataTable<TData, TValue>({
         },
     });
 
+    const committedSearch = searchKey
+        ? ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "")
+        : "";
+    const searchValue = manualFiltering ? searchDraft : committedSearch;
+    const commitSearch = (value: string) => {
+        setSearchDraft(value);
+        if (searchKey) table.getColumn(searchKey)?.setFilterValue(value);
+    };
+
+    /** Wipes the box and runs the empty search immediately — no Enter needed. */
+    const clearSearchButton = (onClear: () => void) => (
+        <button
+            type="button"
+            onClick={onClear}
+            aria-label="Clear search"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+            <X className="size-3.5" />
+        </button>
+    );
+
     return (
         <div className="space-y-4">
             {/* Toolbar */}
@@ -158,12 +186,31 @@ export function DataTable<TData, TValue>({
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                                 <Input
                                     placeholder={searchPlaceholder}
-                                    value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-                                    onChange={(event) =>
-                                        table.getColumn(searchKey)?.setFilterValue(event.target.value)
-                                    }
-                                    className="pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                    value={searchValue}
+                                    title={manualFiltering ? "Press Enter to search" : undefined}
+                                    onChange={(event) => {
+                                        const next = event.target.value;
+                                        setSearchDraft(next);
+                                        if (!manualFiltering) table.getColumn(searchKey)?.setFilterValue(next);
+                                    }}
+                                    onKeyDown={(event) => {
+                                        if (manualFiltering && event.key === "Enter") commitSearch(searchDraft);
+                                    }}
+                                    onBlur={() => {
+                                        if (manualFiltering && searchDraft !== committedSearch) commitSearch(searchDraft);
+                                    }}
+                                    className={cn(
+                                        "pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20",
+                                        searchValue ? (searchDraft !== committedSearch ? "pr-16" : "pr-8") : ""
+                                    )}
                                 />
+                                {/* Without this the box looks broken: you type and nothing happens. */}
+                                {manualFiltering && searchDraft !== committedSearch && (
+                                    <kbd className="absolute right-8 top-1/2 -translate-y-1/2 rounded border bg-muted px-1 text-[10px] font-medium text-muted-foreground">
+                                        Enter ↵
+                                    </kbd>
+                                )}
+                                {searchValue && clearSearchButton(() => commitSearch(""))}
                             </div>
                         </div>
                     )}
@@ -175,11 +222,13 @@ export function DataTable<TData, TValue>({
                                 <Input
                                     placeholder={searchPlaceholder}
                                     value={globalFilter ?? ""}
-                                    onChange={(event) =>
-                                        setGlobalFilter(event.target.value)
-                                    }
-                                    className="pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20"
+                                    onChange={(event) => setGlobalFilter(event.target.value)}
+                                    className={cn(
+                                        "pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20",
+                                        globalFilter ? "pr-8" : ""
+                                    )}
                                 />
+                                {globalFilter && clearSearchButton(() => setGlobalFilter(""))}
                             </div>
                         </div>
                     )}

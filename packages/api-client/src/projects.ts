@@ -59,6 +59,33 @@ export const projectsClient = {
   },
 
   /**
+   * Get the project permission matrix + project-wide defaults
+   */
+  getSettings: async (workspaceId: string, projectId: string): Promise<any> => {
+    const res = await apiFetch<any>(`/projects/${projectId}/settings?workspaceId=${workspaceId}`);
+    return res.data;
+  },
+
+  /**
+   * Write one matrix cell (`member`), the project-wide defaults (`settings`), or both.
+   * `member.value: null` clears the override and falls back to the role default.
+   */
+  updateSettings: async (
+    workspaceId: string,
+    projectId: string,
+    body: {
+      settings?: { mandatoryComment?: boolean; mandatoryAttachment?: boolean };
+      member?: { projectMemberId: string; permission: string; value: boolean | null };
+    },
+  ): Promise<any> => {
+    const res = await apiFetch<any>(`/projects/${projectId}/settings?workspaceId=${workspaceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+    return res.data;
+  },
+
+  /**
    * Get aggregated project layout data (members + permissions)
    */
   getLayoutData: async (workspaceId: string, projectId: string): Promise<any> => {

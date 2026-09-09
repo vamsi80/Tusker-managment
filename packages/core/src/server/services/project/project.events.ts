@@ -47,6 +47,20 @@ export class ProjectEvents {
     ]);
   }
 
+  /**
+   * The permission matrix changed. Every open session resolved it once at load,
+   * so broadcast as well as invalidate — otherwise other members keep running on
+   * a stale matrix until they reload.
+   */
+  static async onProjectSettingsChanged(workspaceId: string, projectId: string) {
+    await invalidateProjectMembers(projectId);
+    await broadcastProjectUpdate({
+      workspaceId,
+      type: "UPDATE",
+      projectId,
+    });
+  }
+
   static async onMemberRoleUpdated(workspaceId: string, projectId: string, userId: string) {
     await Promise.all([
       invalidateWorkspaceProjects(workspaceId),

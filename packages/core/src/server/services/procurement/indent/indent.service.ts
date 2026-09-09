@@ -6,6 +6,10 @@ import { pusherServer } from "../../../../lib/pusher";
 import { getUserDisplayName } from "../../../../lib/user-display-name";
 import { INDENT_STATUS_LABELS } from "../../../../lib/procurement/status-filters";
 import { IndentRepository } from "./indent.repository";
+import {
+  resolveProjectPermissions,
+  canProject,
+} from "../../../../lib/constants/project-permissions";
 
 type InitialLineItemInput = {
   materialCatalogId?: string;
@@ -34,6 +38,32 @@ export class IndentService {
   private static ensureCanMutate(member: { workspaceRole: string }) {
     if (member.workspaceRole === "ACCOUNTS") {
       throw AppError.Forbidden("Accounts has view-only access to procurement");
+    }
+  }
+
+  /**
+   * Raising an indent *inside a project* is governed by that project's matrix.
+   * A general (workspace-wide) indent carries no project, so it keeps the
+   * workspace-level rule above and nothing else.
+   */
+  private static async ensureCanRaiseInProject(
+    projectId: string | null | undefined,
+    member: { id: string; workspaceRole: string },
+  ) {
+    if (!projectId) return;
+    if (member.workspaceRole === "OWNER" || member.workspaceRole === "ADMIN") return;
+
+    const projectMember = await prisma.projectMember.findFirst({
+      where: { projectId, workspaceMemberId: member.id },
+      select: { projectRole: true, permissionOverrides: true },
+    });
+
+    const permissions = resolveProjectPermissions(
+      projectMember?.projectRole ?? null,
+      projectMember?.permissionOverrides,
+    );
+    if (!canProject(permissions, "indent:raise")) {
+      throw AppError.Forbidden("You don't have permission to raise indents on this project");
     }
   }
 
@@ -279,6 +309,7 @@ export class IndentService {
 
     const member = await this.getMember(userId, data.workspaceId);
     this.ensureCanMutate(member);
+    await this.ensureCanRaiseInProject(data.projectId, member);
     this.ensureOptionalChargePercentages(data);
 
     if (!data.approverIds.length) {
