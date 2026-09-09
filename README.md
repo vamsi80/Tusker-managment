@@ -15,7 +15,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-[Live demo](https://YOUR-DEPLOYMENT-URL) · [Architecture](#architecture) · [Permissions model](#permissions-three-layers-that-all-have-to-agree) · [Running it](#running-it)
+[Architecture](#architecture) · [Permissions model](#permissions-three-layers-that-all-have-to-agree) · [Running it](#running-it)
 
 </div>
 
