@@ -42,38 +42,14 @@ const VISIBILITY_OPTIONS = [
   { value: "0", label: "Visible until removed" },
 ];
 
-export function BroadcastWidget({
-  workspaceId,
-  canBroadcast,
-  initialBroadcasts,
-}: {
-  workspaceId: string;
-  canBroadcast: boolean;
-  /** Comes down with the workspace layout payload, so the box usually never fetches. */
-  initialBroadcasts?: Broadcast[];
-}) {
+/**
+ * The workspace's live broadcast list. Both the card and the dashboard ticker
+ * read from here so a newly posted announcement lands in both at once.
+ */
+function useBroadcasts(workspaceId: string, initialBroadcasts?: Broadcast[]) {
   const [fetched, setFetched] = useState<Broadcast[] | null>(null);
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [visibleFor, setVisibleFor] = useState("168");
-  const [isSending, setIsSending] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Broadcast | null>(null);
-  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
-  /** Empty means the whole workspace, which is what an unaddressed broadcast has always meant. */
-  const [deptIds, setDeptIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!canBroadcast) return;
-    listDepartments(workspaceId)
-      .then((res) => setDepartments(res.data ?? []))
-      .catch(() => setDepartments([]));
-  }, [workspaceId, canBroadcast]);
-
-  const toggleDept = (id: string) =>
-    setDeptIds((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
-
-  // Anything this component fetched itself wins; otherwise show what the layout
+  // Anything this hook fetched itself wins; otherwise show what the layout
   // already delivered, and only go to the network when it delivered nothing.
   const broadcasts = fetched ?? initialBroadcasts ?? null;
 
@@ -95,6 +71,100 @@ export function BroadcastWidget({
     // revalidations must not trigger another fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
+
+  return { broadcasts, load };
+}
+
+/**
+ * News-channel ticker for the dashboard banner: every live announcement on one
+ * line, scrolling right to left and wrapping around. The track renders the list
+ * twice so the loop has no visible seam; hovering pauses it so it can be read.
+ */
+export function BroadcastTicker({
+  workspaceId,
+  initialBroadcasts,
+}: {
+  workspaceId: string;
+  initialBroadcasts?: Broadcast[];
+}) {
+  const { broadcasts } = useBroadcasts(workspaceId, initialBroadcasts);
+  const items = broadcasts ?? [];
+
+  if (items.length === 0) return null;
+
+  const messages = items.map((b) =>
+    b.title && b.title !== "Announcement" ? `${b.title} — ${b.body}` : b.body
+  );
+
+  // One short announcement would leave dead space between the two copies of the
+  // track, so repeat the list until it is at least banner-wide first.
+  // ponytail: 140 chars stands in for the banner width, no measuring involved.
+  const line = Array.from(
+    { length: Math.max(1, Math.ceil(140 / Math.max(1, messages.join("").length))) },
+    () => messages
+  ).flat();
+
+  // Pace it by content, not a fixed duration: a long line at a short duration
+  // is unreadable, a short line at a long one looks frozen. ~9 chars a second.
+  const seconds = Math.max(20, line.join("").length / 9);
+
+  const run = (key: string) => (
+    <span key={key} className="flex shrink-0 items-center" aria-hidden={key === "b"}>
+      {line.map((m, i) => (
+        <span key={i} className="flex items-center">
+          <span className="px-4 text-sm font-medium text-foreground">{m}</span>
+          <span className="text-primary/50">•</span>
+        </span>
+      ))}
+    </span>
+  );
+
+  return (
+    <div className="broadcast-ticker flex min-w-0 flex-1 items-center overflow-hidden rounded-2xl border bg-card shadow-xs">
+      <span className="flex shrink-0 items-center gap-1.5 self-stretch rounded-l-2xl bg-rose-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white">
+        <Megaphone className="size-3.5" />
+        Broadcast
+      </span>
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="broadcast-ticker-track" style={{ animationDuration: `${seconds}s` }}>
+          {run("a")}
+          {run("b")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function BroadcastWidget({
+  workspaceId,
+  canBroadcast,
+  initialBroadcasts,
+}: {
+  workspaceId: string;
+  canBroadcast: boolean;
+  /** Comes down with the workspace layout payload, so the box usually never fetches. */
+  initialBroadcasts?: Broadcast[];
+}) {
+  const { broadcasts, load } = useBroadcasts(workspaceId, initialBroadcasts);
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [visibleFor, setVisibleFor] = useState("168");
+  const [isSending, setIsSending] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Broadcast | null>(null);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  /** Empty means the whole workspace, which is what an unaddressed broadcast has always meant. */
+  const [deptIds, setDeptIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!canBroadcast) return;
+    listDepartments(workspaceId)
+      .then((res) => setDepartments(res.data ?? []))
+      .catch(() => setDepartments([]));
+  }, [workspaceId, canBroadcast]);
+
+  const toggleDept = (id: string) =>
+    setDeptIds((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
 
   const resetComposer = () => {
     setEditingId(null);

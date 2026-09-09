@@ -36,13 +36,16 @@ const isDelayed = (task: TaskRow) =>
   !!task.dueDate &&
   toDateOnlyString(new Date(task.dueDate)) < toDateOnlyString(new Date());
 
-/** Sunday 00:00 to Saturday 23:59 of the current week, in local time. */
-function currentWeek() {
+/**
+ * Today 00:00 through the end of the 7th day, in local time. A rolling window,
+ * not the calendar week: on a Friday "this week" showed one day of work left,
+ * which is why the tab was useless for planning what is actually coming.
+ */
+function next7Days() {
   const start = new Date();
   const end = new Date();
 
-  start.setDate(start.getDate() - start.getDay());
-  end.setDate(end.getDate() + (6 - end.getDay()));
+  end.setDate(end.getDate() + 6);
   start.setHours(0, 0, 0, 0);
   end.setHours(23, 59, 59, 999);
 
@@ -55,7 +58,7 @@ function currentWeek() {
  * slow call and re-showing a skeleton every visit is what made it feel broken.
  * Page-session only; a reload starts empty.
  */
-const weekTaskCache = new Map<string, TaskRow[]>();
+const upcomingTaskCache = new Map<string, TaskRow[]>();
 
 /** Delayed first, then still-pending work, then the ones due soonest. */
 function byUrgency(a: TaskRow, b: TaskRow) {
@@ -68,7 +71,7 @@ function byUrgency(a: TaskRow, b: TaskRow) {
 
 /**
  * Tasks the current user is allowed to see (the /tasks API scopes by workspace
- * and project role), due today or within the rest of this week.
+ * and project role), due today or within the next 7 days.
  */
 export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   const { openSubTaskSheet } = useSubTaskSheet();
@@ -78,17 +81,17 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   // Safe as a lazy initial value: the dashboard keys this widget by workspace,
   // so a remount is guaranteed when the workspace changes.
   const [weekTasks, setWeekTasks] = useState<TaskRow[] | null>(
-    () => weekTaskCache.get(workspaceId) ?? null
+    () => upcomingTaskCache.get(workspaceId) ?? null
   );
 
   // Fetched once and filtered per range — the task API is an expensive call
   // (it resolves project permissions before querying), so switching ranges
   // should not pay for it again. There is deliberately no lower bound: a
-  // delayed task is usually overdue from before this week, and bounding the
-  // window to the week is what would hide exactly the ones that matter.
+  // delayed task is usually overdue from before today, and bounding the
+  // window at the low end is what would hide exactly the ones that matter.
   useEffect(() => {
     let active = true;
-    const { end } = currentWeek();
+    const { end } = next7Days();
     const params = new URLSearchParams({
       w: workspaceId,
       vm: "list",
@@ -103,7 +106,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         if (!active) return;
         const rows: TaskRow[] = json?.success ? json.data?.tasks ?? [] : [];
         const sorted = [...rows].sort(byUrgency);
-        weekTaskCache.set(workspaceId, sorted);
+        upcomingTaskCache.set(workspaceId, sorted);
         setWeekTasks(sorted);
       })
       .catch(() => active && setWeekTasks((prev) => prev ?? []));
@@ -114,18 +117,18 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   }, [workspaceId]);
 
   const todayKey = toDateOnlyString(new Date());
-  const { start: weekStart, end: weekEnd } = currentWeek();
-  const inThisWeek = (t: TaskRow) => {
+  const { start: windowStart, end: windowEnd } = next7Days();
+  const inNext7Days = (t: TaskRow) => {
     if (!t.dueDate) return false;
     const key = toDateOnlyString(new Date(t.dueDate));
-    return key >= toDateOnlyString(weekStart) && key <= toDateOnlyString(weekEnd);
+    return key >= toDateOnlyString(windowStart) && key <= toDateOnlyString(windowEnd);
   };
 
   const rangeFilter: Record<Range, (t: TaskRow) => boolean> = {
     delayed: isDelayed,
     today: (t) => !!t.dueDate && toDateOnlyString(new Date(t.dueDate)) === todayKey,
     // Overdue work belongs in Delayed only; this tab is what is still coming.
-    week: (t) => inThisWeek(t) && !isDelayed(t),
+    week: (t) => inNext7Days(t) && !isDelayed(t),
   };
 
   // An owner's /tasks call already returns the whole workspace, so only the
@@ -148,7 +151,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
             {isOwner ? "All Tasks" : "My Tasks"}
           </h3>
           <span className="text-xs text-muted-foreground">
-            {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due this week"}
+            {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due in next 7 days"}
             {range !== "delayed" && delayedCount > 0 && (
               <span className="text-rose-600 dark:text-rose-400 font-semibold">
                 {" "}
@@ -175,7 +178,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {r === "delayed" ? "Delayed" : r === "today" ? "Today" : "This Week"}
+            {r === "delayed" ? "Delayed" : r === "today" ? "Today" : "Next 7 Days"}
           </button>
         ))}
       </div>
@@ -193,7 +196,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
               ? "Nothing overdue"
               : range === "today"
               ? "No tasks due today"
-              : "No tasks due this week"}
+              : "No tasks due in the next 7 days"}
           </p>
         ) : (
           <div className="space-y-2">

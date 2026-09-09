@@ -390,3 +390,27 @@
 .task-blink > td {
   animation: task-blink 0.6s ease-in-out 5 !important;
 }
+
+/* Breaking-news ticker on the workspace dashboard. The track holds the message
+   list twice, so translating it exactly half its width loops seamlessly. */
+@keyframes broadcast-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.broadcast-ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation-name: broadcast-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* Hovering holds a message still so it can actually be read. */
+.broadcast-ticker:hover .broadcast-ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .broadcast-ticker-track { animation: none; }
+}
