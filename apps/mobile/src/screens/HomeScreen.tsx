@@ -36,6 +36,7 @@ import WidgetPreviewModal from "../components/WidgetPreviewModal";
 import HeaderMenu from "../components/HeaderMenu";
 import CalendarDateIcon from "../components/CalendarDateIcon";
 import AIBotAvatar from "../components/AIBotAvatar";
+import BroadcastWidget from "../components/BroadcastWidget";
 import PressableScale from "../components/PressableScale";
 import { haptics } from "../services/haptics";
 import { useResponsive } from "../hooks/useResponsive";
@@ -693,6 +694,9 @@ export default function HomeScreen({ navigation }: Props) {
                         </>
                     )}
                 </View>
+
+                {/* Announcements — parity with the web dashboard's BroadcastWidget. */}
+                {activeWorkspace?.id && <BroadcastWidget workspaceId={activeWorkspace.id} />}
 
                 {/* Birthdays — parity with the web dashboard's Birthdays widget.
                     Hidden entirely in a month with none, so it costs no space. */}

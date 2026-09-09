@@ -15,21 +15,23 @@ import { ListSkeleton, DetailSkeleton } from "../components/ScreenSkeleton";
 import { Skeleton } from "../components/Skeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useNotifications } from "../context/NotificationContext";
-import { 
-    getTaskComments, 
-    postTaskComment, 
-    getCachedSession, 
-    getTaskById, 
+import {
+    getTaskComments,
+    postTaskComment,
+    getCachedSession,
+    getTaskById,
     getTaskDetail,
-    getSubTasks, 
+    getSubTasks,
     getTaskActivities,
     updateTask,
+    updateSubTaskStatus,
     getProjectMembers,
     getWorkspaceMembers,
     getTags
 } from "../services/api";
 import CreateSubTaskModal from "../components/CreateSubTaskModal";
 import StatusPickerModal from "../components/StatusPickerModal";
+import ReviewCommentModal from "../components/ReviewCommentModal";
 import CalendarPicker from "../components/CalendarPicker";
 import CreateTaskModal from "../components/CreateTaskModal";
 import { RootStackParamList, Task } from "../types";
@@ -74,6 +76,8 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
 
     // Edit/Picker states
     const [statusPickerVisible, setStatusPickerVisible] = useState(false);
+    const [statusReviewModalVisible, setStatusReviewModalVisible] = useState(false);
+    const [pendingStatus, setPendingStatus] = useState<string | null>(null);
     const [assigneePickerVisible, setAssigneePickerVisible] = useState(false);
     const [tagPickerVisible, setTagPickerVisible] = useState(false);
     const [showStartDatePicker, setShowStartDatePicker] = useState(false);
@@ -93,6 +97,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
     const openSubtaskSheet = (tab?: "Messages" | "Activity") => {
         if (tab) {
             setSubtaskTab(tab);
+            if (tab === "Activity") reloadActivities();
         }
         setIsSubtaskSheetOpen(true);
         Animated.spring(sheetAnim, {
@@ -244,6 +249,15 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
 
     const task = taskFromContext ?? fetchedTask;
 
+    const reloadActivities = useCallback(async () => {
+        try {
+            const activityResult = await getTaskActivities(taskId);
+            setActivities(activityResult);
+        } catch (e) {
+            console.error("Failed to reload task activities:", e);
+        }
+    }, [taskId]);
+
     const reloadTask = useCallback(async () => {
         try {
             const t = await getTaskById(taskId);
@@ -257,7 +271,11 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
         } catch (e) {
             console.error("Failed to reload task details:", e);
         }
-    }, [taskId, activeWorkspace?.id]);
+        // Every field/status edit can add an Activity row (status changes
+        // always do), so keep the Activity tab's count and list in sync
+        // instead of leaving it frozen at whatever the screen first loaded.
+        await reloadActivities();
+    }, [taskId, activeWorkspace?.id, reloadActivities]);
 
     const handleUpdateTaskField = async (fields: any) => {
         try {
@@ -270,6 +288,66 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
             }
         } catch (err: any) {
             Alert.alert("Error", err.message || "Failed to update task details");
+        }
+    };
+
+    /**
+     * Status changes go through the dedicated status endpoint, not the
+     * general task-field one — some transitions (into/out of HOLD,
+     * CANCELLED, REVIEW, etc.) are only accepted there, with an explanation
+     * comment or attachment. The general edit endpoint hard-rejects them
+     * with "update the status from the board/list view" instead, which is
+     * exactly the failure this screen used to hit. Mirrors
+     * ProjectKanban.tsx's handleStatusUpdate so subtask detail behaves the
+     * same as the kanban board.
+     */
+    const handleStatusChange = async (newStatus: string, comment?: string, attachmentData?: any) => {
+        if (!activeWorkspace || !task) return;
+        const fromStatus = task.status;
+        const toStatus = newStatus;
+
+        const isMovingToReview = toStatus === "REVIEW";
+        const isMovingFromReviewToOthers = fromStatus === "REVIEW" && toStatus !== "COMPLETED";
+        const isMovingFromTodoToSpecial = fromStatus === "TO_DO" && (toStatus === "HOLD" || toStatus === "CANCELLED");
+        const isMovingFromInProgress = fromStatus === "IN_PROGRESS" && (toStatus === "TO_DO" || toStatus === "REVIEW" || toStatus === "HOLD" || toStatus === "CANCELLED");
+        const isMovingFromCompleted = fromStatus === "COMPLETED" && toStatus !== "COMPLETED";
+        const isMovingFromHoldOrCancelled = (fromStatus === "HOLD" || fromStatus === "CANCELLED") && toStatus !== fromStatus;
+
+        const needsComment =
+            isMovingToReview ||
+            isMovingFromReviewToOthers ||
+            isMovingFromTodoToSpecial ||
+            isMovingFromInProgress ||
+            isMovingFromCompleted ||
+            isMovingFromHoldOrCancelled;
+
+        if (needsComment && !comment && !attachmentData) {
+            setPendingStatus(newStatus);
+            setStatusPickerVisible(false);
+            setStatusReviewModalVisible(true);
+            return;
+        }
+
+        try {
+            await updateSubTaskStatus(taskId, {
+                newStatus,
+                workspaceId: activeWorkspace.id,
+                projectId: task.projectId || "",
+                comment,
+                attachmentData,
+            });
+            await reloadTask();
+            await refreshData();
+            setStatusReviewModalVisible(false);
+            setPendingStatus(null);
+        } catch (err: any) {
+            Alert.alert("Error", err.message || "Failed to update status");
+        }
+    };
+
+    const handleStatusReviewSubmit = async (comment: string, attachmentData?: any) => {
+        if (pendingStatus) {
+            await handleStatusChange(pendingStatus, comment, attachmentData);
         }
     };
 
@@ -784,6 +862,28 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                                                 <Ionicons name="chevron-forward" size={14} color={colors.textDim} />
                                             </View>
                                         </TouchableOpacity>
+
+                                        {/* Assigned By Row — read-only, matches web's subtask-sheet-header.tsx */}
+                                        <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                                            <View style={styles.detailLabelBox}>
+                                                <Ionicons name="person-add-outline" size={16} color={colors.textDim} />
+                                                <Text style={[styles.detailLabel, { color: colors.text }]}>Assigned By</Text>
+                                            </View>
+                                            <View style={[styles.detailValueBox, { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" }]}>
+                                                {task.createdBy?.surname || task.createdBy?.name ? (
+                                                    <View style={styles.assigneeLine}>
+                                                        <View style={styles.avatarFallback}>
+                                                            <Text style={styles.avatarInitial}>{(task.createdBy?.surname?.[0] || task.createdBy?.name?.[0] || "?").toUpperCase()}</Text>
+                                                        </View>
+                                                        <Text style={[styles.detailValueText, { color: colors.text }]}>
+                                                            {task.createdBy.surname ? task.createdBy.surname.split(" ")[0] : task.createdBy.name}
+                                                        </Text>
+                                                    </View>
+                                                ) : (
+                                                    <Text style={[styles.detailValueText, { color: colors.textDim, fontStyle: "italic" }]}>Unknown</Text>
+                                                )}
+                                            </View>
+                                        </View>
 
                                         {/* Start Date Row */}
                                         <TouchableOpacity 
@@ -1441,13 +1541,23 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
             <StatusPickerModal
                 visible={statusPickerVisible}
                 onClose={() => setStatusPickerVisible(false)}
-                onSelect={(newStatus) => handleUpdateTaskField({ status: newStatus })}
+                onSelect={(newStatus) => handleStatusChange(newStatus)}
                 currentStatus={task?.status ?? "TO_DO"}
                 projectId={task?.projectId}
                 workspaceId={activeWorkspace?.id}
                 currentUserId={currentUserId}
                 assigneeId={task?.assigneeId ?? null}
                 createdById={(task as any)?.createdById ?? null}
+            />
+
+            <ReviewCommentModal
+                visible={statusReviewModalVisible}
+                onClose={() => {
+                    setStatusReviewModalVisible(false);
+                    setPendingStatus(null);
+                }}
+                onSubmit={handleStatusReviewSubmit}
+                taskName={task?.name || ""}
             />
 
             <CalendarPicker

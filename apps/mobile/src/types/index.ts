@@ -52,12 +52,17 @@ export interface Workspace {
     isProjectManager?: boolean;
 }
 
+// Which of the three business verticals a project belongs to. Mirrors
+// packages/core/src/lib/zodSchemas.ts's projectCategory / ProjectCategory enum.
+export type ProjectCategory = "WHITE_TUSKER" | "LATTICE_LANE" | "MISCELLANEOUS";
+
 export interface Project {
     id: string;
     name: string;
     workspaceId: string;
     color?: string;
     description?: string;
+    category?: ProjectCategory | null;
     canManageMembers?: boolean;
     projectManagers?: Array<{
         id: string;
@@ -114,6 +119,13 @@ export interface Task {
         id: string;
         name: string;
         surname: string;
+    };
+    /** Who handed this task/subtask out — read-only, matches web's "Assigned By". */
+    createdBy?: {
+        id: string;
+        name: string;
+        surname: string;
+        image?: string | null;
     };
     tag?: {
         name: string;
@@ -370,4 +382,36 @@ export interface CreateMeetingPayload {
     isAllDay?: boolean;
     projectId?: string;
     attendeeUserIds?: string[];
+}
+
+// ─── Broadcasts (workspace announcements) ──────────────────────────────────
+// Mirrors packages/core/src/types/workspace.ts BroadcastMessage — broadcasts
+// are plain Notification rows (type "BROADCAST") server-side, one per
+// recipient, sharing an entityId that edit/delete address.
+
+export interface BroadcastMessage {
+    id: string;
+    entityId?: string | null;
+    title: string;
+    body: string;
+    createdAt: string;
+    isRead?: boolean;
+    metadata?: {
+        senderName?: string;
+        expiresAt?: string | null;
+        departmentIds?: string[];
+        departmentNames?: string[];
+    } | null;
+}
+
+export interface PostBroadcastPayload {
+    title?: string;
+    message: string;
+    expiresInHours?: number | null;
+    departmentIds?: string[];
+}
+
+export interface Department {
+    id: string;
+    name: string;
 }

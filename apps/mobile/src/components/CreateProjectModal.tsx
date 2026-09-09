@@ -15,7 +15,8 @@ import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme"
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { createProject, getWorkspaceMembers } from "../services/api";
-import { WorkspaceMember } from "../types";
+import { WorkspaceMember, ProjectCategory } from "../types";
+import { PROJECT_CATEGORY_OPTIONS } from "../constants/projectCategory";
 import PressableScale from "./PressableScale";
 import AppButton from "./AppButton";
 
@@ -55,7 +56,8 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isInternal, setIsInternal] = useState(false);
-    
+    const [category, setCategory] = useState<ProjectCategory | null>(null);
+
     // Web-aligned project fields
     const [description, setDescription] = useState("");
     const [companyName, setCompanyName] = useState("");
@@ -115,6 +117,7 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
             setError(null);
             setSelectedManagerId(null);
             setIsInternal(false);
+            setCategory(null);
         }
         // Keyed on open/close only. Including `projects` re-ran this whenever
         // workspace data refreshed, which re-rolled the auto colour (its fallback
@@ -158,6 +161,11 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
             return;
         }
 
+        if (!category) {
+            setError("Project type is required.");
+            return;
+        }
+
         // Strict validation for Client Projects
         if (!isInternal) {
             if (!companyName.trim() || !address.trim() || !contactPersonName.trim() || !contactNumber.trim()) {
@@ -172,9 +180,10 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
         setError(null);
         try {
             const res = await createProject(
-                activeWorkspace.id, 
-                name.trim(), 
-                selectedManagerId, 
+                activeWorkspace.id,
+                name.trim(),
+                selectedManagerId,
+                category,
                 selectedColor,
                 description.trim(),
                 isInternal ? "Internal" : companyName.trim(),
@@ -276,6 +285,36 @@ export default function CreateProjectModal({ visible, onClose }: CreateProjectMo
                                     <Ionicons name="business-outline" size={16} color={isInternal ? INK_ON_PRIMARY : colors.textDim} />
                                     <Text style={[styles.typeBtnText, { color: isInternal ? INK_ON_PRIMARY : colors.textDim }]}>Internal Project</Text>
                                 </PressableScale>
+                            </View>
+
+                            {/* Project Type (category) — matches web's required "Project Type" select */}
+                            <View style={styles.row}>
+                                <Text style={[styles.label, { color: colors.textDim }]}>Project Type</Text>
+                                <Text style={[styles.label, { color: colors.primary, marginLeft: 4 }]}>*</Text>
+                            </View>
+                            <View style={styles.categoryRow}>
+                                {PROJECT_CATEGORY_OPTIONS.map((opt) => {
+                                    const selected = category === opt.value;
+                                    return (
+                                        <PressableScale
+                                            key={opt.value}
+                                            style={[
+                                                styles.categoryChip,
+                                                { borderColor: colors.border, backgroundColor: colors.background },
+                                                selected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                            ]}
+                                            onPress={() => setCategory(opt.value)}
+                                            haptic="selection"
+                                            accessibilityRole="button"
+                                            accessibilityLabel={opt.label}
+                                            accessibilityState={{ selected }}
+                                        >
+                                            <Text style={[styles.categoryChipText, { color: selected ? INK_ON_PRIMARY : colors.text }]}>
+                                                {opt.label}
+                                            </Text>
+                                        </PressableScale>
+                                    );
+                                })}
                             </View>
 
                             {/* Project Name */}
@@ -576,6 +615,22 @@ const styles = StyleSheet.create({
     },
     typeBtnText: {
         fontSize: 13,
+        fontFamily: FONTS.bold,
+    },
+    categoryRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        marginTop: 4,
+    },
+    categoryChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: BORDER_RADIUS.full,
+        borderWidth: 1,
+    },
+    categoryChipText: {
+        fontSize: 12,
         fontFamily: FONTS.bold,
     },
 
