@@ -12,7 +12,11 @@ import {
     CalendarLayerData,
     Meeting,
     CreateMeetingPayload,
-    RsvpStatus
+    RsvpStatus,
+    ProjectCategory,
+    BroadcastMessage,
+    PostBroadcastPayload,
+    Department
 } from "../types";
 
 // ─── Config ────────────────────────────────────────────────────────────────
@@ -586,6 +590,7 @@ function mapTask(t: any): Task {
         ? t.Task_TaskDependency_A.map((d: any) => d.id)
         : t.dependsOnIds;
     const mappedReviewer = normalize(t.reviewer);
+    const mappedCreatedBy = normalize(t.createdBy);
     const rawTags = [
         t.tag,
         ...(Array.isArray(t.Tag) ? t.Tag : []),
@@ -611,6 +616,7 @@ function mapTask(t: any): Task {
         priority: t.priority ?? "NORMAL",
         assignee: mappedAssignee,
         reviewer: mappedReviewer,
+        createdBy: mappedCreatedBy,
         assigneeId: mappedAssignee?.id || t.assigneeId,
         assigneeRole,
         dependsOnIds,
@@ -890,6 +896,67 @@ export async function getBirthdays(workspaceId: string): Promise<BirthdayMember[
     } catch {
         return [];
     }
+}
+
+/**
+ * Workspace departments — used for the broadcast targeting picker. Any
+ * member may read them (mirrors web's listDepartments server action).
+ */
+export async function getDepartments(workspaceId: string): Promise<Department[]> {
+    try {
+        const res = await apiFetch(`/api/workspaces/${workspaceId}/departments`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json);
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
+// ─── Broadcasts (workspace announcements) ──────────────────────────────────
+
+export async function getBroadcasts(workspaceId: string, limit: number = 10): Promise<BroadcastMessage[]> {
+    try {
+        const res = await apiFetch(`/api/workspaces/${workspaceId}/broadcasts?limit=${limit}`);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const data = unwrap<any[]>(json);
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}
+
+export async function postBroadcast(workspaceId: string, values: PostBroadcastPayload): Promise<BroadcastMessage> {
+    const res = await apiFetch(`/api/workspaces/${workspaceId}/broadcasts`, {
+        method: "POST",
+        body: JSON.stringify(values),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to post announcement");
+    return result.data;
+}
+
+export async function updateBroadcast(
+    workspaceId: string,
+    broadcastId: string,
+    values: { title?: string; message?: string; expiresInHours?: number | null }
+): Promise<void> {
+    const res = await apiFetch(`/api/workspaces/${workspaceId}/broadcasts/${broadcastId}`, {
+        method: "PATCH",
+        body: JSON.stringify(values),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to update announcement");
+}
+
+export async function deleteBroadcast(workspaceId: string, broadcastId: string): Promise<void> {
+    const res = await apiFetch(`/api/workspaces/${workspaceId}/broadcasts/${broadcastId}`, {
+        method: "DELETE",
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Failed to delete announcement");
 }
 
 export type KanbanColumnResponse = {
@@ -1193,6 +1260,11 @@ export async function createProject(
      * web form submits `member.id` for the same reason.
      */
     projectManagerId: string,
+    /**
+     * Required server-side (packages/core/src/lib/zodSchemas.ts projectSchema
+     * — "Project type is required"). Omitting it fails validation with a 400.
+     */
+    category: ProjectCategory,
     color?: string,
     description?: string,
     companyName?: string,
@@ -1210,6 +1282,7 @@ export async function createProject(
             workspaceId,
             color,
             projectManagerId,
+            category,
             description,
             companyName,
             registeredCompanyName,

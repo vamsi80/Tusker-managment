@@ -499,6 +499,31 @@ workspaces.get("/:workspaceId/notifications/:id/read", async (c) => {
 });
 
 /**
+ * GET /api/v1/workspaces/:workspaceId/departments
+ * Department options for pickers (e.g. broadcast targeting). Any member of
+ * the workspace may read them — mirrors web's listDepartments server action
+ * (apps/web/src/actions/department/department-actions.ts), which the mobile
+ * app has no equivalent way to call since it isn't a Next.js server action.
+ */
+workspaces.get("/:workspaceId/departments", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id, true);
+  if (!perms.workspaceMemberId) {
+    throw AppError.Forbidden("Not a member of this workspace");
+  }
+
+  const departments = await prisma.department.findMany({
+    where: { workspaceId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  return c.json({ success: true, data: departments });
+});
+
+/**
  * GET /api/v1/workspaces/:workspaceId/broadcasts
  * Broadcast messages addressed to the current user.
  */

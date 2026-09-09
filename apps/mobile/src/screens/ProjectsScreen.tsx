@@ -20,7 +20,8 @@ import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useNotifications } from "../context/NotificationContext";
-import { RootStackParamList, Project } from "../types";
+import { RootStackParamList, Project, ProjectCategory } from "../types";
+import { PROJECT_CATEGORY_CHIP_LABELS } from "../constants/projectCategory";
 import { deleteProject } from "../services/api";
 import { useResponsive } from "../hooks/useResponsive";
 import PressableScale from "../components/PressableScale";
@@ -46,6 +47,7 @@ export default function ProjectsScreen() {
 
     const [search, setSearch] = useState<string>("");
     const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+    const [categoryFilter, setCategoryFilter] = useState<ProjectCategory | null>(null);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     // The mockup header has no search field — it opens from the icon.
     const [searchOpen, setSearchOpen] = useState<boolean>(false);
@@ -125,8 +127,12 @@ export default function ProjectsScreen() {
     };
 
     const filteredProjects = useMemo(
-        () => projects.filter(p => p.name.toLowerCase().includes(debouncedSearch.toLowerCase())),
-        [projects, debouncedSearch]
+        () =>
+            projects.filter(p => {
+                if (categoryFilter && p.category !== categoryFilter) return false;
+                return p.name.toLowerCase().includes(debouncedSearch.toLowerCase());
+            }),
+        [projects, debouncedSearch, categoryFilter]
     );
 
     const renderItem = ({ item }: { item: Project }) => {
@@ -268,6 +274,32 @@ export default function ProjectsScreen() {
                     </View>
                 )}
 
+                <View style={[styles.categoryRow, { paddingHorizontal: value(SPACING.lg, SPACING.xl, SPACING.xxl) }]}>
+                    {(Object.keys(PROJECT_CATEGORY_CHIP_LABELS) as ProjectCategory[]).map((cat) => {
+                        const active = categoryFilter === cat;
+                        return (
+                            <PressableScale
+                                key={cat}
+                                style={[
+                                    styles.categoryChip,
+                                    { borderColor: colors.border, backgroundColor: active ? colors.primary : "transparent" },
+                                ]}
+                                onPress={() => {
+                                    haptics.selection();
+                                    setCategoryFilter(active ? null : cat);
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Filter by ${PROJECT_CATEGORY_CHIP_LABELS[cat]}`}
+                                accessibilityState={{ selected: active }}
+                            >
+                                <Text style={[styles.categoryChipText, { color: active ? "#2b1c04" : colors.textDim }]}>
+                                    {PROJECT_CATEGORY_CHIP_LABELS[cat]}
+                                </Text>
+                            </PressableScale>
+                        );
+                    })}
+                </View>
+
                 {loading ? (
                     <View style={[styles.list, { paddingHorizontal: value(SPACING.lg, SPACING.xl, SPACING.xxl) }]}>
                         {[0, 1, 2, 3, 4, 5].map(renderSkeletonCard)}
@@ -403,6 +435,10 @@ const styles = StyleSheet.create({
     searchBarContainer: { marginBottom: SPACING.md },
     searchBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: SPACING.md, height: 48, borderRadius: BORDER_RADIUS.lg, borderWidth: 1 },
     input: { flex: 1, fontSize: 16, marginLeft: SPACING.sm, fontFamily: FONTS.medium },
+
+    categoryRow: { flexDirection: "row", gap: 8, marginBottom: SPACING.md },
+    categoryChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: BORDER_RADIUS.full, borderWidth: 1 },
+    categoryChipText: { fontSize: 12, fontFamily: FONTS.bold },
 
     list: { paddingBottom: 20, paddingTop: 4 },
     // Near-pill rows: radius is just under half the min height.

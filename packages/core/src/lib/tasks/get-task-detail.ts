@@ -29,6 +29,17 @@ export async function getAccessibleTask(taskId: string, userId: string) {
                     },
                 },
             },
+            createdBy: {
+                include: {
+                    workspaceMember: {
+                        include: {
+                            user: {
+                                select: { id: true, name: true, surname: true, image: true },
+                            },
+                        },
+                    },
+                },
+            },
             tags: true,
             project: {
                 select: { id: true, name: true, workspaceId: true, color: true },
@@ -52,6 +63,8 @@ export async function getAccessibleTask(taskId: string, userId: string) {
 
     const assigneeUser =
         task.assignee?.workspaceMember?.user;
+    const createdByUser =
+        (task as any).createdBy?.workspaceMember?.user;
     const mappedTask = {
         ...task,
         assignee: assigneeUser
@@ -59,6 +72,15 @@ export async function getAccessibleTask(taskId: string, userId: string) {
                 id: assigneeUser.id,
                 name: `${assigneeUser.name || ""} ${assigneeUser.surname || ""}`.trim(),
                 image: assigneeUser.image,
+            }
+            : null,
+        // Who handed this task/subtask out — read-only on both web and mobile.
+        createdBy: createdByUser
+            ? {
+                id: createdByUser.id,
+                name: `${createdByUser.name || ""} ${createdByUser.surname || ""}`.trim(),
+                surname: createdByUser.surname,
+                image: createdByUser.image,
             }
             : null,
         subtaskCount: task._count.subTasks,

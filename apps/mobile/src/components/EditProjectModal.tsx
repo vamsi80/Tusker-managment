@@ -16,6 +16,8 @@ import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme"
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { updateProject, getProject, getProjectWorkspaceMembers, getWorkspaceClients } from "../services/api";
+import { ProjectCategory } from "../types";
+import { PROJECT_CATEGORY_OPTIONS } from "../constants/projectCategory";
 import PressableScale from "./PressableScale";
 import AppButton from "./AppButton";
 
@@ -52,7 +54,8 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
     const [slug, setSlug] = useState("");
     const [description, setDescription] = useState("");
     const [selectedColor, setSelectedColor] = useState(PROJECT_COLORS[0]);
-    
+    const [category, setCategory] = useState<ProjectCategory | null>(null);
+
     // Team Assignment
     const [members, setMembers] = useState<any[]>([]);
     const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null);
@@ -107,7 +110,8 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
                 setSlug(data.slug || slugify(data.name || ""));
                 setDescription(data.description || "");
                 setSelectedColor(data.color || PROJECT_COLORS[0]);
-                
+                setCategory(data.category ?? null);
+
                 const isInternalProject = data.companyName === "Internal" || !!data.isInternal;
                 setIsInternal(isInternalProject);
                 
@@ -242,6 +246,7 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
             
             if (slug.trim().length >= 3) payload.slug = slug.trim();
             if (description.trim().length >= 3) payload.description = description.trim();
+            if (category) payload.category = category;
             
             if (!isInternal) {
                 if (companyName.trim().length >= 3) payload.companyName = companyName.trim();
@@ -405,6 +410,33 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
                                     multiline
                                     numberOfLines={4}
                                 />
+
+                                {/* Project Type (category) */}
+                                <Text style={[styles.label, { color: colors.textDim }]}>Project Type</Text>
+                                <View style={styles.categoryRow}>
+                                    {PROJECT_CATEGORY_OPTIONS.map((opt) => {
+                                        const selected = category === opt.value;
+                                        return (
+                                            <PressableScale
+                                                key={opt.value}
+                                                style={[
+                                                    styles.categoryChip,
+                                                    { borderColor: colors.border, backgroundColor: colors.background },
+                                                    selected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                                                ]}
+                                                onPress={() => setCategory(opt.value)}
+                                                haptic="selection"
+                                                accessibilityRole="button"
+                                                accessibilityLabel={opt.label}
+                                                accessibilityState={{ selected }}
+                                            >
+                                                <Text style={[styles.categoryChipText, { color: selected ? INK_ON_PRIMARY : colors.text }]}>
+                                                    {opt.label}
+                                                </Text>
+                                            </PressableScale>
+                                        );
+                                    })}
+                                </View>
 
                                 {/* Section 2: Team Assignment */}
                                 <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
@@ -1113,6 +1145,22 @@ const styles = StyleSheet.create({
     },
     col: { flex: 1 },
     spacer: { width: SPACING.md },
+    categoryRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        marginTop: 4,
+    },
+    categoryChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: BORDER_RADIUS.full,
+        borderWidth: 1,
+    },
+    categoryChipText: {
+        fontSize: 12,
+        fontFamily: FONTS.bold,
+    },
     tagsContainer: {
         flexDirection: "row",
         flexWrap: "wrap",
