@@ -19,18 +19,6 @@
 
 </div>
 
----
-
-> Replace `YOUR-DEPLOYMENT-URL` and add the three screenshots referenced below before sharing this. A README that links a dead demo reads worse than one with no demo at all.
-
-<div align="center">
-  <img src="docs/screenshot-gantt.png" alt="Project Gantt view" width="850" />
-  <br /><br />
-  <img src="docs/screenshot-procurement.png" alt="Procurement indent workflow" width="420" />
-  <img src="docs/screenshot-mobile.png" alt="Mobile app" width="200" />
-</div>
-
----
 
 ## Contents
 
