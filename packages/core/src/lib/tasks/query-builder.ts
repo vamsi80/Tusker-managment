@@ -841,8 +841,17 @@ export function buildWorkspaceFilterWhere(
     if (opts.cursor) {
         if (opts.view_mode === "kanban") {
             appendAnd(where, buildKanbanCursorWhere(opts.cursor));
-        } else if (opts.view_mode === "list" || opts.view_mode === "gantt") {
-            // List/gantt always orders by position/id (plus project.createdAt
+        } else if (
+            (opts.view_mode === "list" || opts.view_mode === "gantt") &&
+            !(opts.sorts && opts.sorts.length > 0)
+        ) {
+            // Only when this query has no explicit sort. buildOrderBy honours
+            // `sorts` in every view mode, so a sorted list orders by that field
+            // while this seek walks position/id — mismatched field and
+            // direction, which silently repeats and skips rows across pages.
+            // A sorted query falls through to buildSeekCondition below instead.
+            //
+            // List/gantt otherwise orders by position/id (plus project.createdAt
             // when spanning the whole workspace) — buildWorkspaceListCursorWhere
             // degrades to a plain position/id seek when the cursor carries no
             // projectCreatedAt, which is exactly the single-project case.

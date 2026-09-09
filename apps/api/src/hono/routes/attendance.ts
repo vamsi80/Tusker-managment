@@ -4,6 +4,7 @@ import { LeaveService } from "@tusker/core/server/services/leave/index";
 import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { invalidateWorkspaceAttendance } from "@tusker/core/lib/cache/invalidation";
 import { toDateOnly } from "@tusker/core/lib/date-utils";
+import { workspaceIdFromRequest } from "../middleware/capability";
 import { HonoVariables } from "../types";
 
 const parseMultiQuery = (value?: string): string[] | undefined => {
@@ -70,9 +71,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .get("/today", async (c) => {
         const user = c.get("user");
-        const workspaceId = c.req.header("x-workspace-id");
 
         if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+        // Header (web), query string or body (mobile) — see workspaceIdFromRequest.
+        const workspaceId = await workspaceIdFromRequest(c);
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
@@ -162,9 +165,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .post("/check-in", async (c) => {
         const user = c.get("user");
-        const workspaceId = c.req.header("x-workspace-id");
 
         if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+        // Header (web), query string or body (mobile) — see workspaceIdFromRequest.
+        const workspaceId = await workspaceIdFromRequest(c);
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
@@ -191,9 +196,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .post("/check-out", async (c) => {
         const user = c.get("user");
-        const workspaceId = c.req.header("x-workspace-id");
 
         if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+        // Header (web), query string or body (mobile) — see workspaceIdFromRequest.
+        const workspaceId = await workspaceIdFromRequest(c);
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
