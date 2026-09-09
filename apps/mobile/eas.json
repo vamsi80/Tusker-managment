@@ -13,10 +13,14 @@
         "buildType": "app-bundle"
       }
     },
-    "//": "EAS uploads the project via git, and .env is gitignored, so EXPO_PUBLIC_* must be declared here or the build bakes in undefined and the app falls back to localhost:4000. This value is inlined into the binary at build time and CANNOT be changed afterwards - moving to a custom domain later means rebuilding and redistributing every install.",
     "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
-        "EXPO_PUBLIC_API_BASE": "https://REPLACE-WITH-VERCEL-DOMAIN.vercel.app"
+        "EXPO_PUBLIC_API_BASE": "https://tusker-managment.vercel.app",
+        "EXPO_PUBLIC_PUSHER_KEY": "0203f5f8bc12eb473338",
+        "EXPO_PUBLIC_PUSHER_CLUSTER": "ap2"
       }
     },
     "apk": {
