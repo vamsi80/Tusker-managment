@@ -13,8 +13,12 @@ export function MySpaceNav({ workspaceId }: { workspaceId: string }) {
   const navTabs = [
     { id: "info", name: "My Info", href: baseUrl, icon: User },
     { id: "todo", name: "To-Do", href: `${baseUrl}/to-do`, icon: ListTodo },
-    { id: "conversations", name: "Conversations", href: `${baseUrl}/conversations`, icon: MessageSquare },
+    { id: "conversations", name: "Chat", href: `${baseUrl}/conversations`, icon: MessageSquare },
   ];
+
+  // Chat owns the full height it is given: its own list and thread panels are
+  // the navigation, so the Personal tab strip only steals a row from them.
+  if (pathname.startsWith(`${baseUrl}/conversations`)) return null;
 
   return (
     <div className="pt-0 mb-2">

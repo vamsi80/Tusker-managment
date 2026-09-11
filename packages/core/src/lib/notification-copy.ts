@@ -14,6 +14,7 @@ export type LeaveAction =
     | "LEAVE_REQUESTED"
     | "LEAVE_APPROVED"
     | "LEAVE_REJECTED"
+    | "LEAVE_APPROVAL_REVOKED"
     | "LEAVE_DELETED";
 
 export const LEAVE_TITLES: Record<LeaveAction, string> = {
@@ -21,6 +22,7 @@ export const LEAVE_TITLES: Record<LeaveAction, string> = {
     LEAVE_APPROVED: "Leave approved",
     // The enum says REJECTED; "declined" is kinder for a person's time off.
     LEAVE_REJECTED: "Leave declined",
+    LEAVE_APPROVAL_REVOKED: "Leave approval revoked",
     LEAVE_DELETED: "Leave withdrawn",
 };
 
@@ -115,6 +117,10 @@ export function leaveNotificationBody(params: {
             return viewerIsSubject
                 ? `Your ${kind}leave${forRange} was declined by ${actorName}`
                 : `${actorName} declined ${subjectName}'s ${kind}leave${onRange}`;
+        case "LEAVE_APPROVAL_REVOKED":
+            return viewerIsSubject
+                ? `${actorName} revoked the approval of your ${kind}leave${forRange} - it is awaiting approval again`
+                : `${actorName} revoked the approval of ${subjectName}'s ${kind}leave${onRange}`;
         case "LEAVE_DELETED":
             return viewerIsSubject
                 ? `You withdrew your ${kind}leave request${forRange}`

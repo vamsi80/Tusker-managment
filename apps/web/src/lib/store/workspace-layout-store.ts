@@ -18,6 +18,9 @@ interface WorkspaceLayoutState {
     optimisticAddProject: (workspaceId: string, project: any) => void;
 }
 
+/** How long /layout may take before the shell stops waiting on it. */
+const SLOW_LAYOUT_MS = 10000;
+
 /**
  * Global store for workspace layout data (sidebar, projects, permissions).
  * Replaces redundant server-side revalidations with efficient client-side state management.
@@ -39,28 +42,37 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>((set, get) =
             set((state) => ({ isRevalidating: { ...state.isRevalidating, [workspaceId]: true } }));
         }
 
-        try {
-            // Add a timeout safety to prevent getting stuck in isLoading: true
-            const fetchPromise = workspacesClient.getLayoutData(workspaceId);
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Timeout")), 10000)
-            );
+        const clearFlags = () => set((state) => ({
+            isLoading: { ...state.isLoading, [workspaceId]: false },
+            isRevalidating: { ...state.isRevalidating, [workspaceId]: false }
+        }));
 
-            const data = await Promise.race([fetchPromise, timeoutPromise]) as WorkspaceLayoutData;
+        // A watchdog, not a deadline. It only releases the loading flag so the
+        // shell can render; the request is left to finish. Racing it away threw
+        // the response out, and since the provider refetches only when `data`
+        // changes - and it stayed undefined - nothing retried: a slow /layout
+        // left the workspace with no projects and no permissions (so no admin
+        // UI, no workload column) until a manual reload.
+        const watchdog = setTimeout(() => {
+            console.warn(
+                `[WorkspaceLayoutStore] /layout is slow (>${SLOW_LAYOUT_MS}ms); rendering the shell while it finishes.`
+            );
+            clearFlags();
+        }, SLOW_LAYOUT_MS);
+
+        try {
+            const data = await workspacesClient.getLayoutData(workspaceId);
 
             if (data) {
                 set((state) => ({
-                    layoutData: { ...state.layoutData, [workspaceId]: data },
-                    isLoading: { ...state.isLoading, [workspaceId]: false },
-                    isRevalidating: { ...state.isRevalidating, [workspaceId]: false }
+                    layoutData: { ...state.layoutData, [workspaceId]: data }
                 }));
             }
         } catch (error) {
             console.error(`[WorkspaceLayoutStore] Fetch failed:`, error);
-            set((state) => ({
-                isLoading: { ...state.isLoading, [workspaceId]: false },
-                isRevalidating: { ...state.isRevalidating, [workspaceId]: false }
-            }));
+        } finally {
+            clearTimeout(watchdog);
+            clearFlags();
         }
     },
 

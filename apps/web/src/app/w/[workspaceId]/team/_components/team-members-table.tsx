@@ -55,6 +55,7 @@ import { Input } from "@/components/ui/input";
 
 import { listDepartments } from "@/actions/department/department-actions";
 import { useWorkspaceLayout } from "../../_components/workspace-layout-context";
+import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
 
 // Radix Select cannot hold an empty string, so "no department" needs a sentinel.
 const NO_DEPARTMENT = "__none__";
@@ -63,6 +64,7 @@ const NO_DEPARTMENT = "__none__";
 type MemberTask = {
     id: string;
     name: string;
+    taskSlug?: string | null;
     status?: string | null;
     dueDate?: string | null;
     projectId?: string | null;
@@ -169,6 +171,20 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
     const [hasMoreTasks, setHasMoreTasks] = useState(false);
     const [isLoadingMoreTasks, setIsLoadingMoreTasks] = useState(false);
     const { data: layoutData } = useWorkspaceLayout();
+    const { openSubTaskSheet } = useSubTaskSheet();
+
+    /**
+     * Hand the task to the shared right-side panel, where its status can be
+     * changed. The member dialog closes first: it is a modal, so it would sit
+     * on top of the sheet and swallow every click meant for it.
+     */
+    const handleOpenTask = React.useCallback(
+        (task: MemberTask) => {
+            setViewDialogOpen(false);
+            openSubTaskSheet({ id: task.id, taskSlug: task.taskSlug, projectId: task.projectId });
+        },
+        [openSubTaskSheet],
+    );
 
     const handleViewMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToView(member);
@@ -559,9 +575,11 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
                                                     </div>
 
                                                     {tasks.map((task) => (
-                                                        <div
+                                                        <button
                                                             key={task.id}
-                                                            className="p-3 rounded-2xl bg-muted/30 border border-muted-foreground/5"
+                                                            type="button"
+                                                            onClick={() => handleOpenTask(task)}
+                                                            className="w-full text-left p-3 rounded-2xl bg-muted/30 border border-muted-foreground/5 hover:bg-muted/60 hover:border-primary/20 transition-colors"
                                                         >
                                                             <p className="text-sm font-medium truncate">{task.name}</p>
                                                             <div className="flex items-center flex-wrap gap-2 mt-1">
@@ -578,8 +596,11 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
                                                                         Due {formatIST(task.dueDate, "d MMM yyyy")}
                                                                     </span>
                                                                 )}
+                                                                <span className="text-[11px] text-muted-foreground/70 truncate">
+                                                                    {projectNames.get(task.projectId || "") || "No project"}
+                                                                </span>
                                                             </div>
-                                                        </div>
+                                                        </button>
                                                     ))}
                                                 </div>
                                             ))}
