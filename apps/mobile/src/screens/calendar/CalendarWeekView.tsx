@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 import { BORDER_RADIUS, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { calendarDayKey } from "../../utils/calendarDate";
+import { calendarDayKey, addDateOnlyDays } from "../../utils/calendarDate";
 import type { CalendarCtx } from "./CalendarScreen";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -12,7 +12,18 @@ const DEFAULT_SCROLL_HOUR = 8;
 
 export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
     const { colors } = useTheme();
-    const { selectedDate, meetings, openSchedule, openDetails } = ctx;
+    const {
+        selectedDate,
+        meetings,
+        taskDeadlines,
+        publicHolidays,
+        leaves,
+        activeLayers,
+        openSchedule,
+        openDetails,
+        openTask,
+        selectDate,
+    } = ctx;
 
     const weekDays = useMemo(() => {
         const curr = new Date(selectedDate);
@@ -85,6 +96,53 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
             .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     }, [meetings, activeDay]);
 
+    // Holidays/leaves/tasks have no specific hour, so they can't live on the
+    // hourly timeline the way meetings do — mirrors CalendarMonthView's
+    // itemsByDate (same layers, same colors), keyed by day instead of month.
+    const weekLayersByDate = useMemo(() => {
+        const map = new Map<string, { holidays: number; leaves: number; tasks: number }>();
+        const getEntry = (key: string) => {
+            if (!map.has(key)) map.set(key, { holidays: 0, leaves: 0, tasks: 0 });
+            return map.get(key)!;
+        };
+        if (activeLayers.holidays) {
+            publicHolidays.forEach((h) => { getEntry(calendarDayKey(h.date)).holidays += 1; });
+        }
+        if (activeLayers.leaves) {
+            leaves.forEach((l) => {
+                const start = new Date(l.startDate);
+                const end = new Date(l.endDate);
+                for (let d = start; d <= end; d = addDateOnlyDays(d, 1)) {
+                    getEntry(calendarDayKey(d)).leaves += 1;
+                }
+            });
+        }
+        if (activeLayers.tasks) {
+            taskDeadlines.forEach((t) => { getEntry(calendarDayKey(t.date)).tasks += 1; });
+        }
+        return map;
+    }, [publicHolidays, leaves, taskDeadlines, activeLayers]);
+
+    const dayHolidays = useMemo(
+        () => (activeLayers.holidays ? publicHolidays.filter((h) => calendarDayKey(h.date) === activeDay) : []),
+        [publicHolidays, activeLayers.holidays, activeDay]
+    );
+    const dayLeaves = useMemo(() => {
+        if (!activeLayers.leaves) return [];
+        return leaves.filter((l) => {
+            const start = new Date(l.startDate);
+            const end = new Date(l.endDate);
+            for (let d = start; d <= end; d = addDateOnlyDays(d, 1)) {
+                if (calendarDayKey(d) === activeDay) return true;
+            }
+            return false;
+        });
+    }, [leaves, activeLayers.leaves, activeDay]);
+    const dayTasks = useMemo(
+        () => (activeLayers.tasks ? taskDeadlines.filter((t) => calendarDayKey(t.date) === activeDay) : []),
+        [taskDeadlines, activeLayers.tasks, activeDay]
+    );
+
     const scrollRef = useRef<ScrollView>(null);
     const earliestHour = useMemo(() => {
         const starts = dayMeetings.map((m) => new Date(m.startTime).getHours());
@@ -105,12 +163,24 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
             <View style={[styles.strip, { borderBottomColor: colors.border }]}>
                 {weekDays.map((wd) => {
                     const selected = wd.dateKey === activeDay;
+                    const layerCounts = weekLayersByDate.get(wd.dateKey);
+                    const hasMeeting = activeLayers.meetings && weekDayKeysWithMeetings.has(wd.dateKey);
+                    const hasHoliday = (layerCounts?.holidays ?? 0) > 0;
+                    const hasLeave = (layerCounts?.leaves ?? 0) > 0;
+                    const hasTask = (layerCounts?.tasks ?? 0) > 0;
+                    const hasAny = hasMeeting || hasHoliday || hasLeave || hasTask;
                     return (
                         <TouchableOpacity
                             key={wd.dateKey}
                             style={styles.stripItem}
                             activeOpacity={0.7}
-                            onPress={() => setActiveDay(wd.dateKey)}
+                            onPress={() => {
+                                // Updates the shared selectedDate too, so the header bar
+                                // above the view switcher reflects the tapped day instead
+                                // of only moving this view's own internal active day.
+                                setActiveDay(wd.dateKey);
+                                selectDate(wd.date);
+                            }}
                         >
                             <Text style={[styles.stripDayName, { color: colors.textDim }]}>{wd.dayName}</Text>
                             <View
@@ -129,10 +199,48 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
                                     {wd.dayNum}
                                 </Text>
                             </View>
+                            {hasAny && (
+                                <View style={styles.stripDotsRow}>
+                                    {hasHoliday && <View style={[styles.stripDot, { backgroundColor: "#f43f5e" }]} />}
+                                    {hasLeave && <View style={[styles.stripDot, { backgroundColor: "#a855f7" }]} />}
+                                    {hasMeeting && <View style={[styles.stripDot, { backgroundColor: colors.primary }]} />}
+                                    {hasTask && <View style={[styles.stripDot, { backgroundColor: "#64748b" }]} />}
+                                </View>
+                            )}
                         </TouchableOpacity>
                     );
                 })}
             </View>
+
+            {/* All-day items for the active day — holidays/leaves/task deadlines have
+                no specific hour, so they can't sit on the hourly grid below. */}
+            {(dayHolidays.length > 0 || dayLeaves.length > 0 || dayTasks.length > 0) && (
+                <View style={[styles.allDayRow, { borderBottomColor: colors.border }]}>
+                    {dayHolidays.map((h) => (
+                        <View key={h.id} style={[styles.allDayChip, { backgroundColor: "#f43f5e14", borderColor: "#f43f5e30" }]}>
+                            <Ionicons name="sparkles" size={11} color="#f43f5e" />
+                            <Text style={[styles.allDayChipText, { color: "#e11d48" }]} numberOfLines={1}>{h.name}</Text>
+                        </View>
+                    ))}
+                    {dayLeaves.map((l, i) => (
+                        <View key={`${l.id}-${i}`} style={[styles.allDayChip, { backgroundColor: "#a855f714", borderColor: "#a855f730" }]}>
+                            <Ionicons name="person-remove-outline" size={11} color="#a855f7" />
+                            <Text style={[styles.allDayChipText, { color: "#9333ea" }]} numberOfLines={1}>{l.member} — {l.type} leave</Text>
+                        </View>
+                    ))}
+                    {dayTasks.map((t) => (
+                        <TouchableOpacity
+                            key={t.id}
+                            activeOpacity={0.75}
+                            onPress={() => openTask(t)}
+                            style={[styles.allDayChip, { backgroundColor: "#64748b14", borderColor: "#64748b30" }]}
+                        >
+                            <Ionicons name="checkbox-outline" size={11} color="#64748b" />
+                            <Text style={[styles.allDayChipText, { color: colors.textMuted }]} numberOfLines={1}>{t.title}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
 
             {/* Hourly timeline for the active day */}
             <ScrollView ref={scrollRef} style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
@@ -211,6 +319,12 @@ const styles = StyleSheet.create({
     stripDayName: { fontSize: 10, fontFamily: FONTS.bold, textTransform: "uppercase" },
     stripDayNum: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     stripDayNumText: { fontSize: 13, fontFamily: FONTS.bold },
+    stripDotsRow: { flexDirection: "row", gap: 3, height: 5 },
+    stripDot: { width: 4, height: 4, borderRadius: 2 },
+
+    allDayRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, borderBottomWidth: StyleSheet.hairlineWidth, padding: 8 },
+    allDayChip: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 8, paddingVertical: 4, maxWidth: "100%" },
+    allDayChipText: { fontSize: 10, fontFamily: FONTS.semibold, flexShrink: 1 },
 
     timelineRow: { flexDirection: "row" },
     hourLabels: { width: 52 },

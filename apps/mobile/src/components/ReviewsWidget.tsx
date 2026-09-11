@@ -27,9 +27,9 @@ interface ReviewItem {
 
 /**
  * "My Reviews" — subtasks/tasks the current user is named reviewer on that
- * the assignee has pushed to REVIEW status. Hidden entirely when empty, same
- * convention as the Birthdays widget: an empty review queue isn't worth a
- * permanent slot on the home screen.
+ * the assignee has pushed to REVIEW status. Always visible (with an empty
+ * state) so the widget's presence on the home screen is predictable rather
+ * than appearing/disappearing as the queue empties out.
  */
 export default function ReviewsWidget({
     workspaceId,
@@ -60,8 +60,6 @@ export default function ReviewsWidget({
         );
     }
 
-    if (reviews.length === 0) return null;
-
     return (
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.header}>
@@ -71,10 +69,17 @@ export default function ReviewsWidget({
                 <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={[styles.headerTitle, { color: colors.text }]}>My Reviews</Text>
                     <Text style={[styles.headerSubtitle, { color: colors.textDim }]}>
-                        {reviews.length} awaiting your review
+                        {reviews.length === 0 ? "Nothing awaiting your review" : `${reviews.length} awaiting your review`}
                     </Text>
                 </View>
             </View>
+
+            {reviews.length === 0 && (
+                <View style={styles.emptyRow}>
+                    <Ionicons name="checkmark-circle-outline" size={18} color={colors.textDim} />
+                    <Text style={[styles.emptyText, { color: colors.textDim }]}>You're all caught up</Text>
+                </View>
+            )}
 
             {reviews.map((item) => {
                 const assigneeUser = item.assignee?.workspaceMember?.user;
@@ -140,6 +145,9 @@ const styles = StyleSheet.create({
     headerIcon: { width: 22, alignItems: "center" },
     headerTitle: { fontSize: 15, fontFamily: FONTS.bold },
     headerSubtitle: { fontSize: 11, marginTop: 1 },
+
+    emptyRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: SPACING.md },
+    emptyText: { fontSize: 12, fontFamily: FONTS.medium },
 
     row: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: SPACING.sm, marginTop: SPACING.sm },
     rowHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
