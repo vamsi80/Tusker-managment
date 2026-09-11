@@ -6,7 +6,7 @@ import {
     TextInput,
     ActivityIndicator,
     ScrollView,
-    Dimensions,
+    useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
@@ -14,8 +14,6 @@ import { useTheme } from "../../context/ThemeContext";
 import Sheet from "../Sheet";
 import PressableScale from "../PressableScale";
 import { haptics } from "../../services/haptics";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface AddNoteModalProps {
     visible: boolean;
@@ -27,6 +25,7 @@ interface AddNoteModalProps {
 
 export default function AddNoteModal({ visible, onClose, onSubmit, memberSurname, isSelf }: AddNoteModalProps) {
     const { colors } = useTheme();
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -60,7 +59,7 @@ export default function AddNoteModal({ visible, onClose, onSubmit, memberSurname
         <Sheet visible={visible} onClose={onClose} accessibilityLabel="Add note">
             <View style={styles.header}>
                 <View style={styles.titleRow}>
-                    <Text style={[styles.title, { color: colors.text }]}>Add Note</Text>
+                    <Text style={[styles.title, { color: colors.text, fontSize: SCREEN_WIDTH < 380 ? 18 : 20 }]}>Add Note</Text>
                     <PressableScale haptic="selection" onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
                         <Ionicons name="close" size={24} color={colors.textDim} />
                     </PressableScale>
@@ -120,7 +119,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: SPACING.lg,
     },
     title: {
-        fontSize: SCREEN_WIDTH < 380 ? 18 : 20,
         fontFamily: FONTS.bold,
     },
     subtitle: {

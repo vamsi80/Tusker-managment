@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect } from "react";
 import {
-    Dimensions,
     Modal,
     Pressable,
     StyleProp,
     StyleSheet,
+    useWindowDimensions,
     View,
     ViewStyle,
 } from "react-native";
@@ -24,10 +24,12 @@ import Animated, {
 
 import { BORDER_RADIUS, MOTION, Z_INDEX } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
+import { useResponsive } from "../hooks/useResponsive";
 import { haptics } from "../services/haptics";
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
 const DISMISS_THRESHOLD = 120;
+/** Cap for the sheet's width once it "floats" as a centered dialog on tablet/desktop. */
+const SHEET_MAX_WIDTH = 480;
 
 interface SheetProps {
     visible: boolean;
@@ -50,17 +52,26 @@ export default function Sheet({ visible, onClose, children, dismissable = true, 
     const { colors, isDark } = useTheme();
     const insets = useSafeAreaInsets();
     const keyboard = useAnimatedKeyboard();
+    const { height } = useWindowDimensions();
+    const { isTablet, isDesktop } = useResponsive();
 
     const [mounted, setMounted] = React.useState(visible);
-    const translateY = useSharedValue(SCREEN_HEIGHT);
+    const translateY = useSharedValue(height);
+
+    // On tablets/desktops a full-bleed bottom sheet reads as a UI bug (a form
+    // stretched edge-to-edge across a 10"+ screen), so it's capped to a
+    // dialog-like width and centered instead of spanning the whole viewport.
+    const { width } = useWindowDimensions();
+    const floating = isTablet || isDesktop;
+    const horizontalInset = floating ? Math.max(0, (width - SHEET_MAX_WIDTH) / 2) : 0;
 
     const finishClose = useCallback(() => setMounted(false), []);
 
     const animateOut = useCallback(() => {
-        translateY.value = withTiming(SCREEN_HEIGHT, { duration: MOTION.duration.base }, (finished) => {
+        translateY.value = withTiming(height, { duration: MOTION.duration.base }, (finished) => {
             if (finished) runOnJS(finishClose)();
         });
-    }, [translateY, finishClose]);
+    }, [translateY, finishClose, height]);
 
     const requestClose = useCallback(() => {
         animateOut();
@@ -92,7 +103,7 @@ export default function Sheet({ visible, onClose, children, dismissable = true, 
         .onEnd((e) => {
             if (translateY.value > DISMISS_THRESHOLD || e.velocityY > 800) {
                 runOnJS(haptics.light)();
-                translateY.value = withTiming(SCREEN_HEIGHT, { duration: MOTION.duration.base }, (finished) => {
+                translateY.value = withTiming(height, { duration: MOTION.duration.base }, (finished) => {
                     if (finished) runOnJS(finishClose)();
                 });
                 runOnJS(onClose)();
@@ -106,7 +117,7 @@ export default function Sheet({ visible, onClose, children, dismissable = true, 
     }));
 
     const backdropStyle = useAnimatedStyle(() => ({
-        opacity: interpolate(translateY.value, [0, SCREEN_HEIGHT], [1, 0], Extrapolation.CLAMP),
+        opacity: interpolate(translateY.value, [0, height], [1, 0], Extrapolation.CLAMP),
     }));
 
     if (!mounted) return null;
@@ -128,7 +139,24 @@ export default function Sheet({ visible, onClose, children, dismissable = true, 
                     accessibilityLabel={accessibilityLabel}
                     style={[
                         styles.sheet,
-                        { backgroundColor: colors.surface, paddingBottom: insets.bottom + 8, zIndex: Z_INDEX.sheet },
+                        {
+                            backgroundColor: colors.surface,
+                            paddingBottom: insets.bottom + 8,
+                            zIndex: Z_INDEX.sheet,
+                            left: horizontalInset,
+                            right: horizontalInset,
+                            // Floating on a big screen looks better as a full dialog
+                            // card (rounded on every corner, lifted off the edge)
+                            // rather than a bottom-anchored phone sheet.
+                            ...(floating
+                                ? {
+                                      bottom: insets.bottom + 24,
+                                      borderBottomLeftRadius: BORDER_RADIUS.xl,
+                                      borderBottomRightRadius: BORDER_RADIUS.xl,
+                                      maxHeight: "80%",
+                                  }
+                                : null),
+                        },
                         sheetStyle,
                         style,
                     ]}

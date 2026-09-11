@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, TextInput, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Keyboard, UIManager, LayoutAnimation, Animated, Dimensions, Alert, Modal } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, TextInput, ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Keyboard, UIManager, LayoutAnimation, Animated, useWindowDimensions, Alert, Modal } from "react-native";
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { SafeAreaView } from "react-native-safe-area-context";
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 import { Ionicons } from "@expo/vector-icons";
 import { format, isBefore, isSameDay, startOfToday } from "date-fns";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -47,8 +46,9 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
         notificationTitle, 
         notificationBody, 
         isSubtask, 
-        taskData 
+        taskData
     } = route.params;
+    const { height: SCREEN_HEIGHT } = useWindowDimensions();
     const { tasks, activeWorkspace, tags, projects, refreshData } = useWorkspace();
     const { colors, isDark } = useTheme();
     const { MAX_CONTENT_WIDTH, value } = useResponsive();

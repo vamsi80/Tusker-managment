@@ -376,6 +376,7 @@ export default function CalendarScreen({ navigation }: any) {
                     visible={scheduleOpen}
                     workspaceId={workspaceId}
                     defaults={scheduleDefaults}
+                    meetings={data.meetings}
                     onClose={() => setScheduleOpen(false)}
                     onCreated={(meeting) => setData((d) => ({ ...d, meetings: [meeting, ...d.meetings] }))}
                 />

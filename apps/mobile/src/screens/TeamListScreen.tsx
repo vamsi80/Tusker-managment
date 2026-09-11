@@ -8,7 +8,6 @@ import {
     StatusBar,
     Image,
     TextInput,
-    Modal,
     Platform,
     DeviceEventEmitter
 } from "react-native";
@@ -19,7 +18,6 @@ import { RootStackParamList, WorkspaceMember, User } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import { ListSkeleton } from "../components/ScreenSkeleton";
 import { useWorkspace } from "../context/WorkspaceContext";
-import { useNotifications } from "../context/NotificationContext";
 import { getWorkspaceMembers, getCachedSession, getConversations } from "../services/api";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
 import { format, isToday } from "date-fns";
@@ -27,14 +25,16 @@ import { useResponsive } from "../hooks/useResponsive";
 import PressableScale from "../components/PressableScale";
 import StatusChip from "../components/StatusChip";
 import EmptyState from "../components/EmptyState";
+import MemberDetailModal from "../components/MemberDetailModal";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TeamList">;
+
+type TeamTab = "messages" | "members";
 
 export default function TeamListScreen({ navigation }: Props) {
     const insets = useSafeAreaInsets();
     const { colors, isDark } = useTheme();
     const { activeWorkspace } = useWorkspace();
-    const { notifications } = useNotifications();
     const { MAX_CONTENT_WIDTH, value } = useResponsive();
 
     const [loadingChats, setLoadingChats] = useState(true);
@@ -44,7 +44,14 @@ export default function TeamListScreen({ navigation }: Props) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const [showMembersModal, setShowMembersModal] = useState(false);
+    const [activeTab, setActiveTab] = useState<TeamTab>("messages");
+    const [memberDetail, setMemberDetail] = useState<WorkspaceMember | null>(null);
+
+    // Headcount workload is management information on the web dashboard too —
+    // owners, admins and managers only (team-members-table.tsx canSeeWorkload).
+    // Everyone else should not see teammates' open task counts.
+    const myRole = members.find(m => m.userId === currentUser?.id || m.user.id === currentUser?.id)?.workspaceRole?.toUpperCase();
+    const canSeeWorkload = myRole === "OWNER" || myRole === "ADMIN" || myRole === "MANAGER";
 
     const filteredMembers = useMemo(() => {
         let result = [...members];
@@ -136,20 +143,23 @@ export default function TeamListScreen({ navigation }: Props) {
         const participantName: string = otherParticipant.surname || otherParticipant.name || "Unknown";
         const participantInitial: string = participantName.charAt(0).toUpperCase();
 
-        const hasUnread = notifications.some(n =>
-            n.data?.type === "direct_message" &&
-            n.data?.senderId === otherParticipant.id &&
-            !n.isRead
-        );
-
         const lastMessage = item.lastMessage;
         const isMine = lastMessage?.senderId === currentUser?.id;
+        // Driven by the message's own read receipt (same field the delivery
+        // ticks in DirectChatScreen use) rather than the separate notifications
+        // list — that depended on a matching notification existing at all,
+        // which isn't guaranteed, so unread chats often never highlighted.
+        const hasUnread = !!lastMessage && !isMine && !lastMessage.isRead;
         const otherRole = members.find(m => m.userId === otherParticipant.id)?.workspaceRole;
 
         return (
             <PressableScale
                 haptic="selection"
-                style={[styles.chatCard, { backgroundColor: colors.surfaceSolid, borderColor: colors.border }]}
+                style={[
+                    styles.chatCard,
+                    { backgroundColor: colors.surfaceSolid, borderColor: colors.border },
+                    hasUnread && { backgroundColor: colors.primary + "0F", borderColor: colors.primary + "40" },
+                ]}
                 onPress={() => {
                     navigation.navigate("DirectChat", {
                         otherUserId: otherParticipant.id,
@@ -175,7 +185,7 @@ export default function TeamListScreen({ navigation }: Props) {
                             {participantName}
                         </Text>
                         {lastMessage && (
-                            <Text style={[styles.chatTime, { color: colors.textDim }]}>
+                            <Text style={[styles.chatTime, { color: hasUnread ? colors.primary : colors.textDim }]}>
                                 {isToday(new Date(lastMessage.createdAt))
                                     ? format(new Date(lastMessage.createdAt), 'h:mm a')
                                     : format(new Date(lastMessage.createdAt), 'MMM d')}
@@ -210,22 +220,14 @@ export default function TeamListScreen({ navigation }: Props) {
         const isMe = item.userId === currentUser?.id || item.user.id === currentUser?.id;
 
         const memberDisplayName = item.user.surname || item.user.name;
+        const isVerified = item.status === "Verified";
 
         return (
             <PressableScale
-                haptic={isMe ? null : "selection"}
+                haptic="selection"
                 style={[styles.memberCard, { backgroundColor: colors.surfaceSolid, borderColor: colors.border }]}
-                onPress={() => {
-                    if (isMe) return;
-                    setShowMembersModal(false);
-                    navigation.navigate("DirectChat", {
-                        otherUserId: item.userId,
-                        otherUserName: memberDisplayName,
-                        otherUserRole: item.workspaceRole
-                    });
-                }}
-                disabled={isMe}
-                accessibilityLabel={isMe ? `${memberDisplayName} (you)` : `Start a chat with ${memberDisplayName}`}
+                onPress={() => setMemberDetail(item)}
+                accessibilityLabel={`View ${memberDisplayName}'s details`}
             >
                 <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
                     {item.user.image ? (
@@ -238,20 +240,34 @@ export default function TeamListScreen({ navigation }: Props) {
                 </View>
 
                 <View style={styles.memberInfo}>
-                    <Text style={[styles.memberName, { color: colors.text }]}>
+                    <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>
                         {memberDisplayName} {isMe ? "(You)" : ""}
                     </Text>
-                    <StatusChip
-                        label={item.workspaceRole}
-                        kind={item.workspaceRole.toLowerCase() === "owner" || item.workspaceRole.toLowerCase() === "admin" ? "info" : "neutral"}
-                        size="sm"
-                        style={{ marginTop: 4 }}
-                    />
+                    {(item.designation || item.departmentName) && (
+                        <Text style={[styles.memberSubtext, { color: colors.textDim }]} numberOfLines={1}>
+                            {[item.designation, item.departmentName].filter(Boolean).join(" · ")}
+                        </Text>
+                    )}
+                    <View style={styles.memberChipRow}>
+                        <StatusChip
+                            label={item.workspaceRole}
+                            kind={item.workspaceRole.toLowerCase() === "owner" || item.workspaceRole.toLowerCase() === "admin" ? "info" : "neutral"}
+                            size="sm"
+                        />
+                        {item.status && (
+                            <StatusChip label={item.status} kind={isVerified ? "success" : "warning"} size="sm" />
+                        )}
+                        {canSeeWorkload && item.openTaskCount !== undefined && (
+                            <View style={[styles.taskCountBadge, { backgroundColor: colors.surfaceHighlight }]}>
+                                <Text style={[styles.taskCountText, { color: colors.textDim }]}>
+                                    {item.openTaskCount} open
+                                </Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
 
-                {!isMe && (
-                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.primary} />
-                )}
+                <Ionicons name="chevron-forward" size={18} color={colors.textDim} />
             </PressableScale>
         );
     };
@@ -269,64 +285,46 @@ export default function TeamListScreen({ navigation }: Props) {
                 >
                     <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </PressableScale>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Messages</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Team</Text>
                 <View style={{ width: TOUCH_TARGET.min }} />
             </View>
 
-            {loadingChats ? (
-                <ListSkeleton rows={7} />
+            <View style={[styles.tabSwitcher, { backgroundColor: colors.surfaceHighlight, marginHorizontal: value(16, SPACING.xl, SPACING.xxl) }]}>
+                {(["messages", "members"] as TeamTab[]).map((tab) => (
+                    <PressableScale
+                        key={tab}
+                        haptic="selection"
+                        style={[styles.tabItem, activeTab === tab && { backgroundColor: colors.surface }]}
+                        onPress={() => setActiveTab(tab)}
+                    >
+                        <Text style={[styles.tabText, { color: activeTab === tab ? colors.text : colors.textDim }]}>
+                            {tab === "messages" ? "Messages" : "Members"}
+                        </Text>
+                    </PressableScale>
+                ))}
+            </View>
+
+            {activeTab === "messages" ? (
+                loadingChats ? (
+                    <ListSkeleton rows={7} />
+                ) : (
+                    <FlatList
+                        data={conversations}
+                        renderItem={renderChat}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={[styles.listContent, { paddingHorizontal: value(16, SPACING.xl, SPACING.xxl) }]}
+                        ListEmptyComponent={
+                            <EmptyState
+                                icon="chatbubbles-outline"
+                                title="No recent chats"
+                                message="Start a conversation with a team member using the button below."
+                            />
+                        }
+                    />
+                )
             ) : (
-                <FlatList
-                    data={conversations}
-                    renderItem={renderChat}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={[styles.listContent, { paddingHorizontal: value(16, SPACING.xl, SPACING.xxl) }]}
-                    ListEmptyComponent={
-                        <EmptyState
-                            icon="chatbubbles-outline"
-                            title="No recent chats"
-                            message="Start a conversation with a team member using the button below."
-                        />
-                    }
-                />
-            )}
-
-            <PressableScale
-                style={[
-                    styles.fab,
-                    {
-                        backgroundColor: colors.primary,
-                        bottom: 20,
-                    }
-                ]}
-                haptic="light"
-                onPress={() => setShowMembersModal(true)}
-                accessibilityLabel="Start a new chat"
-                accessibilityHint="Opens the team member list to start a conversation"
-            >
-                <Ionicons name="people" size={20} color="#fff" />
-                <Text style={styles.fabLabel}>New chat</Text>
-            </PressableScale>
-
-            <Modal
-                visible={showMembersModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowMembersModal(false)}
-            >
-                <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]} edges={["top"]}>
-                    <View style={styles.modalHeader}>
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>Team Members</Text>
-                        <PressableScale
-                            onPress={() => setShowMembersModal(false)}
-                            style={styles.closeBtn}
-                            accessibilityLabel="Close"
-                        >
-                            <Ionicons name="close" size={24} color={colors.text} />
-                        </PressableScale>
-                    </View>
-
-                    <View style={styles.searchContainer}>
+                <>
+                    <View style={[styles.searchContainer, { paddingHorizontal: value(16, SPACING.xl, SPACING.xxl) }]}>
                         <View style={[styles.searchBox, { backgroundColor: colors.surfaceSolid, borderColor: colors.border }]}>
                             <Ionicons name="search" size={18} color={colors.textDim} />
                             <TextInput
@@ -350,7 +348,7 @@ export default function TeamListScreen({ navigation }: Props) {
                             data={filteredMembers}
                             renderItem={renderMember}
                             keyExtractor={(item) => item.id}
-                            contentContainerStyle={styles.listContent}
+                            contentContainerStyle={[styles.listContent, { paddingHorizontal: value(16, SPACING.xl, SPACING.xxl) }]}
                             ListEmptyComponent={
                                 <EmptyState
                                     icon="people-outline"
@@ -360,8 +358,41 @@ export default function TeamListScreen({ navigation }: Props) {
                             }
                         />
                     )}
-                </SafeAreaView>
-            </Modal>
+                </>
+            )}
+
+            {activeTab === "messages" && (
+                <PressableScale
+                    style={[
+                        styles.fab,
+                        {
+                            backgroundColor: colors.primary,
+                            bottom: 20,
+                        }
+                    ]}
+                    haptic="light"
+                    onPress={() => setActiveTab("members")}
+                    accessibilityLabel="Start a new chat"
+                    accessibilityHint="Switches to the Members tab to pick who to message"
+                >
+                    <Ionicons name="people" size={20} color="#fff" />
+                    <Text style={styles.fabLabel}>New chat</Text>
+                </PressableScale>
+            )}
+
+            <MemberDetailModal
+                member={memberDetail}
+                canSeeWorkload={canSeeWorkload}
+                onClose={() => setMemberDetail(null)}
+                onMessage={(member) => {
+                    setMemberDetail(null);
+                    navigation.navigate("DirectChat", {
+                        otherUserId: member.userId,
+                        otherUserName: member.user.surname || member.user.name,
+                        otherUserRole: member.workspaceRole
+                    });
+                }}
+            />
             </View>
         </SafeAreaView>
     );
@@ -378,6 +409,10 @@ const styles = StyleSheet.create({
     },
     backBtn: { width: TOUCH_TARGET.min, height: TOUCH_TARGET.min, justifyContent: "center" },
     headerTitle: { fontSize: 18, fontFamily: FONTS.bold },
+
+    tabSwitcher: { flexDirection: "row", borderRadius: BORDER_RADIUS.md, padding: 3, marginBottom: SPACING.sm },
+    tabItem: { flex: 1, alignItems: "center", paddingVertical: 9, borderRadius: BORDER_RADIUS.sm },
+    tabText: { fontSize: 13, fontFamily: FONTS.bold },
 
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     centerEmpty: { flex: 1, justifyContent: "center", alignItems: "center", marginTop: 80 },
@@ -445,8 +480,12 @@ const styles = StyleSheet.create({
         borderRadius: BORDER_RADIUS.lg,
         borderWidth: 1,
     },
-    memberInfo: { flex: 1, marginLeft: 12 },
-    memberName: { fontSize: 15, fontFamily: FONTS.semibold, marginBottom: 2 },
+    memberInfo: { flex: 1, marginLeft: 12, gap: 4 },
+    memberName: { fontSize: 15, fontFamily: FONTS.semibold },
+    memberSubtext: { fontSize: 12, fontFamily: FONTS.regular },
+    memberChipRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 2 },
+    taskCountBadge: { borderRadius: BORDER_RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+    taskCountText: { fontSize: 11, fontFamily: FONTS.semibold },
 
     fab: {
         position: "absolute",
@@ -467,19 +506,5 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.2)",
     },
     fabLabel: { color: "#fff", fontSize: 15, fontFamily: FONTS.bold },
-
-    modalContainer: { flex: 1 },
-    modalHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: 'rgba(0,0,0,0.1)',
-        marginBottom: 8,
-    },
-    modalTitle: { fontSize: 18, fontFamily: FONTS.bold },
-    closeBtn: { width: TOUCH_TARGET.min, height: TOUCH_TARGET.min, alignItems: "flex-end", justifyContent: "center" },
 });
 

@@ -7,13 +7,13 @@ import {
     TextInput,
     ActivityIndicator,
     ScrollView,
-    Dimensions,
     Alert
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useResponsive } from "../hooks/useResponsive";
 import {
     getProjectMembers,
     getWorkspaceMembers,
@@ -25,7 +25,8 @@ import PressableScale from "./PressableScale";
 import ConfirmationSheet from "./ConfirmationSheet";
 import EmptyState from "./EmptyState";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+/** Cap for this dialog's width once it "floats" as a centered card on tablet/desktop. */
+const SHEET_MAX_WIDTH = 560;
 
 export type ProjectRoleType = "PROJECT_MANAGER" | "PROJECT_COORDINATOR" | "LEAD" | "MEMBER" | "VIEWER";
 
@@ -48,6 +49,8 @@ interface ProjectMembersModalProps {
 export default function ProjectMembersModal({ visible, onClose, projectId, projectName }: ProjectMembersModalProps) {
     const { colors, isDark } = useTheme();
     const { activeWorkspace, refreshData } = useWorkspace();
+    const { isTablet, isDesktop } = useResponsive();
+    const floating = isTablet || isDesktop;
     
     const [projectMembers, setProjectMembers] = useState<ProjectMemberItem[]>([]);
     const [workspaceMembers, setWorkspaceMembers] = useState<any[]>([]);
@@ -227,8 +230,8 @@ export default function ProjectMembersModal({ visible, onClose, projectId, proje
                 animationType="slide"
                 onRequestClose={onClose}
             >
-                <View style={styles.overlay}>
-                    <View style={[styles.sheet, { backgroundColor: colors.surfaceSolid }]}>
+                <View style={[styles.overlay, floating && styles.overlayFloating]}>
+                    <View style={[styles.sheet, floating && [styles.sheetFloating, { width: "100%", maxWidth: SHEET_MAX_WIDTH }], { backgroundColor: colors.surfaceSolid }]}>
                         {/* Header */}
                         <View style={styles.header}>
                             <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -593,10 +596,18 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.55)",
         justifyContent: "flex-end",
     },
+    overlayFloating: {
+        justifyContent: "center",
+        alignItems: "center",
+    },
     sheet: {
         borderTopLeftRadius: BORDER_RADIUS.xl,
         borderTopRightRadius: BORDER_RADIUS.xl,
         maxHeight: "90%",
+    },
+    sheetFloating: {
+        borderRadius: BORDER_RADIUS.xl,
+        maxHeight: "80%",
     },
     header: {
         alignItems: "center",

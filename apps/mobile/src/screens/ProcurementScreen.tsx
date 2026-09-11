@@ -9,7 +9,6 @@ import {
   RefreshControl,
   TextInput,
   Alert,
-  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,8 +23,6 @@ import { useResponsive } from "../hooks/useResponsive";
 import StatusChip, { StatusKind } from "../components/StatusChip";
 import Sheet from "../components/Sheet";
 import PressableScale from "../components/PressableScale";
-
-const { width } = Dimensions.get("window");
 
 export default function ProcurementScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();

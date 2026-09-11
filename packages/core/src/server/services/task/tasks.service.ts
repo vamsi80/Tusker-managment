@@ -588,6 +588,45 @@ export class TasksService {
     return TaskRepository.countTasks(where);
   }
 
+  /**
+   * Tasks currently pushed to REVIEW where the caller is the named reviewer —
+   * powers the "My Reviews" home-screen widget. Deliberately a standalone
+   * query rather than routed through listTasks/_getTasksInternal: that
+   * engine's project-scoped visibility rules don't apply here — being named
+   * reviewer on a task is itself the authorization to see it, regardless of
+   * whether the caller otherwise has full access to that project.
+   */
+  static async getPendingReviews(workspaceId: string, userId: string, limit = 20) {
+    return prisma.task.findMany({
+      where: {
+        workspaceId,
+        status: "REVIEW",
+        reviewer: { workspaceMember: { userId } },
+      },
+      select: {
+        id: true,
+        name: true,
+        taskSlug: true,
+        status: true,
+        dueDate: true,
+        updatedAt: true,
+        isParent: true,
+        parentTaskId: true,
+        project: { select: { id: true, name: true, color: true } },
+        assignee: {
+          select: {
+            workspaceMember: {
+              select: { user: { select: { id: true, name: true, surname: true, image: true } } },
+            },
+          },
+        },
+        parentTask: { select: { id: true, name: true, taskSlug: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: limit,
+    });
+  }
+
   public static async resolveTaskPermissions(
     workspaceId: string,
     projectId?: string,

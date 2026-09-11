@@ -3,7 +3,7 @@
     "name": "Trava",
     "slug": "trava-tasks",
     "version": "1.0.17",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "travaapp",
     "userInterfaceStyle": "automatic",

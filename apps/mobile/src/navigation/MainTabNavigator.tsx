@@ -25,6 +25,7 @@ import CreateTagModal from "../components/CreateTagModal";
 import MyBoardScreen from "../screens/MyBoardScreen";
 import MyProfileScreen from "../screens/MyProfileScreen";
 import TeamListScreen from "../screens/TeamListScreen";
+import TeamWorkloadScreen from "../screens/TeamWorkloadScreen";
 import DirectChatScreen from "../screens/DirectChatScreen";
 import LeaveScreen from "../screens/LeaveScreen";
 import WorkspaceSettingsScreen from "../screens/WorkspaceSettingsScreen";
@@ -60,6 +61,7 @@ const createTabStack = (BaseComponent: any, stackName?: string) => {
                 <Stack.Screen name="ChangePassword" component={ChangePasswordScreen as any} />
                 <Stack.Screen name="MyProfile" component={MyProfileScreen as any} />
                 <Stack.Screen name="TeamList" component={TeamListScreen as any} />
+                <Stack.Screen name="TeamWorkload" component={TeamWorkloadScreen as any} />
                 <Stack.Screen name="DirectChat" component={DirectChatScreen as any} />
                 <Stack.Screen name="Attendance" component={AttendanceScreen as any} />
                 <Stack.Screen name="Leave" component={LeaveScreen as any} />

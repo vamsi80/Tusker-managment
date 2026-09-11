@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Dimensions, FlatList, ActivityIndicator, Modal, TouchableWithoutFeedback, Platform, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, useWindowDimensions, FlatList, ActivityIndicator, Modal, TouchableWithoutFeedback, Platform, TouchableOpacity, ScrollView } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import BlurView from "./BlurView";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,8 +9,6 @@ import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { getWorkspaceMembers, getTeamAttendance } from "../services/api";
 import { WorkspaceMember } from "../types";
 
-const { width } = Dimensions.get("window");
-
 interface Props {
     target: "projects" | "teams" | "attendance" | null;
     position: { x: number, y: number, w: number, h: number } | null;
@@ -19,6 +17,7 @@ interface Props {
 
 export default function WidgetPreviewModal({ target, position, onClose }: Props) {
     const { colors, isDark } = useTheme();
+    const { width } = useWindowDimensions();
     const { projects, activeWorkspace } = useWorkspace();
     const navigation = useNavigation<any>();
     const [members, setMembers] = useState<WorkspaceMember[]>([]);

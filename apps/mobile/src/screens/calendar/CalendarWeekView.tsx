@@ -72,7 +72,11 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
         return () => clearInterval(timer);
     }, []);
 
-    const activeDayInfo = weekDays.find((d) => d.dateKey === activeDay)!;
+    // weekDays recomputes as soon as selectedDate changes, but activeDay is
+    // only resynced by the effect below, which runs a render later — so for
+    // one render, activeDay can still be a stale dateKey from the previous
+    // week. Fall back to the first day rather than crashing on that render.
+    const activeDayInfo = weekDays.find((d) => d.dateKey === activeDay) ?? weekDays[0];
 
     const dayMeetings = useMemo(() => {
         return meetings

@@ -1071,6 +1071,21 @@ export async function getTasksCount(
 }
 
 /**
+ * Tasks/subtasks in REVIEW status where the caller is the named reviewer —
+ * powers the Home screen's "My Reviews" widget.
+ */
+export async function getPendingReviews(workspaceId: string): Promise<any[]> {
+    try {
+        const res = await apiFetch(`/api/tasks/pending-reviews?w=${workspaceId}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return unwrap<any[]>(data) ?? [];
+    } catch {
+        return [];
+    }
+}
+
+/**
  * Fetch subtasks for a specific parent task directly from the dedicated endpoint.
  */
 export async function getSubTasks(
@@ -2079,6 +2094,85 @@ export async function sendTypingIndicator(conversationId: string, isTyping: bool
         const res = await apiFetch(`/api/conversations/${conversationId}/typing`, {
             method: "POST",
             body: JSON.stringify({ isTyping }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Mark a conversation's incoming messages as delivered + read.
+ * Matches the web client's call on `/messages?since=` refresh.
+ */
+export async function markConversationRead(workspaceId: string, conversationId: string): Promise<boolean> {
+    try {
+        const res = await apiFetch(`/api/conversations/${workspaceId}/${conversationId}/read`, {
+            method: "PATCH",
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Edit a message's content. Server enforces the 10-minute / own-message-only window.
+ */
+export async function editDirectMessage(
+    workspaceId: string,
+    conversationId: string,
+    messageId: string,
+    content: string
+): Promise<any | null> {
+    try {
+        const res = await apiFetch(`/api/conversations/${workspaceId}/${conversationId}/messages/${messageId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ content }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return unwrap<any>(data, "message") ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Delete one or more messages — "me" hides them only in the caller's view,
+ * "everyone" replaces the content and is restricted server-side to messages
+ * the caller sent.
+ */
+export async function deleteDirectMessages(
+    workspaceId: string,
+    conversationId: string,
+    messageIds: string[],
+    scope: "me" | "everyone"
+): Promise<boolean> {
+    try {
+        const res = await apiFetch(`/api/conversations/${workspaceId}/${conversationId}/messages/delete`, {
+            method: "POST",
+            body: JSON.stringify({ messageIds, scope }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Forward one or more messages into other conversations the caller is part of.
+ */
+export async function forwardDirectMessages(
+    workspaceId: string,
+    conversationId: string,
+    messageIds: string[],
+    targetConversationIds: string[]
+): Promise<boolean> {
+    try {
+        const res = await apiFetch(`/api/conversations/${workspaceId}/${conversationId}/messages/forward`, {
+            method: "POST",
+            body: JSON.stringify({ messageIds, targetConversationIds }),
         });
         return res.ok;
     } catch {

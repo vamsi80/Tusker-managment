@@ -10,7 +10,6 @@ import {
     Modal,
     TextInput,
     Alert,
-    Dimensions,
     Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -27,8 +26,6 @@ import { getLeaveBalance, getLeaveRequestsPage, submitLeaveRequest, updateLeaveS
 import { useResponsive } from "../hooks/useResponsive";
 import StatusChip, { StatusKind } from "../components/StatusChip";
 import ConfirmationSheet from "../components/ConfirmationSheet";
-
-const { width } = Dimensions.get("window");
 
 
 

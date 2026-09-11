@@ -1,12 +1,17 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { BORDER_RADIUS, FONTS } from "../../constants/theme";
+import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
+import { useResponsive } from "../../hooks/useResponsive";
 import { Meeting } from "../../types";
 import { calendarDayKey, addDateOnlyDays } from "../../utils/calendarDate";
 import type { CalendarCtx } from "./CalendarScreen";
 
 const DAYS_OF_WEEK = ["S", "M", "T", "W", "T", "F", "S"];
+// A grid sized off the raw screen width blows up into huge, sparse cells on a
+// tablet (a 2560px-wide screen would give ~360px cells). Cap the grid itself
+// so cells stay a sane, finger-sized target and center the leftover space.
+const CALENDAR_MAX_WIDTH = 640;
 
 interface DayEntry {
     meetings: Meeting[];
@@ -17,6 +22,23 @@ interface DayEntry {
 
 export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
     const { colors } = useTheme();
+    const { width: windowWidth, isCompact } = useResponsive();
+    // The screen already gives every row a SPACING.lg margin (scrollContent's
+    // paddingHorizontal) — size the card to that same available width instead
+    // of the raw window width, so it lines up with the rows above it on every
+    // device instead of bleeding edge-to-edge on narrower phones. On compact
+    // phones (<380dp wide, per useResponsive) shrink the card's own internal
+    // padding too, so cells don't get squeezed below a usable touch target.
+    const cardPadding = isCompact ? SPACING.md : SPACING.lg;
+    const availableWidth = windowWidth - SPACING.lg * 2;
+    const gridWidth = Math.min(availableWidth, CALENDAR_MAX_WIDTH);
+    // Only used for the cell's height (row rhythm scales with available
+    // width) — actual column width is left to flexbox below (flex: 1 on each
+    // of the 7 cells), since a manually computed pixel width doesn't always
+    // sum back to exactly the container's content width once Yoga rounds
+    // each cell to a physical pixel (density-dependent), and being even one
+    // pixel over silently wraps the 7th cell onto the next row.
+    const CELL_HEIGHT = (gridWidth - cardPadding * 2 - 2) / 7 + 8;
     const {
         selectedDate,
         meetings,
@@ -118,7 +140,19 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
     }, [filteredMeetings, taskDeadlines, publicHolidays, leaves, activeLayers]);
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+            style={[
+                styles.container,
+                {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    width: gridWidth,
+                    paddingHorizontal: cardPadding,
+                    paddingTop: SPACING.sm,
+                    alignSelf: "center",
+                },
+            ]}
+        >
             <View style={[styles.weekHeader, { borderBottomColor: colors.border }]}>
                 {DAYS_OF_WEEK.map((d, i) => (
                     <Text key={i} style={[styles.weekHeaderText, { color: colors.textDim }]}>
@@ -127,59 +161,60 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
                 ))}
             </View>
 
-            <View style={styles.grid}>
-                {weeks.map((week, wIdx) => (
-                    <View key={wIdx} style={styles.weekRow}>
-                        {week.map((day, idx) => {
-                            const entry = itemsByDate.get(day.dateKey);
-                            const meetingCount = entry?.meetings.length ?? 0;
-                            const hasHoliday = (entry?.holidays ?? 0) > 0;
-                            const hasLeave = (entry?.leaves ?? 0) > 0;
-                            const hasTask = (entry?.tasks ?? 0) > 0;
-                            const hasAny = meetingCount > 0 || hasHoliday || hasLeave || hasTask;
-                            const isSelected = day.dateKey === selectedKey;
+            {weeks.map((week, weekIdx) => (
+                <View key={weekIdx} style={styles.weekRow}>
+                    {week.map((day, idx) => {
+                        const entry = itemsByDate.get(day.dateKey);
+                        const meetingCount = entry?.meetings.length ?? 0;
+                        const hasHoliday = (entry?.holidays ?? 0) > 0;
+                        const hasLeave = (entry?.leaves ?? 0) > 0;
+                        const hasTask = (entry?.tasks ?? 0) > 0;
+                        const hasAny = meetingCount > 0 || hasHoliday || hasLeave || hasTask;
+                        const isSelected = day.dateKey === selectedKey;
 
-                            return (
-                                <TouchableOpacity
-                                    key={idx}
-                                    activeOpacity={0.6}
-                                    onPress={() => openDayItems(day.date)}
+                        return (
+                            <TouchableOpacity
+                                key={idx}
+                                activeOpacity={0.6}
+                                onPress={() => openDayItems(day.date)}
+                                style={[
+                                    styles.cell,
+                                    {
+                                        height: CELL_HEIGHT,
+                                        opacity: day.isCurrentMonth ? 1 : 0.35,
+                                    },
+                                ]}
+                            >
+                                <View
                                     style={[
-                                        styles.cell,
-                                        { opacity: day.isCurrentMonth ? 1 : 0.35 },
+                                        styles.dayCircle,
+                                        isSelected && { backgroundColor: colors.primary },
+                                        !isSelected && day.isToday && { borderWidth: 1.5, borderColor: colors.primary },
                                     ]}
                                 >
-                                    <View
+                                    <Text
                                         style={[
-                                            styles.dayCircle,
-                                            isSelected && { backgroundColor: colors.primary },
-                                            !isSelected && day.isToday && { borderWidth: 1.5, borderColor: colors.primary },
+                                            styles.dayNum,
+                                            { color: isSelected ? "#fff" : day.isToday ? colors.primary : colors.text },
                                         ]}
                                     >
-                                        <Text
-                                            style={[
-                                                styles.dayNum,
-                                                { color: isSelected ? "#fff" : day.isToday ? colors.primary : colors.text },
-                                            ]}
-                                        >
-                                            {day.date.getDate()}
-                                        </Text>
-                                    </View>
+                                        {day.date.getDate()}
+                                    </Text>
+                                </View>
 
-                                    {hasAny && (
-                                        <View style={styles.dotsRow}>
-                                            {hasHoliday && <View style={[styles.dot, { backgroundColor: "#f43f5e" }]} />}
-                                            {hasLeave && <View style={[styles.dot, { backgroundColor: "#a855f7" }]} />}
-                                            {meetingCount > 0 && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
-                                            {hasTask && <View style={[styles.dot, { backgroundColor: "#64748b" }]} />}
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                ))}
-            </View>
+                                {hasAny && (
+                                    <View style={styles.dotsRow}>
+                                        {hasHoliday && <View style={[styles.dot, { backgroundColor: "#f43f5e" }]} />}
+                                        {hasLeave && <View style={[styles.dot, { backgroundColor: "#a855f7" }]} />}
+                                        {meetingCount > 0 && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
+                                        {hasTask && <View style={[styles.dot, { backgroundColor: "#64748b" }]} />}
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            ))}
         </View>
     );
 }
@@ -188,7 +223,6 @@ const styles = StyleSheet.create({
     container: { borderWidth: 1, borderRadius: BORDER_RADIUS.lg, overflow: "hidden" },
     weekHeader: { flexDirection: "row", borderBottomWidth: 1, paddingVertical: 8 },
     weekHeaderText: { flex: 1, fontSize: 11, fontFamily: FONTS.bold, textAlign: "center" },
-    grid: { paddingVertical: 4 },
     weekRow: { flexDirection: "row" },
     cell: { flex: 1, alignItems: "center", paddingTop: 6, paddingBottom: 6, gap: 4, minHeight: 48 },
     dayCircle: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
