@@ -91,9 +91,9 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     /**
      * GET /api/v1/attendance/stats
      *
-     * Lifetime totals for one workspace member. The mobile member-stats panel
-     * has always called this; the route simply never existed, so the request
-     * 404'd and the panel stayed empty.
+     * Totals for one workspace member over the current calendar month by
+     * default — the same window the web attendance table opens on — or an
+     * explicit startDate/endDate range when supplied.
      */
     .get("/stats", async (c) => {
         const user = c.get("user");
@@ -104,8 +104,13 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
         if (!memberId) return c.json({ success: false, error: "memberId is required" }, 400);
 
+        const normalizedStart = toDateOnly(c.req.query("startDate")) ?? undefined;
+        const endDay = toDateOnly(c.req.query("endDate"));
+        const normalizedEnd = endDay ? new Date(endDay.getTime()) : undefined;
+        if (normalizedEnd) normalizedEnd.setUTCHours(23, 59, 59, 999);
+
         try {
-            const stats = await AttendanceService.getMemberStats(workspaceId, memberId);
+            const stats = await AttendanceService.getMemberStats(workspaceId, memberId, normalizedStart, normalizedEnd);
             return c.json({ success: true, data: stats, stats });
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);

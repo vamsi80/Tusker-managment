@@ -1558,6 +1558,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
                 }}
                 onSubmit={handleStatusReviewSubmit}
                 taskName={task?.name || ""}
+                targetStatus={pendingStatus || undefined}
             />
 
             <CalendarPicker

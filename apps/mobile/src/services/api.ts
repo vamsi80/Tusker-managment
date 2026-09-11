@@ -1400,27 +1400,6 @@ export async function updateTask(taskId: string, data: any): Promise<any> {
 }
 
 /**
- * Patch a task/subtask's dates via the universal fields endpoint used by
- * web's Gantt drag-to-move/resize (apiClient.tasks.patchTaskFields), so
- * mobile drag gestures hit the exact same route/shape.
- */
-export async function patchTaskFields(
-    taskId: string,
-    workspaceId: string,
-    projectId: string,
-    data: { startDate?: string; dueDate?: string }
-): Promise<any> {
-    const res = await apiFetch(`/api/tasks/${taskId}/fields`, {
-        method: "PATCH",
-        body: JSON.stringify({ workspaceId, projectId, ...data }),
-    });
-    const text = await res.text();
-    const result = text ? JSON.parse(text) : { success: res.ok };
-    if (!res.ok) throw new Error(result.error || result.message || "Failed to update task dates");
-    return result;
-}
-
-/**
  * Update subtask / task status with transition comment and attachment support
  */
 export async function updateSubTaskStatus(

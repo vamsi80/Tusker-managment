@@ -6,7 +6,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 // View components
 import TaskFilterSheet from "../components/TaskFilterSheet";
-import ProjectGanttView from "./project/ProjectGanttView";
 import CreateSubTaskModal from "../components/CreateSubTaskModal";
 import StatusPickerModal from "../components/StatusPickerModal";
 import ReviewCommentModal from "../components/ReviewCommentModal";
@@ -99,7 +98,7 @@ export default function MyBoardScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);
-    const [viewMode, setViewMode] = useState<"List" | "Kanban" | "Gantt">("List");
+    const [viewMode, setViewMode] = useState<"List" | "Kanban">("List");
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     const [filterVisible, setFilterVisible] = useState(false);
     const [createSubTaskVisible, setCreateSubTaskVisible] = useState(false);
@@ -133,11 +132,6 @@ export default function MyBoardScreen() {
         Object.fromEntries(KANBAN_STATUSES.map(s => [s, { tasks: [], hasMore: false, nextCursor: null, loadingMore: false, initialized: false, totalCount: null }])) as any;
     const [kanbanCols, setKanbanCols] = useState<Record<KanbanStatus, KanbanColState>>(initKanbanCols);
     const [kanbanRefreshing, setKanbanRefreshing] = useState(false);
-
-    // Dedicated state for Gantt view
-    const [ganttTasks, setGanttTasks] = useState<Task[]>([]);
-    const [ganttLoading, setGanttLoading] = useState(true);
-    const [ganttRefreshing, setGanttRefreshing] = useState(false);
 
     const shimmerAnim = useRef(new Animated.Value(0.3)).current;
 
@@ -508,8 +502,6 @@ export default function MyBoardScreen() {
                 fetchData(true);
             } else if (viewMode === "Kanban") {
                 refreshKanbanCols();
-            } else if (viewMode === "Gantt") {
-                fetchGanttData(true);
             }
 
             setReviewModalVisible(false);
@@ -518,7 +510,6 @@ export default function MyBoardScreen() {
             console.error("Error updating task status:", error);
             if (viewMode === "List") fetchData(true);
             else if (viewMode === "Kanban") refreshKanbanCols();
-            else if (viewMode === "Gantt") fetchGanttData(true);
             Alert.alert("Access Denied", error.message || "Failed to update status. Please try again.");
         }
     };
@@ -529,51 +520,6 @@ export default function MyBoardScreen() {
         }
     };
 
-    const fetchGanttData = useCallback(async (isRefresh = false) => {
-        if (!activeWorkspace || !currentUser) return;
-
-        if (isRefresh) {
-            setGanttRefreshing(true);
-        } else {
-            setGanttLoading(true);
-        }
-
-        try {
-            const isMyTasksMode = ownerViewMode === "Personal";
-            const GANTT_LIMIT = 150; // generous limit for Gantt chart to show all workspace tasks
-
-            const buildGanttFilters = (extra: object = {}) => ({
-                ...filters,
-                hierarchyMode: "parents" as const,
-                view_mode: "gantt",
-                // Parent tasks carry no dates of their own — a parent's bar is
-                // derived from its children (see computeTaskDates), so subtasks
-                // must come down with them or every row renders bar-less.
-                includeSubTasks: true,
-                limit: GANTT_LIMIT,
-                ...extra,
-            });
-
-            let result: { tasks: Task[]; hasMore: boolean; nextCursor: any };
-
-            if (isMyTasksMode) {
-                const assigneeFilter = { assigneeId: currentUser.id ? [currentUser.id] : undefined };
-                result = await getTasks(activeWorkspace.id, buildGanttFilters(assigneeFilter));
-            } else {
-                // Server-side permission scoping already combines full-access
-                // projects with assigned-only projects for managers/members.
-                result = await getTasks(activeWorkspace.id, buildGanttFilters());
-            }
-
-            setGanttTasks(result.tasks);
-        } catch (e) {
-            console.error("[Gantt] Failed to fetch Gantt tasks:", e);
-        } finally {
-            setGanttLoading(false);
-            setGanttRefreshing(false);
-        }
-    }, [activeWorkspace?.id, filters, ownerViewMode, currentUser]);
-
     // Unified layout synchronization effect
     useEffect(() => {
         if (!activeWorkspace || !currentUser) return;
@@ -582,8 +528,6 @@ export default function MyBoardScreen() {
             fetchData();
         } else if (viewMode === "Kanban") {
             refreshKanbanCols();
-        } else if (viewMode === "Gantt") {
-            fetchGanttData();
         }
     }, [viewMode, activeWorkspace?.id, currentUser?.id, filters, ownerViewMode]);
 
@@ -820,60 +764,9 @@ export default function MyBoardScreen() {
         );
     };
 
-    const renderGanttSkeleton = () => {
-        const rows = [1, 2, 3, 4, 5, 6, 7];
-        const GANTT_NAME_W = 180;
-        const GANTT_TOTAL_W = GANTT_NAME_W;
-        const GANTT_HEADER_H = 44;
-        const GANTT_ROW_H = 52;
-
-        return (
-            <View style={{ flex: 1, backgroundColor: isDark ? "#0a0a0a" : colors.background }}>
-                <View style={{ width: GANTT_TOTAL_W }}>
-                    {/* Header */}
-                    <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, height: GANTT_HEADER_H, borderBottomColor: colors.border, backgroundColor: isDark ? "#111" : colors.surface }}>
-                        <View style={{ width: GANTT_NAME_W, paddingLeft: 12 }}>
-                            <Text style={{ fontSize: 9, fontFamily: FONTS.extrabold, letterSpacing: 1.2, color: colors.primary }}>TASK NAME</Text>
-                        </View>
-                    </View>
-
-                    {/* Shimmering rows */}
-                    <ScrollView style={{ flex: 1 }} scrollEnabled={false} showsVerticalScrollIndicator={false}>
-                        {rows.map((rowId) => {
-                            const isSub = rowId > 2;
-                            return (
-                                <View
-                                    key={rowId}
-                                    style={{
-                                        flexDirection: "row",
-                                        alignItems: "center",
-                                        borderBottomWidth: StyleSheet.hairlineWidth,
-                                        height: GANTT_ROW_H,
-                                        backgroundColor: isDark
-                                            ? isSub ? "#181818" : "#111"
-                                            : isSub ? "#f9f9f9" : colors.surface,
-                                        borderBottomColor: colors.border + "33",
-                                    }}
-                                >
-                                    {/* Task Name Cell */}
-                                    <View style={{ width: GANTT_NAME_W, flexDirection: "row", alignItems: "center", paddingLeft: isSub ? 26 : 12 }}>
-                                        {isSub && (
-                                            <Ionicons name="return-down-forward-outline" size={11} color={colors.textDim} style={{ marginRight: 4 }} />
-                                        )}
-                                        <ShimmerBlock width={isSub ? 80 : 120} height={12} borderRadius={3} />
-                                    </View>
-                                </View>
-                            );
-                        })}
-                    </ScrollView>
-                </View>
-            </View>
-        );
-    };
     const renderSkeleton = () => {
         if (viewMode === "List") return renderListSkeleton();
         if (viewMode === "Kanban") return renderKanbanSkeleton();
-        if (viewMode === "Gantt") return renderGanttSkeleton();
         return null;
     };
 
@@ -1210,19 +1103,6 @@ export default function MyBoardScreen() {
                 </ScrollView>
             );
         }
-        if (viewMode === "Gantt") {
-            return (
-                <View style={{ flex: 1, maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center' }}>
-                    <ProjectGanttView
-                        projectId=""
-                        tasks={ganttTasks}
-                        loading={ganttLoading}
-                        refreshData={() => fetchGanttData(true)}
-                        navigation={nav}
-                    />
-                </View>
-            );
-        }
         return null;
     };
 
@@ -1320,7 +1200,6 @@ export default function MyBoardScreen() {
                         {[
                             { id: "List", label: "List", icon: "list" },
                             { id: "Kanban", label: "Kanban", icon: "apps" },
-                            { id: "Gantt", label: "Gantt", icon: "layers" }
                         ].map((opt) => {
                             const active = viewMode === opt.id;
                             return (
@@ -1418,12 +1297,6 @@ export default function MyBoardScreen() {
                 ) : (
                     renderContent()
                 )
-            ) : viewMode === "Gantt" ? (
-                ganttLoading && !ganttRefreshing ? (
-                    renderSkeleton()
-                ) : (
-                    renderContent()
-                )
             ) : (
                 // Kanban view handles its own skeletons per status column
                 renderContent()
@@ -1438,8 +1311,6 @@ export default function MyBoardScreen() {
                         fetchData(true);
                     } else if (viewMode === "Kanban") {
                         refreshKanbanCols();
-                    } else if (viewMode === "Gantt") {
-                        fetchGanttData(true);
                     }
                 }}
             />
@@ -1461,6 +1332,7 @@ export default function MyBoardScreen() {
                 onClose={() => setReviewModalVisible(false)}
                 onSubmit={handleReviewSubmit}
                 taskName={selectedTask?.name || ""}
+                targetStatus={pendingStatus || undefined}
             />
         </SafeAreaView>
     );

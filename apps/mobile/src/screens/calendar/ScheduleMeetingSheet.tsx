@@ -25,7 +25,6 @@ const MEETING_TYPES: { value: MeetingType; label: string }[] = [
 /** The only bookable physical rooms — replaces free-text location entry. */
 const LOCATIONS = ["Experience Center", "Lounge Area", "War Room"];
 
-const COLOR_OPTIONS = ["#6366f1", "#10b981", "#f59e0b", "#f43f5e", "#0ea5e9", "#8b5cf6"];
 const DURATIONS = [15, 30, 45, 60, 90];
 const REMINDERS = [5, 10, 15, 30, 60];
 
@@ -85,7 +84,6 @@ export default function ScheduleMeetingSheet({
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [meetingType, setMeetingType] = useState<MeetingType>("INTERNAL");
-    const [color, setColor] = useState(COLOR_OPTIONS[0]);
     const [date, setDate] = useState(new Date());
     const [startTime, setStartTime] = useState(new Date());
     const [endTime, setEndTime] = useState(new Date());
@@ -133,7 +131,6 @@ export default function ScheduleMeetingSheet({
         setTitle("");
         setDescription("");
         setMeetingType("INTERNAL");
-        setColor(COLOR_OPTIONS[0]);
         setMeetingUrl("");
         setLocation("");
         setProjectId("none");
@@ -164,7 +161,6 @@ export default function ScheduleMeetingSheet({
                 location: location || undefined,
                 meetingUrl: meetingUrl.trim() || undefined,
                 type: meetingType,
-                color,
                 projectId: projectId === "none" ? undefined : projectId,
                 reminderMinutes,
                 attendeeUserIds: selectedAttendeeIds,
@@ -224,10 +220,7 @@ export default function ScheduleMeetingSheet({
         Alert.alert(
             "Scheduling conflict",
             `This overlaps with:\n${lines.join("\n")}${more}`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Schedule Anyway", style: "destructive", onPress: () => submitMeeting(startDateTime, endDateTime) },
-            ]
+            [{ text: "OK", style: "cancel" }]
         );
     };
 
@@ -279,19 +272,6 @@ export default function ScheduleMeetingSheet({
                             <Text style={[styles.chipText, { color: meetingType === t.value ? "#fff" : colors.text }]}>
                                 {t.label}
                             </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <Text style={[styles.label, { color: colors.textDim }]}>Color Tag</Text>
-                <View style={styles.colorRow}>
-                    {COLOR_OPTIONS.map((c) => (
-                        <TouchableOpacity
-                            key={c}
-                            onPress={() => setColor(c)}
-                            style={[styles.colorDot, { backgroundColor: c }, color === c && styles.colorDotSelected]}
-                        >
-                            {color === c && <Ionicons name="checkmark" size={14} color="#fff" />}
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -601,10 +581,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     selectValue: { flex: 1, fontSize: 14, fontFamily: FONTS.medium },
-
-    colorRow: { flexDirection: "row", gap: 10 },
-    colorDot: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-    colorDotSelected: { borderWidth: 2, borderColor: "#fff" },
 
     dateTimeCard: { borderWidth: 1, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
     pickerRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 10, paddingVertical: 10 },
