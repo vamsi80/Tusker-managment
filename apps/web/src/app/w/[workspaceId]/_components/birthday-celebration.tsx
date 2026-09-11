@@ -38,7 +38,7 @@ export function BirthdayCelebration() {
     <div className="pointer-events-none fixed inset-0 z-[100] overflow-hidden bg-black">
       <video
         className="h-full w-full object-cover"
-        src="/bday_video.mp4"
+        src="/bday_video_012.mp4"
         autoPlay
         muted
         playsInline
