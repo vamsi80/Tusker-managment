@@ -708,6 +708,35 @@ export default function HomeScreen({ navigation }: Props) {
                     )}
                 </View>
 
+                {/* Team Workload — quick-access tile, same size/style as the grid
+                    cards above. Opens the full filterable list on tap. Owners,
+                    admins and managers only (workload is management info, same
+                    gate as the Team tab's Tasks Assigned column). */}
+                {(activeWorkspace?.workspaceRole === "OWNER" ||
+                    activeWorkspace?.workspaceRole === "ADMIN" ||
+                    activeWorkspace?.workspaceRole === "MANAGER") && (
+                    <View style={{ marginTop: 12 }}>
+                        <View style={styles.gridRow}>
+                            <TouchableOpacity
+                                style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                                activeOpacity={0.8}
+                                onPress={() => (navigation as any).navigate("TeamWorkload")}
+                            >
+                                <View style={styles.gridCardHeader}>
+                                    <MaterialCommunityIcons name="chart-bar" size={20} color={colors.text} />
+                                </View>
+                                <Text style={[styles.gridCardValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                                    Workload
+                                </Text>
+                                <Text style={[styles.gridCardTitle, { color: colors.textDim }]}>Tasks per member</Text>
+                                <View style={[styles.arrowCircle, { backgroundColor: colors.primary + "24" }]}>
+                                    <Ionicons name="arrow-forward" size={12} color={colors.primary} />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
                 {/* Announcements — parity with the web dashboard's BroadcastWidget. */}
                 {activeWorkspace?.id && <BroadcastWidget workspaceId={activeWorkspace.id} />}
 

@@ -206,6 +206,7 @@ export type RootStackParamList = {
     ChangePassword: undefined;
     MyProfile: undefined;
     TeamList: undefined;
+    TeamWorkload: undefined;
     MySpace: undefined;
     DirectChat: {
         conversationId?: string;
