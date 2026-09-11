@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
+import Link from "next/link";
+import { Building2, ChevronDown, ExternalLink, Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,9 +20,11 @@ import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import {
     createDepartment, deleteDepartment, updateDepartment,
 } from "@/actions/department/department-actions";
+import type { DepartmentMember } from "@/data/department/get-departments";
 import type { Schedule } from "./shift-timings";
 
 type Department = {
@@ -28,6 +33,7 @@ type Department = {
     shiftScheduleId: string | null;
     shiftSchedule: { id: string; name: string } | null;
     _count: { members: number };
+    members?: DepartmentMember[];
 };
 
 interface DepartmentsManagerProps {
@@ -45,6 +51,11 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
     const [editing, setEditing] = useState<Department | null>(null);
     const [deleting, setDeleting] = useState<Department | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [expandedDepts, setExpandedDepts] = useState<Record<string, boolean>>({});
+
+    const toggleDept = (id: string) => {
+        setExpandedDepts(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     const handleDelete = async () => {
         if (!isWorkspaceAdmin || !deleting) return;
@@ -96,34 +107,137 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                     </div>
                 ) : (
                     <div className="divide-y divide-border rounded-lg border bg-card/30 overflow-hidden shadow-sm">
-                        {departments.map((department) => (
-                            <div key={department.id} className="flex flex-wrap items-center justify-between gap-3 p-3 hover:bg-muted/20 transition-colors">
-                                <div className="space-y-1">
-                                    <p className="font-medium leading-none">{department.name}</p>
-                                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                        <Users className="size-3 opacity-60" />
-                                        {department._count.members} {department._count.members === 1 ? "member" : "members"}
-                                    </p>
-                                </div>
+                        {departments.map((department) => {
+                            const isExpanded = !!expandedDepts[department.id];
+                            const members = department.members ?? [];
+                            const memberCount = department._count.members;
 
-                                <div className="flex items-center gap-2">
-                                    <Badge variant={department.shiftSchedule ? "secondary" : "outline"}>
-                                        {department.shiftSchedule?.name ?? "Workspace default timings"}
-                                    </Badge>
+                            return (
+                                <Collapsible
+                                    key={department.id}
+                                    open={isExpanded}
+                                    onOpenChange={() => toggleDept(department.id)}
+                                    className="transition-colors"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 hover:bg-muted/10 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <CollapsibleTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="size-7 rounded-md text-muted-foreground hover:text-foreground"
+                                                    aria-label={isExpanded ? "Collapse members" : "Expand members"}
+                                                >
+                                                    <ChevronDown className={cn("size-4 transition-transform duration-200", !isExpanded && "-rotate-90")} />
+                                                </Button>
+                                            </CollapsibleTrigger>
 
-                                    {isWorkspaceAdmin && (
-                                        <>
-                                            <Button variant="ghost" size="icon" onClick={() => { setEditing(department); setDialogOpen(true); }}>
-                                                <Pencil className="size-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => setDeleting(department)}>
-                                                <Trash2 className="size-4 text-destructive" />
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium text-sm leading-none">{department.name}</p>
+                                                </div>
+
+                                                {/* Dropdown trigger pill */}
+                                                <CollapsibleTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
+                                                    >
+                                                        <Users className="size-3 opacity-70 group-hover:opacity-100" />
+                                                        <span className="underline-offset-2 group-hover:underline">
+                                                            {memberCount} {memberCount === 1 ? "member" : "members"}
+                                                        </span>
+                                                        <ChevronDown className={cn("size-3 opacity-60 transition-transform duration-200", !isExpanded && "-rotate-90")} />
+                                                    </button>
+                                                </CollapsibleTrigger>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={department.shiftSchedule ? "secondary" : "outline"} className="text-xs">
+                                                {department.shiftSchedule?.name ?? "Workspace default timings"}
+                                            </Badge>
+
+                                            {isWorkspaceAdmin && (
+                                                <>
+                                                    <Button variant="ghost" size="icon" className="size-8" onClick={() => { setEditing(department); setDialogOpen(true); }}>
+                                                        <Pencil className="size-3.5" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setDeleting(department)}>
+                                                        <Trash2 className="size-3.5 text-destructive" />
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <CollapsibleContent>
+                                        <div className="border-t bg-muted/15 px-4 py-3">
+                                            <div className="flex items-center justify-between mb-2.5">
+                                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                    Members in {department.name} ({memberCount})
+                                                </p>
+                                                <Link
+                                                    href={`/w/${workspaceId}/team`}
+                                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                                >
+                                                    Manage on Team page
+                                                    <ExternalLink className="size-3" />
+                                                </Link>
+                                            </div>
+
+                                            {members.length === 0 ? (
+                                                <div className="rounded-md border border-dashed bg-background/60 p-4 text-center">
+                                                    <Users className="mx-auto size-5 text-muted-foreground/40 mb-1" />
+                                                    <p className="text-xs text-muted-foreground">
+                                                        No members currently assigned to this department.
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                                                        Go to the Team page to assign members to &quot;{department.name}&quot;.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                    {members.map((member) => {
+                                                        const fullName = [member.user.name, member.user.surname].filter(Boolean).join(" ");
+                                                        const initials = (member.user.name?.[0] || member.user.email?.[0] || "?").toUpperCase();
+                                                        return (
+                                                            <div
+                                                                key={member.id}
+                                                                className="flex items-center gap-2.5 rounded-lg border bg-background/80 p-2 shadow-xs hover:border-primary/30 transition-colors"
+                                                            >
+                                                                <Avatar className="size-7 shrink-0">
+                                                                    {member.user.image && <AvatarImage src={member.user.image} alt={fullName} />}
+                                                                    <AvatarFallback className="text-[10px] font-medium bg-muted">
+                                                                        {initials}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex items-center justify-between gap-1">
+                                                                        <p className="truncate text-xs font-medium text-foreground">{fullName}</p>
+                                                                        {member.workspaceRole && member.workspaceRole !== "MEMBER" && (
+                                                                            <Badge variant="outline" className="px-1 py-0 text-[9px] font-normal leading-tight">
+                                                                                {member.workspaceRole.toLowerCase()}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="truncate text-[11px] text-muted-foreground">{member.user.email}</p>
+                                                                    {member.designation && (
+                                                                        <p className="truncate text-[10px] text-muted-foreground/75 font-mono">
+                                                                            {member.designation}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            );
+                        })}
                     </div>
                 )}
             </div>

@@ -6,10 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toDateOnlyString } from "@tusker/core/lib/date-utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useWorkspaceLayout } from "./workspace-layout-context";
 
 type Range = "delayed" | "today" | "week";
 type SortDir = "asc" | "desc";
+
+/** Active task statuses to display on the dashboard (excludes completed and cancelled tasks). */
+const ACTIVE_STATUSES = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD"];
 
 /** One page. Small on purpose — the rest arrives via Load more. */
 const PAGE_SIZE = 10;
@@ -28,7 +32,6 @@ const statusColorMap: Record<string, string> = {
   IN_PROGRESS: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   REVIEW: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   HOLD: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
-  COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
 };
 
 /** Local midnight, `offsetDays` from today, as the API's date bound. */
@@ -79,6 +82,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         vm: "list",
         l: String(PAGE_SIZE),
         sub: "false",
+        status: JSON.stringify(ACTIVE_STATUSES),
         sorts: JSON.stringify([{ field: "dueDate", direction }]),
         ...rangeParams(range),
       });
@@ -89,7 +93,8 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         const json = await res.json();
         if (token !== requestId.current) return;
 
-        const rows: TaskRow[] = json?.success ? json.data?.tasks ?? [] : [];
+        const rawRows: TaskRow[] = json?.success ? json.data?.tasks ?? [] : [];
+        const rows = rawRows.filter((t) => !t.status || ACTIVE_STATUSES.includes(t.status));
         setTasks((prev) => (nextCursor ? [...(prev ?? []), ...rows] : rows));
         setCursor(json?.data?.nextCursor ?? null);
         setHasMore(Boolean(json?.data?.hasMore));
@@ -109,6 +114,23 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
     setCursor(null);
     setHasMore(false);
     load(null, token);
+  }, [load]);
+
+  // Real-time synchronization: remove tasks instantly when marked COMPLETED or CANCELLED
+  useEffect(() => {
+    return pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
+      const action = typeof data?.action === "string" ? data.action : "";
+      const type = typeof data?.type === "string" ? data.type : "";
+      if (action.includes("TASK") || type.includes("TASK")) {
+        const payload = data.newData || data.payload || data.metadata?.payload || data;
+        if (payload?.id && (payload.status === "COMPLETED" || payload.status === "CANCELLED")) {
+          setTasks((prev) => (prev ? prev.filter((t) => t.id !== payload.id) : null));
+        } else {
+          const token = ++requestId.current;
+          load(null, token);
+        }
+      }
+    });
   }, [load]);
 
   const loadMore = async () => {
