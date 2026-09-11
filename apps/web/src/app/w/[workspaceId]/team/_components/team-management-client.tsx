@@ -18,6 +18,16 @@ interface TeamManagementClientProps {
 }
 
 /**
+ * Capacity filters. `max` is exclusive - the API drops everyone carrying `max`
+ * or more open tasks - so "fewer than 1" is exactly the members carrying none.
+ */
+const WORKLOAD_FILTERS = [
+    { max: 1, label: "0 tasks" },
+    { max: 5, label: "<5 tasks" },
+    { max: 10, label: "<10 tasks" },
+] as const;
+
+/**
  * Client-side bootstrap for the Team Management page.
  * Fetches members and permissions via Hono (Zero-RSC).
  */
@@ -138,7 +148,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         <div className="space-y-3">
             <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Workload:</span>
-                {[5, 10].map((max) => (
+                {WORKLOAD_FILTERS.map(({ max, label }) => (
                     <button
                         key={max}
                         type="button"
@@ -154,7 +164,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
                                 : "text-muted-foreground hover:bg-muted"
                         )}
                     >
-                        {"<"}{max} tasks
+                        {label}
                     </button>
                 ))}
             </div>

@@ -2,10 +2,11 @@
 
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useMeetingStore } from "@/lib/store/meeting-store";
-import { Badge } from "@/components/ui/badge";
-import { Clock, Video } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CheckSquare, Clock, Video } from "lucide-react";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { calendarDayKey } from "@tusker/core/lib/date-utils";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 
 // The whole day is drawn: an 8am-8pm window silently swallowed every early or
 // late meeting, which then existed in the month view and nowhere in the week.
@@ -13,8 +14,25 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const HOUR_HEIGHT = 60; // px per hour slot
 const DEFAULT_SCROLL_HOUR = 8; // where the view opens, not where it ends
 
+/** Tasks are due on a day, not at an hour, so they sit in an all-day strip.
+ *  Only this many fit before the rest roll into a "+N more" popover. */
+const TASK_CAP = 2;
+
 export function CalendarWeekView() {
-  const { selectedDate, meetings, openScheduleModal, openDetailsModal } = useMeetingStore();
+  const {
+    selectedDate,
+    meetings,
+    taskDeadlines,
+    activeLayers,
+    openScheduleModal,
+    openDetailsModal,
+  } = useMeetingStore();
+
+  const { openSubTaskSheet } = useSubTaskSheetActions();
+
+  /** Open the task in the shared right-side details panel. */
+  const openTask = (task: { id: string; projectId?: string | null; taskSlug?: string | null }) =>
+    openSubTaskSheet({ id: task.id, projectId: task.projectId, taskSlug: task.taskSlug });
 
   // Current time state for red line indicator
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -65,6 +83,21 @@ export function CalendarWeekView() {
     return map;
   }, [meetings, weekDays]);
 
+  // Task due dates carry a day, not a time, so they never enter the hour grid.
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, typeof taskDeadlines>();
+    weekDays.forEach((wd) => map.set(wd.dateKey, []));
+
+    if (activeLayers.tasks) {
+      taskDeadlines.forEach((t) => {
+        const key = calendarDayKey(t.date);
+        map.get(key)?.push(t);
+      });
+    }
+
+    return map;
+  }, [taskDeadlines, weekDays, activeLayers.tasks]);
+
   // Open on the first meeting of the week (or the working day) instead of at
   // midnight, now that all 24 hours are rendered.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -91,34 +124,103 @@ export function CalendarWeekView() {
       {/* One scroll container for header + grid: both share its width, so the day
           columns stay aligned with their headers once a scrollbar appears. */}
       <div ref={scrollRef} className="max-h-[600px] overflow-y-auto">
-        {/* Week Header */}
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted sticky top-0 z-30">
-          <div className="py-3 text-center text-xs font-semibold text-muted-foreground border-r border-border/50">
-            <Clock className="size-3.5 mx-auto" />
-          </div>
-          {weekDays.map((wd) => (
-            <div
-              key={wd.dateKey}
-              className={`py-2.5 px-2 text-center border-r border-border/50 last:border-r-0 ${
-                wd.isToday ? "bg-primary/5" : ""
-              }`}
-            >
-              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">
-                {wd.dayName}
-              </span>
-              <span
-                className={`text-sm font-bold inline-flex items-center justify-center size-7 rounded-full mt-0.5 ${
-                  wd.isToday ? "bg-primary text-primary-foreground shadow-xs" : "text-foreground"
+        {/* Week header and the all-day strip scroll together and stay pinned */}
+        <div className="sticky top-0 z-30 bg-muted border-b">
+          <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))]">
+            <div className="py-3 text-center text-xs font-semibold text-muted-foreground border-r border-border/50">
+              <Clock className="size-3.5 mx-auto" />
+            </div>
+            {weekDays.map((wd) => (
+              <div
+                key={wd.dateKey}
+                className={`py-2.5 px-2 text-center border-r border-border/50 last:border-r-0 ${
+                  wd.isToday ? "bg-primary/5" : ""
                 }`}
               >
-                {wd.dayNum}
-              </span>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block">
+                  {wd.dayName}
+                </span>
+                <span
+                  className={`text-sm font-bold inline-flex items-center justify-center size-7 rounded-full mt-0.5 ${
+                    wd.isToday ? "bg-primary text-primary-foreground shadow-xs" : "text-foreground"
+                  }`}
+                >
+                  {wd.dayNum}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* All-day task deadlines. Capped so a busy day cannot push the grid
+              off the screen; the rest live behind "+N more". */}
+          {activeLayers.tasks && (
+            <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-t border-border/50">
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right pr-2 pt-1.5 border-r border-border/50">
+                Tasks
+              </div>
+              {weekDays.map((wd) => {
+                const dayTasks = tasksByDay.get(wd.dateKey) || [];
+
+                return (
+                  <div
+                    key={wd.dateKey}
+                    className={`min-w-0 overflow-hidden p-1 space-y-1 border-r border-border/50 last:border-r-0 ${
+                      wd.isToday ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    {dayTasks.slice(0, TASK_CAP).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => openTask(t)}
+                        title={`Task: ${t.title} — open task`}
+                        className="flex w-full min-w-0 items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
+                      >
+                        <CheckSquare className="size-2.5 shrink-0" />
+                        <span className="min-w-0 truncate">{t.title}</span>
+                      </button>
+                    ))}
+
+                    {dayTasks.length > TASK_CAP && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-[10px] font-semibold text-muted-foreground hover:text-foreground pl-1 transition-colors block"
+                          >
+                            +{dayTasks.length - TASK_CAP} more
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-3 space-y-2 rounded-xl shadow-lg">
+                          <p className="text-xs font-bold text-foreground">
+                            {wd.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </p>
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                            {dayTasks.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => openTask(t)}
+                                title={`Task: ${t.title} — open task`}
+                                className="flex w-full min-w-0 items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
+                              >
+                                <CheckSquare className="size-3 shrink-0" />
+                                <span className="min-w-0 truncate">{t.title}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
 
         {/* Hourly Timeline Grid */}
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] relative">
+        <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] relative">
           {/* Time labels column */}
           <div className="border-r border-border/50 select-none">
             {HOURS.map((h) => {
@@ -148,7 +250,7 @@ export function CalendarWeekView() {
             return (
               <div
                 key={wd.dateKey}
-                className={`relative border-r border-border/50 last:border-r-0 ${
+                className={`relative min-w-0 border-r border-border/50 last:border-r-0 ${
                   wd.isToday ? "bg-primary/[0.02]" : ""
                 }`}
               >
@@ -213,9 +315,9 @@ export function CalendarWeekView() {
                       className="absolute left-1 right-1 z-10 p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary/20 shadow-xs cursor-pointer hover:opacity-95 transition-all overflow-hidden flex flex-col justify-between"
                     >
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1">
+                        <div className="flex min-w-0 items-center gap-1">
                           {m.meetingUrl && <Video className="size-2.5 shrink-0 opacity-80" />}
-                          <span className="text-[11px] font-semibold truncate leading-tight">
+                          <span className="min-w-0 text-[11px] font-semibold truncate leading-tight">
                             {m.title}
                           </span>
                         </div>

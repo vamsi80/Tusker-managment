@@ -110,10 +110,27 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
     setSelectedDate(new Date());
   };
 
-  const headerTitle = selectedDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  // The week view moves in weeks, so a month-and-year title was simply the
+  // wrong period: it sat on "September" while the grid showed Sep 28 - Oct 4.
+  const headerTitle = (() => {
+    if (activeView !== "week") {
+      return selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    }
+
+    const start = new Date(selectedDate);
+    start.setDate(start.getDate() - start.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const endLabel = end.toLocaleDateString("en-US", {
+      // Only repeat the month when the week straddles two of them.
+      ...(start.getMonth() === end.getMonth() ? {} : { month: "short" }),
+      day: "numeric",
+    });
+
+    return `${startLabel} – ${endLabel}, ${end.getFullYear()}`;
+  })();
 
   return (
     <div className="space-y-4">

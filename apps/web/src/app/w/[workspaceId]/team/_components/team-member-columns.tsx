@@ -29,9 +29,17 @@ export function createTeamMemberColumns(
             cell: ({ row }) => {
                 const count = row.original.openTaskCount ?? 0;
                 return (
-                    <div
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            // The row itself opens the member too; stop the cell
+                            // from firing it a second time.
+                            e.stopPropagation();
+                            onView(row.original);
+                        }}
+                        title={`View ${row.original.name || "member"}'s tasks`}
                         className={cn(
-                            "w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                            "w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all hover:ring-1 hover:ring-inset hover:ring-current",
                             count === 0
                                 ? "bg-muted text-muted-foreground"
                                 : count < 5
@@ -41,8 +49,8 @@ export function createTeamMemberColumns(
                                 : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
                         )}
                     >
-                        {count}
-                    </div>
+                        {count} {count === 1 ? "task" : "tasks"}
+                    </button>
                 );
             },
         };

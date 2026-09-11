@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { Check, X, Loader2, Calendar as CalendarIcon, User, Info, Pencil, Trash2 } from "lucide-react";
+import { Check, X, Loader2, Calendar as CalendarIcon, User, Info, Pencil, Trash2, Undo2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
@@ -113,7 +113,7 @@ export function LeavesTable({
             }
 
             // 2. Handle Updates
-            const updateActions = ["LEAVE_UPDATED", "LEAVE_STATUS_CHANGED", "LEAVE_APPROVED", "LEAVE_REJECTED", "LEAVE_DELETED"];
+            const updateActions = ["LEAVE_UPDATED", "LEAVE_STATUS_CHANGED", "LEAVE_APPROVED", "LEAVE_REJECTED", "LEAVE_APPROVAL_REVOKED", "LEAVE_DELETED"];
             if (flatRecord && updateActions.includes(action)) {
                 setRequests(prev => prev.map(r => r.id === flatRecord.id ? flatRecord : r));
                 return;
@@ -164,7 +164,12 @@ export function LeavesTable({
         fetchRequests();
     }, [workspaceId, pageIndex, pageSize, debouncedSearch]);
 
-    const handleUpdateStatus = async (id: string, status: "APPROVED" | "REJECTED") => {
+    const handleUpdateStatus = async (id: string, status: "APPROVED" | "REJECTED" | "PENDING") => {
+        // Revoking hands the days back and un-marks the attendance, so it is
+        // worth a confirm; approving and rejecting are not destructive.
+        if (status === "PENDING" && !confirm("Revoke this approval? The leave days are returned to the member's balance and the request goes back to pending.")) {
+            return;
+        }
         try {
             const res = await fetch(`/api/v1/attendance/leave-request/${id}`, {
                 method: "PATCH",
@@ -176,10 +181,17 @@ export function LeavesTable({
             });
             const data = await res.json();
             if (data.success) {
-                toast.success(`Leave request ${status.toLowerCase()} successfully`);
+                toast.success(
+                    status === "PENDING"
+                        ? "Approval revoked. The request is pending again."
+                        : `Leave request ${status.toLowerCase()} successfully`
+                );
                 // Rely on real-time event for UI update
             } else {
-                toast.error(data.error || `Failed to ${status.toLowerCase()} leave request`);
+                toast.error(
+                    data.error ||
+                    (status === "PENDING" ? "Failed to revoke approval" : `Failed to ${status.toLowerCase()} leave request`)
+                );
             }
         } catch (error) {
             toast.error("An error occurred");
@@ -337,7 +349,28 @@ export function LeavesTable({
                 const leave = row.original;
                 const canManage = isOwnerOrAdmin || leave.reportToId === currentMemberId;
 
-                if (!canManage || leave.status !== "PENDING") return null;
+                if (!canManage) return null;
+
+                if (leave.status === "APPROVED") {
+                    return (
+                        <div className="flex items-center justify-end">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-full border-amber-200 px-3 text-[11px] font-semibold text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition-all active:scale-95"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateStatus(leave.id, "PENDING");
+                                }}
+                            >
+                                <Undo2 className="mr-1 size-3.5" />
+                                Revoke
+                            </Button>
+                        </div>
+                    );
+                }
+
+                if (leave.status !== "PENDING") return null;
 
                 return (
                     <div className="flex items-center justify-end gap-2">
@@ -477,6 +510,20 @@ export function LeavesTable({
                                     <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-1">
                                         <p className="text-sm font-medium text-rose-600 text-center">This leave request was deleted.</p>
                                     </div>
+                                )}
+
+                                {leave.status === "APPROVED" && (isOwnerOrAdmin || leave.reportToId === currentMemberId) && (
+                                    <Button
+                                        variant="outline"
+                                        className="w-full rounded-2xl h-12 border-amber-200 text-amber-600 hover:bg-amber-50 font-medium"
+                                        onClick={() => {
+                                            handleUpdateStatus(leave.id, "PENDING");
+                                            setIsDialogOpen(false);
+                                        }}
+                                    >
+                                        <Undo2 className="mr-2 size-4" />
+                                        Revoke Approval
+                                    </Button>
                                 )}
 
                                 {leave.status === "PENDING" && (isOwnerOrAdmin || leave.reportToId === currentMemberId) && (
