@@ -37,6 +37,7 @@ import HeaderMenu from "../components/HeaderMenu";
 import CalendarDateIcon from "../components/CalendarDateIcon";
 import AIBotAvatar from "../components/AIBotAvatar";
 import BroadcastWidget from "../components/BroadcastWidget";
+import ReviewsWidget from "../components/ReviewsWidget";
 import PressableScale from "../components/PressableScale";
 import { haptics } from "../services/haptics";
 import { useResponsive } from "../hooks/useResponsive";
@@ -76,7 +77,13 @@ export default function HomeScreen({ navigation }: Props) {
     } = useWorkspace();
     const { colors, isDark, toggleTheme } = useTheme();
     const { unreadCount } = useNotifications();
-    const { MAX_CONTENT_WIDTH, value } = useResponsive();
+    const { MAX_CONTENT_WIDTH, value, isCompact } = useResponsive();
+    // The greeting/check-in "hero" was sized for a normal phone height; on a
+    // compact screen (e.g. a 360x640dp small phone) it still ate a
+    // disproportionate share of vertical space even at a first, milder
+    // reduction — shrunk further here, along with the surrounding text and
+    // spacing, so the hero reads proportionate instead of "zoomed in".
+    const checkInSize = isCompact ? 72 : 124;
     const isAdminOrOwner = activeWorkspace?.workspaceRole === "OWNER" || activeWorkspace?.workspaceRole === "ADMIN";
 
     const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -392,7 +399,7 @@ export default function HomeScreen({ navigation }: Props) {
             >
 
                 {/* Top Main Card */}
-                <View style={[styles.mainCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.mainCard, isCompact && styles.mainCardCompact, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     {/* Card Header: Workspace Name, Notification Bell, User Avatar */}
                     <View style={styles.cardHeaderRow}>
                         <View style={StyleSheet.absoluteFill}>
@@ -446,19 +453,19 @@ export default function HomeScreen({ navigation }: Props) {
 
                     {/* Welcome Back & Name */}
                     <View style={{ paddingHorizontal: SPACING.xs, marginTop: -10 }}>
-                        <Text style={[styles.welcomeText, { color: colors.textDim }]}>Welcome back,</Text>
+                        <Text style={[styles.welcomeText, isCompact && { fontSize: 13 }, { color: colors.textDim }]}>Welcome back,</Text>
                         {profileLoading && !profile ? (
                             <Skeleton width={180} height={30} style={{ marginTop: 4 }} />
                         ) : (
-                            <Text style={[styles.profileNameText, { color: colors.text }]}>
+                            <Text style={[styles.profileNameText, isCompact && { fontSize: 21 }, { color: colors.text }]}>
                                 {profile?.name ?? ""}
                             </Text>
                         )}
                     </View>
 
                     {/* Day and Date */}
-                    <View style={{ alignItems: "center", marginTop: SPACING.sm }}>
-                        <Text style={[styles.dayText, { color: colors.text }]}>
+                    <View style={{ alignItems: "center", marginTop: isCompact ? 2 : SPACING.sm }}>
+                        <Text style={[styles.dayText, { color: colors.text, fontSize: isCompact ? 20 : 32 }]}>
                             {format(currentTime, 'EEEE')}
                         </Text>
                         <Text style={[styles.dateText, { color: colors.textDim }]}>
@@ -467,10 +474,16 @@ export default function HomeScreen({ navigation }: Props) {
                     </View>
 
                     {/* Big Liquid Circular Button */}
-                    <View style={{ alignItems: "center", marginVertical: SPACING.sm }}>
-                        <View style={[styles.circularCheckShadow, isCheckedOut && { opacity: 0.6 }]}>
+                    <View style={{ alignItems: "center", marginVertical: isCompact ? 4 : SPACING.sm }}>
+                        <View
+                            style={[
+                                styles.circularCheckShadow,
+                                { borderRadius: checkInSize / 2 },
+                                isCheckedOut && { opacity: 0.6 },
+                            ]}
+                        >
                             <TouchableOpacity
-                                style={styles.circularCheckButton}
+                                style={[styles.circularCheckButton, { width: checkInSize, height: checkInSize, borderRadius: checkInSize / 2 }]}
                                 activeOpacity={0.85}
                                 onPress={handleBigButtonPress}
                                 disabled={actionLoading || isCheckedOut}
@@ -487,16 +500,16 @@ export default function HomeScreen({ navigation }: Props) {
                                     style={StyleSheet.absoluteFill}
                                 />
                                 {/* Top-left specular sheen */}
-                                <View style={styles.circleSheenTop} pointerEvents="none" />
+                                <View style={[styles.circleSheenTop, isCompact && styles.circleSheenTopCompact]} pointerEvents="none" />
                                 {/* Bottom-right soft bounce light */}
-                                <View style={styles.circleSheenBottom} pointerEvents="none" />
+                                <View style={[styles.circleSheenBottom, isCompact && styles.circleSheenBottomCompact]} pointerEvents="none" />
                                 {/* Rim highlight */}
-                                <View style={styles.circleRim} pointerEvents="none" />
+                                <View style={[styles.circleRim, { borderRadius: checkInSize / 2 }]} pointerEvents="none" />
 
                                 {actionLoading ? (
-                                    <ActivityIndicator size="large" color="#2b1c04" />
+                                    <ActivityIndicator size={isCompact ? "small" : "large"} color="#2b1c04" />
                                 ) : (
-                                    <Text style={styles.circularButtonText}>
+                                    <Text style={[styles.circularButtonText, isCompact && { fontSize: 15 }]}>
                                         {getCheckInStatusText()}
                                     </Text>
                                 )}
@@ -698,6 +711,15 @@ export default function HomeScreen({ navigation }: Props) {
                 {/* Announcements — parity with the web dashboard's BroadcastWidget. */}
                 {activeWorkspace?.id && <BroadcastWidget workspaceId={activeWorkspace.id} />}
 
+                {/* My Reviews — subtasks pushed to REVIEW where I'm the reviewer.
+                    Hidden entirely when there's nothing pending. */}
+                {activeWorkspace?.id && (
+                    <ReviewsWidget
+                        workspaceId={activeWorkspace.id}
+                        onOpenTask={(task) => navigation.navigate("TaskDetail", { taskId: task.id, taskName: task.name })}
+                    />
+                )}
+
                 {/* Birthdays — parity with the web dashboard's Birthdays widget.
                     Hidden entirely in a month with none, so it costs no space. */}
                 {birthdays === null ? (
@@ -884,6 +906,11 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 4,
     },
+    mainCardCompact: {
+        borderRadius: 22,
+        padding: 12,
+        paddingBottom: 14,
+    },
     cardHeaderRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -972,6 +999,14 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.32)",
         transform: [{ rotate: "-18deg" }],
     },
+    // Scaled ~0.58x to match the compact 72px check-in button (vs. 124px regular).
+    circleSheenTopCompact: {
+        top: -16,
+        left: -10,
+        width: 71,
+        height: 51,
+        borderRadius: 35,
+    },
     circleSheenBottom: {
         position: "absolute",
         bottom: -24,
@@ -981,6 +1016,13 @@ const styles = StyleSheet.create({
         borderRadius: 48,
         backgroundColor: "rgba(255,255,255,0.14)",
         transform: [{ rotate: "-14deg" }],
+    },
+    circleSheenBottomCompact: {
+        bottom: -14,
+        right: -8,
+        width: 56,
+        height: 35,
+        borderRadius: 28,
     },
     circleRim: {
         ...StyleSheet.absoluteFillObject,

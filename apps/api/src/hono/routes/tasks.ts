@@ -256,6 +256,20 @@ tasks.get("/count", async (c) => {
   return c.json({ success: true, data: { totalCount: count }, totalCount: count });
 });
 
+/**
+ * GET /api/v1/tasks/pending-reviews?w=<workspaceId>
+ * Tasks currently in REVIEW status where the caller is the named reviewer —
+ * powers the "My Reviews" home-screen widget.
+ */
+tasks.get("/pending-reviews", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.query("w") || c.req.query("workspaceId");
+  if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  const reviews = await TasksService.getPendingReviews(workspaceId, user.id);
+  return c.json({ success: true, data: reviews });
+});
+
 tasks.get("/kanban", async (c) => {
   const user = c.get("user");
   const q = c.req.queries();

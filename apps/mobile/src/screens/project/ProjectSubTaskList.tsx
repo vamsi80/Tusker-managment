@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ScrollView, Platform, ActivityIndicator, Alert, Modal, TouchableWithoutFeedback, Dimensions } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ScrollView, Platform, ActivityIndicator, Alert, Modal, TouchableWithoutFeedback } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-
-const { width: SCREEN_W } = Dimensions.get("window");
 
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";

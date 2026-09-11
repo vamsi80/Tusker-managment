@@ -86,6 +86,23 @@ export interface WorkspaceMember {
         image?: string;
         surname?: string;
     };
+    // The /workspaces/:id/members response is flat (same fields the web team
+    // dashboard's WorkspaceMemberRow renders) — mapWorkspaceMember spreads them
+    // onto the object alongside the nested `user` above, it just isn't typed
+    // here until now.
+    designation?: string | null;
+    reportToId?: string | null;
+    reportToName?: string | null;
+    departmentId?: string | null;
+    departmentName?: string | null;
+    employeeId?: string | null;
+    dateOfBirth?: string | null;
+    phoneNumber?: string | null;
+    status?: string;
+    casualLeaveBalance?: number;
+    sickLeaveBalance?: number;
+    /** Tasks assigned to them that are still TO_DO / IN_PROGRESS / REVIEW. */
+    openTaskCount?: number;
 }
 
 export type TaskStatus = "TO_DO" | "IN_PROGRESS" | "REVIEW" | "HOLD" | "COMPLETED" | "CANCELLED";
@@ -239,12 +256,24 @@ export interface DirectMessage {
     id: string;
     content: string;
     createdAt: string;
-    userId: string;
+    updatedAt: string;
+    // The API's messageSelect keys the sender by `senderId`, not `userId` —
+    // this type previously claimed `userId`, which doesn't exist on the raw
+    // response, so every "is this my message?" check silently failed.
+    senderId: string;
+    conversationId: string;
+    isDeleted: boolean;
+    deletedAt: string | null;
+    isRead: boolean;
+    deliveredAt: string | null;
+    readAt: string | null;
+    editedAt: string | null;
+    isForwarded: boolean;
+    forwardedFromId: string | null;
+    // Only `id` and `surname` (nickname) are selected server-side — no name/image.
     user: {
         id: string;
-        name: string;
         surname?: string;
-        image?: string;
     };
 }
 

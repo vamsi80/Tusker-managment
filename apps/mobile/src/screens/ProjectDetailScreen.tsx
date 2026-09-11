@@ -4,7 +4,6 @@ import {
     Text,
     StyleSheet,
     StatusBar,
-    Dimensions,
     ScrollView,
     DeviceEventEmitter,
 } from "react-native";
@@ -29,7 +28,6 @@ import GlassSurface from "../components/GlassSurface";
 import PressableScale from "../components/PressableScale";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProjectDetail">;
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const tabs = [
     { id: "Dashboard", label: "Dashboard", icon: "grid-outline" as const },
@@ -43,7 +41,7 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
     const { projectId, projectName, projectColor } = route.params;
     const { activeWorkspace, workspaces, projects, projectFilters, setProjectFilters } = useWorkspace();
     const { colors, isDark } = useTheme();
-    const { MAX_CONTENT_WIDTH, value } = useResponsive();
+    const { MAX_CONTENT_WIDTH, value, width: SCREEN_WIDTH } = useResponsive();
     const COMPONENT_WIDTH = Math.min(SCREEN_WIDTH, MAX_CONTENT_WIDTH);
 
     const isAdminOrOwner = React.useMemo(() => {

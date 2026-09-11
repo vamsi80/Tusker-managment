@@ -8,7 +8,12 @@ import { MOTION, SPACING, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { haptics } from "../services/haptics";
 import { useReducedMotion } from "../hooks/useReducedMotion";
+import { useResponsive } from "../hooks/useResponsive";
 import PressableScale from "../components/PressableScale";
+
+/** Beyond this the bar stops stretching and centers instead — on a tablet-width
+ * screen a full-bleed flex row leaves the tab icons stranded far apart. */
+const TAB_BAR_MAX_WIDTH = 480;
 
 interface TabMeta {
     iconActive: string;
@@ -110,6 +115,7 @@ export default function AnimatedTabBar({
     const { colors } = useTheme();
     const insets = useSafeAreaInsets();
     const reducedMotion = useReducedMotion();
+    const { isTablet, isDesktop } = useResponsive();
     const routes = state.routes;
 
     const handlePress = (route: any, index: number) => {
@@ -152,7 +158,13 @@ export default function AnimatedTabBar({
                 paddingTop: SPACING.sm,
             }}
         >
-            <View style={styles.bar} accessibilityRole="tablist">
+            <View
+                style={[
+                    styles.bar,
+                    (isTablet || isDesktop) && { maxWidth: TAB_BAR_MAX_WIDTH, alignSelf: "center", width: "100%" },
+                ]}
+                accessibilityRole="tablist"
+            >
                 <View style={styles.tabGroup}>
                     {leftRoutes.map((route: any, i: number) => renderTab(route, i))}
                 </View>

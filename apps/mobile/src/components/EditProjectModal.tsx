@@ -9,20 +9,21 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    Dimensions
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useWorkspace } from "../context/WorkspaceContext";
+import { useResponsive } from "../hooks/useResponsive";
 import { updateProject, getProject, getProjectWorkspaceMembers, getWorkspaceClients } from "../services/api";
 import { ProjectCategory } from "../types";
 import { PROJECT_CATEGORY_OPTIONS } from "../constants/projectCategory";
 import PressableScale from "./PressableScale";
 import AppButton from "./AppButton";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const INK_ON_PRIMARY = "#2b1c04";
+/** Cap for this dialog's width once it "floats" as a centered card on tablet/desktop. */
+const SHEET_MAX_WIDTH = 560;
 
 const PROJECT_COLORS = [
     "#ef4444", "#f97316", "#eab308", "#22c55e",
@@ -48,7 +49,9 @@ interface EditProjectModalProps {
 export default function EditProjectModal({ visible, onClose, projectId }: EditProjectModalProps) {
     const { activeWorkspace, refreshData, tags: workspaceTags } = useWorkspace();
     const { colors, isDark } = useTheme();
-    
+    const { isTablet, isDesktop } = useResponsive();
+    const floating = isTablet || isDesktop;
+
     // Basic Info
     const [name, setName] = useState("");
     const [slug, setSlug] = useState("");
@@ -333,12 +336,12 @@ export default function EditProjectModal({ visible, onClose, projectId }: EditPr
             animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
+            <View style={[styles.overlay, floating && styles.overlayFloating]}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.container}
+                    style={[styles.container, floating && { width: "100%", maxWidth: SHEET_MAX_WIDTH }]}
                 >
-                    <View style={[styles.sheet, { backgroundColor: colors.surfaceSolid }]}>
+                    <View style={[styles.sheet, floating && styles.sheetFloating, { backgroundColor: colors.surfaceSolid }]}>
                         {/* Header */}
                         <View style={styles.header}>
                             <View style={[styles.handle, { backgroundColor: colors.border }]} />
@@ -901,11 +904,21 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.55)",
         justifyContent: "flex-end",
     },
+    // Tablet/desktop: this reads better as a centered dialog than a sheet
+    // pinned edge-to-edge across a screen that's 3-4x a phone's width.
+    overlayFloating: {
+        justifyContent: "center",
+        alignItems: "center",
+    },
     container: { width: "100%" },
     sheet: {
         borderTopLeftRadius: BORDER_RADIUS.xl,
         borderTopRightRadius: BORDER_RADIUS.xl,
         maxHeight: "92%",
+    },
+    sheetFloating: {
+        borderRadius: BORDER_RADIUS.xl,
+        maxHeight: "80%",
     },
     header: {
         alignItems: "center",
