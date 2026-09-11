@@ -35,6 +35,8 @@ import ProjectKanban from "./ProjectKanban";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProjectSubTasks">;
 
+const PAGE_SIZE = 10;
+
 export default function ProjectSubTaskList({ route, navigation }: Props) {
     const { parentId, parentName, projectId } = route.params;
     const { activeWorkspace, projectFilters, setProjectFilters, projects, tags, refreshData } = useWorkspace();
@@ -47,6 +49,7 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
     const [viewMode, setViewMode] = useState<"List" | "Kanban">("List");
     const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
     const activeProject = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
     const projectColor = activeProject?.color || colors.primary;
@@ -159,6 +162,19 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
     }, [subTasks, filters]);
 
     const activeFilterCount = Object.values(filters).filter(v => Array.isArray(v) ? v.length > 0 : !!v).length;
+
+    // Reset the visible window whenever the underlying list changes shape —
+    // otherwise switching parent tasks or filters could leave the list
+    // showing, say, items 41-50 of a completely different, shorter set.
+    useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [parentId, filters]);
+
+    const displayedSubTasks = useMemo(
+        () => filteredSubTasks.slice(0, visibleCount),
+        [filteredSubTasks, visibleCount]
+    );
+    const remainingCount = filteredSubTasks.length - displayedSubTasks.length;
 
     // getStatusColor removed in favor of getStatusHex from taskColors utility
 
@@ -434,11 +450,26 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
                     />
                 ) : (
                     <FlatList
-                        data={filteredSubTasks}
+                        data={displayedSubTasks}
                         renderItem={renderItem}
                         keyExtractor={item => item.id}
                         contentContainerStyle={styles.list}
                         showsVerticalScrollIndicator={false}
+                        ListFooterComponent={
+                            remainingCount > 0 ? (
+                                <TouchableOpacity
+                                    style={[styles.viewMoreBtn, { backgroundColor: colors.surfaceHighlight, borderColor: colors.border }]}
+                                    onPress={() => setVisibleCount(c => c + PAGE_SIZE)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`View more, ${remainingCount} remaining`}
+                                >
+                                    <Text style={[styles.viewMoreText, { color: colors.primary }]}>
+                                        View More ({remainingCount} more)
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={16} color={colors.primary} />
+                                </TouchableOpacity>
+                            ) : null
+                        }
                         ListEmptyComponent={
                             loading ? (
                                 <ListSkeleton rows={6} showAvatar={false} />
@@ -622,6 +653,8 @@ const styles = StyleSheet.create({
     clearAllText: { color: "#ef4444", fontSize: 12, fontFamily: FONTS.semibold, marginLeft: 8 },
 
     list: { padding: SPACING.md, paddingBottom: SPACING.bottomTabBar },
+    viewMoreBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, marginBottom: SPACING.md },
+    viewMoreText: { fontSize: 13, fontFamily: FONTS.bold },
     card: { padding: SPACING.md, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, marginBottom: SPACING.md },
     cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
     nameContainer: { flex: 1, flexDirection: "row", alignItems: "flex-start", paddingRight: 8 },

@@ -741,7 +741,7 @@ export default function HomeScreen({ navigation }: Props) {
                 {activeWorkspace?.id && <BroadcastWidget workspaceId={activeWorkspace.id} />}
 
                 {/* My Reviews — subtasks pushed to REVIEW where I'm the reviewer.
-                    Hidden entirely when there's nothing pending. */}
+                    Always shown, with an empty state when nothing's pending. */}
                 {activeWorkspace?.id && (
                     <ReviewsWidget
                         workspaceId={activeWorkspace.id}
