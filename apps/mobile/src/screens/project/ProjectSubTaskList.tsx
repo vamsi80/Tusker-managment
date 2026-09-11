@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ScrollView, Platform, ActivityIndicator, Alert, Modal, TouchableWithoutFeedback, Dimensions } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ScrollView, Platform, ActivityIndicator, Alert, Modal, TouchableWithoutFeedback } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-
-const { width: SCREEN_W } = Dimensions.get("window");
 
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
@@ -34,7 +32,6 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
 
 // View components
 import ProjectKanban from "./ProjectKanban";
-import ProjectGanttView from "./ProjectGanttView";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProjectSubTasks">;
 
@@ -47,7 +44,7 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
     const [parentTasks, setParentTasks] = useState<Task[]>([]);
     const [createSubTaskVisible, setCreateSubTaskVisible] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [viewMode, setViewMode] = useState<"List" | "Kanban" | "Gantt">("List");
+    const [viewMode, setViewMode] = useState<"List" | "Kanban">("List");
     const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -434,14 +431,6 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
                         navigation={navigation}
                         refreshData={fetchSubTasks}
                         parentId={parentId === "all" ? undefined : parentId}
-                    />
-                ) : viewMode === "Gantt" ? (
-                    <ProjectGanttView
-                        projectId={projectId}
-                        tasks={subTasks}
-                        loading={loading}
-                        refreshData={fetchSubTasks}
-                        navigation={navigation}
                     />
                 ) : (
                     <FlatList

@@ -4,7 +4,6 @@ import {
     Text,
     StyleSheet,
     StatusBar,
-    Dimensions,
     ScrollView,
     DeviceEventEmitter,
 } from "react-native";
@@ -21,7 +20,6 @@ import { RootStackParamList, Task } from "../types";
 import ProjectDashboard from "./project/ProjectDashboard";
 import ProjectTaskList from "./project/ProjectTaskList";
 import ProjectKanban from "./project/ProjectKanban";
-import ProjectGanttView from "./project/ProjectGanttView";
 import TaskFilterSheet from "../components/TaskFilterSheet";
 import CreateTaskModal from "../components/CreateTaskModal";
 import { useResponsive } from "../hooks/useResponsive";
@@ -29,13 +27,11 @@ import GlassSurface from "../components/GlassSurface";
 import PressableScale from "../components/PressableScale";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProjectDetail">;
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const tabs = [
     { id: "Dashboard", label: "Dashboard", icon: "grid-outline" as const },
     { id: "Tasks", label: "List", icon: "list-outline" as const },
     { id: "Kanban", label: "Kanban", icon: "apps-outline" as const },
-    { id: "Gantt", label: "Gantt", icon: "layers-outline" as const },
     // Materials tab hidden along with the rest of the procurement UI.
 ];
 
@@ -43,7 +39,7 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
     const { projectId, projectName, projectColor } = route.params;
     const { activeWorkspace, workspaces, projects, projectFilters, setProjectFilters } = useWorkspace();
     const { colors, isDark } = useTheme();
-    const { MAX_CONTENT_WIDTH, value } = useResponsive();
+    const { MAX_CONTENT_WIDTH, value, width: SCREEN_WIDTH } = useResponsive();
     const COMPONENT_WIDTH = Math.min(SCREEN_WIDTH, MAX_CONTENT_WIDTH);
 
     const isAdminOrOwner = React.useMemo(() => {
@@ -271,9 +267,6 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
                     </View>
                     <View style={{ width: COMPONENT_WIDTH, flex: 1 }}>
                         <ProjectKanban projectId={projectId} navigation={navigation} refreshData={fetchTasks} />
-                    </View>
-                    <View style={{ width: COMPONENT_WIDTH, flex: 1 }}>
-                        <ProjectGanttView {...(props as any)} />
                     </View>
                 </ScrollView>
             </View>

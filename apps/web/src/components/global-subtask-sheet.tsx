@@ -29,7 +29,7 @@ export function GlobalSubTaskSheet() {
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && closeSubTaskSheet()}>
-            <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l shadow-xl z-[100]">
+            <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col h-full bg-background border-l shadow-xl">
                 <SheetTitle className="sr-only">Subtask Details</SheetTitle>
                 <SheetDescription className="sr-only">View and edit subtask details, activities, and messages.</SheetDescription>
                 {shouldRender && (

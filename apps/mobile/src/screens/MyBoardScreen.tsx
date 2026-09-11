@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { View, Text, StyleSheet, StatusBar, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Modal, Dimensions, TouchableWithoutFeedback, LayoutAnimation, UIManager, TextInput, Animated, Alert, FlatList } from "react-native";
+import { View, Text, StyleSheet, StatusBar, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, Modal, TouchableWithoutFeedback, LayoutAnimation, UIManager, TextInput, Animated, Alert, FlatList } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 // View components
 import TaskFilterSheet from "../components/TaskFilterSheet";
-import ProjectGanttView from "./project/ProjectGanttView";
 import CreateSubTaskModal from "../components/CreateSubTaskModal";
 import StatusPickerModal from "../components/StatusPickerModal";
 import ReviewCommentModal from "../components/ReviewCommentModal";
@@ -21,13 +20,12 @@ import EmptyState from "../components/EmptyState";
 import PressableScale from "../components/PressableScale";
 
 
-const { width: SCREEN_W } = Dimensions.get("window");
-const NAME_W = 210;  // frozen task-name column width
+const BASE_NAME_W = 210;  // frozen task-name column width, sized for phone
 const COL_H = 36;
 const SEC_H = 34;
 const ROW_H = 58;
 
-const COLS = [
+const BASE_COLS = [
     { key: "status", label: "STATUS", w: 100 },
     { key: "start", label: "START", w: 74 },
     { key: "due", label: "DUE", w: 74 },
@@ -36,8 +34,7 @@ const COLS = [
     { key: "urgency", label: "DEADLINE", w: 88 },
     { key: "tag", label: "TAG", w: 92 },
 ];
-const DATA_W = COLS.reduce((a, c) => a + c.w, 0);
-const TOTAL_W = NAME_W + DATA_W;
+const BASE_TOTAL_W = BASE_NAME_W + BASE_COLS.reduce((a, c) => a + c.w, 0);
 
 interface Section { key: string; title: string; color: string; data: Task[] }
 
@@ -72,13 +69,36 @@ export default function MyBoardScreen() {
     const { colors, isDark } = useTheme();
     const { activeWorkspace, projects, workspaces, tags, refreshData } = useWorkspace();
     const nav = useNavigation<any>();
-    const { MAX_CONTENT_WIDTH, value } = useResponsive();
+    const { MAX_CONTENT_WIDTH, value, isMobile, width: SCREEN_W } = useResponsive();
+    // Mobile: peek the next column (82% of screen width). Tablet/desktop: a
+    // column stretched to 82% of a 2560px screen would be absurdly wide, so
+    // it's capped to a fixed, Trello-like column width instead so several
+    // columns are visible side by side.
+    const COLUMN_WIDTH = isMobile ? SCREEN_W * 0.82 : 340;
+
+    // The List view's data table (NAME_W/COLS below) was sized for a phone —
+    // at its natural width it hugs the left edge on a tablet and leaves a
+    // large dead gray gap on the right. Scale every column proportionally so
+    // the table fills the available width instead, capped so columns don't
+    // get absurdly wide on very large screens.
+    const tablePadding = value(SPACING.lg, SPACING.xl, SPACING.xxl) * 2;
+    // Padding is applied to the outer row first, then THAT gets capped at
+    // MAX_CONTENT_WIDTH — not the other way around. Capping before
+    // subtracting padding (as an earlier version of this did) under-sized
+    // the table by a full `tablePadding`, leaving a stray gap between the
+    // table's right edge and the header/toolbar rows above it.
+    const availableTableWidth = Math.min(SCREEN_W - tablePadding, MAX_CONTENT_WIDTH);
+    const tableScale = isMobile ? 1 : Math.min(1.6, Math.max(1, availableTableWidth / BASE_TOTAL_W));
+    const NAME_W = Math.round(BASE_NAME_W * tableScale);
+    const COLS = BASE_COLS.map(c => ({ ...c, w: Math.round(c.w * tableScale) }));
+    const DATA_W = COLS.reduce((a, c) => a + c.w, 0);
+    const TOTAL_W = NAME_W + DATA_W;
 
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);
-    const [viewMode, setViewMode] = useState<"List" | "Kanban" | "Gantt">("List");
+    const [viewMode, setViewMode] = useState<"List" | "Kanban">("List");
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     const [filterVisible, setFilterVisible] = useState(false);
     const [createSubTaskVisible, setCreateSubTaskVisible] = useState(false);
@@ -112,11 +132,6 @@ export default function MyBoardScreen() {
         Object.fromEntries(KANBAN_STATUSES.map(s => [s, { tasks: [], hasMore: false, nextCursor: null, loadingMore: false, initialized: false, totalCount: null }])) as any;
     const [kanbanCols, setKanbanCols] = useState<Record<KanbanStatus, KanbanColState>>(initKanbanCols);
     const [kanbanRefreshing, setKanbanRefreshing] = useState(false);
-
-    // Dedicated state for Gantt view
-    const [ganttTasks, setGanttTasks] = useState<Task[]>([]);
-    const [ganttLoading, setGanttLoading] = useState(true);
-    const [ganttRefreshing, setGanttRefreshing] = useState(false);
 
     const shimmerAnim = useRef(new Animated.Value(0.3)).current;
 
@@ -487,8 +502,6 @@ export default function MyBoardScreen() {
                 fetchData(true);
             } else if (viewMode === "Kanban") {
                 refreshKanbanCols();
-            } else if (viewMode === "Gantt") {
-                fetchGanttData(true);
             }
 
             setReviewModalVisible(false);
@@ -497,7 +510,6 @@ export default function MyBoardScreen() {
             console.error("Error updating task status:", error);
             if (viewMode === "List") fetchData(true);
             else if (viewMode === "Kanban") refreshKanbanCols();
-            else if (viewMode === "Gantt") fetchGanttData(true);
             Alert.alert("Access Denied", error.message || "Failed to update status. Please try again.");
         }
     };
@@ -508,51 +520,6 @@ export default function MyBoardScreen() {
         }
     };
 
-    const fetchGanttData = useCallback(async (isRefresh = false) => {
-        if (!activeWorkspace || !currentUser) return;
-
-        if (isRefresh) {
-            setGanttRefreshing(true);
-        } else {
-            setGanttLoading(true);
-        }
-
-        try {
-            const isMyTasksMode = ownerViewMode === "Personal";
-            const GANTT_LIMIT = 150; // generous limit for Gantt chart to show all workspace tasks
-
-            const buildGanttFilters = (extra: object = {}) => ({
-                ...filters,
-                hierarchyMode: "parents" as const,
-                view_mode: "gantt",
-                // Parent tasks carry no dates of their own — a parent's bar is
-                // derived from its children (see computeTaskDates), so subtasks
-                // must come down with them or every row renders bar-less.
-                includeSubTasks: true,
-                limit: GANTT_LIMIT,
-                ...extra,
-            });
-
-            let result: { tasks: Task[]; hasMore: boolean; nextCursor: any };
-
-            if (isMyTasksMode) {
-                const assigneeFilter = { assigneeId: currentUser.id ? [currentUser.id] : undefined };
-                result = await getTasks(activeWorkspace.id, buildGanttFilters(assigneeFilter));
-            } else {
-                // Server-side permission scoping already combines full-access
-                // projects with assigned-only projects for managers/members.
-                result = await getTasks(activeWorkspace.id, buildGanttFilters());
-            }
-
-            setGanttTasks(result.tasks);
-        } catch (e) {
-            console.error("[Gantt] Failed to fetch Gantt tasks:", e);
-        } finally {
-            setGanttLoading(false);
-            setGanttRefreshing(false);
-        }
-    }, [activeWorkspace?.id, filters, ownerViewMode, currentUser]);
-
     // Unified layout synchronization effect
     useEffect(() => {
         if (!activeWorkspace || !currentUser) return;
@@ -561,8 +528,6 @@ export default function MyBoardScreen() {
             fetchData();
         } else if (viewMode === "Kanban") {
             refreshKanbanCols();
-        } else if (viewMode === "Gantt") {
-            fetchGanttData();
         }
     }, [viewMode, activeWorkspace?.id, currentUser?.id, filters, ownerViewMode]);
 
@@ -736,7 +701,7 @@ export default function MyBoardScreen() {
                     <View
                         key={idx}
                         style={{
-                            width: SCREEN_W * 0.82,
+                            width: COLUMN_WIDTH,
                             borderRadius: BORDER_RADIUS.lg,
                             borderWidth: 1,
                             borderColor: colors.border,
@@ -799,60 +764,9 @@ export default function MyBoardScreen() {
         );
     };
 
-    const renderGanttSkeleton = () => {
-        const rows = [1, 2, 3, 4, 5, 6, 7];
-        const GANTT_NAME_W = 180;
-        const GANTT_TOTAL_W = GANTT_NAME_W;
-        const GANTT_HEADER_H = 44;
-        const GANTT_ROW_H = 52;
-
-        return (
-            <View style={{ flex: 1, backgroundColor: isDark ? "#0a0a0a" : colors.background }}>
-                <View style={{ width: GANTT_TOTAL_W }}>
-                    {/* Header */}
-                    <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, height: GANTT_HEADER_H, borderBottomColor: colors.border, backgroundColor: isDark ? "#111" : colors.surface }}>
-                        <View style={{ width: GANTT_NAME_W, paddingLeft: 12 }}>
-                            <Text style={{ fontSize: 9, fontFamily: FONTS.extrabold, letterSpacing: 1.2, color: colors.primary }}>TASK NAME</Text>
-                        </View>
-                    </View>
-
-                    {/* Shimmering rows */}
-                    <ScrollView style={{ flex: 1 }} scrollEnabled={false} showsVerticalScrollIndicator={false}>
-                        {rows.map((rowId) => {
-                            const isSub = rowId > 2;
-                            return (
-                                <View
-                                    key={rowId}
-                                    style={{
-                                        flexDirection: "row",
-                                        alignItems: "center",
-                                        borderBottomWidth: StyleSheet.hairlineWidth,
-                                        height: GANTT_ROW_H,
-                                        backgroundColor: isDark
-                                            ? isSub ? "#181818" : "#111"
-                                            : isSub ? "#f9f9f9" : colors.surface,
-                                        borderBottomColor: colors.border + "33",
-                                    }}
-                                >
-                                    {/* Task Name Cell */}
-                                    <View style={{ width: GANTT_NAME_W, flexDirection: "row", alignItems: "center", paddingLeft: isSub ? 26 : 12 }}>
-                                        {isSub && (
-                                            <Ionicons name="return-down-forward-outline" size={11} color={colors.textDim} style={{ marginRight: 4 }} />
-                                        )}
-                                        <ShimmerBlock width={isSub ? 80 : 120} height={12} borderRadius={3} />
-                                    </View>
-                                </View>
-                            );
-                        })}
-                    </ScrollView>
-                </View>
-            </View>
-        );
-    };
     const renderSkeleton = () => {
         if (viewMode === "List") return renderListSkeleton();
         if (viewMode === "Kanban") return renderKanbanSkeleton();
-        if (viewMode === "Gantt") return renderGanttSkeleton();
         return null;
     };
 
@@ -961,6 +875,7 @@ export default function MyBoardScreen() {
                                 onToggle={toggle}
                                 onNavigate={handleNavigateToTask}
                                 onAddTask={handleOpenAddTask}
+                                nameW={NAME_W}
                             />
                             <View style={[s.edgeShadow, { left: NAME_W, right: "auto" }]} pointerEvents="none" />
                         </View>
@@ -1121,7 +1036,7 @@ export default function MyBoardScreen() {
                             <View
                                 key={col.status}
                                 style={{
-                                    width: SCREEN_W * 0.82,
+                                    width: COLUMN_WIDTH,
                                     borderRadius: BORDER_RADIUS.lg,
                                     borderWidth: 1,
                                     borderColor: colors.border,
@@ -1186,19 +1101,6 @@ export default function MyBoardScreen() {
                         );
                     })}
                 </ScrollView>
-            );
-        }
-        if (viewMode === "Gantt") {
-            return (
-                <View style={{ flex: 1, maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center' }}>
-                    <ProjectGanttView
-                        projectId=""
-                        tasks={ganttTasks}
-                        loading={ganttLoading}
-                        refreshData={() => fetchGanttData(true)}
-                        navigation={nav}
-                    />
-                </View>
             );
         }
         return null;
@@ -1298,7 +1200,6 @@ export default function MyBoardScreen() {
                         {[
                             { id: "List", label: "List", icon: "list" },
                             { id: "Kanban", label: "Kanban", icon: "apps" },
-                            { id: "Gantt", label: "Gantt", icon: "layers" }
                         ].map((opt) => {
                             const active = viewMode === opt.id;
                             return (
@@ -1396,12 +1297,6 @@ export default function MyBoardScreen() {
                 ) : (
                     renderContent()
                 )
-            ) : viewMode === "Gantt" ? (
-                ganttLoading && !ganttRefreshing ? (
-                    renderSkeleton()
-                ) : (
-                    renderContent()
-                )
             ) : (
                 // Kanban view handles its own skeletons per status column
                 renderContent()
@@ -1416,8 +1311,6 @@ export default function MyBoardScreen() {
                         fetchData(true);
                     } else if (viewMode === "Kanban") {
                         refreshKanbanCols();
-                    } else if (viewMode === "Gantt") {
-                        fetchGanttData(true);
                     }
                 }}
             />
@@ -1439,6 +1332,7 @@ export default function MyBoardScreen() {
                 onClose={() => setReviewModalVisible(false)}
                 onSubmit={handleReviewSubmit}
                 taskName={selectedTask?.name || ""}
+                targetStatus={pendingStatus || undefined}
             />
         </SafeAreaView>
     );
@@ -1604,7 +1498,7 @@ const s = StyleSheet.create({
 
 interface BoardCellProps {
     task: Task;
-    col: typeof COLS[0];
+    col: typeof BASE_COLS[0];
     colors: any;
     tags: any[];
 }
@@ -1692,6 +1586,12 @@ interface BoardNameColProps {
     onToggle: (key: string) => void;
     onNavigate: (taskId: string, taskName: string) => void;
     onAddTask: () => void;
+    /** Frozen name-column width — scaled up on tablet/desktop so the table
+     * fills the screen instead of hugging the left edge (computed in the
+     * parent, which is why it's a prop: this component must stay outside
+     * MyBoardScreen for React reconciliation stability, so it can't see the
+     * parent's scoped, screen-width-derived NAME_W constant). */
+    nameW: number;
 }
 
 const BoardNameCol = React.memo(function BoardNameCol({
@@ -1705,6 +1605,7 @@ const BoardNameCol = React.memo(function BoardNameCol({
     onToggle,
     onNavigate,
     onAddTask,
+    nameW,
 }: BoardNameColProps) {
     return (
         <View pointerEvents="box-none">
@@ -1713,7 +1614,7 @@ const BoardNameCol = React.memo(function BoardNameCol({
                     {/* Section header */}
                     <View style={{ flexDirection: "row", width: "100%", alignItems: "center" }} pointerEvents="box-none">
                         <TouchableOpacity
-                            style={[s.secFrozen, { width: NAME_W, height: SEC_H, backgroundColor: isDark ? "#181818" : "#f9fafb", borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)", borderTopWidth: 1, borderTopColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)" }]}
+                            style={[s.secFrozen, { width: nameW, height: SEC_H, backgroundColor: isDark ? "#181818" : "#f9fafb", borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)", borderTopWidth: 1, borderTopColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)" }]}
                             onPress={() => onToggle(section.key)}
                             activeOpacity={0.7}
                         >
@@ -1733,8 +1634,13 @@ const BoardNameCol = React.memo(function BoardNameCol({
                             />
                         </TouchableOpacity>
 
-                        {/* Add task button */}
-                        <View style={{ flex: 1, height: SEC_H, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", paddingRight: SPACING.md, backgroundColor: isDark ? "#181818" : "#f9fafb", borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)", borderBottomWidth: StyleSheet.hairlineWidth }} pointerEvents="box-none">
+                        {/* Add task button — sits right next to the section's name/count
+                            pill. This row's container spans the full frozen-column
+                            overlay width (which, on tablet, extends past where the
+                            scaled data table actually ends), so anchoring the button
+                            flex-end stranded it far off in empty space; flex-start
+                            keeps it visually attached to "SUBTASKS 961" regardless. */}
+                        <View style={{ flex: 1, height: SEC_H, flexDirection: "row", justifyContent: "flex-start", alignItems: "center", paddingLeft: SPACING.sm, backgroundColor: isDark ? "#181818" : "#f9fafb", borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)", borderBottomWidth: StyleSheet.hairlineWidth }} pointerEvents="box-none">
                             <TouchableOpacity onPress={onAddTask} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Add task">
                                 <Ionicons name="add" size={20} color={colors.primary} />
                             </TouchableOpacity>
@@ -1745,7 +1651,7 @@ const BoardNameCol = React.memo(function BoardNameCol({
                     {!collapsed.has(section.key) && section.data.map((task, rowIndex) => (
                         <TouchableOpacity
                             key={task.id}
-                            style={[s.nameCell, { width: NAME_W, height: ROW_H, backgroundColor: rowIndex % 2 === 0 ? colors.surface : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.012)"), borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)", borderLeftWidth: 3, borderLeftColor: getStatusHex(task.status), paddingHorizontal: 8 }]}
+                            style={[s.nameCell, { width: nameW, height: ROW_H, backgroundColor: rowIndex % 2 === 0 ? colors.surface : (isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.012)"), borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.045)", borderLeftWidth: 3, borderLeftColor: getStatusHex(task.status), paddingHorizontal: 8 }]}
                             activeOpacity={0.65}
                             onPress={() => onNavigate(task.id, task.name)}
                         >
@@ -1790,7 +1696,7 @@ const BoardNameCol = React.memo(function BoardNameCol({
 
             {/* Loading indicator at bottom */}
             {hasMore && (
-                <View style={{ height: 50, alignItems: "center", justifyContent: "center", width: NAME_W, backgroundColor: colors.background }}>
+                <View style={{ height: 50, alignItems: "center", justifyContent: "center", width: nameW, backgroundColor: colors.background }}>
                     {loadingMore ? <ActivityIndicator size="small" color={colors.primary} /> : null}
                 </View>
             )}

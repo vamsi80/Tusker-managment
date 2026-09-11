@@ -15,7 +15,7 @@ import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { ProjectSettingsDialog } from "./options/project-settings-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
@@ -211,8 +211,18 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search projects"
-              className="h-8 pl-7 text-xs"
+              className="h-8 pl-7 pr-7 text-xs"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex gap-1">
             {CATEGORY_CHIPS.map((c) => (

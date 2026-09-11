@@ -1613,48 +1613,55 @@ export default function AttendanceScreen() {
                   {loadingStats ? (
                     <StatsSkeleton tiles={2} rows={0} />
                   ) : historicalStats ? (
-                    <View style={styles.statsRow}>
-                      <View
-                        style={[
-                          styles.bigStatCard,
-                          {
-                            backgroundColor: "#10b98115",
-                            borderColor: "#10b98130",
-                          },
-                        ]}
+                    <>
+                      <Text
+                        style={[styles.statsModalEmail, { color: colors.textDim, marginTop: 4 }]}
                       >
-                        <Text
-                          style={[styles.bigStatValue, { color: "#10b981" }]}
+                        This Month
+                      </Text>
+                      <View style={styles.statsRow}>
+                        <View
+                          style={[
+                            styles.bigStatCard,
+                            {
+                              backgroundColor: "#10b98115",
+                              borderColor: "#10b98130",
+                            },
+                          ]}
                         >
-                          {historicalStats.daysWorked}
-                        </Text>
-                        <Text
-                          style={[styles.bigStatLabel, { color: "#059669" }]}
+                          <Text
+                            style={[styles.bigStatValue, { color: "#10b981" }]}
+                          >
+                            {historicalStats.daysWorked}
+                          </Text>
+                          <Text
+                            style={[styles.bigStatLabel, { color: "#059669" }]}
+                          >
+                            DAYS WORKED
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.bigStatCard,
+                            {
+                              backgroundColor: "#f9731615",
+                              borderColor: "#f9731630",
+                            },
+                          ]}
                         >
-                          DAYS WORKED
-                        </Text>
+                          <Text
+                            style={[styles.bigStatValue, { color: "#f97316" }]}
+                          >
+                            {historicalStats.daysLate}
+                          </Text>
+                          <Text
+                            style={[styles.bigStatLabel, { color: "#ea580c" }]}
+                          >
+                            DAYS LATE
+                          </Text>
+                        </View>
                       </View>
-                      <View
-                        style={[
-                          styles.bigStatCard,
-                          {
-                            backgroundColor: "#f9731615",
-                            borderColor: "#f9731630",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.bigStatValue, { color: "#f97316" }]}
-                        >
-                          {historicalStats.daysLate}
-                        </Text>
-                        <Text
-                          style={[styles.bigStatLabel, { color: "#ea580c" }]}
-                        >
-                          DAYS LATE
-                        </Text>
-                      </View>
-                    </View>
+                    </>
                   ) : (
                     <Text
                       style={[styles.emptyModalText, { color: colors.textDim }]}

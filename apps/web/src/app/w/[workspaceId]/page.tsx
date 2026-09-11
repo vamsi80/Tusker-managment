@@ -1,7 +1,7 @@
 "use client";
 
 import { useWorkspaceLayout } from "./_components/workspace-layout-context";
-import { BroadcastWidget } from "./_components/broadcast-widget";
+import { BroadcastTicker, BroadcastWidget } from "./_components/broadcast-widget";
 import { MyTasksWidget } from "./_components/my-tasks-widget";
 import { MeetingsWidget } from "./_components/meetings-widget";
 import { BirthdaysWidget } from "./_components/birthdays-widget";
@@ -29,34 +29,44 @@ export default function WorkSpacePage() {
 
   return (
     <div className="space-y-6 pb-10 animate-in fade-in duration-300">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-br from-card via-card to-primary/5 border shadow-xs">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-              <Sparkles className="size-3.5" /> Workspace Dashboard
-            </span>
-            <span className="text-muted-foreground/40">•</span>
-            <span className="text-xs font-medium text-muted-foreground">{formattedToday}</span>
+      {/* Welcome and announcements sit side by side, in boxes of their own. */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        <div className="lg:flex-1 p-6 rounded-3xl bg-gradient-to-br from-card via-card to-primary/5 border shadow-xs">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                <Sparkles className="size-3.5" /> Workspace Dashboard
+              </span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="text-xs font-medium text-muted-foreground">{formattedToday}</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Welcome, {displayName}
+            </h1>
+
+            <p className="text-sm text-muted-foreground">
+              Announcements, your tasks and this week&apos;s meetings across {workspaceName}.
+            </p>
           </div>
-
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Welcome, {displayName}
-          </h1>
-
-          <p className="text-sm text-muted-foreground">
-            Announcements, your tasks and this week&apos;s meetings across {workspaceName}.
-          </p>
         </div>
+
+        <BroadcastTicker
+          key={`ticker-${workspaceId}`}
+          workspaceId={workspaceId}
+          initialBroadcasts={data?.broadcasts}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <BroadcastWidget
-          key={`broadcast-${workspaceId}`}
-          workspaceId={workspaceId}
-          canBroadcast={canBroadcast}
-          initialBroadcasts={data?.broadcasts}
-        />
+        {canBroadcast && (
+          <BroadcastWidget
+            key={`broadcast-${workspaceId}`}
+            workspaceId={workspaceId}
+            canBroadcast={canBroadcast}
+            initialBroadcasts={data?.broadcasts}
+          />
+        )}
         <MyTasksWidget key={`tasks-${workspaceId}`} workspaceId={workspaceId} />
         <MeetingsWidget key={`meetings-${workspaceId}`} workspaceId={workspaceId} />
         <BirthdaysWidget key={`birthdays-${workspaceId}`} workspaceId={workspaceId} />

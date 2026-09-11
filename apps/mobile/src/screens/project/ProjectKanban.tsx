@@ -5,7 +5,7 @@ import {
     StyleSheet,
     ScrollView,
     ActivityIndicator,
-    Dimensions,
+    useWindowDimensions,
     RefreshControl,
     Alert,
     DeviceEventEmitter
@@ -18,13 +18,11 @@ import { ListSkeleton } from "../../components/ScreenSkeleton";
 import { updateTask, updateSubTaskStatus, getTasks, deleteTask, getProject } from "../../services/api";
 import { Task, TaskStatus } from "../../types";
 import { useWorkspace } from "../../context/WorkspaceContext";
+import { useResponsive } from "../../hooks/useResponsive";
 import StatusPickerModal from "../../components/StatusPickerModal";
 import ReviewCommentModal from "../../components/ReviewCommentModal";
 import CreateSubTaskModal from "../../components/CreateSubTaskModal";
 import PressableScale from "../../components/PressableScale";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const COLUMN_WIDTH = SCREEN_WIDTH * 0.82;
 
 const STATUS_COLOR_MAP: Record<string, keyof ThemeColors> = {
     TO_DO: "statusTodo",
@@ -83,6 +81,11 @@ const resolveProjectManager = (managersList?: any[] | null) => {
 export default function ProjectKanban({ projectId, navigation, refreshData, parentId, tasks }: ProjectKanbanProps) {
     const { colors } = useTheme();
     const { activeWorkspace, projects, refreshData: refreshWorkspaceData } = useWorkspace();
+    const { isMobile } = useResponsive();
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
+    // Same reasoning as MyBoardScreen's kanban: peek-the-next-column on
+    // mobile, fixed Trello-width column once there's room for several.
+    const COLUMN_WIDTH = isMobile ? SCREEN_WIDTH * 0.82 : 340;
 
     // Removed redundant refreshWorkspaceData loop that caused infinite refreshes
 
@@ -486,6 +489,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                 style={[
                     styles.column,
                     {
+                        width: COLUMN_WIDTH,
                         // Dense, data-heavy content: keep the column solid, not glass.
                         backgroundColor: colors.surfaceSolid,
                         borderColor: colors.borderLight
@@ -564,6 +568,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                 onClose={() => setReviewModalVisible(false)}
                 onSubmit={handleReviewSubmit}
                 taskName={selectedTask?.name || ""}
+                targetStatus={pendingStatus || undefined}
             />
 
             <CreateSubTaskModal
@@ -585,7 +590,7 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
     content: { padding: SPACING.md, gap: SPACING.md },
-    column: { width: COLUMN_WIDTH, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, overflow: "hidden", maxHeight: "100%" },
+    column: { borderRadius: BORDER_RADIUS.lg, borderWidth: 1, overflow: "hidden", maxHeight: "100%" },
     columnHeader: { flexDirection: "row", alignItems: "center", padding: SPACING.md, gap: SPACING.sm },
     headerIconBox: { width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center" },
     columnTitle: { fontSize: 16, fontFamily: FONTS.bold, flex: 1 },

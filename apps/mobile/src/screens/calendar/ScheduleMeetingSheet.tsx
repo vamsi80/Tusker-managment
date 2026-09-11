@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Sheet from "../../components/Sheet";
+import OptionPickerSheet, { PickerOption } from "../../components/OptionPickerSheet";
 import AppButton from "../../components/AppButton";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { useToast } from "../../context/ToastContext";
 import { haptics } from "../../services/haptics";
-import { getWorkspaceMembers, createMeeting } from "../../services/api";
+import { getWorkspaceMembers, createMeeting, getCachedSession } from "../../services/api";
+import { getUserDisplayName } from "../../utils/userDisplayName";
 import { Meeting, MeetingType, WorkspaceMember } from "../../types";
 
 const MEETING_TYPES: { value: MeetingType; label: string }[] = [
@@ -20,9 +22,38 @@ const MEETING_TYPES: { value: MeetingType; label: string }[] = [
     { value: "GENERAL", label: "General" },
 ];
 
-const COLOR_OPTIONS = ["#6366f1", "#10b981", "#f59e0b", "#f43f5e", "#0ea5e9", "#8b5cf6"];
+/** The only bookable physical rooms — replaces free-text location entry. */
+const LOCATIONS = ["Experience Center", "Lounge Area", "War Room"];
+
 const DURATIONS = [15, 30, 45, 60, 90];
 const REMINDERS = [5, 10, 15, 30, 60];
+
+/**
+ * A meeting conflicts with the one being scheduled when their times overlap
+ * AND they either share the room or share a person (any selected attendee,
+ * or the creator themself). Time-only overlap with no shared room/person
+ * isn't a conflict — two unrelated meetings can run in parallel.
+ */
+function findConflicts(
+    meetings: Meeting[],
+    startDateTime: Date,
+    endDateTime: Date,
+    location: string,
+    involvedUserIds: string[]
+): Meeting[] {
+    return meetings.filter((m) => {
+        if (m.status === "CANCELLED") return false;
+        const mStart = new Date(m.startTime);
+        const mEnd = new Date(m.endTime);
+        const overlaps = mStart < endDateTime && mEnd > startDateTime;
+        if (!overlaps) return false;
+
+        const sameLocation = !!location && m.location === location;
+        const attendeeIds = [m.organizerId, ...m.attendees.map((a) => a.userId)];
+        const sharesPerson = attendeeIds.some((id) => involvedUserIds.includes(id));
+        return sameLocation || sharesPerson;
+    });
+}
 
 function combineDateAndTime(date: Date, time: Date): Date {
     const d = new Date(date);
@@ -34,12 +65,15 @@ export default function ScheduleMeetingSheet({
     visible,
     workspaceId,
     defaults,
+    meetings,
     onClose,
     onCreated,
 }: {
     visible: boolean;
     workspaceId: string;
     defaults: { date?: Date; time?: string } | null;
+    /** Full workspace meeting list (unbounded by date) — used for conflict detection. */
+    meetings: Meeting[];
     onClose: () => void;
     onCreated: (meeting: Meeting) => void;
 }) {
@@ -50,7 +84,6 @@ export default function ScheduleMeetingSheet({
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [meetingType, setMeetingType] = useState<MeetingType>("INTERNAL");
-    const [color, setColor] = useState(COLOR_OPTIONS[0]);
     const [date, setDate] = useState(new Date());
     const [startTime, setStartTime] = useState(new Date());
     const [endTime, setEndTime] = useState(new Date());
@@ -65,11 +98,14 @@ export default function ScheduleMeetingSheet({
     const [memberSearch, setMemberSearch] = useState("");
     const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<string[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+    const [openPicker, setOpenPicker] = useState<"location" | "project" | "reminder" | null>(null);
 
     useEffect(() => {
         if (!visible) return;
 
         getWorkspaceMembers(workspaceId).then(setMembers).catch(() => setMembers([]));
+        getCachedSession().then((s) => setCurrentUserId(s?.user?.id)).catch(() => {});
 
         const initialDate = defaults?.date ?? new Date();
         setDate(initialDate);
@@ -95,7 +131,6 @@ export default function ScheduleMeetingSheet({
         setTitle("");
         setDescription("");
         setMeetingType("INTERNAL");
-        setColor(COLOR_OPTIONS[0]);
         setMeetingUrl("");
         setLocation("");
         setProjectId("none");
@@ -114,18 +149,7 @@ export default function ScheduleMeetingSheet({
         setSelectedAttendeeIds((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
     };
 
-    const handleSubmit = async () => {
-        if (!title.trim()) {
-            toast.error("Please provide a meeting title");
-            return;
-        }
-        const startDateTime = combineDateAndTime(date, startTime);
-        const endDateTime = combineDateAndTime(date, endTime);
-        if (endDateTime <= startDateTime) {
-            toast.error("End time must be after start time");
-            return;
-        }
-
+    const submitMeeting = async (startDateTime: Date, endDateTime: Date) => {
         setSubmitting(true);
         try {
             const meeting = await createMeeting({
@@ -134,10 +158,9 @@ export default function ScheduleMeetingSheet({
                 description: description.trim() || undefined,
                 startTime: startDateTime.toISOString(),
                 endTime: endDateTime.toISOString(),
-                location: location.trim() || undefined,
+                location: location || undefined,
                 meetingUrl: meetingUrl.trim() || undefined,
                 type: meetingType,
-                color,
                 projectId: projectId === "none" ? undefined : projectId,
                 reminderMinutes,
                 attendeeUserIds: selectedAttendeeIds,
@@ -153,6 +176,62 @@ export default function ScheduleMeetingSheet({
             setSubmitting(false);
         }
     };
+
+    const handleSubmit = () => {
+        if (!title.trim()) {
+            toast.error("Please provide a meeting title");
+            return;
+        }
+        const startDateTime = combineDateAndTime(date, startTime);
+        const endDateTime = combineDateAndTime(date, endTime);
+        if (endDateTime <= startDateTime) {
+            toast.error("End time must be after start time");
+            return;
+        }
+
+        const involvedUserIds = currentUserId ? [currentUserId, ...selectedAttendeeIds] : selectedAttendeeIds;
+        const conflicts = findConflicts(meetings, startDateTime, endDateTime, location, involvedUserIds);
+
+        if (conflicts.length === 0) {
+            submitMeeting(startDateTime, endDateTime);
+            return;
+        }
+
+        haptics.error();
+        const lines = conflicts.slice(0, 3).map((m) => {
+            const reasons: string[] = [];
+            if (location && m.location === location) reasons.push(`same room (${location})`);
+            // The organizer is also stored as an attendee record, so dedupe by
+            // userId — otherwise they'd be listed twice ("System, System").
+            const peopleById = new Map<string, string>();
+            if (m.organizerId && involvedUserIds.includes(m.organizerId)) {
+                peopleById.set(m.organizerId, m.organizer ? getUserDisplayName(m.organizer) : "the organizer");
+            }
+            m.attendees
+                .filter((a) => involvedUserIds.includes(a.userId))
+                .forEach((a) => peopleById.set(a.userId, getUserDisplayName(a.user)));
+            const attendeeNames = Array.from(peopleById.values());
+            if (attendeeNames.length > 0) reasons.push(`clashes with ${attendeeNames.join(", ")}`);
+            const time = new Date(m.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            return `• "${m.title}" at ${time} — ${reasons.join(" and ")}`;
+        });
+        const more = conflicts.length > 3 ? `\n…and ${conflicts.length - 3} more` : "";
+
+        Alert.alert(
+            "Scheduling conflict",
+            `This overlaps with:\n${lines.join("\n")}${more}`,
+            [{ text: "OK", style: "cancel" }]
+        );
+    };
+
+    const locationOptions: PickerOption[] = LOCATIONS.map((loc) => ({ id: loc, label: loc }));
+    const projectOptions: PickerOption[] = projects.map((p) => ({ id: p.id, label: p.name }));
+    const reminderOptions: PickerOption[] = REMINDERS.map((mins) => ({
+        id: String(mins),
+        label: mins >= 60 ? "1h before" : `${mins}m before`,
+    }));
+    const selectedProjectName = projects.find((p) => p.id === projectId)?.name;
+    const selectedReminderLabel = reminderOptions.find((o) => o.id === String(reminderMinutes))?.label ?? "15m before";
 
     const filteredMembers = members.filter((m) => {
         const name = `${m.user.surname || ""} ${m.user.name || ""} ${m.user.email || ""}`.toLowerCase();
@@ -193,19 +272,6 @@ export default function ScheduleMeetingSheet({
                             <Text style={[styles.chipText, { color: meetingType === t.value ? "#fff" : colors.text }]}>
                                 {t.label}
                             </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <Text style={[styles.label, { color: colors.textDim }]}>Color Tag</Text>
-                <View style={styles.colorRow}>
-                    {COLOR_OPTIONS.map((c) => (
-                        <TouchableOpacity
-                            key={c}
-                            onPress={() => setColor(c)}
-                            style={[styles.colorDot, { backgroundColor: c }, color === c && styles.colorDotSelected]}
-                        >
-                            {color === c && <Ionicons name="checkmark" size={14} color="#fff" />}
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -327,67 +393,53 @@ export default function ScheduleMeetingSheet({
                 />
 
                 <Text style={[styles.label, { color: colors.textDim }]}>Physical Location</Text>
-                <TextInput
-                    style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-                    placeholder="e.g. Conference Room B"
-                    placeholderTextColor={colors.textDim}
-                    value={location}
-                    onChangeText={setLocation}
-                />
+                <TouchableOpacity
+                    style={[styles.selectTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => setOpenPicker("location")}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Physical location: ${location || "none selected"}`}
+                    accessibilityHint="Opens the location list"
+                >
+                    <Ionicons name="location-outline" size={16} color={colors.textDim} />
+                    <Text style={[styles.selectValue, { color: location ? colors.text : colors.textDim }]} numberOfLines={1}>
+                        {location || "None"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                </TouchableOpacity>
 
                 {projects.length > 0 && (
                     <>
                         <Text style={[styles.label, { color: colors.textDim }]}>Associated Project</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                            <View style={styles.chipRow}>
-                                <TouchableOpacity
-                                    onPress={() => setProjectId("none")}
-                                    style={[
-                                        styles.chip,
-                                        { borderColor: colors.border },
-                                        projectId === "none" && { backgroundColor: colors.primary, borderColor: colors.primary },
-                                    ]}
-                                >
-                                    <Text style={[styles.chipText, { color: projectId === "none" ? "#fff" : colors.text }]}>None</Text>
-                                </TouchableOpacity>
-                                {projects.map((p) => (
-                                    <TouchableOpacity
-                                        key={p.id}
-                                        onPress={() => setProjectId(p.id)}
-                                        style={[
-                                            styles.chip,
-                                            { borderColor: colors.border },
-                                            projectId === p.id && { backgroundColor: colors.primary, borderColor: colors.primary },
-                                        ]}
-                                    >
-                                        <Text style={[styles.chipText, { color: projectId === p.id ? "#fff" : colors.text }]} numberOfLines={1}>
-                                            {p.name}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </ScrollView>
+                        <TouchableOpacity
+                            style={[styles.selectTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                            onPress={() => setOpenPicker("project")}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Associated project: ${selectedProjectName || "none selected"}`}
+                            accessibilityHint="Opens the project list"
+                        >
+                            <Ionicons name="folder-outline" size={16} color={colors.textDim} />
+                            <Text style={[styles.selectValue, { color: selectedProjectName ? colors.text : colors.textDim }]} numberOfLines={1}>
+                                {selectedProjectName || "None"}
+                            </Text>
+                            <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                        </TouchableOpacity>
                     </>
                 )}
 
                 <Text style={[styles.label, { color: colors.textDim }]}>Reminder</Text>
-                <View style={styles.chipRow}>
-                    {REMINDERS.map((mins) => (
-                        <TouchableOpacity
-                            key={mins}
-                            onPress={() => setReminderMinutes(mins)}
-                            style={[
-                                styles.chip,
-                                { borderColor: colors.border },
-                                reminderMinutes === mins && { backgroundColor: colors.primary, borderColor: colors.primary },
-                            ]}
-                        >
-                            <Text style={[styles.chipText, { color: reminderMinutes === mins ? "#fff" : colors.text }]}>
-                                {mins >= 60 ? "1h before" : `${mins}m before`}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                <TouchableOpacity
+                    style={[styles.selectTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                    onPress={() => setOpenPicker("reminder")}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Reminder: ${selectedReminderLabel}`}
+                    accessibilityHint="Opens the reminder list"
+                >
+                    <Ionicons name="notifications-outline" size={16} color={colors.textDim} />
+                    <Text style={[styles.selectValue, { color: colors.text }]} numberOfLines={1}>
+                        {selectedReminderLabel}
+                    </Text>
+                    <Ionicons name="chevron-down" size={18} color={colors.textDim} />
+                </TouchableOpacity>
 
                 <Text style={[styles.label, { color: colors.textDim }]}>Agenda / Description</Text>
                 <TextInput
@@ -471,6 +523,36 @@ export default function ScheduleMeetingSheet({
                     style={{ marginTop: SPACING.lg, marginBottom: SPACING.sm }}
                 />
             </ScrollView>
+
+            <OptionPickerSheet
+                visible={openPicker === "location"}
+                onClose={() => setOpenPicker(null)}
+                title="Physical Location"
+                options={locationOptions}
+                selectedId={location || null}
+                onSelect={(id) => setLocation(id ?? "")}
+                clearLabel="None"
+            />
+
+            <OptionPickerSheet
+                visible={openPicker === "project"}
+                onClose={() => setOpenPicker(null)}
+                title="Associated Project"
+                options={projectOptions}
+                selectedId={projectId === "none" ? null : projectId}
+                onSelect={(id) => setProjectId(id ?? "none")}
+                clearLabel="None"
+            />
+
+            <OptionPickerSheet
+                visible={openPicker === "reminder"}
+                onClose={() => setOpenPicker(null)}
+                title="Reminder"
+                options={reminderOptions}
+                selectedId={String(reminderMinutes)}
+                onSelect={(id) => id && setReminderMinutes(Number(id))}
+                clearLabel={null}
+            />
         </Sheet>
     );
 }
@@ -489,9 +571,16 @@ const styles = StyleSheet.create({
     chip: { borderWidth: 1, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 12, paddingVertical: 7 },
     chipText: { fontSize: 12, fontFamily: FONTS.semibold },
 
-    colorRow: { flexDirection: "row", gap: 10 },
-    colorDot: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-    colorDotSelected: { borderWidth: 2, borderColor: "#fff" },
+    selectTrigger: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: SPACING.sm,
+        minHeight: 44,
+        paddingHorizontal: 12,
+        borderRadius: BORDER_RADIUS.md,
+        borderWidth: 1,
+    },
+    selectValue: { flex: 1, fontSize: 14, fontFamily: FONTS.medium },
 
     dateTimeCard: { borderWidth: 1, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md },
     pickerRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 10, paddingVertical: 10 },

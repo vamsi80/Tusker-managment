@@ -332,15 +332,22 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
         );
     }, [workspaceId]);
 
+    // Headcount workload is management information — owners, admins and managers
+    // only. Everyone else does not see the Tasks Assigned column at all.
+    const canSeeWorkload =
+        !!layoutData?.permissions?.isWorkspaceAdmin ||
+        layoutData?.permissions?.workspaceRole === "MANAGER";
+
     const columns = React.useMemo(() =>
         createTeamMemberColumns(
             isAdmin,
+            canSeeWorkload,
             handleViewMember,
             handleEditMember,
             handleDeleteMember,
             handleResetPassword
         ),
-        [isAdmin, handleViewMember, handleEditMember, handleDeleteMember, handleResetPassword]
+        [isAdmin, canSeeWorkload, handleViewMember, handleEditMember, handleDeleteMember, handleResetPassword]
     );
 
     return (

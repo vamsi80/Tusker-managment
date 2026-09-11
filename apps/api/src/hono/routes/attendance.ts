@@ -4,6 +4,7 @@ import { LeaveService } from "@tusker/core/server/services/leave/index";
 import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { invalidateWorkspaceAttendance } from "@tusker/core/lib/cache/invalidation";
 import { toDateOnly } from "@tusker/core/lib/date-utils";
+import { workspaceIdFromRequest } from "../middleware/capability";
 import { HonoVariables } from "../types";
 
 const parseMultiQuery = (value?: string): string[] | undefined => {
@@ -70,9 +71,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .get("/today", async (c) => {
         const user = c.get("user");
-        const workspaceId = c.req.header("x-workspace-id");
 
         if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+        // Header (web), query string or body (mobile) — see workspaceIdFromRequest.
+        const workspaceId = await workspaceIdFromRequest(c);
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
@@ -88,9 +91,9 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
     /**
      * GET /api/v1/attendance/stats
      *
-     * Lifetime totals for one workspace member. The mobile member-stats panel
-     * has always called this; the route simply never existed, so the request
-     * 404'd and the panel stayed empty.
+     * Totals for one workspace member over the current calendar month by
+     * default — the same window the web attendance table opens on — or an
+     * explicit startDate/endDate range when supplied.
      */
     .get("/stats", async (c) => {
         const user = c.get("user");
@@ -101,8 +104,13 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
         if (!memberId) return c.json({ success: false, error: "memberId is required" }, 400);
 
+        const normalizedStart = toDateOnly(c.req.query("startDate")) ?? undefined;
+        const endDay = toDateOnly(c.req.query("endDate"));
+        const normalizedEnd = endDay ? new Date(endDay.getTime()) : undefined;
+        if (normalizedEnd) normalizedEnd.setUTCHours(23, 59, 59, 999);
+
         try {
-            const stats = await AttendanceService.getMemberStats(workspaceId, memberId);
+            const stats = await AttendanceService.getMemberStats(workspaceId, memberId, normalizedStart, normalizedEnd);
             return c.json({ success: true, data: stats, stats });
         } catch (error: any) {
             return c.json({ success: false, error: error.message }, 400);
@@ -162,9 +170,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .post("/check-in", async (c) => {
         const user = c.get("user");
-        const workspaceId = c.req.header("x-workspace-id");
 
         if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+        // Header (web), query string or body (mobile) — see workspaceIdFromRequest.
+        const workspaceId = await workspaceIdFromRequest(c);
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
@@ -191,9 +201,11 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
 
     .post("/check-out", async (c) => {
         const user = c.get("user");
-        const workspaceId = c.req.header("x-workspace-id");
 
         if (!user || !user.id) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+        // Header (web), query string or body (mobile) — see workspaceIdFromRequest.
+        const workspaceId = await workspaceIdFromRequest(c);
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {

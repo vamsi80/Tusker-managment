@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 import { unstableCache } from "../../../lib/cache/next-cache";
 import { CacheTags } from "../../../data/cache-tags";
 import { AttendanceStatus, WorkspaceRole } from "@tusker/db";
-import { addDateOnlyDays, floorToUTCDay, getISTDateOnly, toDateOnly } from "../../../lib/date-utils";
+import { addDateOnlyDays, dateOnlyFromParts, floorToUTCDay, getISTDateOnly, toDateOnly } from "../../../lib/date-utils";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendanceEvents } from "./attendance.events";
 import { resolveShiftTimes } from "./resolve-shift-times";
@@ -843,23 +843,42 @@ export class AttendanceService {
      * returning { data, totalCount } and omits members with nothing to show.
      */
     /**
-     * Lifetime attendance totals for one workspace member.
+     * Attendance totals for one workspace member, over the same window the
+     * web attendance table defaults to (the current calendar month —
+     * attendance-table.tsx's activeFilters starts at `startOfMonth(new Date())`)
+     * unless the caller supplies an explicit range.
      *
      * `daysWorked` counts every day the member actually attended (PRESENT,
      * LATE or HALF_DAY); `daysLate` counts the LATE subset, so it is always a
      * subset of daysWorked. ABSENT and ON_LEAVE are excluded from both.
      */
-    static async getMemberStats(workspaceId: string, workspaceMemberId: string) {
+    static async getMemberStats(
+        workspaceId: string,
+        workspaceMemberId: string,
+        startDate?: Date,
+        endDate?: Date,
+    ) {
+        let dateFilter: { gte: Date; lte: Date };
+        if (startDate && endDate) {
+            dateFilter = { gte: startDate, lte: endDate };
+        } else {
+            const today = getISTDateOnly(new Date());
+            const monthStart = dateOnlyFromParts(today.getUTCFullYear(), today.getUTCMonth() + 1, 1);
+            const nextMonthStart = dateOnlyFromParts(today.getUTCFullYear(), today.getUTCMonth() + 2, 1);
+            dateFilter = { gte: monthStart, lte: new Date(nextMonthStart.getTime() - 1) };
+        }
+
         const [daysWorked, daysLate] = await Promise.all([
             prisma.attendance.count({
                 where: {
                     workspaceId,
                     workspaceMemberId,
+                    date: dateFilter,
                     status: { in: [AttendanceStatus.PRESENT, AttendanceStatus.LATE, AttendanceStatus.HALF_DAY] },
                 },
             }),
             prisma.attendance.count({
-                where: { workspaceId, workspaceMemberId, status: AttendanceStatus.LATE },
+                where: { workspaceId, workspaceMemberId, date: dateFilter, status: AttendanceStatus.LATE },
             }),
         ]);
 
