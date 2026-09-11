@@ -14,7 +14,13 @@ import type { Capability } from "@tusker/core/lib/constants/capabilities";
  * Requests that carry no workspace id are passed through — those endpoints scope
  * themselves some other way and run their own checks.
  */
-async function workspaceIdFromRequest(c: any): Promise<string | null> {
+export async function workspaceIdFromRequest(c: any): Promise<string | null> {
+    // The web app scopes its requests with this header; the mobile app uses the
+    // query string or the body. Every caller has to be read here, or a request
+    // resolves to null and silently skips the capability check below.
+    const fromHeader = c.req.header("x-workspace-id");
+    if (fromHeader) return fromHeader;
+
     const fromQuery = c.req.query("w") || c.req.query("workspaceId");
     if (fromQuery) return fromQuery;
 

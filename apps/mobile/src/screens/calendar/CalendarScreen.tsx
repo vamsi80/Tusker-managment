@@ -149,8 +149,15 @@ export default function CalendarScreen({ navigation }: any) {
     const shiftDate = (unit: "day" | "month", amount: number) => {
         haptics.selection();
         const next = new Date(selectedDate);
-        if (unit === "month") next.setMonth(next.getMonth() + amount);
-        else next.setDate(next.getDate() + amount);
+        if (unit === "month") {
+            const targetMonth = next.getMonth() + amount;
+            next.setDate(1);
+            next.setMonth(targetMonth);
+            const maxDays = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+            next.setDate(Math.min(selectedDate.getDate(), maxDays));
+        } else {
+            next.setDate(next.getDate() + amount);
+        }
         setSelectedDate(next);
     };
     const handlePrevDay = () => shiftDate("day", -1);

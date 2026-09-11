@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckSquare } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, CheckSquare, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toDateOnlyString } from "@tusker/core/lib/date-utils";
 import { useSubTaskSheet } from "@/contexts/subtask-sheet-context";
+import { pubsub, EVENTS } from "@/lib/pubsub";
 import { useWorkspaceLayout } from "./workspace-layout-context";
 
 type Range = "delayed" | "today" | "week";
+type SortDir = "asc" | "desc";
+
+/** Active task statuses to display on the dashboard (excludes completed and cancelled tasks). */
+const ACTIVE_STATUSES = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD"];
+
+/** One page. Small on purpose — the rest arrives via Load more. */
+const PAGE_SIZE = 10;
 
 interface TaskRow {
   id: string;
@@ -24,124 +32,128 @@ const statusColorMap: Record<string, string> = {
   IN_PROGRESS: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   REVIEW: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   HOLD: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
-  COMPLETED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
 };
 
-/** Anything not finished or dropped is still owed — that is what "pending" means here. */
-const isPending = (status?: string | null) => status !== "COMPLETED" && status !== "CANCELLED";
-
-/** Delayed = still pending and its due date has already passed. Due today is not late yet. */
-const isDelayed = (task: TaskRow) =>
-  isPending(task.status) &&
-  !!task.dueDate &&
-  toDateOnlyString(new Date(task.dueDate)) < toDateOnlyString(new Date());
-
-/**
- * Today 00:00 through the end of the 7th day, in local time. A rolling window,
- * not the calendar week: on a Friday "this week" showed one day of work left,
- * which is why the tab was useless for planning what is actually coming.
- */
-function next7Days() {
-  const start = new Date();
-  const end = new Date();
-
-  end.setDate(end.getDate() + 6);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(23, 59, 59, 999);
-
-  return { start, end };
+/** Local midnight, `offsetDays` from today, as the API's date bound. */
+function midnight(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
 }
 
 /**
- * Last successful fetch per workspace. Coming back to the dashboard then paints
- * from here immediately while a fresh copy loads behind it — the task API is a
- * slow call and re-showing a skeleton every visit is what made it feel broken.
- * Page-session only; a reload starts empty.
+ * Each tab is its own server-side query. The widget used to fetch one flat page
+ * of 200 and slice all three tabs out of it client-side — with ~850 tasks in
+ * range that quietly dropped whole projects before the browser ever saw them.
+ * `db` is exclusive of the following day, so a bound of midnight(n) includes
+ * all of day n.
  */
-const upcomingTaskCache = new Map<string, TaskRow[]>();
-
-/** Delayed first, then still-pending work, then the ones due soonest. */
-function byUrgency(a: TaskRow, b: TaskRow) {
-  const delayed = Number(isDelayed(b)) - Number(isDelayed(a));
-  if (delayed !== 0) return delayed;
-  const pending = Number(isPending(b.status)) - Number(isPending(a.status));
-  if (pending !== 0) return pending;
-  return new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime();
+function rangeParams(range: Range): Record<string, string> {
+  if (range === "delayed") return { db: midnight(-1) };
+  if (range === "today") return { da: midnight(0), db: midnight(0) };
+  return { da: midnight(0), db: midnight(6) };
 }
 
-/**
- * Tasks the current user is allowed to see (the /tasks API scopes by workspace
- * and project role), due today or within the next 7 days.
- */
 export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
   const { openSubTaskSheet } = useSubTaskSheet();
   // The list view returns project ids only; names come from the layout payload.
   const { data: layoutData } = useWorkspaceLayout();
+
   const [range, setRange] = useState<Range>("today");
-  // Safe as a lazy initial value: the dashboard keys this widget by workspace,
-  // so a remount is guaranteed when the workspace changes.
-  const [weekTasks, setWeekTasks] = useState<TaskRow[] | null>(
-    () => upcomingTaskCache.get(workspaceId) ?? null
+  /** Delayed only: oldest-overdue first by default, which is the worst first. */
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const [tasks, setTasks] = useState<TaskRow[] | null>(null);
+  const [cursor, setCursor] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Bumped on every reset so a slow first page cannot land after a tab switch
+  // and repaint the tab the user has already left.
+  const requestId = useRef(0);
+
+  const direction: SortDir = range === "delayed" ? sortDir : "asc";
+
+  const load = useCallback(
+    async (nextCursor: any, token: number) => {
+      const params = new URLSearchParams({
+        w: workspaceId,
+        vm: "list",
+        l: String(PAGE_SIZE),
+        sub: "false",
+        status: JSON.stringify(ACTIVE_STATUSES),
+        sorts: JSON.stringify([{ field: "dueDate", direction }]),
+        ...rangeParams(range),
+      });
+      if (nextCursor) params.set("c", JSON.stringify(nextCursor));
+
+      try {
+        const res = await fetch(`/api/v1/tasks?${params.toString()}`);
+        const json = await res.json();
+        if (token !== requestId.current) return;
+
+        const rawRows: TaskRow[] = json?.success ? json.data?.tasks ?? [] : [];
+        const rows = rawRows.filter((t) => !t.status || ACTIVE_STATUSES.includes(t.status));
+        setTasks((prev) => (nextCursor ? [...(prev ?? []), ...rows] : rows));
+        setCursor(json?.data?.nextCursor ?? null);
+        setHasMore(Boolean(json?.data?.hasMore));
+      } catch {
+        if (token !== requestId.current) return;
+        setTasks((prev) => prev ?? []);
+        setHasMore(false);
+      }
+    },
+    [workspaceId, range, direction],
   );
 
-  // Fetched once and filtered per range — the task API is an expensive call
-  // (it resolves project permissions before querying), so switching ranges
-  // should not pay for it again. There is deliberately no lower bound: a
-  // delayed task is usually overdue from before today, and bounding the
-  // window at the low end is what would hide exactly the ones that matter.
+  // First page whenever the tab, the sort or the workspace changes.
   useEffect(() => {
-    let active = true;
-    const { end } = next7Days();
-    const params = new URLSearchParams({
-      w: workspaceId,
-      vm: "list",
-      l: "200",
-      db: end.toISOString(),
-      sub: "false",
+    const token = ++requestId.current;
+    setTasks(null);
+    setCursor(null);
+    setHasMore(false);
+    load(null, token);
+  }, [load]);
+
+  // Real-time synchronization: remove tasks instantly when marked COMPLETED or CANCELLED
+  useEffect(() => {
+    return pubsub.subscribe(EVENTS.TEAM_UPDATE, (data: any) => {
+      const action = typeof data?.action === "string" ? data.action : "";
+      const type = typeof data?.type === "string" ? data.type : "";
+      if (action.includes("TASK") || type.includes("TASK")) {
+        const payload = data.newData || data.payload || data.metadata?.payload || data;
+        if (payload?.id && (payload.status === "COMPLETED" || payload.status === "CANCELLED")) {
+          setTasks((prev) => (prev ? prev.filter((t) => t.id !== payload.id) : null));
+        } else {
+          const token = ++requestId.current;
+          load(null, token);
+        }
+      }
     });
+  }, [load]);
 
-    fetch(`/api/v1/tasks?${params.toString()}`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (!active) return;
-        const rows: TaskRow[] = json?.success ? json.data?.tasks ?? [] : [];
-        const sorted = [...rows].sort(byUrgency);
-        upcomingTaskCache.set(workspaceId, sorted);
-        setWeekTasks(sorted);
-      })
-      .catch(() => active && setWeekTasks((prev) => prev ?? []));
-
-    return () => {
-      active = false;
-    };
-  }, [workspaceId]);
+  const loadMore = async () => {
+    if (!hasMore || isLoadingMore || !cursor) return;
+    setIsLoadingMore(true);
+    await load(cursor, requestId.current);
+    setIsLoadingMore(false);
+  };
 
   const todayKey = toDateOnlyString(new Date());
-  const { start: windowStart, end: windowEnd } = next7Days();
-  const inNext7Days = (t: TaskRow) => {
-    if (!t.dueDate) return false;
-    const key = toDateOnlyString(new Date(t.dueDate));
-    return key >= toDateOnlyString(windowStart) && key <= toDateOnlyString(windowEnd);
-  };
-
-  const rangeFilter: Record<Range, (t: TaskRow) => boolean> = {
-    delayed: isDelayed,
-    today: (t) => !!t.dueDate && toDateOnlyString(new Date(t.dueDate)) === todayKey,
-    // Overdue work belongs in Delayed only; this tab is what is still coming.
-    week: (t) => inNext7Days(t) && !isDelayed(t),
-  };
-
   // An owner's /tasks call already returns the whole workspace, so only the
   // label is wrong for them — it was never "my" tasks.
   const isOwner = layoutData?.permissions?.workspaceRole === "OWNER";
-
-  const tasks = weekTasks === null ? null : weekTasks.filter(rangeFilter[range]);
-  // Counted across everything fetched, not just the open tab, so the badge does
-  // not vanish when you switch to Today.
-  const delayedCount = (weekTasks ?? []).filter(isDelayed).length;
   const projectNames = new Map<string, string>(
-    (layoutData?.projects ?? []).map((p: any) => [p.id, p.name])
+    (layoutData?.projects ?? []).map((p: any) => [p.id, p.name]),
   );
+
+  const emptyText =
+    range === "delayed"
+      ? "Nothing overdue"
+      : range === "today"
+        ? "No tasks due today"
+        : "No tasks due in the next 7 days";
 
   return (
     <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
@@ -152,12 +164,6 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
           </h3>
           <span className="text-xs text-muted-foreground">
             {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due in next 7 days"}
-            {range !== "delayed" && delayedCount > 0 && (
-              <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                {" "}
-                · {delayedCount} delayed
-              </span>
-            )}
           </span>
         </div>
         <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
@@ -165,22 +171,42 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         </div>
       </div>
 
-      <div className="flex items-center p-1 rounded-xl bg-muted border text-xs mb-4 w-fit">
-        {(["delayed", "today", "week"] as Range[]).map((r) => (
+      <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center p-1 rounded-xl bg-muted border text-xs w-fit">
+          {(["delayed", "today", "week"] as Range[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRange(r)}
+              className={cn(
+                "px-3 py-1 rounded-lg font-semibold transition-all",
+                range === r
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {r === "delayed" ? "Delayed" : r === "today" ? "Today" : "Next 7 Days"}
+            </button>
+          ))}
+        </div>
+
+        {/* Only Delayed spans an open-ended stretch of the past, so it is the
+            only tab where which end you start from is a real question. */}
+        {range === "delayed" && (
           <button
-            key={r}
             type="button"
-            onClick={() => setRange(r)}
-            className={cn(
-              "px-3 py-1 rounded-lg font-semibold capitalize transition-all",
-              range === r
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+            title={sortDir === "asc" ? "Oldest overdue first" : "Most recently overdue first"}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-xl border bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
-            {r === "delayed" ? "Delayed" : r === "today" ? "Today" : "Next 7 Days"}
+            {sortDir === "asc" ? (
+              <ArrowUpNarrowWide className="size-3.5" />
+            ) : (
+              <ArrowDownWideNarrow className="size-3.5" />
+            )}
+            {sortDir === "asc" ? "Oldest" : "Newest"}
           </button>
-        ))}
+        )}
       </div>
 
       <div className="flex-1 overflow-auto max-h-[320px] pr-1">
@@ -191,27 +217,19 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
             ))}
           </div>
         ) : tasks.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
-            {range === "delayed"
-              ? "Nothing overdue"
-              : range === "today"
-              ? "No tasks due today"
-              : "No tasks due in the next 7 days"}
-          </p>
+          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">{emptyText}</p>
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => {
               const dueKey = task.dueDate ? toDateOnlyString(new Date(task.dueDate)) : null;
-              const delayed = isDelayed(task);
+              const delayed = range === "delayed";
 
               return (
                 <div
                   key={task.id}
                   className={cn(
                     "rounded-full border px-6 py-3",
-                    delayed
-                      ? "border-rose-500/60 bg-rose-500/5"
-                      : "border-border bg-muted/30"
+                    delayed ? "border-rose-500/60 bg-rose-500/5" : "border-border bg-muted/30",
                   )}
                 >
                   <button
@@ -221,7 +239,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                       "text-sm font-medium truncate block text-left w-full hover:underline transition-colors",
                       delayed
                         ? "text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300"
-                        : "text-foreground hover:text-primary"
+                        : "text-foreground hover:text-primary",
                     )}
                   >
                     {task.name}
@@ -234,7 +252,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                           "text-[10px] py-0 px-1.5",
                           delayed
                             ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800"
-                            : statusColorMap[task.status] || ""
+                            : statusColorMap[task.status] || "",
                         )}
                       >
                         {task.status.replace(/_/g, " ")}
@@ -247,8 +265,8 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                           delayed
                             ? "text-rose-600 dark:text-rose-400 font-semibold"
                             : dueKey === todayKey
-                            ? "text-amber-500 font-medium"
-                            : "text-muted-foreground"
+                              ? "text-amber-500 font-medium"
+                              : "text-muted-foreground",
                         )}
                       >
                         {delayed
@@ -258,12 +276,12 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                               day: "numeric",
                             })}`
                           : dueKey === todayKey
-                          ? "Due today"
-                          : new Date(task.dueDate).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
+                            ? "Due today"
+                            : new Date(task.dueDate).toLocaleDateString("en-US", {
+                                weekday: "short",
+                                month: "short",
+                                day: "numeric",
+                              })}
                       </span>
                     )}
                     {task.projectId && projectNames.get(task.projectId) && (
@@ -275,6 +293,18 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                 </div>
               );
             })}
+
+            {hasMore && (
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="w-full rounded-full border border-dashed py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {isLoadingMore && <Loader2 className="size-3.5 animate-spin" />}
+                {isLoadingMore ? "Loading…" : `Load ${PAGE_SIZE} more`}
+              </button>
+            )}
           </div>
         )}
       </div>

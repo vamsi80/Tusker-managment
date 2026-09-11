@@ -281,7 +281,10 @@ export class MeetingService {
           status: true,
           projectId: true,
         },
-        take: 100,
+        // No take: the calendar has to show every due task or the month is a
+        // lie — a cap here dropped whole projects off the grid with nothing to
+        // say it had happened. `taskWhere` already scopes this to the caller's
+        // visible projects, and to the requested range when one is given.
       }),
       prisma.public_holiday.findMany({
         where: {

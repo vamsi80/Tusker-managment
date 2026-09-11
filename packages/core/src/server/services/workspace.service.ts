@@ -7,6 +7,7 @@ import {
   invalidateUserWorkspaces,
   invalidateWorkspaceMembers,
   invalidateUserPermissions,
+  invalidateWorkspaceDepartments,
 } from "../../lib/cache/invalidation";
 import { inviteUserSchema, InviteUserSchemaType } from "../../lib/zodSchemas";
 import { auth } from "../../lib/auth";
@@ -1027,6 +1028,7 @@ export class WorkspaceService {
     await invalidateWorkspaceMembers(workspaceId);
     await invalidateUserWorkspaces(userId);
     await invalidateUserPermissions(userId, workspaceId);
+    await invalidateWorkspaceDepartments(workspaceId);
 
     // 5. Record Activity
     const actor = await prisma.user.findUnique({

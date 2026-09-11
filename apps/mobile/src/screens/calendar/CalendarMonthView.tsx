@@ -53,7 +53,7 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
 
     const selectedKey = calendarDayKey(selectedDate);
 
-    const { days } = useMemo(() => {
+    const { weeks } = useMemo(() => {
         const year = selectedDate.getFullYear();
         const month = selectedDate.getMonth();
         const firstDay = new Date(year, month, 1);
@@ -81,14 +81,14 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
             const dateKey = calendarDayKey(d);
             arr.push({ date: d, isCurrentMonth: false, isToday: dateKey === todayKey, dateKey });
         }
-        return { days: arr };
-    }, [selectedDate]);
 
-    const weeks = useMemo(() => {
-        const chunks: typeof days[number][][] = [];
-        for (let i = 0; i < days.length; i += 7) chunks.push(days.slice(i, i + 7));
-        return chunks;
-    }, [days]);
+        const chunkedWeeks: Array<typeof arr> = [];
+        for (let i = 0; i < arr.length; i += 7) {
+            chunkedWeeks.push(arr.slice(i, i + 7));
+        }
+
+        return { weeks: chunkedWeeks };
+    }, [selectedDate]);
 
     const filteredMeetings = useMemo(() => {
         return meetings.filter((m) => {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     weekHeader: { flexDirection: "row", borderBottomWidth: 1, paddingVertical: 8 },
     weekHeaderText: { flex: 1, fontSize: 11, fontFamily: FONTS.bold, textAlign: "center" },
     weekRow: { flexDirection: "row" },
-    cell: { flex: 1, alignItems: "center", paddingTop: 6, gap: 4 },
+    cell: { flex: 1, alignItems: "center", paddingTop: 6, paddingBottom: 6, gap: 4, minHeight: 48 },
     dayCircle: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
     dayNum: { fontSize: 13, fontFamily: FONTS.semibold },
     dotsRow: { flexDirection: "row", gap: 3, height: 5 },
