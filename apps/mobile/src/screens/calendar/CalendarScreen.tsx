@@ -51,6 +51,7 @@ export interface CalendarCtx {
     openSchedule: (defaults?: { date?: Date; time?: string }) => void;
     openTask: (task: { id: string; title: string }) => void;
     openDayItems: (date: Date) => void;
+    selectDate: (date: Date) => void;
 }
 
 export default function CalendarScreen({ navigation }: any) {
@@ -192,6 +193,7 @@ export default function CalendarScreen({ navigation }: any) {
                 navigation.navigate("TaskDetail", { taskId: task.id, taskName: task.title.replace(/^Task Due: /, "") });
             },
             openDayItems: (date) => setDayItemsDate(date),
+            selectDate: (date) => setSelectedDate(date),
         }),
         [selectedDate, data, activeLayers, filterType, searchQuery, navigation]
     );
