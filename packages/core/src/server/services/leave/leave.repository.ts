@@ -68,6 +68,37 @@ export class LeaveRepository {
         });
     }
 
+    /**
+     * Revoke an approval: back to PENDING with no processor, since nobody has
+     * processed it any more. Same include as updateStatus so the realtime
+     * payload keeps its shape.
+     */
+    static async clearApproval(id: string) {
+        return await (prisma as any).leave_request.update({
+            where: { id },
+            data: {
+                status: "PENDING",
+                processedById: null
+            },
+            include: {
+                WorkspaceMember: {
+                    select: {
+                        id: true,
+                        reportToId: true,
+                        casualLeaveBalance: true,
+                        sickLeaveBalance: true,
+                        user: {
+                            select: {
+                                surname: true,
+                                email: true,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     static async updateRequest(id: string, params: Partial<CreateLeaveParams>) {
         return await (prisma as any).leave_request.update({
             where: { id },

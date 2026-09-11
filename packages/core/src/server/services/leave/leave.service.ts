@@ -3,6 +3,7 @@ import { AppError } from "../../../lib/errors/app-error";
 import { randomUUID } from "crypto";
 import { AttendanceStatus } from "@tusker/db";
 import { addDateOnlyDays, countDateOnlyDays, toDateOnly } from "../../../lib/date-utils";
+import { daysToClearOnRevoke } from "./leave.dates";
 import { LeaveRepository } from "./leave.repository";
 import { LeaveEvents } from "./leave.events";
 import { LeaveMapper } from "./leave.mapper";
@@ -56,7 +57,60 @@ export class LeaveService {
             throw AppError.Unauthorized("Only owners, admins, or the designated reporting manager can process this leave request.");
         }
 
-        if (leave.status !== "PENDING") throw AppError.ValidationError("This leave request has already been processed.");
+        // "PENDING" is a revoke: it undoes an approval and puts the request back
+        // in the queue, so it is the one transition that starts from APPROVED.
+        const isRevoke = status === "PENDING";
+
+        if (isRevoke) {
+            if (leave.status !== "APPROVED") {
+                throw AppError.ValidationError("Only an approved leave request can be revoked.");
+            }
+        } else if (leave.status !== "PENDING") {
+            throw AppError.ValidationError("This leave request has already been processed.");
+        }
+
+        if (isRevoke) {
+            const start = toDateOnly(leave.startDate)!;
+            const end = toDateOnly(leave.endDate)!;
+            const days = countDateOnlyDays(start, end);
+
+            // Hand back exactly what the approval took.
+            await prisma.workspaceMember.update({
+                where: { id: leave.workspaceMemberId },
+                data: {
+                    [leave.type === "CASUAL" ? "casualLeaveBalance" : "sickLeaveBalance"]: { increment: days }
+                }
+            });
+
+            // A day can be covered by a second approved leave (nothing stops two
+            // overlapping requests). Those days stay ON_LEAVE - clearing them
+            // would silently mark someone present who is still away.
+            const otherApproved = await (prisma as any).leave_request.findMany({
+                where: {
+                    id: { not: leave.id },
+                    workspaceMemberId: leave.workspaceMemberId,
+                    status: "APPROVED",
+                    startDate: { lte: end },
+                    endDate: { gte: start },
+                },
+                select: { startDate: true, endDate: true },
+            });
+
+            const daysToClear = daysToClearOnRevoke(start, end, otherApproved);
+
+            // Only ON_LEAVE rows are removed. Whatever the approval overwrote is
+            // already gone, but a row the member set themselves since - a
+            // check-in, say - is not this revoke's to delete.
+            if (daysToClear.length > 0) {
+                await (prisma.attendance as any).deleteMany({
+                    where: {
+                        workspaceMemberId: leave.workspaceMemberId,
+                        date: { in: daysToClear },
+                        status: AttendanceStatus.ON_LEAVE,
+                    },
+                });
+            }
+        }
 
         if (status === "APPROVED") {
             // startDate/endDate come from `@db.Date` columns, so they are already
@@ -99,7 +153,9 @@ export class LeaveService {
             }
         }
 
-        const updated = await LeaveRepository.updateStatus(id, status, actorMember.id);
+        const updated = isRevoke
+            ? await LeaveRepository.clearApproval(id)
+            : await LeaveRepository.updateStatus(id, status, actorMember.id);
         await LeaveEvents.emitLeaveStatusUpdated(actorId, workspaceId, updated, status);
 
         return updated;

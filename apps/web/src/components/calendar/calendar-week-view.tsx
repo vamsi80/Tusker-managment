@@ -126,7 +126,7 @@ export function CalendarWeekView() {
       <div ref={scrollRef} className="max-h-[600px] overflow-y-auto">
         {/* Week header and the all-day strip scroll together and stay pinned */}
         <div className="sticky top-0 z-30 bg-muted border-b">
-          <div className="grid grid-cols-[60px_repeat(7,1fr)]">
+          <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))]">
             <div className="py-3 text-center text-xs font-semibold text-muted-foreground border-r border-border/50">
               <Clock className="size-3.5 mx-auto" />
             </div>
@@ -154,7 +154,7 @@ export function CalendarWeekView() {
           {/* All-day task deadlines. Capped so a busy day cannot push the grid
               off the screen; the rest live behind "+N more". */}
           {activeLayers.tasks && (
-            <div className="grid grid-cols-[60px_repeat(7,1fr)] border-t border-border/50">
+            <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-t border-border/50">
               <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground text-right pr-2 pt-1.5 border-r border-border/50">
                 Tasks
               </div>
@@ -164,7 +164,7 @@ export function CalendarWeekView() {
                 return (
                   <div
                     key={wd.dateKey}
-                    className={`p-1 space-y-1 border-r border-border/50 last:border-r-0 ${
+                    className={`min-w-0 overflow-hidden p-1 space-y-1 border-r border-border/50 last:border-r-0 ${
                       wd.isToday ? "bg-primary/5" : ""
                     }`}
                   >
@@ -174,10 +174,10 @@ export function CalendarWeekView() {
                         type="button"
                         onClick={() => openTask(t)}
                         title={`Task: ${t.title} — open task`}
-                        className="flex w-full items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
+                        className="flex w-full min-w-0 items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
                       >
                         <CheckSquare className="size-2.5 shrink-0" />
-                        <span className="truncate">{t.title}</span>
+                        <span className="min-w-0 truncate">{t.title}</span>
                       </button>
                     ))}
 
@@ -202,10 +202,10 @@ export function CalendarWeekView() {
                                 type="button"
                                 onClick={() => openTask(t)}
                                 title={`Task: ${t.title} — open task`}
-                                className="flex w-full items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
+                                className="flex w-full min-w-0 items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
                               >
                                 <CheckSquare className="size-3 shrink-0" />
-                                <span className="truncate">{t.title}</span>
+                                <span className="min-w-0 truncate">{t.title}</span>
                               </button>
                             ))}
                           </div>
@@ -220,7 +220,7 @@ export function CalendarWeekView() {
         </div>
 
         {/* Hourly Timeline Grid */}
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] relative">
+        <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] relative">
           {/* Time labels column */}
           <div className="border-r border-border/50 select-none">
             {HOURS.map((h) => {
@@ -250,7 +250,7 @@ export function CalendarWeekView() {
             return (
               <div
                 key={wd.dateKey}
-                className={`relative border-r border-border/50 last:border-r-0 ${
+                className={`relative min-w-0 border-r border-border/50 last:border-r-0 ${
                   wd.isToday ? "bg-primary/[0.02]" : ""
                 }`}
               >
@@ -315,9 +315,9 @@ export function CalendarWeekView() {
                       className="absolute left-1 right-1 z-10 p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary/20 shadow-xs cursor-pointer hover:opacity-95 transition-all overflow-hidden flex flex-col justify-between"
                     >
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1">
+                        <div className="flex min-w-0 items-center gap-1">
                           {m.meetingUrl && <Video className="size-2.5 shrink-0 opacity-80" />}
-                          <span className="text-[11px] font-semibold truncate leading-tight">
+                          <span className="min-w-0 text-[11px] font-semibold truncate leading-tight">
                             {m.title}
                           </span>
                         </div>

@@ -14,7 +14,8 @@ export interface CreateLeaveParams {
 
 export interface UpdateLeaveStatusParams {
     id: string;
-    status: "APPROVED" | "REJECTED";
+    /** "PENDING" revokes an approval, returning the request to the queue. */
+    status: "APPROVED" | "REJECTED" | "PENDING";
     actorId: string;
     workspaceId: string;
 }

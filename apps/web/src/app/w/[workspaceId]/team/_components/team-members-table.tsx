@@ -369,10 +369,6 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
     return (
         <>
             <DataTable
-                // Every column of this table reads as a short label, so the
-                // header and its column sit centred rather than both hugging
-                // the left edge. TableHead ships text-left, hence the !.
-                containerClassName="[&_th]:!text-center [&_td]:text-center [&_td>div]:justify-center [&_td>div]:mx-auto [&_td>button]:mx-auto"
                 columns={columns}
                 data={data}
                 searchKey="memberName"

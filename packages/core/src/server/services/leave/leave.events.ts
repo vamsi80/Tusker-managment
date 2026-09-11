@@ -58,7 +58,8 @@ export class LeaveEvents {
         });
     }
 
-    static async emitLeaveStatusUpdated(actorId: string, workspaceId: string, leaveRequest: any, status: "APPROVED" | "REJECTED") {
+    /** `status` of "PENDING" means an approval was revoked. */
+    static async emitLeaveStatusUpdated(actorId: string, workspaceId: string, leaveRequest: any, status: "APPROVED" | "REJECTED" | "PENDING") {
         const actor = await prisma.user.findUnique({ 
             where: { id: actorId }, 
             select: { surname: true } 
@@ -70,7 +71,12 @@ export class LeaveEvents {
             userId: actorId,
             userName: actor?.surname || "Admin",
             workspaceId,
-            action: status === "APPROVED" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
+            action:
+                status === "APPROVED"
+                    ? "LEAVE_APPROVED"
+                    : status === "PENDING"
+                        ? "LEAVE_APPROVAL_REVOKED"
+                        : "LEAVE_REJECTED",
             entityType: "LEAVE_REQUEST",
             entityId: leaveRequest.id,
             newData: leaveRequest,
