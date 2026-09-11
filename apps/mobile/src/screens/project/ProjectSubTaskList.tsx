@@ -32,7 +32,6 @@ import { isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
 
 // View components
 import ProjectKanban from "./ProjectKanban";
-import ProjectGanttView from "./ProjectGanttView";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ProjectSubTasks">;
 
@@ -45,7 +44,7 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
     const [parentTasks, setParentTasks] = useState<Task[]>([]);
     const [createSubTaskVisible, setCreateSubTaskVisible] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [viewMode, setViewMode] = useState<"List" | "Kanban" | "Gantt">("List");
+    const [viewMode, setViewMode] = useState<"List" | "Kanban">("List");
     const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -432,14 +431,6 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
                         navigation={navigation}
                         refreshData={fetchSubTasks}
                         parentId={parentId === "all" ? undefined : parentId}
-                    />
-                ) : viewMode === "Gantt" ? (
-                    <ProjectGanttView
-                        projectId={projectId}
-                        tasks={subTasks}
-                        loading={loading}
-                        refreshData={fetchSubTasks}
-                        navigation={navigation}
                     />
                 ) : (
                     <FlatList

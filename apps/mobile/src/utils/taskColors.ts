@@ -74,13 +74,3 @@ export function getStatusHex(status: string | undefined): string {
     if (s === "TO_DO") return "#475569"; // slate-600
     return config.hex;
 }
-
-/**
- * Gantt bar fill color — matches web's GANTT_STATUS_COLORS exactly
- * (apps/web/src/components/task/gantt/utils.ts), unlike getStatusHex's
- * TO_DO override above, which is tuned for readable text elsewhere.
- */
-export function getGanttBarColor(status: string | undefined): string {
-    const s = (status || "TO_DO") as keyof typeof STATUS_COLORS;
-    return (STATUS_COLORS[s] || STATUS_COLORS.TO_DO).hex;
-}

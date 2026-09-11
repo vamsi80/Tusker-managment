@@ -16,13 +16,13 @@ import MemberDetailModal from "../components/MemberDetailModal";
 
 type Props = NativeStackScreenProps<RootStackParamList, "TeamWorkload">;
 
-type WorkloadFilter = "all" | "zero" | "gt5" | "gt10";
+type WorkloadFilter = "all" | "zero" | "lt5" | "lt10";
 
 const FILTERS: { value: WorkloadFilter; label: string }[] = [
     { value: "all", label: "All" },
     { value: "zero", label: "0 tasks" },
-    { value: "gt5", label: ">5 tasks" },
-    { value: "gt10", label: ">10 tasks" },
+    { value: "lt5", label: "<5 tasks" },
+    { value: "lt10", label: "<10 tasks" },
 ];
 
 /** Mirrors the web team dashboard's tasksAssigned column thresholds. */
@@ -75,8 +75,8 @@ export default function TeamWorkloadScreen({ navigation }: Props) {
         return sorted.filter((m) => {
             const count = m.openTaskCount ?? 0;
             if (filter === "zero") return count === 0;
-            if (filter === "gt5") return count > 5;
-            if (filter === "gt10") return count > 10;
+            if (filter === "lt5") return count < 5;
+            if (filter === "lt10") return count < 10;
             return true;
         });
     }, [sorted, filter]);

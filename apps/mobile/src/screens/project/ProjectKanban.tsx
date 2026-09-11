@@ -568,6 +568,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                 onClose={() => setReviewModalVisible(false)}
                 onSubmit={handleReviewSubmit}
                 taskName={selectedTask?.name || ""}
+                targetStatus={pendingStatus || undefined}
             />
 
             <CreateSubTaskModal

@@ -18,15 +18,27 @@ import { SPACING, BORDER_RADIUS, FONTS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import AppButton from "./AppButton";
 
+const STATUS_LABELS: Record<string, string> = {
+    TO_DO: "To Do",
+    IN_PROGRESS: "In Progress",
+    REVIEW: "Review",
+    HOLD: "Hold",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+};
+
 interface ReviewCommentModalProps {
     visible: boolean;
     onClose: () => void;
     onSubmit: (comment: string, attachmentData?: any) => Promise<void>;
     taskName: string;
+    /** The status being moved to — drives the modal's label (e.g. "Review", "In Progress"). */
+    targetStatus?: string;
 }
 
-export default function ReviewCommentModal({ visible, onClose, onSubmit, taskName }: ReviewCommentModalProps) {
+export default function ReviewCommentModal({ visible, onClose, onSubmit, taskName, targetStatus }: ReviewCommentModalProps) {
     const { colors, isDark } = useTheme();
+    const targetLabel = STATUS_LABELS[targetStatus || ""] || "this status";
     const [comment, setComment] = useState("");
     const [attachment, setAttachment] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,7 +125,7 @@ export default function ReviewCommentModal({ visible, onClose, onSubmit, taskNam
             >
                 <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={styles.header}>
-                        <Text style={[styles.title, { color: colors.text }]}>Add Review Comment</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>Add Comment</Text>
                         <TouchableOpacity onPress={handleCancel} accessibilityRole="button" accessibilityLabel="Close">
                             <Ionicons name="close" size={24} color={colors.textDim} />
                         </TouchableOpacity>
@@ -121,7 +133,7 @@ export default function ReviewCommentModal({ visible, onClose, onSubmit, taskNam
 
                     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
                         <Text style={[styles.description, { color: colors.textDim }]}>
-                            Moving <Text style={{ fontFamily: FONTS.semibold, color: colors.text }}>{taskName}</Text> to Review requires a comment or attachment.
+                            Moving <Text style={{ fontFamily: FONTS.semibold, color: colors.text }}>{taskName}</Text> to {targetLabel} requires a comment or attachment.
                         </Text>
 
                         <View style={styles.section}>
@@ -195,7 +207,7 @@ export default function ReviewCommentModal({ visible, onClose, onSubmit, taskNam
                             {isSubmitting ? (
                                 <ActivityIndicator color="#fff" size="small" />
                             ) : (
-                                <Text style={styles.submitBtnText}>To Review</Text>
+                                <Text style={styles.submitBtnText}>To {targetLabel}</Text>
                             )}
                         </TouchableOpacity>
                     </View>

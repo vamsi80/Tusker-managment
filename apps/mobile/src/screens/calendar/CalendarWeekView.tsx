@@ -59,10 +59,11 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
     const [activeDay, setActiveDay] = useState(() => pickDefaultDay(weekDays));
 
     useEffect(() => {
-        setActiveDay(pickDefaultDay(weekDays));
-        // Re-picks only when the visible week changes, not on every meetings
-        // refetch — otherwise a background sync would yank the user back to
-        // the "best" day mid-browse.
+        // Follows selectedDate directly so the single-arrow day nav in
+        // CalendarScreen highlights the day it just moved to, instead of
+        // being overridden by the "best day with meetings" heuristic (that
+        // heuristic only applies to the initial mount, above).
+        setActiveDay(calendarDayKey(selectedDate));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
 

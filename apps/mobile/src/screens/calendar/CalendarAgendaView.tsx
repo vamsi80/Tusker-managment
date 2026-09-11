@@ -39,7 +39,7 @@ export default function CalendarAgendaView({ ctx }: { ctx: CalendarCtx }) {
             return true;
         });
 
-        filtered.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        filtered.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
         const map = new Map<string, Meeting[]>();
         filtered.forEach((m) => {
