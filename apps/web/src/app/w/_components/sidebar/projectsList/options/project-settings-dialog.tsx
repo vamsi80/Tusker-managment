@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Lock, RotateCcw } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, RotateCcw, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { projectsClient } from "@tusker/api-client/projects";
@@ -25,6 +25,7 @@ import {
     type ProjectSettings,
 } from "@tusker/core/lib/constants/project-permissions";
 import { getProjectRoleDisplayName } from "@tusker/core/lib/constants/project-access";
+import { getColorFromString } from "@tusker/core/lib/colors/project-colors";
 import type { ProjectRole } from "@tusker/db";
 
 interface MemberRow {
@@ -142,6 +143,7 @@ export function ProjectSettingsDialog({
                 await projectsClient.updateSettings(workspaceId, projectId, { settings });
                 setSavedSettings(settings);
                 toast.success("Project defaults saved");
+                onOpenChange(false);
             } catch (error: any) {
                 toast.error(error?.message || "Failed to save project defaults");
             }
@@ -150,15 +152,25 @@ export function ProjectSettingsDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>Project settings — {projectName}</DialogTitle>
-                    <DialogDescription>
-                        Tick a box to grant that person the action on this project, untick it to
-                        take it away. Members still only act on tasks they created or are assigned
-                        to; a workspace-wide permission that has been revoked in Settings →
-                        Permissions still wins over anything ticked here.
-                    </DialogDescription>
+            <DialogContent className="w-screen h-screen max-w-none sm:max-w-none max-h-none rounded-none border-0 overflow-hidden flex flex-col">
+                <DialogHeader className="pr-12 mb-4">
+                    <div className="flex items-center gap-4">
+                        <div
+                            className="size-6 shrink-0 rounded-full shadow-inner border"
+                            style={{ backgroundColor: getColorFromString(projectName) }}
+                        />
+                        <div className="text-left">
+                            <DialogTitle className="text-2xl font-semibold tracking-tight">
+                                Project Settings
+                            </DialogTitle>
+                            <DialogDescription className="text-sm">
+                                {projectName} — tick a box to grant that person the action on this
+                                project, untick it to take it away. Members still only act on tasks
+                                they created or are assigned to; a workspace-wide permission revoked
+                                in Settings → Permissions still wins over anything ticked here.
+                            </DialogDescription>
+                        </div>
+                    </div>
                 </DialogHeader>
 
                 {isLoading ? (
@@ -278,17 +290,38 @@ export function ProjectSettingsDialog({
                                 />
                                 <span>Always require an attachment</span>
                             </label>
-                            <Button
-                                size="sm"
-                                disabled={!settingsChanged || isPending}
-                                onClick={saveSettings}
-                            >
-                                {isPending && <Loader2 className="mr-2 size-3 animate-spin" />}
-                                Save defaults
-                            </Button>
                         </div>
                     </div>
                 )}
+
+                <div className="flex items-center justify-end gap-4 border-t pt-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isPending}
+                        onClick={() => onOpenChange(false)}
+                    >
+                        <ChevronLeft className="mr-2 size-4" />
+                        Back to Project
+                    </Button>
+                    <Button
+                        className="px-8"
+                        disabled={!settingsChanged || isPending}
+                        onClick={saveSettings}
+                    >
+                        {isPending ? (
+                            <>
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                                Saving Changes...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="mr-2 size-4" />
+                                Save Changes
+                            </>
+                        )}
+                    </Button>
+                </div>
             </DialogContent>
         </Dialog>
     );

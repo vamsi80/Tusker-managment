@@ -14,6 +14,7 @@
  */
 
 import prisma from "@tusker/db";
+import { ACTIVE_MEMBER } from "../constants/member-status";
 
 export interface MemberChain {
     /** The authenticated User.id */
@@ -48,6 +49,8 @@ export async function resolveMemberChain(
             workspaceMember: {
                 userId,
                 workspaceId,
+                // Deactivated members cannot act...
+                ...ACTIVE_MEMBER,
             },
         },
         include: {
@@ -90,6 +93,9 @@ export async function resolveProjectMemberId(
             workspaceMember: {
                 userId: targetUserId,
                 workspaceId,
+                // ...and cannot be resolved as an assignment target, so no
+                // surface anywhere can push work back onto someone removed.
+                ...ACTIVE_MEMBER,
             },
         },
         select: { id: true },
@@ -119,6 +125,7 @@ export async function resolveProjectMemberIds(
             workspaceMember: {
                 userId: { in: unique },
                 workspaceId,
+                ...ACTIVE_MEMBER,
             },
         },
         select: {

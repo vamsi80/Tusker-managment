@@ -32,6 +32,7 @@ import { cn, formatIST } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { RemoveMemberDialog } from "./remove-member-dialog";
 import { useRouter } from "next/navigation";
 import { apiClient, type ApiResponse } from "@tusker/api-client";
 import { type WorkspaceMemberRow } from "@tusker/core/types/workspace";
@@ -126,10 +127,8 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [memberToEdit, setMemberToEdit] = useState<WorkspaceMemberRow | null>(null);
 
-    // Delete member state
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    // Removal opens the transfer dialog; memberToDelete !== null is its open state.
     const [memberToDelete, setMemberToDelete] = useState<WorkspaceMemberRow | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [managers, setManagers] = useState<{ id: string; surname: string }[]>([]);
     const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
@@ -307,30 +306,7 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
 
     const handleDeleteMember = React.useCallback((member: WorkspaceMemberRow) => {
         setMemberToDelete(member);
-        setDeleteDialogOpen(true);
     }, []);
-
-    const handleDeleteConfirm = async () => {
-        if (!memberToDelete) return;
-
-        setIsDeleting(true);
-        try {
-            const result: ApiResponse = await apiClient.workspaces.removeMember(workspaceId, memberToDelete.id);
-
-            if (result.status === "success") {
-                toast.success(result.message);
-                setDeleteDialogOpen(false);
-                setMemberToDelete(null);
-                router.refresh();
-            } else {
-                toast.error(result.message);
-            }
-        } catch (error) {
-            toast.error("Failed to remove member");
-        } finally {
-            setIsDeleting(false);
-        }
-    };
 
     const handleResetPassword = React.useCallback(async (member: WorkspaceMemberRow) => {
         if (!member.email) return;
@@ -830,39 +806,18 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Confirmation Dialog */}
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Remove Member</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to remove{" "}
-                            <span className="font-medium">
-                                {memberToDelete?.name}
-                            </span>{" "}
-                            from this workspace? They will lose access to all projects
-                            and tasks in this workspace.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDeleteConfirm}
-                            disabled={isDeleting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isDeleting ? (
-                                <>
-                                    <Loader2 className="mr-2 size-4 animate-spin" />
-                                    Removing...
-                                </>
-                            ) : (
-                                "Remove Member"
-                            )}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            {/* Removal: hand their pending work over, then deactivate. */}
+            {memberToDelete && (
+                <RemoveMemberDialog
+                    workspaceId={workspaceId}
+                    member={memberToDelete}
+                    onClose={() => setMemberToDelete(null)}
+                    onDone={() => {
+                        setMemberToDelete(null);
+                        router.refresh();
+                    }}
+                />
+            )}
         </>
     );
 }

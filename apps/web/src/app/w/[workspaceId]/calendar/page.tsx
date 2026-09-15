@@ -13,8 +13,8 @@ export default function CalendarPage() {
   const { openScheduleModal } = useMeetingStore();
 
   return (
-    <div className="space-y-6 pb-10 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-br from-card via-card to-primary/5 border shadow-xs">
+    <div className="flex flex-1 min-h-0 flex-col gap-6 overflow-hidden animate-in fade-in duration-300">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-br from-card via-card to-primary/5 border shadow-xs">
         <div className="space-y-1.5">
           <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
             <CalendarIcon className="size-3.5" /> Calendar
@@ -35,14 +35,16 @@ export default function CalendarPage() {
         </Button>
       </div>
 
-      <UpcomingMeetingAlert />
+      <div className="shrink-0">
+        <UpcomingMeetingAlert />
+      </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        <div className="xl:col-span-8 space-y-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
+        <div className="xl:col-span-8 flex flex-col min-h-0">
           <CalendarDashboard workspaceId={workspaceId} />
         </div>
 
-        <div className="xl:col-span-4 space-y-6">
+        <div className="xl:col-span-4 flex flex-col min-h-0">
           <TodayAgendaWidget />
         </div>
       </div>

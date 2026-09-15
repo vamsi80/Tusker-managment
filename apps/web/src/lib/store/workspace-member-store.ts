@@ -10,7 +10,7 @@ interface WorkspaceMemberState {
     slimMembersByWorkspace: Record<string, SlimMember[]>;
     isLoading: Record<string, boolean>;
     fetchMembers: (workspaceId: string, force?: boolean) => Promise<void>;
-    fetchSlimMembers: (workspaceId: string) => Promise<void>;
+    fetchSlimMembers: (workspaceId: string, force?: boolean) => Promise<void>;
     refreshMembers: (workspaceId: string) => Promise<void>;
     clearMembers: (workspaceId: string) => void;
     setMembers: (workspaceId: string, members: WorkspaceMemberRow[]) => void;
@@ -27,12 +27,12 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) =
     slimMembersByWorkspace: {},
     isLoading: {},
 
-    fetchSlimMembers: async (workspaceId: string) => {
+    fetchSlimMembers: async (workspaceId: string, force = false) => {
         if (!workspaceId) return;
         const { slimMembersByWorkspace } = get();
         
-        // Don't refetch if we already have them
-        if (slimMembersByWorkspace[workspaceId]) return;
+        // Don't refetch if we already have them and not forced
+        if (!force && slimMembersByWorkspace[workspaceId]) return;
 
         try {
             const members = await apiClient.workspaces.getMembersSlim(workspaceId);
@@ -89,13 +89,18 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set, get) =
         set((state) => {
             const newMembers = { ...state.membersByWorkspace };
             delete newMembers[workspaceId];
-            return { membersByWorkspace: newMembers };
+            const newSlim = { ...state.slimMembersByWorkspace };
+            delete newSlim[workspaceId];
+            return { membersByWorkspace: newMembers, slimMembersByWorkspace: newSlim };
         });
     },
 
     refreshMembers: async (workspaceId: string) => {
-        const { fetchMembers } = get();
-        await fetchMembers(workspaceId, true);
+        const { fetchMembers, fetchSlimMembers } = get();
+        await Promise.all([
+            fetchMembers(workspaceId, true),
+            fetchSlimMembers(workspaceId, true),
+        ]);
     },
 
     setMembers: (workspaceId: string, members: WorkspaceMemberRow[]) => {

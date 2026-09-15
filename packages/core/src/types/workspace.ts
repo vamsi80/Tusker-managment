@@ -33,10 +33,13 @@ export type WorkspaceData = {
 
 export type SlimMember = {
   id: string;
+  userId: string;
+  name?: string;
   surname: string;
   email?: string;
   casualLeaveBalance?: number;
   sickLeaveBalance?: number;
+  workspaceRole?: WorkspaceRole;
 };
 
 export type WorkspaceMemberRow = {

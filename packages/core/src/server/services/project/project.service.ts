@@ -24,6 +24,7 @@ import {
 import { isProjectAdmin } from "../../../lib/constants/project-access";
 import { getUniqueRandomColor } from "../../../lib/colors/project-colors";
 import prisma from "@tusker/db";
+import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
 
 export class ProjectService {
   /**
@@ -580,7 +581,7 @@ export class ProjectService {
     const [projectMembers, workspaceAdmins] = await Promise.all([
       ProjectRepository.getProjectMembers(projectId),
       prisma.workspaceMember.findMany({
-        where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
+        where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] }, ...ACTIVE_MEMBER },
         include: { user: true }
       })
     ]);
@@ -617,7 +618,7 @@ export class ProjectService {
   static async getPermissions(workspaceId: string, projectId: string, userId: string) {
     const [workspaceMember, projectMember, project] = await Promise.all([
       prisma.workspaceMember.findFirst({
-        where: { workspaceId, userId },
+        where: { workspaceId, userId, ...ACTIVE_MEMBER },
         include: {
           user: { select: { surname: true } },
           workspace: { select: { permissionOverrides: true } },

@@ -5,6 +5,7 @@
  */
 import prisma from "@tusker/db";
 import { resolveCapabilities, type CapabilityMap } from "./lib/constants/capabilities";
+import { ACTIVE_MEMBER } from "./lib/constants/member-status";
 import {
     resolveProjectPermissions,
     coerceProjectSettings,
@@ -24,7 +25,9 @@ const NO_PROJECT_PERMISSIONS = resolveProjectPermissions(null);
 export async function fetchWorkspacePermissions(workspaceId: string, userId: string, lean: boolean = false) {
     try {
         const workspaceMember = await prisma.workspaceMember.findFirst({
-            where: { workspaceId: workspaceId, userId: userId },
+            // A deactivated member falls into the !workspaceMember branch below:
+            // hasAccess false, NO_CAPABILITIES. This is the workspace access gate.
+            where: { workspaceId: workspaceId, userId: userId, ...ACTIVE_MEMBER },
             include: {
                 workspace: {
                     select: {
@@ -194,7 +197,7 @@ export async function fetchUserPermissions(workspaceId: string, projectId: strin
     try {
         const [workspaceMember, projectMember, project] = await Promise.all([
             prisma.workspaceMember.findFirst({
-                where: { workspaceId, userId },
+                where: { workspaceId, userId, ...ACTIVE_MEMBER },
                 include: {
                     workspace: {
                         select: {
