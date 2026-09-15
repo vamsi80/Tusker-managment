@@ -106,16 +106,19 @@ export default function ProjectDashboard({ projectId, tasks, isManagerOfProject,
 
         let isSubtask = act.entityType === "SUBTASK" || act.action?.includes("SUBTASK");
         let pId = projectId;
+        let taskName: string | undefined;
 
         const localTask = allVisibleTasks.find(t => t.id === act.entityId);
         if (localTask) {
             isSubtask = !!localTask.parentTaskId;
+            taskName = localTask.name;
             if (localTask.projectId) pId = localTask.projectId;
         } else {
             try {
                 const fullTask = await getTaskById(act.entityId);
                 if (fullTask) {
                     isSubtask = !!fullTask.parentTaskId;
+                    taskName = fullTask.name;
                     if (fullTask.projectId) pId = fullTask.projectId;
                 }
             } catch (err) {
@@ -123,15 +126,32 @@ export default function ProjectDashboard({ projectId, tasks, isManagerOfProject,
             }
         }
 
-        if (isSubtask) {
-            navigation?.navigate("SubTaskDetail", {
-                subTaskId: act.entityId,
-                projectId: pId
+        const fallbackName = isSubtask ? `Subtask #${act.entityId.slice(-4)}` : `Task #${act.entityId.slice(-4)}`;
+
+        // "SubTaskDetail" is not a registered route — subtasks and tasks both
+        // open on "TaskDetail" (mirrors ProjectActivityScreen's handleActivityPress).
+        if (act.action === "COMMENT_CREATED") {
+            // A comment activity should land straight on that comment thread.
+            navigation?.navigate("TaskDetail", {
+                taskId: act.entityId,
+                taskName: taskName || fallbackName,
+                isSubtask,
+                openMessages: true,
+            });
+        } else if (act.action === "TASK_CREATED" || act.action === "TASK_UPDATED" || (!isSubtask && act.entityType === "TASK")) {
+            // Parent "container" tasks aren't viewable on TaskDetail — they open
+            // on their subtask list instead (same as tapping the task in
+            // ProjectTaskList), which is the closest thing to "opening" one.
+            navigation?.navigate("ProjectSubTasks", {
+                parentId: act.entityId,
+                parentName: taskName || fallbackName,
+                projectId: pId,
             });
         } else {
             navigation?.navigate("TaskDetail", {
                 taskId: act.entityId,
-                projectId: pId
+                taskName: taskName || fallbackName,
+                isSubtask,
             });
         }
     };

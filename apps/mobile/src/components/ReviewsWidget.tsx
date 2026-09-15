@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, Image } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { formatDistanceToNow } from "date-fns";
 import { SPACING, FONTS } from "../constants/theme";
@@ -46,9 +47,14 @@ export default function ReviewsWidget({
         setReviews(data);
     }, [workspaceId]);
 
-    useEffect(() => {
-        if (workspaceId) load();
-    }, [workspaceId, load]);
+    // useFocusEffect (not a plain mount effect) so returning to Home after
+    // changing a task's status/reviewer elsewhere picks up the change —
+    // Home stays mounted underneath the tab navigator, it doesn't remount.
+    useFocusEffect(
+        useCallback(() => {
+            if (workspaceId) load();
+        }, [workspaceId, load])
+    );
 
     if (reviews === null) {
         return (

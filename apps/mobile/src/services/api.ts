@@ -120,7 +120,19 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
             );
         }
 
-        return response;
+        // A JSON-typed (or content-type-less, e.g. 204) response can still arrive
+        // with an empty body — a proxy/gateway dropping the connection after
+        // headers, or the network dying mid-stream on a slow endpoint. Every
+        // caller does `await res.json()`; on an empty body that throws
+        // "Unexpected end of input" instead of surfacing as the transient
+        // network issue it is. Normalize it to `{}` here so callers' `unwrap()`
+        // sees "no data" instead of an unhandled parse error.
+        const bodyText = await response.text();
+        return new Response(bodyText.trim() ? bodyText : "{}", {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+        });
     } finally {
         clearTimeout(timeoutId);
     }

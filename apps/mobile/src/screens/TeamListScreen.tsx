@@ -17,7 +17,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList, WorkspaceMember, User } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import { ListSkeleton } from "../components/ScreenSkeleton";
-import { useWorkspace } from "../context/WorkspaceContext";
+import { useWorkspace, DEFAULT_FILTERS } from "../context/WorkspaceContext";
 import { getWorkspaceMembers, getCachedSession, getConversations } from "../services/api";
 import { SPACING, BORDER_RADIUS, TOUCH_TARGET, FONTS } from "../constants/theme";
 import { format, isToday } from "date-fns";
@@ -31,10 +31,17 @@ type Props = NativeStackScreenProps<RootStackParamList, "TeamList">;
 
 type TeamTab = "messages" | "members";
 
+/**
+ * Statuses counted as "open" by the backend's openTaskCount (workspace.service.ts
+ * getWorkspaceMembers) — kept in sync here so the board a tap lands on shows the
+ * same set of tasks the badge counted, not every status.
+ */
+const OPEN_TASK_STATUSES = ["TO_DO", "IN_PROGRESS", "REVIEW"];
+
 export default function TeamListScreen({ navigation }: Props) {
     const insets = useSafeAreaInsets();
     const { colors, isDark } = useTheme();
-    const { activeWorkspace } = useWorkspace();
+    const { activeWorkspace, setGlobalFilters } = useWorkspace();
     const { MAX_CONTENT_WIDTH, value } = useResponsive();
 
     const [loadingChats, setLoadingChats] = useState(true);
@@ -384,6 +391,11 @@ export default function TeamListScreen({ navigation }: Props) {
                 member={memberDetail}
                 canSeeWorkload={canSeeWorkload}
                 onClose={() => setMemberDetail(null)}
+                onViewOpenTasks={(member) => {
+                    setMemberDetail(null);
+                    setGlobalFilters({ ...DEFAULT_FILTERS, assigneeId: [member.userId], status: OPEN_TASK_STATUSES });
+                    (navigation.getParent() as any)?.navigate("MyTasks");
+                }}
                 onMessage={(member) => {
                     setMemberDetail(null);
                     navigation.navigate("DirectChat", {
