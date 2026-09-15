@@ -16,26 +16,43 @@ interface MemberDetailModalProps {
     canSeeWorkload?: boolean;
     onClose: () => void;
     onMessage: (member: WorkspaceMember) => void;
+    /** Open the member's open tasks (e.g. filtered into the My Tasks board). Omit to keep the field static. */
+    onViewOpenTasks?: (member: WorkspaceMember) => void;
 }
 
 /** One labelled cell of the detail grid — mirrors the web team dashboard's member dialog. */
-function Field({ label, value, icon }: { label: string; value?: string | null; icon: keyof typeof Ionicons.glyphMap }) {
+function Field({
+    label,
+    value,
+    icon,
+    onPress,
+}: {
+    label: string;
+    value?: string | null;
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress?: () => void;
+}) {
     const { colors } = useTheme();
     if (!value) return null;
+    const Container = onPress ? PressableScale : View;
     return (
-        <View style={[styles.field, { backgroundColor: colors.surfaceHighlight, borderColor: colors.border }]}>
+        <Container
+            style={[styles.field, { backgroundColor: colors.surfaceHighlight, borderColor: colors.border }]}
+            {...(onPress ? { onPress, haptic: "selection" as const, accessibilityLabel: `View ${label.toLowerCase()}` } : {})}
+        >
             <View style={styles.fieldLabelRow}>
                 <Ionicons name={icon} size={11} color={colors.textDim} />
                 <Text style={[styles.fieldLabel, { color: colors.textDim }]}>{label}</Text>
+                {onPress && <Ionicons name="chevron-forward" size={12} color={colors.textDim} style={styles.fieldChevron} />}
             </View>
-            <Text style={[styles.fieldValue, { color: colors.text }]} numberOfLines={2}>
+            <Text style={[styles.fieldValue, { color: onPress ? colors.primary : colors.text }]} numberOfLines={2}>
                 {value}
             </Text>
-        </View>
+        </Container>
     );
 }
 
-export default function MemberDetailModal({ member, canSeeWorkload, onClose, onMessage }: MemberDetailModalProps) {
+export default function MemberDetailModal({ member, canSeeWorkload, onClose, onMessage, onViewOpenTasks }: MemberDetailModalProps) {
     const { colors, isDark } = useTheme();
     if (!member) return null;
 
@@ -95,13 +112,18 @@ export default function MemberDetailModal({ member, canSeeWorkload, onClose, onM
 
                     <View style={styles.grid}>
                         <Field label="Role" value={role} icon="shield-checkmark-outline" />
-                        <Field label="Department" value={member.departmentName} icon="business-outline" />
+                        <Field label="Department" value={member.departmentName || "-"} icon="business-outline" />
                         <Field label="Employee ID" value={member.employeeId} icon="pricetag-outline" />
                         <Field label="Phone" value={member.phoneNumber} icon="call-outline" />
                         <Field label="Date of Birth" value={dob} icon="calendar-outline" />
                         <Field label="Reports To" value={member.reportToName} icon="person-outline" />
                         {canSeeWorkload && member.openTaskCount !== undefined && (
-                            <Field label="Open Tasks" value={String(member.openTaskCount)} icon="checkbox-outline" />
+                            <Field
+                                label="Open Tasks"
+                                value={String(member.openTaskCount)}
+                                icon="checkbox-outline"
+                                onPress={onViewOpenTasks ? () => onViewOpenTasks(member) : undefined}
+                            />
                         )}
                     </View>
 
@@ -177,6 +199,7 @@ const styles = StyleSheet.create({
     field: { width: "47%", borderWidth: 1, borderRadius: BORDER_RADIUS.md, padding: SPACING.sm + 2, gap: 4 },
     fieldLabelRow: { flexDirection: "row", alignItems: "center", gap: 4 },
     fieldLabel: { fontSize: 10, fontFamily: FONTS.bold, textTransform: "uppercase", letterSpacing: 0.4 },
+    fieldChevron: { marginLeft: "auto" },
     fieldValue: { fontSize: 14, fontFamily: FONTS.semibold },
 
     leaveSection: { gap: SPACING.sm },

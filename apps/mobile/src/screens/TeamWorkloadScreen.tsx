@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList, WorkspaceMember, User } from "../types";
 import { useTheme } from "../context/ThemeContext";
-import { useWorkspace } from "../context/WorkspaceContext";
+import { useWorkspace, DEFAULT_FILTERS } from "../context/WorkspaceContext";
 import { ListSkeleton } from "../components/ScreenSkeleton";
 import { getWorkspaceMembers, getCachedSession } from "../services/api";
 import { getUserDisplayName, getUserDisplayInitial } from "../utils/userDisplayName";
@@ -25,6 +25,13 @@ const FILTERS: { value: WorkloadFilter; label: string }[] = [
     { value: "lt10", label: "<10 tasks" },
 ];
 
+/**
+ * Statuses counted as "open" by the backend's openTaskCount (workspace.service.ts
+ * getWorkspaceMembers) — kept in sync here so the board a tap lands on shows the
+ * same set of tasks the badge counted, not every status.
+ */
+const OPEN_TASK_STATUSES = ["TO_DO", "IN_PROGRESS", "REVIEW"];
+
 /** Mirrors the web team dashboard's tasksAssigned column thresholds. */
 function taskCountColor(count: number) {
     if (count === 0) return "#94a3b8";
@@ -42,7 +49,7 @@ function taskCountColor(count: number) {
  */
 export default function TeamWorkloadScreen({ navigation }: Props) {
     const { colors } = useTheme();
-    const { activeWorkspace } = useWorkspace();
+    const { activeWorkspace, setGlobalFilters } = useWorkspace();
     const workspaceId = activeWorkspace?.id;
 
     const [members, setMembers] = useState<WorkspaceMember[] | null>(null);
@@ -170,6 +177,11 @@ export default function TeamWorkloadScreen({ navigation }: Props) {
                 member={detailMember}
                 canSeeWorkload={canSeeWorkload}
                 onClose={() => setDetailMember(null)}
+                onViewOpenTasks={(member) => {
+                    setDetailMember(null);
+                    setGlobalFilters({ ...DEFAULT_FILTERS, assigneeId: [member.userId], status: OPEN_TASK_STATUSES });
+                    (navigation.getParent() as any)?.navigate("MyTasks");
+                }}
                 onMessage={(member) => {
                     setDetailMember(null);
                     navigation.navigate("DirectChat", {

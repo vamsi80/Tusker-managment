@@ -9,6 +9,8 @@ import {
     RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { SPACING, BORDER_RADIUS, FONTS } from "../../constants/theme";
 import { useTheme } from "../../context/ThemeContext";
@@ -174,6 +176,20 @@ export default function CalendarScreen({ navigation }: any) {
         setActiveLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
     };
 
+    // Horizontal swipe over the calendar body jumps a month, mirroring the
+    // double-chevron nav buttons. activeOffsetX/failOffsetY keeps it from
+    // stealing the outer ScrollView's vertical drag.
+    const monthSwipe = Gesture.Pan()
+        .activeOffsetX([-20, 20])
+        .failOffsetY([-10, 10])
+        .onEnd((e) => {
+            if (e.translationX < -50) {
+                runOnJS(handleNextMonth)();
+            } else if (e.translationX > 50) {
+                runOnJS(handlePrevMonth)();
+            }
+        });
+
     const ctx: CalendarCtx = useMemo(
         () => ({
             selectedDate,
@@ -335,7 +351,7 @@ export default function CalendarScreen({ navigation }: any) {
                 <View style={styles.layersRow}>
                     {[
                         { key: "meetings" as const, label: "Meetings", icon: "videocam-outline" as const, tint: colors.primary, count: data.meetings.length },
-                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#64748b", count: data.taskDeadlines.length },
+                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#3b82f6", count: data.taskDeadlines.length },
                         { key: "holidays" as const, label: "Holidays", icon: "sparkles-outline" as const, tint: "#f43f5e", count: data.publicHolidays.length },
                         { key: "leaves" as const, label: "Leaves", icon: "person-remove-outline" as const, tint: "#a855f7", count: data.leaves.length },
                     ].map((l) => {
@@ -362,11 +378,13 @@ export default function CalendarScreen({ navigation }: any) {
                 </View>
 
                 {/* Main view */}
-                <View style={{ marginTop: SPACING.md }}>
-                    {activeView === "month" && <CalendarMonthView ctx={ctx} />}
-                    {activeView === "week" && <CalendarWeekView ctx={ctx} />}
-                    {activeView === "agenda" && <CalendarAgendaView ctx={ctx} />}
-                </View>
+                <GestureDetector gesture={monthSwipe}>
+                    <View style={{ marginTop: SPACING.md }}>
+                        {activeView === "month" && <CalendarMonthView ctx={ctx} />}
+                        {activeView === "week" && <CalendarWeekView ctx={ctx} />}
+                        {activeView === "agenda" && <CalendarAgendaView ctx={ctx} />}
+                    </View>
+                </GestureDetector>
 
                 <View style={{ height: SPACING.xxl }} />
             </ScrollView>
