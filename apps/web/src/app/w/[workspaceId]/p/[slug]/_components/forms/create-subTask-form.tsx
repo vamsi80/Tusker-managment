@@ -203,7 +203,14 @@ export const CreateSubTaskForm = ({
 
     function onSubmit(data: SubTaskSchemaType) {
         startTransition(async () => {
-            const res = await tryCatch(apiClient.tasks.createSubTask(data));
+            const payload: SubTaskSchemaType = {
+                ...data,
+                taskSlug: data.taskSlug?.trim() || undefined,
+                description: data.description?.trim() || undefined,
+                assignee: data.assignee?.trim() || undefined,
+                reviewerId: data.reviewerId?.trim() || undefined,
+            };
+            const res = await tryCatch(apiClient.tasks.createSubTask(payload));
 
             if (res.error) {
                 toast.error(res.error.message);
@@ -244,7 +251,11 @@ export const CreateSubTaskForm = ({
             <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[70vh] thin-scrollbar">
                 <Form {...form}>
                     <form
-                        onSubmit={form.handleSubmit(onSubmit)}
+                        onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                            console.log("Subtask Validation Errors:", errors);
+                            const firstErr = Object.values(errors)[0];
+                            if (firstErr?.message) toast.error(String(firstErr.message));
+                        })}
                         className="space-y-5"
                     >
                         <FormField

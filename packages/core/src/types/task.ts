@@ -101,7 +101,7 @@ export interface CreateTaskParams {
 
 export interface CreateSubTaskParams {
     name: string;
-    description?: string;
+    description?: string | null;
     projectId: string;
     workspaceId: string;
     parentTaskId: string;

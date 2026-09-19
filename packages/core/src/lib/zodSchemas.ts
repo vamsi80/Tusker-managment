@@ -322,47 +322,39 @@ export const editProjectSchema = z.object({
     category: z.enum(projectCategory).optional(),
 });
 
+const optionalString = () =>
+    z.preprocess((val) => (val === null || val === "" ? undefined : typeof val === "string" ? val.trim() : val), z.string().optional());
+
+const optionalUuidArray = () =>
+    z.preprocess((val) => (val === null ? undefined : val), z.array(z.string().uuid()).optional());
+
 export const taskSchema = z.object({
     name: z
         .string()
-        .min(3, { message: "Title must be at least 3 charcters long" })
-        .max(100, { message: "Title must be at most 100 character long" }),
-    taskSlug: z
-        .string()
-        .min(3, { message: "Title must be at least 3 charcters long" })
-        .max(100, { message: "Title must be at most 100 character long" }),
+        .min(1, { message: "Title must be at least 1 character long" })
+        .max(100, { message: "Title must be at most 100 characters long" }),
+    taskSlug: optionalString(),
     projectId: z.string().uuid({ message: "Invalid project id" }),
-    reviewerId: z.string().optional().nullable().or(z.literal("")),
-    tagIds: z.array(z.string().uuid()).optional(),
+    reviewerId: optionalString(),
+    tagIds: optionalUuidArray(),
 });
 
 export const subTaskSchema = z.object({
     name: z
         .string()
-        .min(3, { message: "Title must be at least 3 charcters long" })
-        .max(100, { message: "Title must be at most 100 character long" }),
-    description: z
-        .string()
-        .min(3, { message: "description must be at least 3 charcters long" })
-        .optional(),
-    taskSlug: z
-        .string()
-        .min(3, { message: "Title must be at least 3 charcters long" })
-        .max(100, { message: "Title must be at most 100 character long" }),
+        .min(1, { message: "Title must be at least 1 character long" })
+        .max(100, { message: "Title must be at most 100 characters long" }),
+    description: optionalString(),
+    taskSlug: optionalString(),
     status: z
-        .enum(SubTaskStatus, { message: "status is Required" }),
-    assignee: z
-        .string()
-        .min(1, { message: "Assignee is required" }),
-    reviewerId: z.string().optional().nullable().or(z.literal("")),
-    startDate: z
-        .string()
-        .optional(),
-    dueDate: z
-        .string()
-        .min(1, { message: "Due date is required" }),
-    days: z.number().min(1, { message: "Number of days is required" }),
-    tagIds: z.array(z.string().uuid()).optional().default([]),
+        .enum(SubTaskStatus, { message: "status is Required" })
+        .default("TO_DO"),
+    assignee: optionalString(),
+    reviewerId: optionalString(),
+    startDate: optionalString(),
+    dueDate: optionalString(),
+    days: z.coerce.number().min(1, { message: "Number of days is required" }).default(1),
+    tagIds: optionalUuidArray(),
     projectId: z.string().uuid({ message: "Invalid project id" }),
     parentTaskId: z.string().uuid({ message: "Invalid parent task id" }),
 }).refine((data) => {

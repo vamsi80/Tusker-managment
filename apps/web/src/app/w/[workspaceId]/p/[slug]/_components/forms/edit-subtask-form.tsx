@@ -322,7 +322,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
 
     function onSubmit(values: SubTaskSchemaType) {
         // Helper to sort tag IDs for consistent comparison
-        const sortTags = (tagIds: string[]) => [...tagIds].sort();
+        const sortTags = (tagIds?: string[]) => [...(tagIds || [])].sort();
 
         // Check if there are any actual changes
         const hasChanges =
@@ -380,7 +380,7 @@ export function EditSubTaskForm<T extends SubTaskBase>({
                             id: selectedReviewer.id,
                             surname: selectedReviewer.surname,
                         } : null,
-                        tags: values.tagIds.map(id => {
+                        tags: (values.tagIds || []).map(id => {
                             const tag = tags.find(t => t.id === id);
                             return tag ? { id: tag.id, name: tag.name } : { id };
                         })
