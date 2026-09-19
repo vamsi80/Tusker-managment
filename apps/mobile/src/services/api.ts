@@ -1328,7 +1328,8 @@ export async function createProject(
             address,
             gstNumber,
             contactPersonName,
-            contactNumber
+            contactNumber,
+            memberAccess: []
         }),
     });
     const text = await res.text();

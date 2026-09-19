@@ -210,7 +210,10 @@ export const projectSchema = z.object({
     slug: z
         .string()
         .min(3, { message: "Slug must be at least 3 charcters long" })
-        .max(50, { message: "Slug must be at most 50 character long" }),
+        .max(50, { message: "Slug must be at most 50 character long" })
+        .optional()
+        .or(z.literal(""))
+        .nullable(),
     color: z.string().optional(),
     clintId: z.string().uuid().optional().nullable(),
     isInternal: z.boolean().default(false),
@@ -252,7 +255,7 @@ export const projectSchema = z.object({
     workspaceId: z
         .string().optional(),
     projectManagerId: z.string().min(1, { message: "Project manager is required" }).optional(),
-    memberAccess: z.array(z.string()),
+    memberAccess: z.array(z.string()).default([]),
     tagIds: z.array(z.string().uuid()).optional(),
     category: z.enum(projectCategory, { message: "Project type is required" }),
 });
@@ -271,7 +274,9 @@ export const editProjectSchema = z.object({
         .string()
         .min(3, { message: "Slug must be at least 3 characters long" })
         .max(50, { message: "Slug must be at most 50 characters long" })
-        .optional(),
+        .optional()
+        .or(z.literal(""))
+        .nullable(),
     clintId: z.string().uuid().optional().nullable(),
     isInternal: z.boolean().default(false),
     // Client/Company fields

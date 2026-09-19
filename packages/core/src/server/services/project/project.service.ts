@@ -222,10 +222,15 @@ export class ProjectService {
       finalColor = getUniqueRandomColor(usedColors);
     }
 
-    const newProject = await ProjectRepository.createProject({
+    // Generate a collision-safe unique slug
+    const { generateUniqueSlug } = await import("../../../lib/slug-generator");
+    const rawSlug = values.slug?.trim() || values.name;
+    const finalSlug = await generateUniqueSlug(rawSlug, "project");
+
+    const buildProjectData = (slugToUse: string) => ({
       name: values.name,
       description: values.description,
-      slug: values.slug,
+      slug: slugToUse,
       color: finalColor,
       category: values.category,
       workspace: { connect: { id: workspaceId } },
@@ -273,6 +278,19 @@ export class ProjectService {
         connect: values.tagIds.map(id => ({ id }))
       } : undefined,
     });
+
+    let newProject;
+    try {
+      newProject = await ProjectRepository.createProject(buildProjectData(finalSlug));
+    } catch (err: any) {
+      if (err?.code === "P2002") {
+        // ponytail: race condition fallback — concurrent creation collision resolved via random suffix
+        const fallbackSlug = await generateUniqueSlug(`${rawSlug}-${Math.random().toString(36).substring(2, 6)}`, "project");
+        newProject = await ProjectRepository.createProject(buildProjectData(fallbackSlug));
+      } else {
+        throw err;
+      }
+    }
 
     await ProjectEvents.onProjectCreated(workspaceId, newProject);
     return newProject;
