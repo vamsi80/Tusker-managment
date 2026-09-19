@@ -71,7 +71,11 @@ export const CreateTaskForm = ({
 
     function onSubmit(values: TaskSchemaType) {
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(apiClient.tasks.createTask(values));
+            const payload = {
+                ...values,
+                taskSlug: values.taskSlug?.trim() || undefined,
+            };
+            const { data: result, error } = await tryCatch(apiClient.tasks.createTask(payload));
 
             if (error) {
                 toast.error(error.message);
@@ -107,7 +111,11 @@ export const CreateTaskForm = ({
                     <div className="mt-4">
                         <Form {...form}>
                             <form
-                                onSubmit={form.handleSubmit(onSubmit, (errors) => console.log("Validation Errors:", errors))}
+                                onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                                    console.log("Validation Errors:", errors);
+                                    const firstErr = Object.values(errors)[0];
+                                    if (firstErr?.message) toast.error(String(firstErr.message));
+                                })}
                                 className="space-y-5"
                             >
                                 <FormField
