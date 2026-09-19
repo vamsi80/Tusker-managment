@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { apiClient } from "@tusker/api-client";
+import type { MeetingConflict } from "@tusker/api-client/meetings";
 import { useMeetingStore } from "@/lib/store/meeting-store";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import {
@@ -36,6 +37,7 @@ import {
   X,
   Check,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 
 const MEETING_TYPES = [
@@ -89,6 +91,35 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
   const [workspaceMembers, setWorkspaceMembers] = useState<any[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
   const memberSearchRef = useRef<HTMLInputElement>(null);
+  const [conflicts, setConflicts] = useState<MeetingConflict[]>([]);
+
+  // Warn (don't block) when the slot clashes with a member's or the venue's other meetings.
+  useEffect(() => {
+    setConflicts([]);
+    if (!isScheduleOpen || !date || !startTime || !endTime) return;
+    const start = new Date(`${date}T${startTime}:00`);
+    const end = new Date(`${date}T${endTime}:00`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
+
+    let stale = false;
+    const t = setTimeout(() => {
+      apiClient.meetings
+        .checkConflicts({
+          workspaceId,
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          location: location.trim() || undefined,
+          attendeeUserIds: selectedAttendeeIds,
+          excludeMeetingId: editingMeeting?.id,
+        })
+        .then((res) => !stale && setConflicts(res))
+        .catch(() => {});
+    }, 400);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [isScheduleOpen, workspaceId, date, startTime, endTime, location, selectedAttendeeIds, editingMeeting?.id]);
 
   useEffect(() => {
     if (!isScheduleOpen || !workspaceId) return;
@@ -523,6 +554,34 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
               </div>
             </div>
           </div>
+
+          {conflicts.length > 0 && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 space-y-1.5"
+            >
+              <p className="text-xs font-semibold flex items-center gap-1.5">
+                <AlertTriangle className="size-3.5" />
+                This time overlaps with {conflicts.length} other meeting{conflicts.length > 1 ? "s" : ""}
+              </p>
+              <ul className="text-xs space-y-1">
+                {conflicts.map((c) => {
+                  const fmt = (d: string) =>
+                    new Date(d).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                  const reasons = [
+                    c.clashingMembers.length > 0 && c.clashingMembers.map((m) => m.name).join(", "),
+                    c.venueClash && `venue: ${c.location}`,
+                  ].filter(Boolean);
+                  return (
+                    <li key={c.id}>
+                      <span className="font-medium">{c.title}</span> ({fmt(c.startTime)}–{fmt(c.endTime)})
+                      {reasons.length > 0 && <> · {reasons.join(" · ")}</>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           <DialogFooter className="pt-2">
             <Button

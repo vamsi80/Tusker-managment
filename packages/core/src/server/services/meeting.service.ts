@@ -2,6 +2,7 @@ import prisma from "@tusker/db";
 import { broadcastMeetingUpdate } from "../../lib/realtime";
 import { pusherServer } from "../../lib/pusher";
 import { randomUUID } from "crypto";
+import { AppError } from "../../lib/errors/app-error";
 import type { MeetingType, MeetingStatus, AttendeeStatus } from "@tusker/db";
 
 export interface CreateMeetingInput {
@@ -92,6 +93,74 @@ export class MeetingService {
         )
         .catch((err) => console.error("[MEETING_SERVICE] Pusher activity_log error:", err));
     }
+  }
+
+  /**
+   * Meetings that overlap [startTime, endTime) and share a venue or a person
+   * with the proposed one. Cancelled meetings and declined invites don't count.
+   */
+  static async findConflicts(
+    workspaceId: string,
+    userId: string,
+    data: {
+      startTime: Date | string;
+      endTime: Date | string;
+      location?: string | null;
+      attendeeUserIds?: string[];
+      excludeMeetingId?: string;
+    }
+  ) {
+    const member = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId, deactivatedAt: null },
+      select: { id: true },
+    });
+    if (!member) throw AppError.Forbidden("You are not a member of this workspace.");
+
+    const start = new Date(data.startTime);
+    const end = new Date(data.endTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return [];
+
+    const location = data.location?.trim() || null;
+    const people = Array.from(new Set([userId, ...(data.attendeeUserIds ?? [])]));
+
+    const overlapping = await prisma.meeting.findMany({
+      where: {
+        workspaceId,
+        status: { not: "CANCELLED" },
+        startTime: { lt: end },
+        endTime: { gt: start },
+        ...(data.excludeMeetingId ? { id: { not: data.excludeMeetingId } } : {}),
+        OR: [
+          ...(location ? [{ location: { equals: location, mode: "insensitive" as const } }] : []),
+          { attendees: { some: { userId: { in: people }, status: { not: "DECLINED" } } } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        location: true,
+        attendees: {
+          where: { userId: { in: people }, status: { not: "DECLINED" } },
+          select: { user: { select: { id: true, name: true, surname: true } } },
+        },
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    return overlapping.map((m) => ({
+      id: m.id,
+      title: m.title,
+      startTime: m.startTime,
+      endTime: m.endTime,
+      location: m.location,
+      venueClash: !!location && m.location?.trim().toLowerCase() === location.toLowerCase(),
+      clashingMembers: m.attendees.map((a) => ({
+        id: a.user.id,
+        name: a.user.surname || a.user.name,
+      })),
+    }));
   }
 
   /**
