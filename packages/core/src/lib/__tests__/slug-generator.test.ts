@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { generateUniqueSlug, generateUniqueSlugs } from "../slug-generator";
-import { projectSchema } from "../zodSchemas";
+import { projectSchema, taskSchema, subTaskSchema } from "../zodSchemas";
 
 // Mock @tusker/db prisma
 vi.mock("@tusker/db", () => {
@@ -92,3 +92,64 @@ describe("projectSchema slug & memberAccess validation", () => {
         }
     });
 });
+
+describe("taskSchema and subTaskSchema validation", () => {
+    const validProjectId = "123e4567-e89b-12d3-a456-426614174000";
+    const validParentTaskId = "123e4567-e89b-12d3-a456-426614174001";
+
+    it("validates taskSchema with omitted taskSlug and defaults tagIds", () => {
+        const result = taskSchema.safeParse({
+            name: "Deploy Backend Service",
+            projectId: validProjectId,
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.tagIds).toBeUndefined();
+            expect(result.data.taskSlug).toBeUndefined();
+        }
+    });
+
+    it("validates taskSchema with empty or null taskSlug", () => {
+        const emptySlugResult = taskSchema.safeParse({
+            name: "Deploy Backend Service",
+            projectId: validProjectId,
+            taskSlug: "",
+        });
+        expect(emptySlugResult.success).toBe(true);
+
+        const nullSlugResult = taskSchema.safeParse({
+            name: "Deploy Backend Service",
+            projectId: validProjectId,
+            taskSlug: null,
+        });
+        expect(nullSlugResult.success).toBe(true);
+    });
+
+    it("validates subTaskSchema with minimal payload (empty strings tolerated)", () => {
+        const result = subTaskSchema.safeParse({
+            name: "Configure Environment Variables",
+            projectId: validProjectId,
+            parentTaskId: validParentTaskId,
+            taskSlug: "",
+            description: "",
+            assignee: "",
+            reviewerId: "",
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.days).toBe(1);
+            expect(result.data.status).toBe("TO_DO");
+            expect(result.data.tagIds).toBeUndefined();
+        }
+    });
+
+    it("validates subTaskSchema with omitted optional fields", () => {
+        const result = subTaskSchema.safeParse({
+            name: "Run Migration Script",
+            projectId: validProjectId,
+            parentTaskId: validParentTaskId,
+        });
+        expect(result.success).toBe(true);
+    });
+});
+

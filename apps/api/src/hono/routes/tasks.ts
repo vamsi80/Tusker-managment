@@ -320,7 +320,9 @@ tasks.post("/", async (c) => {
   // Validate
   const validation = taskSchema.safeParse(body);
   if (!validation.success) {
-    throw AppError.ValidationError("Invalid task data");
+    const firstIssue = validation.error.issues[0];
+    const msg = firstIssue ? `${firstIssue.path.join(".")}: ${firstIssue.message}` : "Invalid task data";
+    throw AppError.ValidationError(msg);
   }
 
   const { name, projectId, tagIds } = validation.data;
@@ -372,11 +374,34 @@ tasks.on("POST", ["/subtask", "/:taskId/subtasks"], async (c) => {
   const user = c.get("user");
   const raw = await c.req.json();
   const parentFromPath = c.req.param("taskId");
-  const body = parentFromPath ? { ...raw, parentTaskId: parentFromPath } : raw;
+  let body = parentFromPath ? { ...raw, parentTaskId: parentFromPath } : raw;
+
+  // Resolve projectId if missing from parent task (e.g. mobile client calling /:taskId/subtasks)
+  if (!body.projectId && body.parentTaskId) {
+    const parent = await prisma.task.findUnique({
+      where: { id: body.parentTaskId },
+      select: { projectId: true },
+    });
+    if (parent) {
+      body = { ...body, projectId: parent.projectId };
+    }
+  }
+
+  // Normalize assigneeUserId -> assignee if needed (e.g. mobile client)
+  if (!body.assignee && body.assigneeUserId) {
+    body = { ...body, assignee: body.assigneeUserId };
+  }
+
+  // Handle single tagId -> tagIds array
+  if (body.tagId && (!body.tagIds || body.tagIds.length === 0)) {
+    body = { ...body, tagIds: [body.tagId] };
+  }
 
   const validation = subTaskSchema.safeParse(body);
   if (!validation.success) {
-    throw AppError.ValidationError("Invalid subtask data");
+    const firstIssue = validation.error.issues[0];
+    const msg = firstIssue ? `${firstIssue.path.join(".")}: ${firstIssue.message}` : "Invalid subtask data";
+    throw AppError.ValidationError(msg);
   }
 
   const data = validation.data;

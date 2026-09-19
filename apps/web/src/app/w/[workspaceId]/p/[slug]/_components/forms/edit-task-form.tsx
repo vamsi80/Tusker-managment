@@ -167,7 +167,10 @@ export function EditTaskDialog({
                 // Pass the updated data to the callback
                 // This allows immediate UI update without waiting for router.refresh()
                 if (onTaskUpdated) {
-                    onTaskUpdated(values);
+                    onTaskUpdated({
+                        name: values.name,
+                        taskSlug: values.taskSlug || task.taskSlug || "",
+                    });
                 }
 
                 // Removed router.refresh() to prevent full page state reset.
