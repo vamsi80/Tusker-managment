@@ -1,6 +1,11 @@
 import { AppError } from "../../lib/errors/app-error";
 import crypto from "crypto";
 import prisma from "@tusker/db";
+import {
+  ACTIVE_MEMBER,
+  PENDING_TASK_STATUSES,
+} from "../../lib/constants/member-status";
+import type { ProjectRole, TaskStatus } from "@tusker/db";
 import { generateInviteCode } from "../../utils/get-invite-code";
 import {
   invalidateWorkspace,
@@ -172,7 +177,7 @@ export class WorkspaceService {
       );
     }
 
-    const where: any = { workspaceId };
+    const where: any = { workspaceId, ...ACTIVE_MEMBER };
 
     if (maxOpenTasks !== undefined) {
       // Excluding the overloaded rather than listing the eligible: a member with
@@ -279,14 +284,16 @@ export class WorkspaceService {
    */
   static async getMembersSlim(workspaceId: string) {
     const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, ...ACTIVE_MEMBER },
       select: {
         id: true,
+        userId: true,
         casualLeaveBalance: true,
         sickLeaveBalance: true,
         workspaceRole: true,
         user: {
           select: {
+            name: true,
             surname: true,
             email: true,
           }
@@ -300,10 +307,12 @@ export class WorkspaceService {
 
     return members.map(m => ({
       id: m.id,
+      userId: m.userId,
       casualLeaveBalance: m.casualLeaveBalance,
       sickLeaveBalance: m.sickLeaveBalance,
       workspaceRole: m.workspaceRole,
-      surname: m.user?.surname || "Member",
+      name: m.user?.name || "",
+      surname: m.user?.surname || m.user?.name || "Member",
       email: m.user?.email,
     }));
   }
@@ -318,7 +327,7 @@ export class WorkspaceService {
     const month = today.getUTCMonth();
 
     const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId, dateOfBirth: { not: null } },
+      where: { workspaceId, dateOfBirth: { not: null }, ...ACTIVE_MEMBER },
       select: {
         id: true,
         userId: true,
@@ -763,21 +772,25 @@ export class WorkspaceService {
   /**
    * Remove a member from the workspace
    */
-  static async removeMember(
+  /**
+   * Shared guards for removing/deactivating a member. Returns the resolved
+   * workspace, the acting member and the target so callers don't refetch.
+   *
+   * Note there is deliberately no "owns other workspaces" check any more: that
+   * existed because removal used to hard-delete the User row globally. Nothing
+   * is deleted now, so owning another workspace is no longer a conflict — which
+   * is what unblocks the members who could never be removed before.
+   */
+  private static async assertCanDeactivate(
     workspaceId: string,
     memberId: string,
     currentUserId: string,
   ) {
-    // 1. Fetch workspace and members
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       include: {
         members: {
-          include: {
-            user: {
-              select: { name: true, surname: true },
-            },
-          },
+          include: { user: { select: { name: true, surname: true } } },
         },
       },
     });
@@ -797,89 +810,481 @@ export class WorkspaceService {
       throw new Error("Only workspace owners/admins can remove members");
     }
 
-    const memberToDelete = workspace.members.find((m) => m.id === memberId);
-    if (!memberToDelete) {
+    const target = workspace.members.find((m) => m.id === memberId);
+    if (!target) {
       throw new Error("Member not found in this workspace");
     }
-
-    if (memberToDelete.userId === currentUserId) {
+    if (target.deactivatedAt) {
+      throw new Error("This member has already been removed");
+    }
+    if (target.userId === currentUserId) {
       throw new Error("You cannot remove yourself from the workspace");
     }
-
-    if (memberToDelete.userId === workspace.ownerId) {
+    if (target.userId === workspace.ownerId) {
       throw new Error(
         "Cannot remove the workspace owner. Transfer ownership first.",
       );
     }
 
     const adminCount = workspace.members.filter(
-      (m) => m.workspaceRole === "ADMIN",
+      (m) => m.workspaceRole === "ADMIN" && !m.deactivatedAt,
     ).length;
-    if (memberToDelete.workspaceRole === "ADMIN" && adminCount <= 1) {
+    if (target.workspaceRole === "ADMIN" && adminCount <= 1) {
       throw new Error("Cannot remove the last admin from the workspace.");
     }
 
-    const userIdToDelete = memberToDelete.userId;
-    const userName =
-      memberToDelete.user?.surname || memberToDelete.user?.name || "User";
+    return {
+      workspace,
+      currentMember,
+      target,
+      targetName: target.user?.surname || target.user?.name || "User",
+      actorName:
+        currentMember.user?.surname || currentMember.user?.name || "Admin",
+    };
+  }
 
-    // Check if they own other workspaces
-    const ownedWorkspaces = await prisma.workspace.count({
+  /**
+   * Every pending task the member still holds, plus who is already in each
+   * project those tasks live in. One round trip, deliberately unpaginated: the
+   * caller gates removal on "every task has a destination", which is
+   * unanswerable against a partial list.
+   *
+   * Covers assignee AND reviewer. Several members review far more than they are
+   * assigned, and a list built on assigneeId alone would leave those reviews
+   * pointing at someone who is gone.
+   */
+  static async getMemberPendingWork(
+    workspaceId: string,
+    memberId: string,
+    currentUserId: string,
+  ) {
+    const { targetName } = await this.assertCanDeactivate(
+      workspaceId,
+      memberId,
+      currentUserId,
+    );
+
+    const projectMembers = await prisma.projectMember.findMany({
+      where: { workspaceMemberId: memberId },
+      select: { id: true },
+    });
+    const held = projectMembers.map((p) => p.id);
+
+    if (held.length === 0) {
+      return { memberName: targetName, tasks: [], projectMemberUserIds: {} };
+    }
+
+    const rows = await prisma.task.findMany({
       where: {
-        ownerId: userIdToDelete,
-        id: { not: workspaceId },
+        status: { in: PENDING_TASK_STATUSES as unknown as TaskStatus[] },
+        project: { workspaceId },
+        OR: [{ assigneeId: { in: held } }, { reviewerId: { in: held } }],
       },
+      select: {
+        id: true,
+        name: true,
+        taskSlug: true,
+        status: true,
+        projectId: true,
+        assigneeId: true,
+        reviewerId: true,
+        project: { select: { name: true } },
+      },
+      orderBy: [{ projectId: "asc" }, { createdAt: "asc" }],
     });
 
-    if (ownedWorkspaces > 0) {
-      throw new Error(
-        `Cannot delete user "${userName}" because they own other workspaces. Please transfer ownership first.`,
+    const heldSet = new Set(held);
+    const tasks = rows.map((t) => {
+      const roles: ("assignee" | "reviewer")[] = [];
+      if (t.assigneeId && heldSet.has(t.assigneeId)) roles.push("assignee");
+      if (t.reviewerId && heldSet.has(t.reviewerId)) roles.push("reviewer");
+      return {
+        id: t.id,
+        name: t.name,
+        taskSlug: t.taskSlug,
+        status: t.status,
+        projectId: t.projectId,
+        projectName: t.project?.name ?? "Unknown project",
+        roles,
+      };
+    });
+
+    // Who is already in each touched project, so the caller can warn before
+    // handing work to someone who isn't a member of it yet.
+    const projectIds = [...new Set(tasks.map((t) => t.projectId))];
+    const existing = projectIds.length
+      ? await prisma.projectMember.findMany({
+          where: { projectId: { in: projectIds } },
+          select: {
+            projectId: true,
+            workspaceMember: { select: { userId: true } },
+          },
+        })
+      : [];
+
+    const projectMemberUserIds: Record<string, string[]> = {};
+    for (const id of projectIds) projectMemberUserIds[id] = [];
+    for (const row of existing) {
+      projectMemberUserIds[row.projectId]?.push(row.workspaceMember.userId);
+    }
+
+    return { memberName: targetName, tasks, projectMemberUserIds };
+  }
+
+  /**
+   * Remove a member from the workspace by deactivating them, after handing
+   * every pending task they hold to someone else.
+   *
+   * Nothing is deleted. Task.createdById is RESTRICT onto ProjectMember, so the
+   * old hard-delete threw a raw FK error for anyone who had ever authored a
+   * task; and Task.assigneeId/reviewerId are SET NULL, so the deletes that did
+   * succeed silently orphaned their work. Deactivating sidesteps both and keeps
+   * authorship honest.
+   *
+   * The whole thing is one transaction: joining projects, moving the work and
+   * deactivating cannot partially apply.
+   */
+  static async deactivateMember(
+    workspaceId: string,
+    memberId: string,
+    currentUserId: string,
+    payload: {
+      assignments: { toUserId: string; taskIds: string[] }[];
+      projectRoles?: Record<string, ProjectRole>;
+      vacatedAssigneeTaskIds?: string[];
+    },
+  ) {
+    const { target, targetName, actorName } = await this.assertCanDeactivate(
+      workspaceId,
+      memberId,
+      currentUserId,
+    );
+
+    const assignments = payload.assignments ?? [];
+    const vacated = new Set(payload.vacatedAssigneeTaskIds ?? []);
+
+    // Re-derive server-side. The "no orphans" rule cannot live only in the UI:
+    // a task created while the dialog was open would slip straight through.
+    const work = await this.getMemberPendingWork(
+      workspaceId,
+      memberId,
+      currentUserId,
+    );
+    const pending = new Map(work.tasks.map((t) => [t.id, t]));
+
+    const submitted = new Map<string, string>();
+    for (const a of assignments) {
+      for (const taskId of a.taskIds) {
+        if (submitted.has(taskId)) {
+          throw AppError.ValidationError(
+            "A task was assigned to two different people.",
+          );
+        }
+        submitted.set(taskId, a.toUserId);
+      }
+    }
+
+    for (const taskId of submitted.keys()) {
+      if (!pending.has(taskId)) {
+        throw AppError.ValidationError(
+          "That task list is out of date. Please reopen the dialog and try again.",
+        );
+      }
+    }
+    if (submitted.size !== pending.size) {
+      throw AppError.ValidationError(
+        `${pending.size - submitted.size} task(s) still have no one to go to.`,
       );
     }
 
-    // 2. Execution Transaction
-    await prisma.$transaction(async (tx) => {
-      await tx.workspaceMember.deleteMany({
-        where: { userId: userIdToDelete },
-      });
-      await tx.user.delete({
-        where: { id: userIdToDelete },
-      });
-    });
-
-    // 3. Delete from Better Auth
-    try {
-      if ((auth.api as any).removeUser) {
-        await (auth.api as any).removeUser({
-          body: { userId: userIdToDelete },
-        });
+    // A vacate nulls an assignee, so prove the leaver really held both roles on
+    // that task. Without this a crafted payload could unassign anything.
+    for (const taskId of vacated) {
+      const task = pending.get(taskId);
+      if (!task || task.roles.length !== 2) {
+        throw AppError.ValidationError(
+          "Cannot vacate a task the member was not both assignee and reviewer of.",
+        );
       }
-    } catch (authDeleteErr) {
-      console.error("Failed to delete auth user:", authDeleteErr);
+      if (!submitted.has(taskId)) {
+        throw AppError.ValidationError("Vacated task has no destination.");
+      }
     }
 
-    // 4. Invalidate caches
-    await invalidateUserWorkspaces(userIdToDelete);
-    await invalidateWorkspaceMembers(workspaceId);
-    await invalidateUserPermissions(userIdToDelete, workspaceId);
+    const destinationUserIds = [...new Set(assignments.map((a) => a.toUserId))];
+    if (destinationUserIds.includes(target.userId)) {
+      throw AppError.ValidationError(
+        "Cannot hand work back to the member being removed.",
+      );
+    }
 
-    // 5. Record Activity
-    await recordActivity({
-      userId: currentUserId,
-      userName:
-        currentMember?.user?.surname || (() => { throw new Error(`User surname missing for member: ${currentMember?.id}`); })(),
-      workspaceId,
-      action: "MEMBER_REMOVED",
-      entityType: "MEMBER",
-      entityId: memberId,
-      oldData: { id: memberId, name: userName },
-      broadcastEvent: "team_update",
+    const destinations = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId,
+        userId: { in: destinationUserIds },
+        ...ACTIVE_MEMBER,
+      },
+      select: {
+        id: true,
+        userId: true,
+        user: { select: { name: true, surname: true } },
+      },
     });
+    if (destinations.length !== destinationUserIds.length) {
+      throw AppError.ValidationError(
+        "One of the chosen people is no longer an active member of this workspace.",
+      );
+    }
+    const wmByUser = new Map(destinations.map((d) => [d.userId, d]));
 
+    // Which (user, project) pairs need a ProjectMember row created first.
+    const neededPairs = new Map<string, { userId: string; projectId: string }>();
+    for (const [taskId, toUserId] of submitted) {
+      const projectId = pending.get(taskId)!.projectId;
+      const alreadyIn = work.projectMemberUserIds[projectId] ?? [];
+      if (!alreadyIn.includes(toUserId)) {
+        neededPairs.set(`${toUserId}:${projectId}`, {
+          userId: toUserId,
+          projectId,
+        });
+      }
+    }
+
+    const ALLOWED_JOIN_ROLES: ProjectRole[] = [
+      "MEMBER",
+      "LEAD",
+      "PROJECT_COORDINATOR",
+    ];
+    for (const { projectId } of neededPairs.values()) {
+      const role = payload.projectRoles?.[projectId] ?? "MEMBER";
+      if (!ALLOWED_JOIN_ROLES.includes(role)) {
+        throw AppError.ValidationError(
+          `Role "${role}" cannot be granted from the removal dialog.`,
+        );
+      }
+    }
+
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // 1. Join projects the destination isn't in yet.
+        if (neededPairs.size > 0) {
+          await tx.projectMember.createMany({
+            data: [...neededPairs.values()].map(({ userId, projectId }) => ({
+              projectId,
+              workspaceMemberId: wmByUser.get(userId)!.id,
+              hasAccess: true,
+              projectRole: payload.projectRoles?.[projectId] ?? "MEMBER",
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // 2. Resolve every destination to its ProjectMember id, once.
+        const touchedProjectIds = [
+          ...new Set(
+            [...submitted.keys()].map((id) => pending.get(id)!.projectId),
+          ),
+        ];
+        const resolved = await tx.projectMember.findMany({
+          where: {
+            projectId: { in: touchedProjectIds },
+            workspaceMemberId: { in: destinations.map((d) => d.id) },
+          },
+          select: {
+            id: true,
+            projectId: true,
+            workspaceMember: { select: { userId: true } },
+          },
+        });
+        const pmByKey = new Map(
+          resolved.map((r) => [
+            `${r.workspaceMember.userId}:${r.projectId}`,
+            r.id,
+          ]),
+        );
+
+        // 3. Group by (destination ProjectMember, which roles move) so this is
+        //    a handful of updateMany calls rather than one per task.
+        const groups = new Map<string, string[]>();
+        for (const [taskId, toUserId] of submitted) {
+          const task = pending.get(taskId)!;
+          const pmId = pmByKey.get(`${toUserId}:${task.projectId}`);
+          if (!pmId) {
+            throw AppError.ValidationError(
+              "Could not place a destination into one of the projects.",
+            );
+          }
+          const kind = vacated.has(taskId)
+            ? "vacate"
+            : task.roles.slice().sort().join("+");
+          const key = `${pmId}|${kind}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(taskId);
+        }
+
+        for (const [key, taskIds] of groups) {
+          const [pmId, kind] = key.split("|");
+          const data: Record<string, string | null> =
+            kind === "vacate"
+              ? { assigneeId: null, reviewerId: pmId }
+              : kind === "assignee"
+                ? { assigneeId: pmId }
+                : kind === "reviewer"
+                  ? { reviewerId: pmId }
+                  : { assigneeId: pmId, reviewerId: pmId };
+          await tx.task.updateMany({ where: { id: { in: taskIds } }, data });
+        }
+
+        // 4. One batched history write, same shape the per-task path uses, so
+        //    task timelines read identically.
+        await tx.activity.createMany({
+          data: [...submitted].map(([taskId, toUserId]) => {
+            const dest = wmByUser.get(toUserId)!;
+            const destName = dest.user?.surname || dest.user?.name || "a member";
+            const task = pending.get(taskId)!;
+            const moved = vacated.has(taskId)
+              ? `reviewer to ${destName}, left unassigned`
+              : `${task.roles.join(" and ")} to ${destName}`;
+            return {
+              subTaskId: taskId,
+              authorId: currentUserId,
+              workspaceId,
+              text: `${actorName} transferred ${moved} (${targetName} removed from the workspace)`,
+            };
+          }),
+        });
+
+        // 5. Deactivate. Nothing above this line deleted anything.
+        await tx.workspaceMember.update({
+          where: { id: memberId },
+          data: { deactivatedAt: new Date() },
+        });
+
+        return { movedCount: submitted.size, vacatedCount: vacated.size };
+      },
+      { timeout: 15000 },
+    );
+
+    // Best-effort side effects, each isolated: a broadcast failure must not read
+    // as a failed removal, because the transaction has already committed.
+    //
+    // Deliberately no per-task TaskEvents.onAssigneeChanged: it fans out to an
+    // involved-users query and 1-2 Pusher broadcasts each, so a large handover
+    // would mean hundreds of queries and broadcasts. Clients refresh on
+    // team_update instead.
+    try {
+      // `banned` is global, so only lock the account out if this was their last
+      // active workspace.
+      const stillActive = await prisma.workspaceMember.count({
+        where: {
+          userId: target.userId,
+          workspaceId: { not: workspaceId },
+          ...ACTIVE_MEMBER,
+        },
+      });
+      if (stillActive === 0) {
+        // Written directly rather than through auth.api.banUser: the admin
+        // plugin authorises off the caller's session headers, which a service
+        // running outside a request does not have (it 401s). `banned` is the
+        // field Better Auth checks when validating a session, so setting it
+        // here revokes their access on the next request either way.
+        await prisma.user.update({
+          where: { id: target.userId },
+          data: {
+            banned: true,
+            banReason: `Removed from workspace ${workspaceId}`,
+          },
+        });
+      }
+    } catch (banErr) {
+      console.error("[deactivateMember] ban failed:", banErr);
+    }
+
+    try {
+      await invalidateUserWorkspaces(target.userId);
+      await invalidateWorkspaceMembers(workspaceId);
+      await invalidateUserPermissions(target.userId, workspaceId);
+    } catch (cacheErr) {
+      console.error("[deactivateMember] cache invalidation failed:", cacheErr);
+    }
+
+    try {
+      await recordActivity({
+        userId: currentUserId,
+        userName: actorName,
+        workspaceId,
+        action: "MEMBER_REMOVED",
+        entityType: "MEMBER",
+        entityId: memberId,
+        oldData: {
+          id: memberId,
+          name: targetName,
+          tasksTransferred: result.movedCount,
+        },
+        broadcastEvent: "team_update",
+      });
+    } catch (activityErr) {
+      console.error("[deactivateMember] activity record failed:", activityErr);
+    }
+
+    const vacatedNote = result.vacatedCount
+      ? `, ${result.vacatedCount} left unassigned`
+      : "";
     return {
       success: true,
-      message: `User "${userName}" has been completely removed.`,
+      message: `"${targetName}" removed. ${result.movedCount} task(s) transferred${vacatedNote}.`,
     };
+  }
+
+  /**
+   * Undo a deactivation. Project memberships and task assignments are not
+   * restored — they were handed to other people and are theirs now.
+   */
+  static async reactivateMember(
+    workspaceId: string,
+    memberId: string,
+    currentUserId: string,
+  ) {
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        members: { include: { user: { select: { name: true, surname: true } } } },
+      },
+    });
+    if (!workspace) throw new Error("Workspace not found");
+
+    const actor = workspace.members.find((m) => m.userId === currentUserId);
+    if (
+      !actor ||
+      (actor.workspaceRole !== "OWNER" && actor.workspaceRole !== "ADMIN")
+    ) {
+      throw new Error("Only workspace owners/admins can restore members");
+    }
+
+    const target = workspace.members.find((m) => m.id === memberId);
+    if (!target) throw new Error("Member not found in this workspace");
+    if (!target.deactivatedAt) throw new Error("That member is already active");
+
+    await prisma.workspaceMember.update({
+      where: { id: memberId },
+      data: { deactivatedAt: null },
+    });
+
+    try {
+      await prisma.user.update({
+        where: { id: target.userId },
+        data: { banned: false, banReason: null, banExpires: null },
+      });
+    } catch (err) {
+      console.error("[reactivateMember] unban failed:", err);
+    }
+
+    await invalidateUserWorkspaces(target.userId);
+    await invalidateWorkspaceMembers(workspaceId);
+    await invalidateUserPermissions(target.userId, workspaceId);
+
+    const name = target.user?.surname || target.user?.name || "User";
+    return { success: true, message: `"${name}" has been restored.` };
   }
 
   /**
@@ -1163,7 +1568,7 @@ export class WorkspaceService {
     limit: number = 10,
   ) {
     return prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, ...ACTIVE_MEMBER },
       include: {
         user: {
           select: {
@@ -1276,6 +1681,7 @@ export class WorkspaceService {
         where: {
           workspaceId,
           workspaceRole: { in: ["OWNER", "ADMIN"] },
+          ...ACTIVE_MEMBER,
         },
         select: {
           user: { select: { id: true, surname: true } },
@@ -1427,6 +1833,7 @@ export class WorkspaceService {
         workspaceRole: {
           in: ["MANAGER", "ADMIN", "OWNER"],
         },
+        ...ACTIVE_MEMBER,
       },
       select: {
         id: true,

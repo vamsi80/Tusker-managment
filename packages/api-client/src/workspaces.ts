@@ -20,6 +20,33 @@ export interface BirthdayMember {
 
 export type { BroadcastMessage as Broadcast } from "@tusker/core/types/workspace";
 
+/** One outstanding task a departing member still holds. */
+export interface PendingWorkTask {
+    id: string;
+    name: string;
+    taskSlug: string;
+    status: string;
+    projectId: string;
+    projectName: string;
+    /** Which roles the departing member holds on this task. */
+    roles: ("assignee" | "reviewer")[];
+}
+
+export interface MemberPendingWork {
+    memberName: string;
+    tasks: PendingWorkTask[];
+    /** projectId -> userIds already in that project. */
+    projectMemberUserIds: Record<string, string[]>;
+}
+
+export interface DeactivateMemberPayload {
+    assignments: { toUserId: string; taskIds: string[] }[];
+    /** Role to grant when the destination has to join a project first. */
+    projectRoles?: Record<string, "MEMBER" | "LEAD" | "PROJECT_COORDINATOR">;
+    /** Self-review collisions the admin accepted: reviewer moves, assignee -> null. */
+    vacatedAssigneeTaskIds?: string[];
+}
+
 export interface WorkspacesClient {
     create(values: WorkSpaceSchemaType): Promise<ApiResponse>;
     delete(workspaceId: string): Promise<ApiResponse>;
@@ -31,7 +58,9 @@ export interface WorkspacesClient {
     updateBroadcast(workspaceId: string, broadcastId: string, values: { title?: string; message?: string; expiresInHours?: number | null }): Promise<ApiResponse>;
     deleteBroadcast(workspaceId: string, broadcastId: string): Promise<ApiResponse>;
     invite(workspaceId: string, values: InviteUserSchemaType): Promise<ApiResponse>;
-    removeMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
+    getMemberPendingWork(workspaceId: string, memberId: string): Promise<MemberPendingWork>;
+    deactivateMember(workspaceId: string, memberId: string, payload: DeactivateMemberPayload): Promise<ApiResponse>;
+    reactivateMember(workspaceId: string, memberId: string): Promise<ApiResponse>;
     updateMember(workspaceId: string, memberId: string, values: any): Promise<ApiResponse>;
     resendInvite(workspaceId: string, memberId: string): Promise<ApiResponse>;
     resetPassword(workspaceId: string, memberId: string): Promise<ApiResponse>;
@@ -166,16 +195,48 @@ export const workspacesClient: WorkspacesClient = {
     },
 
     /**
-     * Remove a member from the workspace
+     * Every pending task a member still holds, for the removal dialog.
      */
-    removeMember: async (workspaceId: string, memberId: string): Promise<ApiResponse> => {
-        const response = await apiFetch<{ success: boolean; message: string }>(`/workspaces/${workspaceId}/members/${memberId}`, {
-            method: "DELETE",
-        });
+    getMemberPendingWork: async (workspaceId: string, memberId: string): Promise<MemberPendingWork> => {
+        const response = await apiFetch<{ success: boolean; data: MemberPendingWork }>(
+            `/workspaces/${workspaceId}/members/${memberId}/pending-work`,
+        );
+        return response.data;
+    },
+
+    /**
+     * Remove a member by deactivating them, handing their pending work over in
+     * the same transaction. Nothing is deleted, so this succeeds for members
+     * the old DELETE could never remove.
+     */
+    deactivateMember: async (
+        workspaceId: string,
+        memberId: string,
+        payload: DeactivateMemberPayload,
+    ): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; message: string }>(
+            `/workspaces/${workspaceId}/members/${memberId}/deactivate`,
+            { method: "POST", body: JSON.stringify(payload) },
+        );
 
         return {
             status: response.success ? "success" : "error",
             message: response.message || (response.success ? "Member removed" : "Failed to remove member"),
+        };
+    },
+
+    /**
+     * Undo a removal. Transferred work stays where it went.
+     */
+    reactivateMember: async (workspaceId: string, memberId: string): Promise<ApiResponse> => {
+        const response = await apiFetch<{ success: boolean; message: string }>(
+            `/workspaces/${workspaceId}/members/${memberId}/reactivate`,
+            { method: "POST" },
+        );
+
+        return {
+            status: response.success ? "success" : "error",
+            message: response.message || (response.success ? "Member restored" : "Failed to restore member"),
         };
     },
 

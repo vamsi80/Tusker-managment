@@ -1,5 +1,6 @@
 
 import prisma from "@tusker/db";
+import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
 import { WorkspaceRole, ProjectRole } from "@tusker/db";
 import {
   getTaskSelect,
@@ -452,7 +453,7 @@ export class TaskRepository {
 
   static async findWorkspaceMember(userId: string, workspaceId: string) {
     return prisma.workspaceMember.findFirst({
-      where: { userId, workspaceId },
+      where: { userId, workspaceId, ...ACTIVE_MEMBER },
       select: { id: true, workspaceRole: true },
     });
   }

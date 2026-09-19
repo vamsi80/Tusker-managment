@@ -280,15 +280,65 @@ workspaces.get("/:workspaceId/managers", async (c) => {
 });
 
 /**
- * DELETE /api/v1/workspaces/:workspaceId/members/:memberId
- * Remove a member from the workspace
+ * GET /api/v1/workspaces/:workspaceId/members/:memberId/pending-work
+ *
+ * Preflight for the removal dialog: every pending task the member still holds
+ * (as assignee or reviewer) plus who is already in each of those projects.
+ * Unpaginated on purpose — removal is gated on "every task has a destination",
+ * which cannot be answered from a partial list.
  */
-workspaces.delete("/:workspaceId/members/:memberId", async (c) => {
+workspaces.get("/:workspaceId/members/:memberId/pending-work", async (c) => {
   const user = c.get("user");
   const workspaceId = c.req.param("workspaceId");
   const memberId = c.req.param("memberId");
 
-  const result = await WorkspaceService.removeMember(
+  const data = await WorkspaceService.getMemberPendingWork(
+    workspaceId,
+    memberId,
+    user.id,
+  );
+
+  return c.json({ success: true, data });
+});
+
+/**
+ * POST /api/v1/workspaces/:workspaceId/members/:memberId/deactivate
+ *
+ * Removes a member by deactivating them, handing their pending work to other
+ * people in the same transaction. Replaces the old DELETE, which hard-deleted
+ * the User row across every workspace and threw a raw FK error for anyone who
+ * had ever authored a task.
+ */
+workspaces.post("/:workspaceId/members/:memberId/deactivate", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const memberId = c.req.param("memberId");
+  const body = await c.req.json();
+
+  const result = await WorkspaceService.deactivateMember(
+    workspaceId,
+    memberId,
+    user.id,
+    {
+      assignments: body?.assignments ?? [],
+      projectRoles: body?.projectRoles,
+      vacatedAssigneeTaskIds: body?.vacatedAssigneeTaskIds ?? [],
+    },
+  );
+
+  return c.json(result);
+});
+
+/**
+ * POST /api/v1/workspaces/:workspaceId/members/:memberId/reactivate
+ * Undo a removal. Transferred work stays where it went.
+ */
+workspaces.post("/:workspaceId/members/:memberId/reactivate", async (c) => {
+  const user = c.get("user");
+  const workspaceId = c.req.param("workspaceId");
+  const memberId = c.req.param("memberId");
+
+  const result = await WorkspaceService.reactivateMember(
     workspaceId,
     memberId,
     user.id,

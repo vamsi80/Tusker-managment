@@ -133,9 +133,9 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
   })();
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-1 min-h-0 flex-col gap-4">
       {/* Calendar Control Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl border bg-card text-card-foreground shadow-xs">
+      <div className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl border bg-card text-card-foreground shadow-xs">
         {/* Today, then prev/next flanking the period they move */}
         <div className="flex items-center gap-2.5">
           <Button
@@ -231,7 +231,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
       </div>
 
       {/* ERP Calendar Layer Toggles */}
-      <div className="flex items-center gap-2 flex-wrap px-1">
+      <div className="shrink-0 flex items-center gap-2 flex-wrap px-1">
         <span className="text-xs font-semibold text-muted-foreground mr-1 uppercase tracking-wider">
           Layers:
         </span>
@@ -306,9 +306,11 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
       </div>
 
       {/* Main View Area */}
-      {activeView === "month" && <CalendarMonthView />}
-      {activeView === "week" && <CalendarWeekView />}
-      {activeView === "agenda" && <CalendarAgendaView />}
+      <div className="flex-1 min-h-0">
+        {activeView === "month" && <CalendarMonthView />}
+        {activeView === "week" && <CalendarWeekView />}
+        {activeView === "agenda" && <CalendarAgendaView />}
+      </div>
 
       {/* Modals */}
       <ScheduleMeetingDialog workspaceId={workspaceId} />

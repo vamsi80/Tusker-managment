@@ -96,7 +96,7 @@ export function CalendarAgendaView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto space-y-6 pr-1">
       {groupedMeetings.map((group) => (
         <div key={group.dateStr} className="space-y-3">
           {/* Day Group Header */}

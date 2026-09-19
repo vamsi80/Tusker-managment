@@ -1,0 +1,13 @@
+-- Member removal becomes deactivation.
+--
+-- Nothing is deleted any more: Task.createdById is RESTRICT onto ProjectMember,
+-- so deleting a member who ever authored a task threw a raw FK error, and
+-- Task.assigneeId/reviewerId are SET NULL, so the ones that did delete silently
+-- orphaned their work. A non-null deactivatedAt means no workspace access and
+-- invisible in every member picker, while authorship and history stay truthful.
+--
+-- Additive and backfill-free: existing rows get NULL, which reads as "active".
+-- A nullable timestamp rather than a status enum, deliberately: this database
+-- connects with search_path = boq, public, where an unqualified CREATE TYPE
+-- fails with 42704.
+ALTER TABLE "WorkspaceMember" ADD COLUMN IF NOT EXISTS "deactivatedAt" TIMESTAMP(3);

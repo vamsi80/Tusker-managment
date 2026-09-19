@@ -1,4 +1,5 @@
 import prisma from "@tusker/db";
+import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
 
 export class ProjectRepository {
   static async getWorkspaceMember(workspaceId: string, userId: string) {
@@ -18,7 +19,7 @@ export class ProjectRepository {
 
   static async getWorkspaceMembers(workspaceId: string) {
     return prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, ...ACTIVE_MEMBER },
       select: {
         id: true,
         userId: true,

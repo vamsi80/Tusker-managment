@@ -24,7 +24,7 @@ export function TodayAgendaWidget() {
   todayMeetings.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   return (
-    <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-xs">
+    <div className="flex h-full min-h-0 flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-xs">
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
@@ -51,7 +51,7 @@ export function TodayAgendaWidget() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto max-h-[340px] pr-1 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
         {todayMeetings.length === 0 ? (
           <div className="py-8 text-center space-y-2">
             <div className="size-10 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto text-muted-foreground">

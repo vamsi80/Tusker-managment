@@ -120,10 +120,10 @@ export function CalendarWeekView() {
   const currentTimeTop = (currentHour * 60 + currentMinute) * (HOUR_HEIGHT / 60);
 
   return (
-    <div className="flex flex-col border rounded-2xl bg-card overflow-hidden shadow-xs">
+    <div className="flex h-full flex-col border rounded-2xl bg-card overflow-hidden shadow-xs">
       {/* One scroll container for header + grid: both share its width, so the day
           columns stay aligned with their headers once a scrollbar appears. */}
-      <div ref={scrollRef} className="max-h-[600px] overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         {/* Week header and the all-day strip scroll together and stay pinned */}
         <div className="sticky top-0 z-30 bg-muted border-b">
           <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))]">

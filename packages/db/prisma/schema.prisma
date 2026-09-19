@@ -206,6 +206,10 @@ model WorkspaceMember {
   employeeId                  String?
   permissionOverrides         Json?
   departmentId                String?
+  /// Set when an admin removes the member. Nothing is deleted: authorship
+  /// (Task.createdById is RESTRICT) and history stay truthful. Non-null means
+  /// no workspace access and invisible in every member picker.
+  deactivatedAt               DateTime?
   department                  Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   managedProjects             Project[]             @relation("ProjectManager")
   projectMembers              ProjectMember[]
