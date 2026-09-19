@@ -22,6 +22,7 @@ vi.mock("@tusker/db", async (importOriginal) => {
         workspace: mockModel("workspace"),
         attendance: mockModel("attendance"),
         tag: mockModel("tag"),
+        meeting: mockModel("meeting"),
         $transaction: vi.fn(async (cb: any) => {
             if (typeof cb === "function") return await cb(prismaMock);
             return Array.isArray(cb) ? await Promise.all(cb) : cb;
