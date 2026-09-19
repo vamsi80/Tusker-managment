@@ -106,15 +106,28 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
         if (watchedName) {
             const autoColor = getColorFromString(watchedName);
             form.setValue("color", autoColor, { shouldDirty: true });
-            const generatedSlug = slugify(watchedName, { lower: true, strict: true });
-            form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
+            let generatedSlug = slugify(watchedName, { lower: true, strict: true, trim: true });
+            if (generatedSlug.length > 50) {
+                generatedSlug = generatedSlug.slice(0, 50).replace(/-+$/, "");
+            }
+            if (generatedSlug.length >= 3) {
+                form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
+            } else {
+                form.setValue("slug", "", { shouldDirty: true });
+            }
+        } else {
+            form.setValue("slug", "", { shouldDirty: true });
         }
     }, [watchedName, form]);
 
     function onSubmit(data: ProjectSchemaType) {
         if (pending) return;
+        const payload = {
+            ...data,
+            slug: data.slug?.trim() || undefined,
+        };
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(projectsClient.create(data));
+            const { data: result, error } = await tryCatch(projectsClient.create(payload));
             console.log("results", { result });
 
             if (error) {
@@ -169,7 +182,16 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                         - header is above already; if you want sticky footer, wrap form and footer separately. */}
                     <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[70vh] thin-scrollbar">
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                            <form
+                                onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                                    console.error("Form validation errors:", errors);
+                                    const firstError = Object.values(errors)[0];
+                                    if (firstError?.message) {
+                                        toast.error(String(firstError.message));
+                                    }
+                                })}
+                                className="space-y-5"
+                            >
                                 <FormField
                                     control={form.control}
                                     name="name"
@@ -184,6 +206,11 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                                             {watchedSlug && (
                                                 <p className="text-[10px] text-muted-foreground mt-1 ml-1">
                                                     Slug: <span className="font-mono">{watchedSlug}</span>
+                                                </p>
+                                            )}
+                                            {form.formState.errors.slug && (
+                                                <p className="text-[12px] text-destructive mt-1 font-medium">
+                                                    {form.formState.errors.slug.message}
                                                 </p>
                                             )}
                                             <FormMessage />

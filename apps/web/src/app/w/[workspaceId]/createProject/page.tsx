@@ -172,14 +172,27 @@ export default function CreateProjectPage() {
         if (watchedName) {
             const autoColor = getColorFromString(watchedName);
             form.setValue("color", autoColor, { shouldDirty: true });
-            const generatedSlug = slugify(watchedName, { lower: true, strict: true });
-            form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
+            let generatedSlug = slugify(watchedName, { lower: true, strict: true, trim: true });
+            if (generatedSlug.length > 50) {
+                generatedSlug = generatedSlug.slice(0, 50).replace(/-+$/, "");
+            }
+            if (generatedSlug.length >= 3) {
+                form.setValue("slug", generatedSlug, { shouldDirty: true, shouldValidate: true });
+            } else {
+                form.setValue("slug", "", { shouldDirty: true });
+            }
+        } else {
+            form.setValue("slug", "", { shouldDirty: true });
         }
     }, [watchedName, form]);
 
     async function onSubmit(values: ProjectSchemaType) {
+        const payload = {
+            ...values,
+            slug: values.slug?.trim() || undefined,
+        };
         startTransition(async () => {
-            const { data: result, error } = await tryCatch(projectsClient.create(values));
+            const { data: result, error } = await tryCatch(projectsClient.create(payload));
 
             if (error) {
                 toast.error(error.message);
@@ -231,7 +244,16 @@ export default function CreateProjectPage() {
             </div>
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form
+                    onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                        console.error("Form validation errors:", errors);
+                        const firstError = Object.values(errors)[0];
+                        if (firstError?.message) {
+                            toast.error(String(firstError.message));
+                        }
+                    })}
+                    className="space-y-6"
+                >
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                         {/* Basic Info Section */}
                         <div className="space-y-4">
@@ -253,6 +275,11 @@ export default function CreateProjectPage() {
                                             {watchedSlug && (
                                                 <p className="text-[11px] text-muted-foreground mt-1 ml-1 font-mono">
                                                     Slug: {watchedSlug}
+                                                </p>
+                                            )}
+                                            {form.formState.errors.slug && (
+                                                <p className="text-[12px] text-destructive mt-1 font-medium">
+                                                    {form.formState.errors.slug.message}
                                                 </p>
                                             )}
                                             <FormMessage />

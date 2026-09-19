@@ -29,6 +29,30 @@ import slugify from "slugify";
  *   slugs.push(slug);
  * }
  */
+/**
+ * Helper to sanitize and clamp base slug so it is valid and fits within column limits
+ */
+function sanitizeBaseSlug(name: string, tableName: string): string {
+    let baseSlug = slugify(name || "", { lower: true, strict: true, trim: true });
+
+    // Fallback if slugify results in empty or too short string (e.g. non-ASCII or symbols)
+    if (!baseSlug || baseSlug.length < 3) {
+        const clean = (name || "").toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        if (clean.length >= 3) {
+            baseSlug = clean;
+        } else {
+            baseSlug = `${tableName}-${Math.random().toString(36).substring(2, 6)}`;
+        }
+    }
+
+    // Keep baseSlug to max 40 chars so appended counter -XX stays within 50 chars
+    if (baseSlug.length > 40) {
+        baseSlug = baseSlug.slice(0, 40).replace(/-+$/, '');
+    }
+
+    return baseSlug;
+}
+
 export async function generateUniqueSlug(
     baseName: string,
     tableName: 'task' | 'project' | 'workspace',
@@ -36,7 +60,7 @@ export async function generateUniqueSlug(
     existingSlugs: string[] = []
 ): Promise<string> {
     // Generate base slug from name
-    const baseSlug = slugify(baseName, { lower: true, strict: true });
+    const baseSlug = sanitizeBaseSlug(baseName, tableName);
 
     // Add prefix if provided
     const fullBaseSlug = prefix ? `${prefix}-${baseSlug}` : baseSlug;
@@ -140,7 +164,7 @@ export async function generateUniqueSlugs(
 
     // 1. Generate all base slugs
     const nameData = names.map(name => {
-        const baseSlug = slugify(name, { lower: true, strict: true });
+        const baseSlug = sanitizeBaseSlug(name, tableName);
         const fullBaseSlug = prefix ? `${prefix}-${baseSlug}` : baseSlug;
         return { name, fullBaseSlug };
     });
