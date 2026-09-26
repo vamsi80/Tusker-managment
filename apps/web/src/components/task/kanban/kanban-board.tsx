@@ -524,6 +524,53 @@ export function KanbanBoard({
     });
   }, []);
 
+  const canMoveCompletedToReview = useCallback(
+    (task: any) => {
+      const isOwnerOrAdmin =
+        !!layoutData?.permissions?.isWorkspaceAdmin ||
+        !!permissions?.isWorkspaceAdmin ||
+        layoutData?.permissions?.workspaceRole === "OWNER" ||
+        layoutData?.permissions?.workspaceRole === "ADMIN" ||
+        permissions?.workspaceRole === "OWNER" ||
+        permissions?.workspaceRole === "ADMIN";
+
+      if (isOwnerOrAdmin) return true;
+
+      const targetProjectId = task?.projectId || projectId;
+      const currentUserId = userId || layoutData?.permissions?.userId || permissions?.userId;
+
+      // 1. Direct prop if on project-level board
+      if (permissions?.isProjectManager && (!projectId || projectId === targetProjectId)) {
+        return true;
+      }
+
+      // 2. Check managedProjectIds list (from layout or workspace permissions)
+      const managedIds =
+        layoutData?.permissions?.managedProjectIds ||
+        (permissions as any)?.managedProjectIds;
+      if (targetProjectId && managedIds?.includes(targetProjectId)) {
+        return true;
+      }
+
+      // 3. Check projectManagers map
+      if (targetProjectId && projectManagers?.[targetProjectId] && currentUserId) {
+        const managers = projectManagers[targetProjectId];
+        if (Array.isArray(managers)) {
+          const isManager = managers.some(
+            (m: any) =>
+              m.id === currentUserId ||
+              m.userId === currentUserId ||
+              m.user?.id === currentUserId
+          );
+          if (isManager) return true;
+        }
+      }
+
+      return false;
+    },
+    [layoutData?.permissions, permissions, projectId, projectManagers, userId]
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const subTask = kanbanTasks[overInfo.columnId as TaskStatus]?.find(t => t.id === active.id) ||
@@ -627,6 +674,17 @@ export function KanbanBoard({
         { id: "status-block" },
       );
       return;
+    }
+
+    // 2. HARD BLOCK: Only project managers, owners, and admins can move tasks from Completed to Review
+    if (previousStatus === "COMPLETED") {
+      if (!canMoveCompletedToReview(subTask)) {
+        toast.error(
+          "Only project managers, owners, and admins can move tasks from Completed to Review.",
+          { id: "status-block" },
+        );
+        return;
+      }
     }
 
     const isMandatory =
@@ -824,6 +882,21 @@ export function KanbanBoard({
         { id: "status-block" },
       );
       return;
+    }
+
+    if (currentStatus === "COMPLETED") {
+      const subTask =
+        kanbanTasks[currentStatus]?.find((t) => t.id === subTaskId) ||
+        Object.values(kanbanTasks)
+          .flat()
+          .find((t) => t.id === subTaskId);
+      if (!canMoveCompletedToReview(subTask)) {
+        toast.error(
+          "Only project managers, owners, and admins can move tasks from Completed to Review.",
+          { id: "status-block" },
+        );
+        return;
+      }
     }
 
     const isMandatory =

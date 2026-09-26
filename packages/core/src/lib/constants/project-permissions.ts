@@ -207,6 +207,16 @@ export function canLeaveReview(
     return !isAssignee && canProject(permissions, "status:completed");
 }
 
+/**
+ * Moving a task *out of* COMPLETED (e.g. to REVIEW) requires PM, Owner, or Admin standing.
+ */
+export function canLeaveCompleted(
+    isWorkspaceAdmin: boolean | undefined | null,
+    isProjectManager: boolean | undefined | null,
+): boolean {
+    return !!(isWorkspaceAdmin || isProjectManager);
+}
+
 /** Transitions that demand an explanation before they are allowed through. */
 export function isMandatoryTransition(current: string | null | undefined, target: string): boolean {
     return (

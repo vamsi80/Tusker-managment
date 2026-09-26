@@ -28,6 +28,7 @@ import { TaskStatus, CreateTaskParams, CreateSubTaskParams } from "../../../type
 import {
   canProject,
   canSetStatus,
+  canLeaveCompleted,
   isMandatoryTransition,
   missingTransitionEvidence,
   DEFAULT_PROJECT_SETTINGS,
@@ -2043,6 +2044,15 @@ export class TasksService {
       );
     }
 
+    // Moving a task out of COMPLETED (e.g. to REVIEW) requires PM, Owner, or Admin
+    if (subTask.status === "COMPLETED" && newStatus !== "COMPLETED") {
+      if (!canLeaveCompleted(permissions.isWorkspaceAdmin, permissions.isProjectManager)) {
+        throw AppError.Forbidden(
+          "Only project managers, owners, and admins can move tasks from Completed to Review.",
+        );
+      }
+    }
+
     // 3. Status Transition Validation
     if (subTask.status === newStatus && newStatus !== "REVIEW") {
       return subTask; // No change needed
@@ -2279,6 +2289,15 @@ export class TasksService {
         // 3. Review check: Moving out of REVIEW
         if (task.status === "REVIEW" && !canApprove("COMPLETED")) {
           throw AppError.Forbidden("You cannot move this task out of Review status.");
+        }
+
+        // 3b. Moving out of COMPLETED requires PM, Owner, or Admin
+        if (task.status === "COMPLETED" && data.status !== "COMPLETED") {
+          if (!canLeaveCompleted(isWorkspaceAdmin, isProjectManager)) {
+            throw AppError.Forbidden(
+              "Only project managers, owners, and admins can move tasks from Completed to Review.",
+            );
+          }
         }
 
         // 4. Comment check: Since general task editing does not collect transition comments,

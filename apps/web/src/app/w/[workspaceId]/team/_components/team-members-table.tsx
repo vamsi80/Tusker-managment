@@ -293,6 +293,18 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
                 }
                 setEditDialogOpen(false);
                 setMemberToEdit(null);
+                if (result.data) {
+                    window.dispatchEvent(
+                        new CustomEvent("realtime-sync-refresh", {
+                            detail: {
+                                action: "MEMBER_UPDATED",
+                                category: "MEMBER",
+                                record: result.data,
+                                isActor: true,
+                            },
+                        })
+                    );
+                }
                 router.refresh();
             } else {
                 toast.error(result.message);

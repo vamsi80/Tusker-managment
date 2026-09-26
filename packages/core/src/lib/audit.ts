@@ -384,6 +384,9 @@ export async function recordActivity(options: RecordActivityOptions) {
             await pusherServer.trigger(syncChannels, options.broadcastEvent, {
               workspaceId,
               userId,
+              action,
+              entityType,
+              entityId,
               type: normalizedType,
               message,
               payload,

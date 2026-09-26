@@ -22,6 +22,7 @@ import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "../../lib/involved-users";
 import { getISTDateOnly } from "../../lib/date-utils";
 import { broadcastTeamUpdate } from "../../lib/realtime";
+import type { WorkspaceMemberRow } from "../../types/workspace";
 
 export class WorkspaceService {
   /**
@@ -1318,16 +1319,31 @@ export class WorkspaceService {
         designation: true,
         reportToId: true,
         departmentId: true,
+        reportTo: {
+          select: {
+            user: {
+              select: {
+                surname: true,
+              },
+            },
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         user: {
           select: {
             id: true,
             name: true,
             surname: true,
             email: true,
-            phoneNumber: true
-          }
-        }
-      }
+            phoneNumber: true,
+          },
+        },
+      },
     });
 
     if (!member || member.workspaceId !== workspaceId) {
@@ -1384,7 +1400,35 @@ export class WorkspaceService {
           employeeId: data.employeeId,
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
           reportToId: data.reportToId && data.reportToId.trim() !== "" ? data.reportToId : null,
-          departmentId: data.departmentId && data.departmentId.trim() !== "" ? data.departmentId : null
+          departmentId: data.departmentId && data.departmentId.trim() !== "" ? data.departmentId : null,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              phoneNumber: true,
+              email: true,
+              emailVerified: true,
+              image: true,
+            },
+          },
+          reportTo: {
+            select: {
+              user: {
+                select: {
+                  surname: true,
+                },
+              },
+            },
+          },
+          department: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       });
 
@@ -1426,7 +1470,26 @@ export class WorkspaceService {
         });
       }
 
-      return updatedMember;
+      const formattedMember: WorkspaceMemberRow = {
+        id: updatedMember.id,
+        name: updatedMember.user?.name ?? "",
+        surname: updatedMember.user?.surname ?? "",
+        email: updatedMember.user?.email ?? "",
+        phoneNumber: updatedMember.user?.phoneNumber ?? null,
+        designation: updatedMember.designation ?? null,
+        employeeId: updatedMember.employeeId ?? null,
+        dateOfBirth: updatedMember.dateOfBirth ?? null,
+        workspaceRole: updatedMember.workspaceRole,
+        reportToName: updatedMember.reportTo?.user?.surname ?? null,
+        reportToId: updatedMember.reportToId,
+        departmentId: updatedMember.departmentId ?? null,
+        departmentName: updatedMember.department?.name ?? null,
+        workspaceId: updatedMember.workspaceId,
+        userId: updatedMember.userId,
+        status: updatedMember.user?.emailVerified ? "Verified" : "Pending",
+      };
+
+      return formattedMember;
     });
 
     // 4. Invalidate caches
@@ -1442,7 +1505,7 @@ export class WorkspaceService {
     });
 
     const authorities = await getWorkspaceAuthorities(workspaceId);
-    const targetUserIds = Array.from(new Set([...authorities, userId]));
+    const targetUserIds = Array.from(new Set([...authorities, userId, actorId]));
 
     await recordActivity({
       userId: actorId,
@@ -1452,9 +1515,8 @@ export class WorkspaceService {
       entityType: "MEMBER",
       entityId: memberId,
       newData: {
-        ...data,
-        workspaceRole: data.role,
-        emailChanged: isEmailChanged
+        ...result,
+        emailChanged: isEmailChanged,
       },
       oldData: {
         name: member.user?.name,
@@ -1464,10 +1526,12 @@ export class WorkspaceService {
         designation: member.designation,
         workspaceRole: member.workspaceRole,
         reportToId: member.reportToId,
-        departmentId: member.departmentId
+        reportToName: member.reportTo?.user?.surname ?? null,
+        departmentId: member.departmentId,
+        departmentName: member.department?.name ?? null,
       },
       broadcastEvent: "team_update",
-      targetUserIds
+      targetUserIds,
     });
 
     return { success: true, data: result, emailChanged: isEmailChanged };
