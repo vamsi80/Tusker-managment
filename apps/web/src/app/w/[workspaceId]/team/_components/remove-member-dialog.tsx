@@ -47,7 +47,7 @@ interface StagedBatch {
     collisions: string[];
 }
 
-interface Props {
+export interface RemoveMemberDialogProps {
     workspaceId: string;
     member: WorkspaceMemberRow;
     onClose: () => void;
@@ -59,7 +59,7 @@ export function RemoveMemberDialog({
     member,
     onClose,
     onDone,
-}: Props) {
+}: RemoveMemberDialogProps) {
     const [work, setWork] = useState<MemberPendingWork | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [ticked, setTicked] = useState<Set<string>>(new Set());
@@ -319,7 +319,7 @@ export function RemoveMemberDialog({
 
                         <div className="flex-1 overflow-y-auto -mx-1 px-1">
                             {tasks.map((t) => (
-                                <TaskRow
+                                <TransferTaskRow
                                     key={t.id}
                                     task={t}
                                     checked={ticked.has(t.id)}
@@ -478,7 +478,7 @@ export function RemoveMemberDialog({
     );
 }
 
-function TaskRow({
+function TransferTaskRow({
     task,
     checked,
     onToggle,
