@@ -34,6 +34,8 @@ export function SiteHeader() {
     if (segment === "p") label = "Projects";
     if (segment === "myspace") label = "My Space";
     if (segment === "conversations") label = "Messages";
+    if (segment === "projectSettings") label = "Project Settings";
+    if (segment === "editProject") label = "Edit Project";
     
     // UUID detection (simple check for length or dashes)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment) || segment.length > 20;
@@ -43,6 +45,10 @@ export function SiteHeader() {
         label = currentWorkspace?.name || "Dashboard";
     } else if (isUUID && pathSegments[index - 1] === "conversations") {
         label = "Chat";
+    } else if (isUUID && pathSegments[index - 1] === "projectSettings") {
+        label = "Permissions";
+    } else if (isUUID && pathSegments[index - 1] === "editProject") {
+        label = "Edit";
     } else if (isUUID) {
         label = "Details";
     }

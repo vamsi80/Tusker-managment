@@ -701,7 +701,7 @@ export class ProjectService {
     const [project, members] = await Promise.all([
       prisma.project.findFirst({
         where: { id: projectId, workspaceId },
-        select: { id: true, name: true, settings: true },
+        select: { id: true, name: true, slug: true, color: true, settings: true },
       }),
       prisma.projectMember.findMany({
         where: { projectId },
@@ -724,6 +724,8 @@ export class ProjectService {
     return {
       projectId: project.id,
       projectName: project.name,
+      projectSlug: project.slug,
+      projectColor: project.color,
       settings: coerceProjectSettings(project.settings),
       members: members.map((m) => ({
         projectMemberId: m.id,
