@@ -653,7 +653,8 @@ export class TasksService {
         permissions.isWorkspaceAdmin ||
         permissions.isProjectManager ||
         permissions.isProjectCoordinator ||
-        permissions.isProjectLead;
+        permissions.isProjectLead ||
+        permissions.isMember;
 
       return {
         permissions,
@@ -675,12 +676,12 @@ export class TasksService {
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      // Full access = ONLY projects where user is explicitly a LEAD, PROJECT_COORDINATOR or PROJECT_MANAGER.
-      // Being a PM in Project A does NOT grant full access to Project B (where they may be just a MEMBER).
+      // Full access for viewing tasks/subtasks includes all projects where user is a member, lead, or manager
       const fullAccessProjectIds = [
         ...(wsPerms.leadProjectIds ?? []),
         ...(wsPerms.managedProjectIds ?? []),
         ...(wsPerms.coordinatorProjectIds ?? []),
+        ...(wsPerms.memberProjectIds ?? []),
       ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
@@ -3235,14 +3236,25 @@ export class TasksService {
           accessConditions.push({
             OR: [
               { projectId: { in: fullAccessProjectIds } },
-              { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } },
+              {
+                projectId: { in: restrictedProjectIds },
+                OR: [
+                  { assignee: { workspaceMember: { userId } } },
+                  { createdBy: { workspaceMember: { userId } } },
+                ]
+              },
             ]
           });
         } else if (fullAccessProjectIds.length > 0) {
           accessConditions.push({ projectId: { in: fullAccessProjectIds } });
         } else if (restrictedProjectIds.length > 0) {
-          accessConditions.push({ projectId: { in: restrictedProjectIds } });
-          accessConditions.push({ assignee: { workspaceMember: { userId } } });
+          accessConditions.push({
+            projectId: { in: restrictedProjectIds },
+            OR: [
+              { assignee: { workspaceMember: { userId } } },
+              { createdBy: { workspaceMember: { userId } } },
+            ]
+          });
         }
 
         if (accessConditions.length > 0) {
