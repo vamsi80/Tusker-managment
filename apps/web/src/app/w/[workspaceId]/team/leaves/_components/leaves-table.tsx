@@ -446,7 +446,7 @@ export function LeavesTable({
                                             <AvatarFallback className="text-xl font-medium">{initials}</AvatarFallback>
                                         </Avatar>
                                         <div className="text-left">
-                                            <DialogTitle className="text-2xl font-medium">{leave.name} {leave.surname}</DialogTitle>
+                                            <DialogTitle className="text-2xl font-medium">{leave.surname || leave.name}</DialogTitle>
                                             <p className="text-sm text-muted-foreground font-medium">{leave.email}</p>
                                         </div>
                                     </div>

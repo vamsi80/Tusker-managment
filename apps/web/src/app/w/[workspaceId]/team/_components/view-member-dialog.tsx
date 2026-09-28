@@ -191,7 +191,7 @@ export function ViewMemberDialog({
                             </Avatar>
                             <div className="text-left">
                                 <DialogTitle className="text-2xl font-medium">
-                                    {member.name} {member.surname}
+                                    {member.name || member.surname}
                                 </DialogTitle>
                                 <p className="text-sm text-muted-foreground font-medium">{member.email}</p>
                                 {member.designation && (
@@ -218,6 +218,7 @@ export function ViewMemberDialog({
                                 </span>
                             }
                         />
+                        <Field label="Nickname" value={member.surname} />
                         <Field label="Department" value={member.departmentName} />
                         <Field
                             label="Employee ID"

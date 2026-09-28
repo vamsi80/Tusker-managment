@@ -74,8 +74,8 @@ export const getWorkspaceDepartments = cache(async (workspaceId: string) => {
                 return departments.map((dept) => ({
                     ...dept,
                     members: (dept.members || []).sort((a, b) => {
-                        const nameA = [a.user.name, a.user.surname].filter(Boolean).join(" ").toLowerCase();
-                        const nameB = [b.user.name, b.user.surname].filter(Boolean).join(" ").toLowerCase();
+                        const nameA = (a.user.surname || a.user.name || "").toLowerCase();
+                        const nameB = (b.user.surname || b.user.name || "").toLowerCase();
                         return nameA.localeCompare(nameB);
                     }),
                 }));

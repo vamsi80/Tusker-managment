@@ -101,13 +101,10 @@ export function RemoveMemberDialog({
                 .filter((m: any) => m.userId && m.userId !== member.userId)
                 .map((m: any) => {
                     const rawName = (m.name || m.user?.name || "").trim();
-                    const rawSurname = (m.surname || m.user?.surname || "").trim();
-                    let displayName = "";
-                    if (rawName && rawSurname && rawName !== rawSurname && rawSurname !== "Member") {
-                        displayName = `${rawName} ${rawSurname}`;
-                    } else {
-                        displayName = rawName || (rawSurname !== "Member" ? rawSurname : "") || m.email || "Unknown";
-                    }
+                    const rawNickname = (m.surname || m.user?.surname || "").trim();
+                    // Nickname is what the rest of the app shows; `name` is only a fallback.
+                    const displayName =
+                        (rawNickname !== "Member" ? rawNickname : "") || rawName || m.email || "Unknown";
                     return {
                         userId: m.userId as string,
                         name: displayName,

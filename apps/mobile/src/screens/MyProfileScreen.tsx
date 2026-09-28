@@ -148,7 +148,7 @@ export default function MyProfileScreen({ navigation }: Props) {
                             </View>
                             <View style={[styles.divider, { backgroundColor: colors.border }]} />
                             <View style={styles.inputItem}>
-                                <Text style={[styles.inputLabel, { color: colors.textDim }]}>Surname</Text>
+                                <Text style={[styles.inputLabel, { color: colors.textDim }]}>Nickname</Text>
                                 <TextInput
                                     style={[styles.input, { color: colors.textDim }]}
                                     value={surname}

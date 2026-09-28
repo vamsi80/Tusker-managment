@@ -199,7 +199,7 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                             ) : (
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                                     {members.map((member) => {
-                                                        const fullName = [member.user.name, member.user.surname].filter(Boolean).join(" ");
+                                                        const displayName = member.user.surname || member.user.name || member.user.email || "Member";
                                                         const initials = (member.user.name?.[0] || member.user.email?.[0] || "?").toUpperCase();
                                                         return (
                                                             <div
@@ -207,14 +207,14 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                                                 className="flex items-center gap-2.5 rounded-lg border bg-background/80 p-2 shadow-xs hover:border-primary/30 transition-colors"
                                                             >
                                                                 <Avatar className="size-7 shrink-0">
-                                                                    {member.user.image && <AvatarImage src={member.user.image} alt={fullName} />}
+                                                                    {member.user.image && <AvatarImage src={member.user.image} alt={displayName} />}
                                                                     <AvatarFallback className="text-[10px] font-medium bg-muted">
                                                                         {initials}
                                                                     </AvatarFallback>
                                                                 </Avatar>
                                                                 <div className="min-w-0 flex-1">
                                                                     <div className="flex items-center justify-between gap-1">
-                                                                        <p className="truncate text-xs font-medium text-foreground">{fullName}</p>
+                                                                        <p className="truncate text-xs font-medium text-foreground">{displayName}</p>
                                                                         {member.workspaceRole && member.workspaceRole !== "MEMBER" && (
                                                                             <Badge variant="outline" className="px-1 py-0 text-[9px] font-normal leading-tight">
                                                                                 {member.workspaceRole.toLowerCase()}

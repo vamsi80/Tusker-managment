@@ -69,7 +69,7 @@ describe("kiosk attendance route", () => {
 
     test("serves the roster, skipping unenrolled members and leaking nothing else", async () => {
         (prisma.workspaceMember.findMany as any).mockResolvedValue([
-            { employeeId: "EMP-042", user: { name: "Priya", surname: "S" } },
+            { employeeId: "EMP-042", user: { name: "Priya Sharma", surname: "Priya" } },
             { employeeId: "EMP-043", user: { name: "Arun", surname: null } },
         ]);
 
@@ -81,7 +81,8 @@ describe("kiosk attendance route", () => {
         expect(await res.json()).toEqual({
             success: true,
             data: [
-                { employeeId: "EMP-042", name: "Priya S" },
+                // Nickname wins over the full name; a member without one falls back to it.
+                { employeeId: "EMP-042", name: "Priya" },
                 { employeeId: "EMP-043", name: "Arun" },
             ],
         });

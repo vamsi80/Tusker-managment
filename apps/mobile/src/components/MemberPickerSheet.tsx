@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image } from "react-native";
 import { FONTS } from "../constants/theme";
 import OptionPickerSheet, { PickerOption } from "./OptionPickerSheet";
 
-/** Surname-style display name, matching how the rest of the app labels people. */
+/** Nickname-first display name, matching how the rest of the app labels people. */
 export function memberDisplayName(member: any): string {
     const raw =
         member?.user?.surname ||

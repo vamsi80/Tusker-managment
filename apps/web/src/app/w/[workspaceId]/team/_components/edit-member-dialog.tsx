@@ -167,7 +167,7 @@ export function EditMemberDialog({
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>First Name</FormLabel>
+                                        <FormLabel>Full Name</FormLabel>
                                         <FormControl>
                                             <Input {...field} disabled={isUpdating} />
                                         </FormControl>
@@ -180,7 +180,7 @@ export function EditMemberDialog({
                                 name="surname"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Last Name</FormLabel>
+                                        <FormLabel>Nickname</FormLabel>
                                         <FormControl>
                                             <Input {...field} value={field.value || ""} disabled={isUpdating} />
                                         </FormControl>

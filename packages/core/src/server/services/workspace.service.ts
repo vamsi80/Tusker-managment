@@ -1782,9 +1782,9 @@ export class WorkspaceService {
     projects.forEach((p: any) => {
       const pm = p.projectManager;
 
-      // If a manager is assigned, they MUST have a surname for the UI
+      // If a manager is assigned, they MUST have a nickname for the UI
       if (pm && !pm.surname && pm.surname !== "System") {
-        throw new Error(`Data Integrity Error: Project Manager assigned to project "${p.name}" (${p.id}) is missing a surname.`);
+        throw new Error(`Data Integrity Error: Project Manager assigned to project "${p.name}" (${p.id}) is missing a nickname.`);
       }
 
       // Skip "System" user and ensure pm exists

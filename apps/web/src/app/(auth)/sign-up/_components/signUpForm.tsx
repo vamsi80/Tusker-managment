@@ -153,7 +153,7 @@ export const SignUpForm = () => {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="surname">Surname</Label>
+              <Label htmlFor="surname">Nickname</Label>
               <Input
                 id="surname"
                 type="text"

@@ -83,7 +83,7 @@ export function createTeamMemberColumns(
 
         {
             accessorKey: "surname",
-            header: "Surname",
+            header: "Nickname",
             cell: ({ row }) => {
                 const surname = row.original.surname;
                 return (

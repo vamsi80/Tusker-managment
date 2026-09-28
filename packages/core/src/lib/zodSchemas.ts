@@ -97,7 +97,7 @@ export const updateMemberSchema = z.object({
         .max(100, { message: "Name must be at most 100 characters long" }),
     surname: z
         .string()
-        .max(100, { message: "Surname must be at most 100 characters long" })
+        .max(100, { message: "Nickname must be at most 100 characters long" })
         .optional()
         .nullable()
         .or(z.literal("")),
