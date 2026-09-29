@@ -276,9 +276,11 @@ export class MeetingService {
     // - Normal members see only their assigned tasks
     // - Project managers / coordinators / leads see all tasks in their projects + their own tasks
     // - Owners/Admins see all tasks across the workspace
+    // - Completed and cancelled tasks are excluded from calendar deadlines
     // Direct reports' tasks are NOT included: a manager may not have access to those projects.
     let taskWhere: any = {
       workspaceId,
+      status: { notIn: ["COMPLETED", "CANCELLED"] },
       dueDate: { not: null, ...(start && end ? { gte: start, lte: end } : {}) },
     };
 

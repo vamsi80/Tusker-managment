@@ -84,7 +84,12 @@ export default function CalendarScreen({ navigation }: any) {
         if (!workspaceId) return;
         try {
             const result = await getCalendarData(workspaceId);
-            setData(result);
+            setData({
+                ...result,
+                taskDeadlines: (result.taskDeadlines || []).filter(
+                    (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
+                ),
+            });
             setLoadError(null);
         } catch (error: any) {
             console.error("[CalendarScreen] loadData error:", error);

@@ -119,6 +119,7 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
         }
         if (activeLayers.tasks) {
             taskDeadlines.forEach((t) => {
+                if (t.status === "COMPLETED" || t.status === "CANCELLED") return;
                 getEntry(calendarDayKey(t.date)).tasks += 1;
             });
         }

@@ -25,7 +25,14 @@ export default function DayItemsSheet({
         const key = calendarDayKey(date);
 
         const dayMeetings = activeLayers.meetings ? meetings.filter((m) => calendarDayKey(m.startTime) === key) : [];
-        const dayTasks = activeLayers.tasks ? taskDeadlines.filter((t) => calendarDayKey(t.date) === key) : [];
+        const dayTasks = activeLayers.tasks
+            ? taskDeadlines.filter(
+                  (t) =>
+                      t.status !== "COMPLETED" &&
+                      t.status !== "CANCELLED" &&
+                      calendarDayKey(t.date) === key
+              )
+            : [];
         const dayHolidays = activeLayers.holidays ? publicHolidays.filter((h) => calendarDayKey(h.date) === key) : [];
         const dayLeaves = activeLayers.leaves
             ? leaves.filter((l) => {

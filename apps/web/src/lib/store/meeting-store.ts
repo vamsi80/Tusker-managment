@@ -141,7 +141,9 @@ export const useMeetingStore = create<MeetingStoreState>((set, get) => ({
 
       set({
         meetings: data.meetings || [],
-        taskDeadlines: data.taskDeadlines || [],
+        taskDeadlines: (data.taskDeadlines || []).filter(
+          (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
+        ),
         publicHolidays: data.publicHolidays || [],
         leaves: data.leaves || [],
         isLoading: false,

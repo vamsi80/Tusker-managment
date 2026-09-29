@@ -118,7 +118,10 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
             });
         }
         if (activeLayers.tasks) {
-            taskDeadlines.forEach((t) => { getEntry(calendarDayKey(t.date)).tasks += 1; });
+            taskDeadlines.forEach((t) => {
+                if (t.status === "COMPLETED" || t.status === "CANCELLED") return;
+                getEntry(calendarDayKey(t.date)).tasks += 1;
+            });
         }
         return map;
     }, [publicHolidays, leaves, taskDeadlines, activeLayers]);
@@ -139,7 +142,15 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
         });
     }, [leaves, activeLayers.leaves, activeDay]);
     const dayTasks = useMemo(
-        () => (activeLayers.tasks ? taskDeadlines.filter((t) => calendarDayKey(t.date) === activeDay) : []),
+        () =>
+            activeLayers.tasks
+                ? taskDeadlines.filter(
+                      (t) =>
+                          t.status !== "COMPLETED" &&
+                          t.status !== "CANCELLED" &&
+                          calendarDayKey(t.date) === activeDay
+                  )
+                : [],
         [taskDeadlines, activeLayers.tasks, activeDay]
     );
 

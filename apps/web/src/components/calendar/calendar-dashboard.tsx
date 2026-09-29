@@ -69,6 +69,17 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
     const handleTaskSyncEvent = (e: any) => {
       if (e.detail && workspaceId) {
         console.log("[CALENDAR_DASHBOARD] 🔄 Real-time task sync event received:", e.detail.action);
+        const record = e.detail.record;
+        if (
+          record?.id &&
+          (record.status === "COMPLETED" ||
+            record.status === "CANCELLED" ||
+            e.detail.action?.includes("DELETE"))
+        ) {
+          useMeetingStore.setState((state) => ({
+            taskDeadlines: state.taskDeadlines.filter((t) => t.id !== record.id),
+          }));
+        }
         fetchCalendarData(workspaceId);
       }
     };

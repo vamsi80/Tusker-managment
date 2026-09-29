@@ -293,6 +293,7 @@ describe("MeetingService", () => {
         expect.objectContaining({
           where: {
             workspaceId: "w-1",
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
             dueDate: expect.any(Object),
           },
         })
@@ -300,6 +301,35 @@ describe("MeetingService", () => {
       // Verify no AND condition was added restricting assignees
       const lastCall = (prisma.task.findMany as any).mock.calls.at(-1)[0];
       expect(lastCall.where.AND).toBeUndefined();
+    });
+
+    it("excludes completed and cancelled tasks from calendar deadlines", async () => {
+      (prisma.meeting.findMany as any).mockResolvedValue([]);
+      (prisma.public_holiday.findMany as any).mockResolvedValue([]);
+      (prisma.leave_request.findMany as any).mockResolvedValue([]);
+
+      (prisma.workspaceMember.findFirst as any).mockResolvedValue({
+        id: "owner-member-1",
+        workspaceRole: "OWNER",
+        workspace: { ownerId: "user-owner" },
+        managedProjects: [],
+        projectMembers: [],
+        subordinates: [],
+      });
+
+      await MeetingService.getMeetings(
+        "w-1",
+        { startDate: "2026-09-01", endDate: "2026-09-30", includeLayers: true },
+        "user-owner"
+      );
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          }),
+        })
+      );
     });
   });
 });

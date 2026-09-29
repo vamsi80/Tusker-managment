@@ -91,6 +91,7 @@ export function CalendarWeekView() {
 
     if (activeLayers.tasks) {
       taskDeadlines.forEach((t) => {
+        if (t.status === "COMPLETED" || t.status === "CANCELLED") return;
         const key = calendarDayKey(t.date);
         map.get(key)?.push(t);
       });

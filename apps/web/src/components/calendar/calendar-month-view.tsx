@@ -153,6 +153,7 @@ export function CalendarMonthView() {
 
     if (activeLayers.tasks) {
       taskDeadlines.forEach((t) => {
+        if (t.status === "COMPLETED" || t.status === "CANCELLED") return;
         const key = calendarDayKey(t.date);
         getEntry(key).tasks.push(t);
       });
