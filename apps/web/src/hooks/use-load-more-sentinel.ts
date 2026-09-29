@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 
 interface UseLoadMoreSentinelProps {
   /** Callback to trigger when the sentinel becomes visible */
@@ -33,10 +33,12 @@ export function useLoadMoreSentinel<T extends HTMLElement>({
   rootMargin = "200px",
   threshold = 0.1,
 }: UseLoadMoreSentinelProps) {
-  const sentinelRef = useRef<T>(null);
+  // A callback ref, not useRef: sentinels are rendered conditionally (e.g. when a
+  // project group is expanded), and a plain ref changing never re-runs the effect,
+  // so a sentinel that mounted later was never observed and paging stalled.
+  const [target, sentinelRef] = useState<T | null>(null);
 
   useEffect(() => {
-    const target = sentinelRef.current;
     if (!target || !hasMore) return;
 
     const observer = new IntersectionObserver(
@@ -50,7 +52,7 @@ export function useLoadMoreSentinel<T extends HTMLElement>({
 
     observer.observe(target);
     return () => observer.disconnect();
-  }, [onLoadMore, isLoading, hasMore, rootMargin, threshold]);
+  }, [target, onLoadMore, isLoading, hasMore, rootMargin, threshold]);
 
   return sentinelRef;
 }
