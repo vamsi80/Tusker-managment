@@ -123,10 +123,10 @@ export default function DayItemsSheet({
                             onClose();
                             openTask(t);
                         }}
-                        style={[styles.row, { backgroundColor: "#64748b14", borderColor: "#64748b30" }]}
+                        style={[styles.row, { backgroundColor: "#4D4DFF14", borderColor: "#4D4DFF30" }]}
                     >
-                        <Ionicons name="checkbox-outline" size={14} color="#64748b" />
-                        <Text style={[styles.rowText, { color: colors.textMuted, flex: 1 }]} numberOfLines={1}>
+                        <Ionicons name="checkbox-outline" size={14} color="#4D4DFF" />
+                        <Text style={[styles.rowText, { color: "#4D4DFF", flex: 1 }]} numberOfLines={1}>
                             {t.title}
                         </Text>
                     </TouchableOpacity>

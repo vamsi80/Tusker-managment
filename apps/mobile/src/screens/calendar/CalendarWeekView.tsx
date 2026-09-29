@@ -204,7 +204,7 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
                                     {hasHoliday && <View style={[styles.stripDot, { backgroundColor: "#f43f5e" }]} />}
                                     {hasLeave && <View style={[styles.stripDot, { backgroundColor: "#a855f7" }]} />}
                                     {hasMeeting && <View style={[styles.stripDot, { backgroundColor: colors.primary }]} />}
-                                    {hasTask && <View style={[styles.stripDot, { backgroundColor: "#64748b" }]} />}
+                                    {hasTask && <View style={[styles.stripDot, { backgroundColor: "#4D4DFF" }]} />}
                                 </View>
                             )}
                         </TouchableOpacity>
@@ -233,10 +233,10 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
                             key={t.id}
                             activeOpacity={0.75}
                             onPress={() => openTask(t)}
-                            style={[styles.allDayChip, { backgroundColor: "#64748b14", borderColor: "#64748b30" }]}
+                            style={[styles.allDayChip, { backgroundColor: "#4D4DFF14", borderColor: "#4D4DFF30" }]}
                         >
-                            <Ionicons name="checkbox-outline" size={11} color="#64748b" />
-                            <Text style={[styles.allDayChipText, { color: colors.textMuted }]} numberOfLines={1}>{t.title}</Text>
+                            <Ionicons name="checkbox-outline" size={11} color="#4D4DFF" />
+                            <Text style={[styles.allDayChipText, { color: "#4D4DFF" }]} numberOfLines={1}>{t.title}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>

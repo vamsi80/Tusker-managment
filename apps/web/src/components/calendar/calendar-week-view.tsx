@@ -174,7 +174,7 @@ export function CalendarWeekView() {
                         type="button"
                         onClick={() => openTask(t)}
                         title={`Task: ${t.title} — open task`}
-                        className="flex w-full min-w-0 items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
+                        className="flex w-full min-w-0 items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-[#4D4DFF]/10 text-[#4D4DFF] dark:text-[#8080FF] border border-[#4D4DFF]/20 hover:bg-[#4D4DFF]/20 transition-colors"
                       >
                         <CheckSquare className="size-2.5 shrink-0" />
                         <span className="min-w-0 truncate">{t.title}</span>
@@ -202,9 +202,9 @@ export function CalendarWeekView() {
                                 type="button"
                                 onClick={() => openTask(t)}
                                 title={`Task: ${t.title} — open task`}
-                                className="flex w-full min-w-0 items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 hover:bg-slate-500/20 transition-colors"
+                                className="flex w-full min-w-0 items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-[#4D4DFF]/10 text-[#4D4DFF] dark:text-[#8080FF] border border-[#4D4DFF]/20 hover:bg-[#4D4DFF]/20 transition-colors"
                               >
-                                <CheckSquare className="size-3 shrink-0" />
+                                <CheckSquare className="size-3 shrink-0 text-[#4D4DFF] dark:text-[#8080FF]" />
                                 <span className="min-w-0 truncate">{t.title}</span>
                               </button>
                             ))}

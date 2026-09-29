@@ -351,7 +351,7 @@ export default function CalendarScreen({ navigation }: any) {
                 <View style={styles.layersRow}>
                     {[
                         { key: "meetings" as const, label: "Meetings", icon: "videocam-outline" as const, tint: colors.primary, count: data.meetings.length },
-                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#3b82f6", count: data.taskDeadlines.length },
+                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#4D4DFF", count: data.taskDeadlines.length },
                         { key: "holidays" as const, label: "Holidays", icon: "sparkles-outline" as const, tint: "#f43f5e", count: data.publicHolidays.length },
                         { key: "leaves" as const, label: "Leaves", icon: "person-remove-outline" as const, tint: "#a855f7", count: data.leaves.length },
                     ].map((l) => {
