@@ -122,16 +122,13 @@ export default function CalendarScreen({ navigation }: any) {
             const action = (evt?.type || evt?.action || "").toUpperCase();
             const payload = evt?.payload || evt?.record || evt?.newData;
             if (!payload) return;
-            if (action === "CREATE") {
-                setData((d) => ({ ...d, meetings: [payload, ...d.meetings.filter((m) => m.id !== payload.id)] }));
-            } else if (action === "DELETE") {
+            // Broadcasts go to the whole workspace, so refetch instead of applying the
+            // payload: the server keeps only this user's meetings and recomputes overlaps.
+            loadData();
+            if (action === "DELETE") {
                 const id = payload.id || evt?.meetingId;
-                if (id) {
-                    setData((d) => ({ ...d, meetings: d.meetings.filter((m) => m.id !== id) }));
-                    setSelectedMeeting((m) => (m?.id === id ? null : m));
-                }
+                if (id) setSelectedMeeting((m) => (m?.id === id ? null : m));
             } else if (action === "UPDATE" || action === "RSVP_UPDATE") {
-                setData((d) => ({ ...d, meetings: d.meetings.map((m) => (m.id === payload.id ? { ...m, ...payload } : m)) }));
                 setSelectedMeeting((m) => (m?.id === payload.id ? { ...m, ...payload } : m));
             }
         });

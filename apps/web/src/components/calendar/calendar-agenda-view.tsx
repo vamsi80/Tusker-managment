@@ -5,7 +5,8 @@ import { useMeetingStore } from "@/lib/store/meeting-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Video, MapPin, Clock, Calendar as CalendarIcon, ExternalLink, Briefcase, Plus } from "lucide-react";
+import { Video, MapPin, Clock, Calendar as CalendarIcon, ExternalLink, Briefcase, Plus, AlertTriangle } from "lucide-react";
+import { overlapText } from "./overlap-icon";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { calendarDayKey } from "@tusker/core/lib/date-utils";
 
@@ -153,6 +154,16 @@ export function CalendarAgendaView() {
                         >
                           {m.status.toLowerCase()}
                         </Badge>
+                        {!!m.overlapsWith?.length && (
+                          <Badge
+                            variant="outline"
+                            title={overlapText(m)}
+                            className="text-[10px] flex items-center gap-1 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          >
+                            <AlertTriangle className="size-2.5" />
+                            Overlaps
+                          </Badge>
+                        )}
                       </div>
 
                       <h4 className="text-sm sm:text-base font-bold text-foreground truncate group-hover:text-primary transition-colors">

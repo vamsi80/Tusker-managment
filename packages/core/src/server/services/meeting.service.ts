@@ -185,6 +185,13 @@ export class MeetingService {
     if (filter.projectId) where.projectId = filter.projectId;
     if (filter.type) where.type = filter.type;
 
+    // Only meetings the viewer organises or is invited to.
+    if (userId) {
+      where.OR = [{ organizerId: userId }, { attendees: { some: { userId } } }];
+    } else {
+      where.id = "__none__";
+    }
+
     const meetingSelect = {
       id: true,
       workspaceId: true,
@@ -238,11 +245,28 @@ export class MeetingService {
       },
     };
 
-    const meetings = await prisma.meeting.findMany({
+    const rows = await prisma.meeting.findMany({
       where,
       select: meetingSelect,
       orderBy: { startTime: "asc" },
     });
+
+    // Flag each meeting that clashes with another of the viewer's meetings.
+    // Cancelled, all-day and declined meetings don't count as a clash.
+    // ponytail: O(n²) over one viewer's meetings in range; sweep by startTime if that grows large.
+    const counts = (m: (typeof rows)[number]) =>
+      m.status !== "CANCELLED" &&
+      !m.isAllDay &&
+      !m.attendees?.some((a) => a.userId === userId && a.status === "DECLINED");
+    const active = rows.filter(counts);
+    const meetings = rows.map((m) => ({
+      ...m,
+      overlapsWith: counts(m)
+        ? active
+            .filter((o) => o.id !== m.id && o.startTime < m.endTime && o.endTime > m.startTime)
+            .map((o) => ({ id: o.id, title: o.title }))
+        : [],
+    }));
 
     if (!filter.includeLayers) {
       return { meetings, taskDeadlines: [], publicHolidays: [], leaves: [] };

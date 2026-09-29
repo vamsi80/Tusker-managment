@@ -28,7 +28,9 @@ import {
   Pencil,
   ExternalLink,
   Briefcase,
+  AlertTriangle,
 } from "lucide-react";
+import { overlapText } from "./overlap-icon";
 
 export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
   const {
@@ -147,6 +149,16 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
+          {!!selectedMeeting.overlapsWith?.length && (
+            <div
+              role="alert"
+              className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold flex items-center gap-1.5"
+            >
+              <AlertTriangle className="size-3.5 shrink-0" />
+              {overlapText(selectedMeeting)}
+            </div>
+          )}
+
           {/* Time and Duration Card */}
           <div className="p-4 rounded-xl bg-muted/40 border space-y-2">
             <div className="flex items-center gap-2 text-sm font-semibold">

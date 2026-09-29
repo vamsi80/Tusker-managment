@@ -143,6 +143,14 @@ export default function CalendarAgendaView({ ctx }: { ctx: CalendarCtx }) {
                                         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
                                             {m.title}
                                         </Text>
+                                        {!!m.overlapsWith?.length && (
+                                            <View style={styles.metaRow}>
+                                                <Ionicons name="warning-outline" size={12} color={colors.warning} />
+                                                <Text style={[styles.metaText, { color: colors.warning }]} numberOfLines={1}>
+                                                    Overlaps with {m.overlapsWith.map((o) => o.title).join(", ")}
+                                                </Text>
+                                            </View>
+                                        )}
                                         {m.location && (
                                             <View style={styles.metaRow}>
                                                 <Ionicons name="location-outline" size={12} color={colors.textDim} />

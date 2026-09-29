@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useMeetingStore } from "@/lib/store/meeting-store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CheckSquare, Clock, Video } from "lucide-react";
+import { OverlapIcon } from "./overlap-icon";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { calendarDayKey } from "@tusker/core/lib/date-utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
@@ -316,6 +317,7 @@ export function CalendarWeekView() {
                     >
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-1">
+                          <OverlapIcon meeting={m} className="size-2.5 text-amber-300" />
                           {m.meetingUrl && <Video className="size-2.5 shrink-0 opacity-80" />}
                           <span className="min-w-0 text-[11px] font-semibold truncate leading-tight">
                             {m.title}

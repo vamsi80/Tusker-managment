@@ -16,6 +16,8 @@ export interface MeetingAttendeeUI {
 
 export interface MeetingUI {
   id: string;
+  /** Other meetings of the viewer's that clash with this one (set by the server). */
+  overlapsWith?: { id: string; title: string }[];
   workspaceId: string;
   title: string;
   description?: string | null;

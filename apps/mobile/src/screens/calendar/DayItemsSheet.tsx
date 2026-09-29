@@ -101,7 +101,9 @@ export default function DayItemsSheet({
                         }}
                         style={[styles.row, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30" }]}
                     >
-                        {m.meetingUrl ? (
+                        {m.overlapsWith?.length ? (
+                            <Ionicons name="warning" size={14} color={colors.warning} accessibilityLabel="Overlaps another meeting" />
+                        ) : m.meetingUrl ? (
                             <Ionicons name="videocam" size={14} color={colors.primary} />
                         ) : (
                             <Ionicons name="calendar-outline" size={14} color={colors.primary} />

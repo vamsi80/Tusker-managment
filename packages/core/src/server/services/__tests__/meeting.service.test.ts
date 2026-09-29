@@ -129,6 +129,27 @@ describe("MeetingService", () => {
     expect(result.taskDeadlines[0].title).toBe("Task Due: Design Review");
   });
 
+  it("lists only the viewer's meetings and flags overlaps", async () => {
+    const at = (h: number) => new Date(`2026-09-10T${String(h).padStart(2, "0")}:00:00Z`);
+    (prisma.meeting.findMany as any).mockResolvedValue([
+      { id: "a", title: "A", startTime: at(10), endTime: at(11), status: "SCHEDULED", isAllDay: false, attendees: [] },
+      { id: "b", title: "B", startTime: at(10), endTime: at(12), status: "SCHEDULED", isAllDay: false, attendees: [] },
+      { id: "c", title: "C", startTime: at(11), endTime: at(12), status: "CANCELLED", isAllDay: false, attendees: [] },
+      { id: "d", title: "D", startTime: at(11), endTime: at(13), status: "SCHEDULED", isAllDay: false,
+        attendees: [{ userId: "user-1", status: "DECLINED" }] },
+      { id: "e", title: "E", startTime: at(12), endTime: at(13), status: "SCHEDULED", isAllDay: false, attendees: [] },
+    ]);
+
+    const { meetings } = await MeetingService.getMeetings("w-1", {}, "user-1");
+
+    expect((prisma.meeting.findMany as any).mock.calls[0][0].where.OR).toEqual([
+      { organizerId: "user-1" },
+      { attendees: { some: { userId: "user-1" } } },
+    ]);
+    const byId = Object.fromEntries(meetings.map((m: any) => [m.id, m.overlapsWith.map((o: any) => o.id)]));
+    expect(byId).toEqual({ a: ["b"], b: ["a"], c: [], d: [], e: [] });
+  });
+
   it("calendar shows no tasks without a viewer", async () => {
     (prisma.meeting.findMany as any).mockResolvedValue([]);
     await MeetingService.getMeetings("w-1", { includeLayers: true });

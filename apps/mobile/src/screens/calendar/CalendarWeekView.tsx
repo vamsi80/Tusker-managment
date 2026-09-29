@@ -294,6 +294,7 @@ export default function CalendarWeekView({ ctx }: { ctx: CalendarCtx }) {
                                     style={[styles.meetingBlock, { top: topPx, height: heightPx, backgroundColor: colors.primary }]}
                                 >
                                     <View style={styles.meetingBlockTitleRow}>
+                                        {!!m.overlapsWith?.length && <Ionicons name="warning" size={10} color={colors.warning} />}
                                         {m.meetingUrl && <Ionicons name="videocam" size={10} color="#fff" />}
                                         <Text style={styles.meetingTitle} numberOfLines={1}>
                                             {m.title}
