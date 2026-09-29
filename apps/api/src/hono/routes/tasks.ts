@@ -158,6 +158,8 @@ tasks.get("/", async (c) => {
     includeFacets: q.facets === "true",
     hierarchyMode: (q.hm as any) || q.hierarchyMode || undefined,
     extraFields: parseParam("extraFields", "ef"),
+    // Plain project MEMBERs see only their own tasks (PM/Coordinator/Lead still see all).
+    membersOwnOnly: q.own === "true",
   };
 
   // 🚀 Optimization: Default to NO subtasks in List/Workspace views unless specifically asked.

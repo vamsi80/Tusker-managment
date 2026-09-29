@@ -27,7 +27,8 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "solid",
         };
     }
-    if (status === "CANCELLED") {
+    // HOLD: the clock is paused, so never show it as delayed.
+    if (status === "CANCELLED" || status === "HOLD") {
         return {
             color: "text-muted-foreground",
             bgColor: "bg-muted/50",
@@ -109,6 +110,7 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
 export function getDelayText(remainingDays: number | null, status: string | null | undefined): string {
     if (status === "COMPLETED") return "Finished";
     if (status === "CANCELLED") return "Cancelled";
+    if (status === "HOLD") return "On hold";
     if (remainingDays === null) return "No deadline";
 
     if (remainingDays > 0) {

@@ -250,8 +250,9 @@ export class MeetingService {
 
     // ponytail: Role-based task visibility filter for calendar
     // - Normal members see only their assigned tasks
-    // - Project managers see their team members' tasks (managed projects & direct reports) + their own tasks
+    // - Project managers / coordinators / leads see all tasks in their projects + their own tasks
     // - Owners/Admins see all tasks across the workspace
+    // Direct reports' tasks are NOT included: a manager may not have access to those projects.
     let taskWhere: any = {
       workspaceId,
       dueDate: { not: null, ...(start && end ? { gte: start, lte: end } : {}) },
@@ -261,7 +262,10 @@ export class MeetingService {
       taskWhere.projectId = filter.projectId;
     }
 
-    if (userId) {
+    if (!userId) {
+      // No viewer, no task visibility.
+      taskWhere.id = "__none__";
+    } else {
       const workspaceMember = await prisma.workspaceMember.findFirst({
         where: { workspaceId, userId },
         select: {
@@ -275,12 +279,9 @@ export class MeetingService {
           },
           projectMembers: {
             where: {
-              projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
+              projectRole: { in: ["PROJECT_MANAGER", "PROJECT_COORDINATOR", "LEAD"] },
             },
             select: { projectId: true },
-          },
-          subordinates: {
-            select: { id: true, userId: true },
           },
         },
       });
@@ -301,14 +302,10 @@ export class MeetingService {
               ...workspaceMember.projectMembers.map((pm) => pm.projectId),
             ])
           );
-          const subordinateMemberIds = workspaceMember.subordinates.map((s) => s.id);
-          const subordinateUserIds = workspaceMember.subordinates.map((s) => s.userId);
 
           // Criteria:
           // 1. Members can view their own tasks (assigned to their project member / user ID)
-          // 2. Project managers can see their team members' tasks:
-          //    - all tasks in projects they manage (their project team's tasks)
-          //    - all tasks assigned to direct subordinate team members (reportTo)
+          // 2. PM / Coordinator / Lead can see all tasks in projects they run
           const visibilityConditions: any[] = [
             { assignee: { workspaceMember: { userId } } },
             { assigneeId: userId },
@@ -318,15 +315,6 @@ export class MeetingService {
           if (managedProjectIds.length > 0) {
             visibilityConditions.push({
               projectId: { in: managedProjectIds },
-            });
-          }
-
-          if (subordinateMemberIds.length > 0 || subordinateUserIds.length > 0) {
-            visibilityConditions.push({
-              OR: [
-                { assignee: { workspaceMemberId: { in: subordinateMemberIds } } },
-                { assignee: { workspaceMember: { userId: { in: subordinateUserIds } } } },
-              ],
             });
           }
 

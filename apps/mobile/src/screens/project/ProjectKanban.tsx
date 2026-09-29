@@ -321,7 +321,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
         const statusColor = statusThemeColor(task.status, colors);
 
         // Due-urgency: distinct hue family from status, per design tokens.
-        const isDoneOrClosed = task.status === "COMPLETED" || task.status === "CANCELLED";
+        const isDoneOrClosed = task.status === "COMPLETED" || task.status === "CANCELLED" || task.status === "HOLD";
         let urgencyColor = colors.textDim;
         let isOverdue = false;
         if (task.dueDate && !isDoneOrClosed) {

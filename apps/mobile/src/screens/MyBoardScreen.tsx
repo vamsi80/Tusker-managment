@@ -54,8 +54,8 @@ function groupTasks(tasks: Task[]): Section[] {
 // SC is replaced by getStatusHex and getStatusBgColor from taskColors utility
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString([], { month: "short", day: "numeric" }) : "—";
 
-function getUrg(due?: string) {
-    if (!due) return null;
+function getUrg(due?: string, status?: string) {
+    if (!due || status === "HOLD") return null;
     const now = new Date(); now.setHours(0, 0, 0, 0);
     const d = new Date(due); d.setHours(0, 0, 0, 0);
     const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
@@ -917,7 +917,7 @@ export default function MyBoardScreen() {
             };
 
             const renderKanbanCard = (task: Task) => {
-                const isOverdue = task.dueDate && new Date() > new Date(task.dueDate);
+                const isOverdue = task.dueDate && task.status !== "HOLD" && new Date() > new Date(task.dueDate);
                 const statusColor = getStatusHex(task.status);
                 const manager = resolveManager(task);
 
@@ -1506,7 +1506,7 @@ interface BoardCellProps {
 const BoardCell = React.memo(function BoardCell({ task, col, colors, tags }: BoardCellProps) {
     const sc = getStatusHex(task.status);
     const bg = getStatusBgColor(task.status);
-    const urg = getUrg(task.dueDate);
+    const urg = getUrg(task.dueDate, task.status);
 
     switch (col.key) {
         case "status":

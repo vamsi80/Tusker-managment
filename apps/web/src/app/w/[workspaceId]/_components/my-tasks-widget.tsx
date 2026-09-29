@@ -12,8 +12,8 @@ import { useWorkspaceLayout } from "./workspace-layout-context";
 type Range = "delayed" | "today" | "week";
 type SortDir = "asc" | "desc";
 
-/** Active task statuses to display on the dashboard (excludes completed and cancelled tasks). */
-const ACTIVE_STATUSES = ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD"];
+/** Active task statuses to display on the dashboard (excludes completed, on-hold and cancelled tasks). */
+const ACTIVE_STATUSES = ["TO_DO", "IN_PROGRESS", "REVIEW"];
 
 /** One page. Small on purpose — the rest arrives via Load more. */
 const PAGE_SIZE = 10;
@@ -31,7 +31,6 @@ const statusColorMap: Record<string, string> = {
   TO_DO: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
   IN_PROGRESS: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   REVIEW: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  HOLD: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
 };
 
 /** Local midnight, `offsetDays` from today, as the API's date bound. */
@@ -82,6 +81,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         vm: "list",
         l: String(PAGE_SIZE),
         sub: "false",
+        own: "true",
         status: JSON.stringify(ACTIVE_STATUSES),
         sorts: JSON.stringify([{ field: "dueDate", direction }]),
         ...rangeParams(range),
@@ -123,7 +123,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
       const type = typeof data?.type === "string" ? data.type : "";
       if (action.includes("TASK") || type.includes("TASK")) {
         const payload = data.newData || data.payload || data.metadata?.payload || data;
-        if (payload?.id && (payload.status === "COMPLETED" || payload.status === "CANCELLED")) {
+        if (payload?.id && payload.status && !ACTIVE_STATUSES.includes(payload.status)) {
           setTasks((prev) => (prev ? prev.filter((t) => t.id !== payload.id) : null));
         } else {
           const token = ++requestId.current;

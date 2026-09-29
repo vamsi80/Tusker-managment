@@ -427,7 +427,12 @@ export class TasksService {
       fullAccessProjectIds,
       restrictedProjectIds,
       authorizedProjectIds,
-    } = await this.resolveTaskPermissions(workspaceId, projectId, userId);
+    } = await this.resolveTaskPermissions(
+      workspaceId,
+      projectId,
+      userId,
+      opts.view_mode !== "kanban" && !opts.membersOwnOnly,
+    );
 
     if (!isWorkspaceAdmin && authorizedProjectIds.length === 0) {
       return {
@@ -632,6 +637,9 @@ export class TasksService {
     workspaceId: string,
     projectId?: string,
     userId?: string,
+    // false = a plain MEMBER sees only their own tasks (kanban, dashboard);
+    // other views keep full project visibility for members.
+    membersSeeAll = true,
   ) {
     const { fetchUserPermissions, fetchWorkspacePermissions } =
       await import("../../../permissions");
@@ -654,7 +662,7 @@ export class TasksService {
         permissions.isProjectManager ||
         permissions.isProjectCoordinator ||
         permissions.isProjectLead ||
-        permissions.isMember;
+        (membersSeeAll && permissions.isMember);
 
       return {
         permissions,
@@ -681,7 +689,7 @@ export class TasksService {
         ...(wsPerms.leadProjectIds ?? []),
         ...(wsPerms.managedProjectIds ?? []),
         ...(wsPerms.coordinatorProjectIds ?? []),
-        ...(wsPerms.memberProjectIds ?? []),
+        ...(membersSeeAll ? wsPerms.memberProjectIds ?? [] : []),
       ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(

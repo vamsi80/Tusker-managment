@@ -178,8 +178,8 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
 
     // getStatusColor removed in favor of getStatusHex from taskColors utility
 
-    const getUrgency = (dueDate?: string) => {
-        if (!dueDate) return null;
+    const getUrgency = (dueDate?: string, status?: string) => {
+        if (!dueDate || status === "HOLD") return null;
         const now = new Date();
         now.setHours(0, 0, 0, 0);
         const due = new Date(dueDate);
@@ -238,7 +238,7 @@ export default function ProjectSubTaskList({ route, navigation }: Props) {
     };
 
     const renderItem = ({ item }: { item: Task }) => {
-        const urgency = getUrgency(item.dueDate);
+        const urgency = getUrgency(item.dueDate, item.status);
 
         return (
             <TouchableOpacity

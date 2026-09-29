@@ -205,11 +205,12 @@ export const KanbanCard = React.memo(function KanbanCard({
     return false;
   };
 
-  const { remainingDays, isOverdue, dueDate } = useRemainingDays(
+  const { remainingDays, isOverdue: isPastDue, dueDate } = useRemainingDays(
     subTask.startDate,
     subTask.days,
     subTask.dueDate
   );
+  const isOverdue = isPastDue && subTask.status !== "HOLD";
 
   const delayStyles = getDelayColors(remainingDays, subTask.status);
   const delayText = getDelayText(remainingDays, subTask.status);

@@ -241,7 +241,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                             </div>
 
                             {/* Delayed By */}
-                            {isOverdue && (
+                            {isOverdue && subTask?.status !== "HOLD" && (
                                 <div className="flex items-center justify-between pt-1 border-t border-dashed border-destructive/20">
                                     <div className="flex items-center gap-2 text-destructive">
                                         <Calendar className="size-3.5" />
