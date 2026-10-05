@@ -35,6 +35,13 @@ export const auth = betterAuth({
       },
     },
   },
+  // The web app is embedded in an iframe on virtual-experience-centre.vercel.app.
+  // Lax cookies are dropped in a cross-site frame, so sign-in looped back to
+  // /sign-in. Partitioned (CHIPS) keeps them working once Chrome blocks
+  // third-party cookies — at the cost of a separate session inside the frame.
+  advanced: {
+    defaultCookieAttributes: { sameSite: "none", secure: true, partitioned: true },
+  },
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,

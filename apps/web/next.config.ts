@@ -69,6 +69,16 @@ const nextConfig: NextConfig = {
       expire: 604800,
     }
   },
+  // Only the Virtual Experience Centre may embed the app in an iframe.
+  async headers() {
+    return [{
+      source: "/:path*",
+      headers: [{
+        key: "Content-Security-Policy",
+        value: "frame-ancestors 'self' https://virtual-experience-centre.vercel.app",
+      }],
+    }];
+  },
   images: {
     remotePatterns: [{
       hostname: "lms-vamsi.t3.storage.dev",

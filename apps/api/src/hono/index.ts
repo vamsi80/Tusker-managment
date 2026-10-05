@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { csrf } from "hono/csrf";
 import { logger } from "hono/logger";
 import cron from "./routes/cron";
 import kiosk from "./routes/kiosk";
@@ -70,6 +71,15 @@ app.use(
         exposeHeaders: ["set-auth-token"],
     })
 );
+
+// Session cookies are SameSite=None (for the iframe embed), so a form POST from
+// any site would carry them in. Only cookie-bearing requests need the check:
+// Bearer clients (mobile) send no Origin/Sec-Fetch-Site and can't be forged.
+const csrfGuard = csrf({
+    origin: (origin, c) =>
+        origin === new URL(c.req.url).origin || origin === process.env.NEXT_PUBLIC_APP_URL,
+});
+app.use("*", (c, next) => (c.req.header("cookie") ? csrfGuard(c, next) : next()));
 
 /**
  * Global Error Handling
