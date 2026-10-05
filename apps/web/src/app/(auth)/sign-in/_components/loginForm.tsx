@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,7 @@ export const LoginForm = () => {
   const workspaceId = searchParams.get("workspaceId");
   const role = searchParams.get("role");
   const inviteEmail = searchParams.get("email");
+  const token = searchParams.get("token");
 
   useEffect(() => {
     if (inviteEmail) {
@@ -56,8 +57,8 @@ export const LoginForm = () => {
 
   async function signInWithGithub() {
     startGithubTransition(async () => {
-      const callbackURL = workspaceId && role
-        ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
+      const callbackURL = workspaceId && role && token
+        ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}&token=${token}`
         : "/w";
 
       await authClient.signIn.social({
@@ -77,8 +78,8 @@ export const LoginForm = () => {
 
   async function signInWithGoogle() {
     startGoogleTransition(async () => {
-      const callbackURL = workspaceId && role
-        ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
+      const callbackURL = workspaceId && role && token
+        ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}&token=${token}`
         : "/w";
 
       await authClient.signIn.social({
@@ -99,8 +100,8 @@ export const LoginForm = () => {
   async function signInWithEmail() {
     startEmailTransition(async () => {
       try {
-        const callbackURL = workspaceId && role
-          ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}`
+        const callbackURL = workspaceId && role && token
+          ? `/api/v1/workspaces/verify?workspaceId=${workspaceId}&role=${role}&token=${token}`
           : "/w";
 
         await authClient.signIn.email({

@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { HonoVariables } from "../types";
 import { CommentService } from "@tusker/core/server/services/comment/index";
 import { AppError } from "@tusker/core/lib/errors/app-error";
+import { fetchWorkspacePermissions } from "@tusker/core/permissions";
+import prisma from "@tusker/db";
 
 const comments = new Hono<{ Variables: HonoVariables }>();
 
@@ -10,9 +12,23 @@ const comments = new Hono<{ Variables: HonoVariables }>();
  * Fetch all comments for a task
  */
 comments.get("/task/:taskId", async (c) => {
+    const user = c.get("user");
     const taskId = c.req.param("taskId");
     const limit = parseInt(c.req.query("limit") || "10", 10);
     const cursor = c.req.query("cursor");
+
+    // ponytail: verify caller belongs to the task's workspace before returning discussion
+    const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { workspaceId: true },
+    });
+    if (!task) throw AppError.NotFound("Task not found");
+
+    const perms = await fetchWorkspacePermissions(task.workspaceId, user.id, true);
+    if (!perms.workspaceMemberId) {
+        throw AppError.Forbidden("You do not have access to this task");
+    }
+
     const result = await CommentService.getTaskCommentsPaginated(taskId, limit, cursor);
     return c.json({ success: true, ...result });
 });
@@ -22,9 +38,23 @@ comments.get("/task/:taskId", async (c) => {
  * Fetch all activities for a subtask
  */
 comments.get("/activities/:subTaskId", async (c) => {
+    const user = c.get("user");
     const subTaskId = c.req.param("subTaskId");
     const limit = parseInt(c.req.query("limit") || "10", 10);
     const cursor = c.req.query("cursor");
+
+    // ponytail: verify caller belongs to the subtask's workspace before returning activities
+    const subTask = await prisma.task.findUnique({
+        where: { id: subTaskId },
+        select: { workspaceId: true },
+    });
+    if (!subTask) throw AppError.NotFound("Subtask not found");
+
+    const perms = await fetchWorkspacePermissions(subTask.workspaceId, user.id, true);
+    if (!perms.workspaceMemberId) {
+        throw AppError.Forbidden("You do not have access to this subtask");
+    }
+
     const result = await CommentService.getActivitiesPaginated(subTaskId, limit, cursor);
     return c.json({ success: true, ...result });
 });

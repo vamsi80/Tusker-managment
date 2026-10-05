@@ -1847,8 +1847,34 @@ export class WorkspaceService {
 
   /**
    * Verify an invitation and add the user to the workspace
+  /**
+   * Verify an invitation and add the user to the workspace
    */
-  static async verifyInvitation(workspaceId: string, role: string, userId: string) {
+  static async verifyInvitation(workspaceId: string, role: string, userId: string, token?: string) {
+    if (!token) {
+      throw AppError.Forbidden("An invitation token is required to join this workspace");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, surname: true },
+    });
+    if (!user || !user.email) {
+      throw AppError.NotFound("User not found");
+    }
+
+    // ponytail: verify token belongs to this user's email and has not expired
+    const verification = await prisma.verification.findFirst({
+      where: {
+        identifier: user.email,
+        value: token,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (!verification) {
+      throw AppError.Forbidden("Invalid or expired invitation token");
+    }
+
     // Check if user already exists in workspace
     const existingMember = await prisma.workspaceMember.findUnique({
       where: {
@@ -1868,6 +1894,11 @@ export class WorkspaceService {
           workspaceRole: role as any,
         },
       });
+
+      // ponytail: consume one-time verification token upon use
+      await prisma.verification.delete({
+        where: { id: verification.id },
+      }).catch(() => null);
     }
 
     // Invalidate caches
@@ -1875,7 +1906,6 @@ export class WorkspaceService {
     await invalidateWorkspaceMembers(workspaceId);
 
     // Record activity and broadcast update
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, surname: true } });
     await recordActivity({
       userId,
       userName: user?.surname || user?.name || "New Member",

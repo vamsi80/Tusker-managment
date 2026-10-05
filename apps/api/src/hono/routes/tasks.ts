@@ -14,7 +14,7 @@ import {
   normalizeDetailPageSize,
   getAccessibleTask,
 } from "@tusker/core/lib/tasks/get-task-detail";
-import { fetchUserPermissions } from "@tusker/core/permissions";
+import { fetchUserPermissions, fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { CommentService } from "@tusker/core/server/services/comment/comment.service";
 import {
   canProject,
@@ -56,6 +56,12 @@ tasks.get("/slug/:slug", async (c) => {
   console.log(`[HONO_TASK_SLUG] Request: slug=${slug}, w=${workspaceId}, userId=${user.id}`);
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  // ponytail: ensure caller belongs to the requested workspace
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id, true);
+  if (!perms.workspaceMemberId) {
+    throw AppError.Forbidden("You do not have access to this workspace");
+  }
 
   const task = await TasksService.getTaskBySlugOrId(workspaceId, slug);
   console.log(`[HONO_TASK_SLUG] Result: ${task ? "FOUND " + task.id : "NOT FOUND"}`);
@@ -300,10 +306,17 @@ tasks.get("/kanban", async (c) => {
 });
 
 tasks.get("/slug/:slug/comment-context", async (c) => {
+  const user = c.get("user");
   const workspaceId = c.req.query("w");
   const slug = c.req.param("slug");
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+  // ponytail: ensure caller belongs to the requested workspace
+  const perms = await fetchWorkspacePermissions(workspaceId, user.id, true);
+  if (!perms.workspaceMemberId) {
+    throw AppError.Forbidden("You do not have access to this workspace");
+  }
 
   const context = await TasksService.getTaskCommentContext(workspaceId, slug);
   return c.json({ success: true, data: context });

@@ -3,6 +3,7 @@ import { HonoVariables } from "../types";
 import { ReportService } from "@tusker/core/server/services/report.service";
 import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { AppError } from "@tusker/core/lib/errors/app-error";
+import prisma from "@tusker/db";
 
 const reports = new Hono<{ Variables: HonoVariables }>();
 
@@ -66,11 +67,18 @@ reports.get("/:workspaceId/entries/:reportId", async (c) => {
     throw AppError.Forbidden("You are not a member of this workspace");
   }
 
-  // Optional: Add check if non-admin can see only their own report entries
-  // For now, following the original getReportEntries which checked for Admin
-  if (!isWorkspaceAdmin) {
-     // Check if the report belongs to the user
-     // We can implement this in ReportService if needed
+  // ponytail: ensure report belongs to the scoped workspace
+  const report = await prisma.dailyReport.findUnique({
+    where: { id: reportId },
+    select: { workspaceId: true, userId: true },
+  });
+  if (!report || report.workspaceId !== workspaceId) {
+    throw AppError.NotFound("Report not found in this workspace");
+  }
+
+  // Non-admins may only view their own report entries
+  if (!isWorkspaceAdmin && report.userId !== user.id) {
+    throw AppError.Forbidden("You do not have access to this report");
   }
 
   const result = await ReportService.getReportEntries(reportId);

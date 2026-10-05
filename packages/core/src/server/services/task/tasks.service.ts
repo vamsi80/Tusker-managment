@@ -1997,10 +1997,20 @@ export class TasksService {
       reviewerId: true,
       parentTaskId: true,
       updatedAt: true,
+      projectId: true,
+      workspaceId: true,
     })) as any;
 
     if (!subTask) {
       throw AppError.NotFound("Subtask not found");
+    }
+
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (subTask.workspaceId && subTask.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (subTask.projectId && subTask.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
     }
 
     // 2. Authorization Checks
@@ -2184,11 +2194,20 @@ export class TasksService {
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
+      projectId: true,
+      workspaceId: true,
       name: true,
       status: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
@@ -2413,10 +2432,18 @@ export class TasksService {
       createdById: true,
       parentTaskId: true,
       projectId: true,
+      workspaceId: true,
       position: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     const currentProjectMemberId = permissions.projectMember?.id;
     const isAuthorized =
@@ -2512,10 +2539,16 @@ export class TasksService {
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
+      projectId: true,
+      workspaceId: true,
       name: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
 
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
@@ -2867,6 +2900,8 @@ export class TasksService {
         createdById: true,
         assigneeId: true,
         parentTaskId: true,
+        projectId: true,
+        workspaceId: true,
         name: true,
         status: true,
       }) as any,
@@ -2874,6 +2909,13 @@ export class TasksService {
     ]);
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     // 2. Permission Check
     const currentProjectMemberId = permissions.projectMember?.id;
@@ -2961,6 +3003,8 @@ export class TasksService {
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
+      projectId: true,
+      workspaceId: true,
       startDate: true,
       dueDate: true,
       status: true,
@@ -2968,6 +3012,13 @@ export class TasksService {
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;

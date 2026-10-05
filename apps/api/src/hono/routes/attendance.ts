@@ -237,6 +237,12 @@ export const attendanceRouter = new Hono<{ Variables: HonoVariables }>()
         if (!workspaceId) return c.json({ success: false, error: "Workspace ID is required" }, 400);
 
         try {
+            // ponytail: require workspace admin to trigger global attendance reconciliation
+            const { isWorkspaceAdmin } = await fetchWorkspacePermissions(workspaceId, user.id);
+            if (!isWorkspaceAdmin) {
+                return c.json({ success: false, error: "Only workspace admins can reconcile attendance" }, 403);
+            }
+
             const { date } = await c.req.json().catch(() => ({ date: null }));
             const targetDate = date ? new Date(date) : new Date();
             const result = await AttendanceService.reconcileAttendance(workspaceId, targetDate);

@@ -4,11 +4,16 @@ import { CRON_JOBS } from "@tusker/core/server/crons/registry";
 
 const cron = new Hono();
 
+import crypto from "crypto";
+
 // Helper to verify CRON_SECRET
+// ponytail: fail closed in all environments to prevent unauthorized cron triggers; timingSafeEqual mitigates timing side channels
 const verifyCronSecret = (c: any) => {
     const authHeader = c.req.header("authorization");
-    if (!process.env.CRON_SECRET) return true; // Fail open if no secret set (not recommended but allows local dev)
-    return authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    if (!process.env.CRON_SECRET) return false;
+    const expected = `Bearer ${process.env.CRON_SECRET}`;
+    if (!authHeader || authHeader.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
 };
 
 /**
