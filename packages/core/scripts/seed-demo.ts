@@ -3,8 +3,8 @@
  * plus one login per workspace role, all with DEMO_PASSWORD. Re-run any time a
  * demo leaves the data messy:  pnpm db:seed-demo
  *
- * Everything lives in its own workspace and under @demo.tusker.app users, so
- * nothing here is visible from real workspaces.
+ * Everything lives in its own workspace. Logins are <role>.guest@thewhitetusker.com,
+ * filler teammates are @demo.tusker.app; nothing is visible from real workspaces.
  */
 import crypto from "crypto";
 import prisma from "@tusker/db";
@@ -12,7 +12,8 @@ import { hashPassword } from "better-auth/crypto";
 
 const SLUG = "demo-interiors";
 const DOMAIN = "demo.tusker.app";
-const DEMO_PASSWORD = "Demo@2026";
+const DEMO_PASSWORD = "Guest@123";
+const guestEmail = (key: string) => `${key}.guest@thewhitetusker.com`;
 
 const uuid = () => crypto.randomUUID();
 const DAY = 86_400_000;
@@ -43,7 +44,11 @@ async function reset() {
     await prisma.poSequence.deleteMany({ where: { workspaceId } });
     await prisma.workspace.delete({ where: { id: workspaceId } });
   }
-  await prisma.user.deleteMany({ where: { email: { endsWith: `@${DOMAIN}` } } });
+  // Exact guest emails only, never a domain match on thewhitetusker.com.
+  const guests = PEOPLE.filter((p) => p.login).map((p) => guestEmail(p.key));
+  await prisma.user.deleteMany({
+    where: { OR: [{ email: { endsWith: `@${DOMAIN}` } }, { email: { in: guests } }] },
+  });
 }
 
 // ---------------------------------------------------------------- people
@@ -85,7 +90,7 @@ async function main() {
   const users: Record<string, { id: string; email: string }> = {};
   for (const [i, p] of PEOPLE.entries()) {
     const id = uuid();
-    const email = p.login ? `${p.key}@${DOMAIN}` : `${p.name.toLowerCase()}@${DOMAIN}`;
+    const email = p.login ? guestEmail(p.key) : `${p.name.toLowerCase()}@${DOMAIN}`;
     await prisma.user.create({
       data: {
         id,
@@ -720,7 +725,7 @@ async function main() {
   console.log(`Workspace: Demo Interiors (${workspaceId})`);
   console.log(`Password for every login: ${DEMO_PASSWORD}`);
   for (const p of PEOPLE.filter((p) => p.login)) {
-    console.log(`  ${p.role.padEnd(12)} ${users[p.key].email.padEnd(28)} ${p.name} ${p.surname}`);
+    console.log(`  ${p.role.padEnd(12)} ${users[p.key].email.padEnd(38)} ${p.name} ${p.surname}`);
   }
   console.log("====================================================");
 }
