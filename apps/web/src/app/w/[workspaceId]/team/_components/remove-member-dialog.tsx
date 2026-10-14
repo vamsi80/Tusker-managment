@@ -223,12 +223,6 @@ export function RemoveMemberDialog({
             });
             if (res.status === "success") {
                 toast.success(res.message);
-                // Drop the row now; the Pusher echo is not guaranteed to reach the actor.
-                window.dispatchEvent(
-                    new CustomEvent("realtime-sync-refresh", {
-                        detail: { action: "MEMBER_REMOVED", category: "MEMBER", record: { id: member.id }, isActor: true },
-                    })
-                );
                 onDone();
             } else {
                 toast.error(res.message);
