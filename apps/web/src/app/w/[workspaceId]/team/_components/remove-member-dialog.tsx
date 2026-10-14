@@ -115,7 +115,8 @@ export function RemoveMemberDialog({
 
     const tasks = work?.tasks ?? [];
     const resolvedCount = dest.size;
-    const allResolved = tasks.length > 0 && resolvedCount === tasks.length;
+    // Vacuously true with no tasks, so a member with no pending work can be removed.
+    const allResolved = resolvedCount === tasks.length;
     const nameOf = (userId: string) =>
         candidates.find((c) => c.userId === userId)?.name ?? "Unknown";
 
