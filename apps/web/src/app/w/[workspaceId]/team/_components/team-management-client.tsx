@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { workspacesClient } from "@tusker/api-client/workspaces";
 import { AppLoader } from "@/components/shared/app-loader";
 import { TeamMembers } from "./team-members-table";
@@ -35,6 +35,8 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
     const { data: layoutData } = useWorkspaceLayout();
     const [isLoadingMembers, setIsLoadingMembers] = useState(true);
     const [members, setMembers] = useState<any[]>([]);
+    const membersRef = useRef(members);
+    membersRef.current = members;
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [totalCount, setTotalCount] = useState(0);
@@ -144,7 +146,8 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
             // 3. Handle Deletions
             if (action === "MEMBER_REMOVED") {
                 const memberId = record?.id || oldRecord?.id;
-                if (memberId) {
+                // The local dispatch and the Pusher echo both land here; count once.
+                if (memberId && membersRef.current.some(m => m.id === memberId)) {
                     setMembers(prev => prev.filter(m => m.id !== memberId));
                     setTotalCount(prev => Math.max(0, prev - 1));
                     return;
