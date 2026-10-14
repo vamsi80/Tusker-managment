@@ -194,6 +194,7 @@ export function AttendanceTable({
     const memberOptions = useMemo(() => {
         if (!slimMembers.length) return [];
         return slimMembers
+            .filter(m => m.workspaceRole !== "OWNER" && m.workspaceRole !== "ADMIN")
             .map(m => ({
                 label: `${m.surname || ""}`.trim(),
                 value: m.id

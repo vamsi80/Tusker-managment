@@ -461,8 +461,13 @@ export class AttendanceService {
 
                 const departmentWhere = buildDepartmentWhere(filters?.departmentId);
 
+                // Owners and admins don't keep attendance, so they never appear here.
+                where.WorkspaceMember = {
+                    workspaceRole: { notIn: [WorkspaceRole.OWNER, WorkspaceRole.ADMIN] },
+                };
                 if (filters?.search || departmentWhere) {
                     where.WorkspaceMember = {
+                        ...where.WorkspaceMember,
                         ...(filters?.search ? {
                             user: {
                                 OR: [
