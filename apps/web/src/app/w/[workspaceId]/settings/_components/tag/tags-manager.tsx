@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     AlertDialog,
@@ -92,7 +86,7 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
 
     return (
         <>
-            <Card className="border-0 bg-transparent shadow-none backdrop-blur-none">
+            <div className="flex flex-col gap-1 py-2">
                 <CardHeader className="px-0">
                     <div className="flex items-center justify-between">
                         <div>
@@ -159,7 +153,7 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </div>
 
             <TagDialog
                 open={dialogOpen}

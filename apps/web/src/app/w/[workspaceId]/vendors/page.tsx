@@ -7,7 +7,7 @@ import { vendorDisplayName } from "@tusker/core/lib/procurement/vendor-name";
 import { Plus, Truck, MoreVertical, Ban, CheckCircle, ExternalLink, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -287,7 +287,7 @@ export default function VendorsPage() {
         </Button>
       </div>
 
-      <Card className="border-none shadow-sm bg-transparent">
+      <div className="flex flex-col gap-1 rounded-3xl py-2 shadow-sm">
         <CardContent className="p-0">
           <DataTable
             columns={columns}
@@ -313,7 +313,7 @@ export default function VendorsPage() {
             ]}
           />
         </CardContent>
-      </Card>
+      </div>
 
       <AlertDialog
         open={Boolean(vendorToDelete)}

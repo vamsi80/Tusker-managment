@@ -2,7 +2,7 @@
 
 import { authClient } from "@/lib/auth-client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Shield, User as UserIcon, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -38,7 +38,7 @@ export default function MySpaceInfoPage() {
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-2">
-      <Card className="border-none shadow-none bg-transparent">
+      <div className="flex flex-col gap-1 py-2">
         <CardHeader className="px-0 pt-0">
           <div className="flex items-center gap-6 mb-8">
             <Avatar className="size-24 border-4 border-background shadow-xl shrink-0">
@@ -103,7 +103,7 @@ export default function MySpaceInfoPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

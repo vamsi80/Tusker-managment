@@ -120,7 +120,7 @@ export function BroadcastTicker({
   );
 
   return (
-    <div className="broadcast-ticker flex min-w-0 items-center overflow-hidden rounded-full border border-white/70 bg-card shadow-md dark:border-border">
+    <div className="broadcast-ticker glass flex min-w-0 items-center overflow-hidden rounded-full">
       <span className="flex shrink-0 items-center gap-2 self-stretch rounded-full bg-broadcast px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white">
         <Megaphone className="size-4" />
         Broadcast
