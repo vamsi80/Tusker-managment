@@ -18,7 +18,7 @@ export default function LandingScreen({ navigation }: Props) {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
             <AmbientBackground decoration />
             <View style={[styles.container, { paddingHorizontal: value(SPACING.lg * 1.2, SPACING.xl, SPACING.xxl) }]}>
 

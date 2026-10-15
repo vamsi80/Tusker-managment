@@ -1108,7 +1108,7 @@ export default function MyBoardScreen() {
 
     return (
         <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={["top"]}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.surface} />
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
             <View style={[s.appHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingHorizontal: value(SPACING.lg, SPACING.xl, SPACING.xxl) }]}>
                 <View style={{ maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

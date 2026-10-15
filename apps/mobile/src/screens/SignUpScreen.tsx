@@ -65,7 +65,7 @@ export default function SignUpScreen({ navigation }: Props) {
 
     return (
         <SafeAreaView style={styles.safe} edges={["top"]}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} translucent backgroundColor="transparent" />
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
             <AmbientBackground />
             <KeyboardAvoidingView
                 style={{ flex: 1 }}

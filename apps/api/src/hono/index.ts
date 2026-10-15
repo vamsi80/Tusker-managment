@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import cron from "./routes/cron";
 import kiosk from "./routes/kiosk";
+import attendanceIntegration from "./routes/attendance-integration";
 import { attendanceRouter } from "./routes/attendance";
 import tasks from "./routes/tasks";
 import uploads from "./routes/uploads";
@@ -141,6 +142,9 @@ app.route("/cron", cron);
 
 // Kiosk Attendance Routes (Device Secret Auth - face recognition terminal)
 app.route("/kiosk", kiosk);
+
+// Attendance Integration Routes (API-key Auth - external dashboards)
+app.route("/integrations/attendance", attendanceIntegration);
 
 // Public Auth Routes (Token verification, Invitation acceptance)
 app.route("/auth", auth);

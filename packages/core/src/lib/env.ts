@@ -46,6 +46,9 @@ export const env = createEnv({
     // Face-recognition attendance kiosk (shared device secret)
     ATTENDANCE_DEVICE_SECRET: z.string().min(1).optional(),
 
+    // Attendance summary integration API (shared bearer key)
+    ATTENDANCE_INTEGRATION_API_KEY: z.string().min(1).optional(),
+
     // GSTIN verification (server-only; https://www.gstinapi.in)
     GSTIN_API_KEY: z.string().min(1).optional(),
   },
@@ -82,6 +85,7 @@ export const env = createEnv({
     PUSHER_SECRET: process.env.PUSHER_SECRET,
     CRON_SECRET: process.env.CRON_SECRET,
     ATTENDANCE_DEVICE_SECRET: process.env.ATTENDANCE_DEVICE_SECRET,
+    ATTENDANCE_INTEGRATION_API_KEY: process.env.ATTENDANCE_INTEGRATION_API_KEY,
     GSTIN_API_KEY: process.env.GSTIN_API_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_S3_BUCKET_NAME: process.env.NEXT_PUBLIC_S3_BUCKET_NAME,
