@@ -11,15 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
-import { UserMinus, Loader2, LogIn, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { AttendanceLogger } from "./attendance-logger";
+import { UserMinus, Loader2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { TableCell } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MapPin, Clock, Filter, X, Calendar as CalendarIcon } from "lucide-react";
+import { Filter, X, Calendar as CalendarIcon } from "lucide-react";
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
+import { StatusDot, ATTENDANCE_STATUS } from "@/components/shared/status-dot";
 import { useWorkspaceMemberStore, useRealtimeMemberSync, EMPTY_ARRAY } from "@/lib/store/workspace-member-store";
 import { useTeamQueryStore } from "@/lib/store/team-query-store";
 
@@ -50,6 +49,23 @@ interface AttendanceRecord {
             email: string;
         };
     };
+}
+
+/** A check-in/out location as amber text linking to the map; noted check-ins read as "Other Location". */
+function LocationLink({ lat, lng, address, otherLocation }: { lat: number | null; lng: number | null; address: string | null; otherLocation: boolean }) {
+    if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
+    return (
+        <a
+            href={`https://www.google.com/maps?q=${lat},${lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className={cn("block max-w-[160px] truncate text-sm hover:underline", otherLocation ? "text-destructive" : "text-primary")}
+            title={address || `Raw coordinates: ${lat}, ${lng}`}
+        >
+            {otherLocation ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
+        </a>
+    );
 }
 
 export function AttendanceTable({
@@ -312,224 +328,94 @@ export function AttendanceTable({
             },
         },
         {
-            accessorKey: "date",
-            header: "Date",
-            meta: { className: "min-w-[120px]" },
+            id: "checkInOut",
+            header: "Check In & Out",
+            meta: { className: "min-w-[260px]" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
-                try {
-                    // A calendar day, not an instant — render it from its UTC parts.
-                    const d = toDateOnly(row.original.date);
-                    if (!d || !isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
-                    return (
-                        <div className="text-sm text-foreground/80">
-                            {formatDateOnly(d, APP_DATE_FORMAT)}
-                        </div>
-                    );
-                } catch (e) {
-                    return <span className="text-xs text-rose-500 italic">Error</span>;
-                }
+                const dIn = row.original.checkIn ? new Date(row.original.checkIn) : null;
+                const dOut = row.original.checkOut ? new Date(row.original.checkOut) : null;
+                if (!dIn || !isValidDate(dIn)) return <div className="text-xs text-muted-foreground italic">—</div>;
+                const hasOut = !!dOut && isValidDate(dOut);
+                const diffMs = hasOut ? dOut!.getTime() - dIn.getTime() : NaN;
+                const duration = diffMs >= 0
+                    ? `${String(Math.floor(diffMs / 3_600_000)).padStart(2, "0")}h:${String(Math.floor((diffMs % 3_600_000) / 60_000)).padStart(2, "0")}m`
+                    : "--h:--m";
+                const isNextDay = hasOut && (dOut!.getDate() !== dIn.getDate() || dOut!.getMonth() !== dIn.getMonth());
+
+                return (
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="font-medium text-success">{format(dIn, "hh:mm a")}</span>
+                        <span className="flex items-center text-muted-foreground">
+                            <span className="size-2 rounded-full bg-muted-foreground/70" />
+                            <span className="h-px w-3 bg-muted-foreground/70" />
+                            <span className="px-1.5">{duration}</span>
+                            <span className="h-px w-3 bg-muted-foreground/70" />
+                            <span className="size-2 rounded-full bg-muted-foreground/70" />
+                        </span>
+                        {hasOut ? (
+                            <span className="font-medium text-destructive">{format(dOut!, "hh:mm a")}</span>
+                        ) : (
+                            <span className="text-muted-foreground">—</span>
+                        )}
+                        {isNextDay && (
+                            <Badge variant="warning" className="px-1 py-0 text-[9px]">+1 DAY</Badge>
+                        )}
+                    </div>
+                );
             },
         },
         {
-            accessorKey: "checkIn",
-            header: "Check-In",
-            meta: { className: "min-w-[110px]" },
+            accessorKey: "date",
+            header: "Date",
+            meta: { className: "min-w-[100px]" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
-                const checkIn = row.original.checkIn;
-                if (!checkIn) return <div className="text-xs text-muted-foreground italic">—</div>;
-                try {
-                    const d = new Date(checkIn);
-                    if (!isValidDate(d)) return <div className="text-xs text-muted-foreground italic">—</div>;
-                    return (
-                        <div className="flex flex-col items-start">
-                            <div className="flex items-center gap-1.5 text-sm text-emerald-600">
-                                <Clock className="size-3.5" />
-                                {format(d, "hh:mm a")}
-                            </div>
-                        </div>
-                    );
-                } catch (e) {
-                    return <div className="text-xs text-muted-foreground italic">—</div>;
-                }
+                // A calendar day, not an instant — render it from its UTC parts.
+                const d = toDateOnly(row.original.date);
+                if (!d || !isValidDate(d)) return <span className="text-xs text-muted-foreground italic">Invalid Date</span>;
+                return <div className="text-sm text-foreground/80">{formatDateOnly(d, APP_DATE_FORMAT)}</div>;
             },
         },
         {
             id: "inLocation",
-            header: "In-Location",
-            meta: { className: "min-w-[150px]" },
-            cell: ({ row }) => {
-                const lat = row.original.checkInLatitude;
-                const lng = row.original.checkInLongitude;
-                const address = row.original.checkInAddress;
-                const hasNote = !!row.original.notes;
-
-                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
-                return (
-                    <div className="flex justify-start">
-                        <a
-                            href={`https://www.google.com/maps?q=${lat},${lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group",
-                                hasNote ? "text-rose-600 font-medium" : "text-primary/70 hover:text-primary"
-                            )}
-                            title={address || `Raw coordinates: ${lat}, ${lng}`}
-                        >
-                            <MapPin className={cn("size-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
-                            <span className="truncate uppercase tracking-tighter max-w-[120px]">
-                                {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
-                            </span>
-                        </a>
-                    </div>
-                );
-            },
-        },
-        {
-            accessorKey: "checkOut",
-            header: "Check-Out",
-            meta: { className: "min-w-[110px]" },
-            cell: ({ row }) => {
-                if (!mounted) return "...";
-                const checkIn = row.original.checkIn;
-                const checkOut = row.original.checkOut;
-                if (!checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
-
-                try {
-                    const dIn = checkIn ? new Date(checkIn) : null;
-                    const dOut = new Date(checkOut);
-                    if (!isValidDate(dOut)) return <div className="text-xs text-muted-foreground italic">—</div>;
-
-                    const isNextDay = (dIn && isValidDate(dIn) &&
-                        (dOut.getDate() !== dIn.getDate() || dOut.getMonth() !== dIn.getMonth())) ||
-                        row.original.notes?.includes("test-night");
-
-                    return (
-                        <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-1.5 text-sm text-rose-600">
-                                <Clock className="size-3.5" />
-                                {format(dOut, "hh:mm a")}
-                                {isNextDay && (
-                                    <Badge variant="outline" className="px-1 py-0 h-4 text-[9px] font-medium border-amber-200 bg-amber-50 text-amber-600">
-                                        +1 DAY
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-                    );
-                } catch (e) {
-                    return <div className="text-xs text-muted-foreground italic">—</div>;
-                }
-            },
+            header: "Location-In",
+            meta: { className: "min-w-[140px]" },
+            cell: ({ row }) => (
+                <LocationLink
+                    lat={row.original.checkInLatitude}
+                    lng={row.original.checkInLongitude}
+                    address={row.original.checkInAddress}
+                    otherLocation={!!row.original.notes}
+                />
+            ),
         },
         {
             id: "outLocation",
-            header: "Out-Location",
-            meta: { className: "min-w-[150px]" },
-            cell: ({ row }) => {
-                const lat = row.original.checkOutLatitude;
-                const lng = row.original.checkOutLongitude;
-                const address = row.original.checkOutAddress;
-                const hasNote = !!row.original.notes;
-
-                if (!lat || !lng) return <div className="text-xs text-muted-foreground italic">—</div>;
-                return (
-                    <div className="flex justify-start">
-                        <a
-                            href={`https://www.google.com/maps?q=${lat},${lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                                "flex items-center gap-1.5 text-[10px] hover:underline transition-all group",
-                                hasNote ? "text-rose-600 font-medium" : "text-primary/70 hover:text-primary"
-                            )}
-                            title={address || `Raw coordinates: ${lat}, ${lng}`}
-                        >
-                            <MapPin className={cn("size-3 shrink-0 group-hover:scale-110 transition-transform", hasNote ? "text-rose-600" : "text-rose-500")} />
-                            <span className="truncate uppercase tracking-tighter max-w-[120px]">
-                                {hasNote ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
-                            </span>
-                        </a>
-                    </div>
-                );
-            },
-        },
-        {
-            id: "duration",
-            header: "Duration",
-            meta: { className: "min-w-[100px]" },
-            cell: ({ row }) => {
-                if (!mounted) return "...";
-                const checkIn = row.original.checkIn;
-                const checkOut = row.original.checkOut;
-
-                if (!checkIn || !checkOut) return <div className="text-xs text-muted-foreground italic">—</div>;
-
-                try {
-                    const start = new Date(checkIn);
-                    const end = new Date(checkOut);
-
-                    if (!isValidDate(start) || !isValidDate(end)) return <div className="text-xs text-muted-foreground italic">—</div>;
-
-                    const diffMs = end.getTime() - start.getTime();
-                    if (isNaN(diffMs) || diffMs < 0) return <div className="text-xs text-muted-foreground italic">—</div>;
-
-                    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-                    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-                    return (
-                        <div className="flex items-center gap-1.5 font-medium text-sm text-primary/80">
-                            <Clock className="size-3.5" />
-                            {diffHrs}h {diffMins}m
-                        </div>
-                    );
-                } catch (e) {
-                    return <div className="text-xs text-muted-foreground italic">—</div>;
-                }
-            }
+            header: "Location-Out",
+            meta: { className: "min-w-[140px]" },
+            cell: ({ row }) => (
+                <LocationLink
+                    lat={row.original.checkOutLatitude}
+                    lng={row.original.checkOutLongitude}
+                    address={row.original.checkOutAddress}
+                    otherLocation={!!row.original.notes}
+                />
+            ),
         },
         {
             accessorKey: "status",
             header: "Status",
-            meta: { className: "min-w-[120px]" },
+            meta: { className: "min-w-[110px]" },
             cell: ({ row }) => {
-                const status = row.original.status;
                 const isSunday = new Date(row.original.date).getDay() === 0;
-                let content;
-                
-                if (status === "ABSENT" && isSunday) {
-                    content = <Badge variant="outline" className="font-medium bg-muted text-muted-foreground border-dashed">Sunday</Badge>;
-                } else {
-                    switch (status) {
-                        case "PRESENT":
-                            content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 font-medium">Present</Badge>;
-                            break;
-                        case "ABSENT":
-                            content = <Badge variant="destructive" className="font-medium">Absent</Badge>;
-                            break;
-                        case "LATE":
-                            content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">Late</Badge>;
-                            break;
-                        case "HALF_DAY":
-                            content = <Badge className="bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-500/20 font-medium">Half Day</Badge>;
-                            break;
-                        case "ON_LEAVE":
-                            content = <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 font-medium">On Leave</Badge>;
-                            break;
-                        default:
-                            content = <Badge variant="outline" className="font-medium">{status}</Badge>;
-                    }
-                }
+                const s = row.original.status === "ABSENT" && isSunday
+                    ? { tone: "muted" as const, label: "Sunday" }
+                    : ATTENDANCE_STATUS[row.original.status] ?? { tone: "muted" as const, label: row.original.status };
                 return (
-                    <div className="flex justify-start items-center gap-2">
-                        {content}
-                        {row.original.isOvertime && (
-                            <Badge className="bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border-purple-500/20 px-1.5 py-0 text-[10px] font-medium">
-                                OT
-                            </Badge>
-                        )}
+                    <div className="flex items-center gap-2">
+                        <StatusDot tone={s.tone} label={s.label} />
+                        {row.original.isOvertime && <Badge variant="leave" className="px-1.5 py-0 text-[10px]">OT</Badge>}
                     </div>
                 );
             },
@@ -673,21 +559,6 @@ export function AttendanceTable({
 
     const extraToolbarContent = (
         <div className="flex items-center gap-2">
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button
-                        size="sm"
-                        className="h-9 px-3 gap-2 bg-primary hover:bg-primary/90 shadow-sm transition-all active:scale-95"
-                    >
-                        <LogIn className="size-4" />
-                        <span className="font-medium text-sm hidden sm:inline">Mark Attendance</span>
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
-                    <DialogTitle className="sr-only">Mark Attendance</DialogTitle>
-                    <AttendanceLogger workspaceId={workspaceId} />
-                </DialogContent>
-            </Dialog>
 
             {isPowerUser && (
                 <Button
@@ -966,141 +837,92 @@ export function AttendanceTable({
 
     if (!mounted) return null;
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div className="lg:col-span-10 space-y-6">
-                <DataTable
-                    columns={columns}
-                    data={records}
-                    isLoading={loading}
-                    searchKey="memberId"
-                    searchPlaceholder="Search members..."
-                    extraToolbarContent={extraToolbarContent}
-                    pageIndex={pageIndex}
-                    pageSize={pageSize}
-                    rowCount={totalCount}
-                    manualPagination={true}
-                    manualFiltering={true}
-                    containerClassName="max-h-[calc(100vh-300px)]"
-                    isCustomRow={(row: any) => row.status === "ABSENT" && new Date(row.date).getDay() === 0}
-                    renderCustomRow={(row: any, columnsLength) => {
-                        const user = row.WorkspaceMember?.user;
-                        const initials = user?.surname?.[0]?.toUpperCase() || "?";
-                        
-                        return (
-                            <TableCell colSpan={columnsLength} className="p-0 border-y border-dashed bg-muted/10 relative h-[50px]">
-                                <div className="absolute inset-0 flex items-center justify-between px-4 w-full">
-                                    <div className="flex items-center gap-3 opacity-60">
-                                        <Avatar className="size-8">
-                                            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="font-medium text-sm text-foreground">{user?.surname || "Unknown Member"}</span>
-                                    </div>
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                        <span className="font-semibold tracking-[0.3em] uppercase text-xs text-muted-foreground/50">Sunday</span>
-                                    </div>
-                                </div>
-                            </TableCell>
-                        );
-                    }}
-                    onPaginationChange={(p) => {
-                        setPageIndex(p.pageIndex);
-                        setPageSize(p.pageSize);
-                    }}
-                    onFilterChange={(filters) => {
-                        const searchFilter = filters.find(f => f.id === "memberId");
-                        const searchValue = searchFilter?.value as string || "";
-                        setSearch(searchValue);
-                    }}
-                />
+    const statChips: { label: string; value: number; variant: "muted" | "success" | "warning" | "half-day" | "leave" | "danger" }[] = [
+        { label: "Total", value: stats.total, variant: "muted" },
+        { label: "On Time", value: stats.present, variant: "success" },
+        { label: "Late", value: stats.late, variant: "warning" },
+        { label: "Half Day", value: stats.halfDay, variant: "half-day" },
+        { label: "Leave", value: stats.leave, variant: "leave" },
+        { label: "Absent", value: stats.absent, variant: "danger" },
+    ];
+
+    const monthSummary = (
+        <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+                <Button variant="outline" size="icon-sm" className="shadow-sm" onClick={() => handleMonthChange('prev')}>
+                    <ChevronLeft className="size-4" />
+                </Button>
+                <span className="font-heading text-xl font-bold tracking-tight min-w-[170px] text-center">
+                    {format(selectedDate, "MMMM yyyy")}
+                </span>
+                <Button variant="outline" size="icon-sm" className="shadow-sm" onClick={() => handleMonthChange('next')}>
+                    <ChevronRight className="size-4" />
+                </Button>
             </div>
-
-            <div className="lg:col-span-2 sticky top-6">
-                <div className="space-y-6">
-                    {/* Month Navigator - Clean Full Width Style */}
-                    <div className="flex items-center justify-between px-1">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
-                            onClick={() => handleMonthChange('prev')}
-                        >
-                            <ChevronLeft className="size-4" />
-                        </Button>
-                        <div className="flex flex-col items-center">
-                            <span className="text-sm font-medium text-foreground tracking-tight">
-                                {format(selectedDate, "MMMM yyyy")}
-                            </span>
-                        </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 rounded-full hover:bg-primary/10 hover:text-primary transition-all active:scale-90"
-                            onClick={() => handleMonthChange('next')}
-                        >
-                            <ChevronRight className="size-4" />
-                        </Button>
-                    </div>
-
-                    {/* Main Stats Card */}
-                    <div className="p-4 rounded-xl border bg-card/30 backdrop-blur-md border-muted-foreground/20 relative overflow-hidden group shadow-sm">
-                        <h3 className="text-sm font-medium uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
-                            <CalendarDays className="size-4 text-primary" />
-                            Summary
-                        </h3>
-
-                        <div>
-                            <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-medium text-muted-foreground">Total:</span>
-                                <span className="text-lg font-normal tabular-nums">{stats.total}</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-medium text-emerald-600/70">On Time:</span>
-                                <span className="text-lg font-normal tabular-nums text-emerald-600">{stats.present}</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-medium text-amber-600/70">Late:</span>
-                                <span className="text-lg font-normal tabular-nums text-amber-600">{stats.late}</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-medium text-orange-600/70">Half Day:</span>
-                                <span className="text-lg font-normal tabular-nums text-orange-600">{stats.halfDay}</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-medium text-purple-600/70">Leave:</span>
-                                <span className="text-lg font-normal tabular-nums text-purple-600">{stats.leave}</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-lg">
-                                <span className="text-sm font-medium text-rose-600/70">Absent:</span>
-                                <span className="text-lg font-normal tabular-nums text-rose-600">{stats.absent}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Member Specific Balances */}
-                    {selectedMember && (
-                        <div className="p-4 rounded-lg border bg-card/30 backdrop-blur-md border-muted-foreground/20">
-                            <h3 className="text-sm font-normal uppercase tracking-widest text-muted-foreground/80 mb-4 flex items-center gap-2">
-                                Leave Balances
-                            </h3>
-                            <div className="space-y-0">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-[13px] font-medium uppercase tracking-tighter text-purple-600/70 mb-1">Casual Leave</div>
-                                    <div className="text-lg font-normal text-purple-600">
-                                        {Math.max(0, selectedMember.casualLeaveBalance || 0)}
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="text-[13px] font-medium uppercase tracking-tighter text-blue-600/70 mb-1">Sick Leave</div>
-                                    <div className="text-lg font-normal text-blue-600">
-                                        {Math.max(0, selectedMember.sickLeaveBalance || 0)}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+            <div className="flex flex-wrap items-center gap-2">
+                {statChips.map((c) => (
+                    <Badge key={c.label} variant={c.variant} className="gap-1.5 px-3 py-1">
+                        <span className="size-1.5 rounded-full bg-current" />
+                        {c.label} : {String(c.value).padStart(2, "0")}
+                    </Badge>
+                ))}
+                {/* A single member in the filter also shows their remaining leave. */}
+                {selectedMember && (
+                    <>
+                        <Badge variant="leave" className="px-3 py-1">Casual left : {Math.max(0, selectedMember.casualLeaveBalance || 0)}</Badge>
+                        <Badge variant="info" className="px-3 py-1">Sick left : {Math.max(0, selectedMember.sickLeaveBalance || 0)}</Badge>
+                    </>
+                )}
             </div>
         </div>
+    );
+
+    return (
+        <DataTable
+            columns={columns}
+            data={records}
+            isLoading={loading}
+            searchKey="memberId"
+            searchPlaceholder="Search members..."
+            toolbarLeading={monthSummary}
+            extraToolbarContent={extraToolbarContent}
+            initialColumnVisibility={{ checkInNotes: false, checkOutNotes: false }}
+            pageIndex={pageIndex}
+            pageSize={pageSize}
+            rowCount={totalCount}
+            manualPagination={true}
+            manualFiltering={true}
+            containerClassName="max-h-[calc(100vh-340px)]"
+            isCustomRow={(row: any) => row.status === "ABSENT" && new Date(row.date).getDay() === 0}
+            renderCustomRow={(row: any, columnsLength) => {
+                const user = row.WorkspaceMember?.user;
+                const initials = user?.surname?.[0]?.toUpperCase() || "?";
+
+                return (
+                    <TableCell colSpan={columnsLength} className="p-0 bg-muted/40 relative h-[56px]">
+                        <div className="absolute inset-0 flex items-center justify-between px-4 w-full">
+                            <div className="flex items-center gap-3 opacity-60">
+                                <Avatar className="size-8">
+                                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium text-sm text-foreground">{user?.surname || "Unknown Member"}</span>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="font-semibold tracking-[0.3em] uppercase text-xs text-muted-foreground/50">Sunday</span>
+                            </div>
+                        </div>
+                    </TableCell>
+                );
+            }}
+            onPaginationChange={(p) => {
+                setPageIndex(p.pageIndex);
+                setPageSize(p.pageSize);
+            }}
+            onFilterChange={(filters) => {
+                const searchFilter = filters.find(f => f.id === "memberId");
+                const searchValue = searchFilter?.value as string || "";
+                setSearch(searchValue);
+            }}
+        />
     );
 }

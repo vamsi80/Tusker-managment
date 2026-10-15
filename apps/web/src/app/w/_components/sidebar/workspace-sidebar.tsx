@@ -12,14 +12,14 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar";
 import { NavUser } from "./footer/nav-user";
 import { NavProjects } from "./projectsList/nav-projects";
 import { NavWorkspacesSelector } from "./header/nav-workspaces-selector";
-import { NavFooter } from "./footer/nav-footer";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { LayoutDashboard, Users, CheckSquare, Truck, Calendar, MessageSquare } from "lucide-react";
+import { LayoutGrid, Users, FileCheck2, Truck, CalendarDays, MessagesSquare, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
@@ -39,36 +39,28 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const capabilities = permissions?.capabilities;
 
   const mainNavItems = [
-    { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutDashboard },
-    { id: "calendar", title: "Calendar", url: `/w/${workspaceId}/calendar`, icon: Calendar },
+    { id: "dashboard", title: "Dashboard", url: `/w/${workspaceId}`, icon: LayoutGrid },
+    { id: "calendar", title: "Calendar", url: `/w/${workspaceId}/calendar`, icon: CalendarDays },
     { id: "team", title: "Team", url: `/w/${workspaceId}/team`, icon: Users },
-    { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: CheckSquare },
-    { id: "chat", title: "Chat", url: `/w/${workspaceId}/myspace/conversations`, icon: MessageSquare },
+    { id: "tasks", title: "Tasks", url: `/w/${workspaceId}/tasks`, icon: FileCheck2 },
+    { id: "chat", title: "Messages", url: `/w/${workspaceId}/myspace/conversations`, icon: MessagesSquare },
     { id: "procurement", title: "Procurement", url: `/w/${workspaceId}/procurement`, icon: Truck, capability: "procurement:view" as const },
     { id: "vendors", title: "Suppliers / Contractors", url: `/w/${workspaceId}/vendors`, icon: Users, capability: "vendors:view" as const },
+    { id: "settings", title: "Settings", url: `/w/${workspaceId}/settings`, icon: Settings },
   ].filter((item) => !item.capability || can(capabilities, item.capability));
 
-  const footerNavItems: Array<{
-    title: string;
-    url: string;
-    icon: "Settings" | "BarChart3" | "LayoutDashboard";
-  }> = [
-      { title: "Settings", url: `/w/${workspaceId}/settings`, icon: "Settings" },
-    ];
-
   return (
-    <Sidebar collapsible="icon" {...props} className="border-r bg-sidebar border-border/50">
-      <SidebarHeader className="min-h-(--header-height) h-auto justify-center py-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <NavWorkspacesSelector data={workspaces as any} workspaceId={workspaceId} />
-          </SidebarMenuItem>
-        </SidebarMenu>
+    <Sidebar collapsible="icon" {...props} className="border-none">
+      <SidebarHeader className="min-h-(--header-height) h-auto flex-row items-center py-4">
+        <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+          <NavWorkspacesSelector data={workspaces as any} workspaceId={workspaceId} />
+        </div>
+        <SidebarTrigger className="text-muted-foreground" />
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+        <SidebarGroup className="border-b border-border/70 pb-4">
+          <SidebarGroupLabel className="px-2 text-sm font-normal text-muted-foreground">
             Workspace
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -113,7 +105,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
-        <NavFooter items={footerNavItems} />
         <NavUser workspaceId={workspaceId} />
       </SidebarFooter>
     </Sidebar>

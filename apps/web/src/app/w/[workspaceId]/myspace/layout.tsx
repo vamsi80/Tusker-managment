@@ -13,11 +13,11 @@ export default function MySpaceLayout({ children, params }: LayoutProps) {
   const { workspaceId } = use(params);
 
   return (
-    <div className="flex flex-col h-full bg-background animate-in fade-in duration-500">
+    <div className="flex flex-col h-full animate-in fade-in duration-500">
       <MySpaceNav workspaceId={workspaceId} />
 
       {/* Content Area */}
-      <div className="flex-1 w-full overflow-hidden">
+      <div className="flex-1 w-full overflow-hidden surface">
         {children}
       </div>
     </div>

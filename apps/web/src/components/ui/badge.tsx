@@ -17,6 +17,14 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        // Tinted status pills from the design: soft fill, matching border and text.
+        success: "border-success/30 bg-success/10 text-success",
+        warning: "border-warning/30 bg-warning/10 text-warning",
+        danger: "border-destructive/30 bg-destructive/10 text-destructive",
+        info: "border-info/30 bg-info/10 text-info",
+        leave: "border-leave/30 bg-leave/10 text-leave",
+        "half-day": "border-half-day/30 bg-half-day/10 text-half-day",
+        muted: "border-border bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {

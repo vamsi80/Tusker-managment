@@ -1,6 +1,5 @@
 "use client";
 
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ThemeToggle from "../../../../../components/ui/theme-toggle";
 import { NotificationCenterWrapper as NotificationCenter } from "./notification-center-wrapper";
@@ -57,21 +56,18 @@ export function SiteHeader() {
   });
 
   return (
-    <header className="sticky top-0 z-[40] flex min-h-(--header-height) h-auto w-full shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
-      <div className="flex w-full items-center gap-2 px-4">
+    <header className="sticky top-0 z-[40] flex min-h-(--header-height) h-auto w-full shrink-0 items-center border-b border-white/60 bg-background/60 backdrop-blur-md dark:border-border/50 py-4">
+      <div className="flex w-full items-center gap-2 px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-                orientation="vertical"
-                className="mr-2 h-4"
-            />
+            {/* On desktop the collapse button lives in the sidebar header. */}
+            <SidebarTrigger className="-ml-1 md:hidden" />
             <Breadcrumb className="hidden md:block">
-                <BreadcrumbList>
+                <BreadcrumbList className="text-base">
                     {breadcrumbs.map((crumb, i) => (
                         <React.Fragment key={crumb.url}>
                             <BreadcrumbItem>
                                 {crumb.isLast ? (
-                                    <BreadcrumbPage className="font-semibold text-foreground">
+                                    <BreadcrumbPage className="font-medium text-foreground">
                                         {crumb.label}
                                     </BreadcrumbPage>
                                 ) : (

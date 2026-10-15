@@ -181,9 +181,9 @@ export function CalendarMonthView() {
   }, [filteredMeetings, taskDeadlines, publicHolidays, leaves, activeLayers]);
 
   return (
-    <div className="flex h-full flex-col border rounded-2xl bg-card overflow-hidden shadow-xs">
+    <div className="flex h-full flex-col gap-3 overflow-hidden">
       {/* Day of week headers */}
-      <div className="grid grid-cols-7 border-b bg-muted/30 text-xs font-semibold text-muted-foreground text-center py-2.5">
+      <div className="grid grid-cols-7 rounded-full bg-accent text-xs font-semibold text-foreground/80 text-center py-2.5">
         {DAYS_OF_WEEK.map((d) => (
           <div key={d} className="tracking-wider uppercase text-[11px]">
             {d}
@@ -192,7 +192,7 @@ export function CalendarMonthView() {
       </div>
 
       {/* Days grid */}
-      <div className="grid flex-1 min-h-0 grid-cols-7 auto-rows-fr divide-x divide-y border-b border-r overflow-y-auto">
+      <div className="grid flex-1 min-h-0 grid-cols-7 auto-rows-fr gap-2 overflow-y-auto">
         {days.map((dayItem, idx) => {
           const entry = itemsByDate.get(dayItem.dateKey);
           const dayMeetings = entry?.meetings || [];
@@ -210,10 +210,12 @@ export function CalendarMonthView() {
           return (
             <div
               key={idx}
-              className={`min-h-[105px] p-2 flex flex-col group relative transition-colors ${
-                dayItem.isCurrentMonth
-                  ? "bg-card hover:bg-muted/15"
-                  : "bg-muted/10 text-muted-foreground/50 hover:bg-muted/20"
+              className={`min-h-[105px] p-2 flex flex-col group relative rounded-xl transition-colors ${
+                dayItem.isToday
+                  ? "bg-accent ring-2 ring-primary"
+                  : dayItem.isCurrentMonth
+                  ? "bg-white shadow-xs hover:bg-white/70 dark:bg-card"
+                  : "bg-muted text-muted-foreground/50"
               }`}
             >
               {/* Day header */}

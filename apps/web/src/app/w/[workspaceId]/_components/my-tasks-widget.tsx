@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, CheckSquare, Loader2 } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, FileCheck2, Loader2 } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toDateOnlyString } from "@tusker/core/lib/date-utils";
@@ -156,32 +157,28 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         : "No tasks due in the next 7 days";
 
   return (
-    <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {isOwner ? "All Tasks" : "My Tasks"}
-          </h3>
-          <span className="text-xs text-muted-foreground">
-            {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due in next 7 days"}
-          </span>
-        </div>
-        <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
-          <CheckSquare className="size-4.5" />
-        </div>
+    <div className="flex flex-col p-6 rounded-3xl border border-white/70 bg-card text-card-foreground shadow-md backdrop-blur-xl h-full dark:border-border">
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <h3 className="flex items-center gap-2.5 text-base font-bold uppercase tracking-wide">
+          <FileCheck2 className="size-5" />
+          {isOwner ? "All Tasks" : "My Tasks"}
+        </h3>
+        <span className="text-sm text-muted-foreground text-right">
+          {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due in next 7 days"}
+        </span>
       </div>
 
       <div className="flex items-center gap-2 mb-4">
-        <div className="flex items-center p-1 rounded-xl bg-muted border text-xs w-fit">
+        <div className="flex flex-1 items-center p-1 rounded-full bg-muted text-sm">
           {(["delayed", "today", "week"] as Range[]).map((r) => (
             <button
               key={r}
               type="button"
               onClick={() => setRange(r)}
               className={cn(
-                "px-3 py-1 rounded-lg font-semibold transition-all",
+                "flex-1 px-3 py-2 rounded-full whitespace-nowrap transition-all",
                 range === r
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -197,7 +194,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
             type="button"
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
             title={sortDir === "asc" ? "Oldest overdue first" : "Most recently overdue first"}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-xl border bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 px-2.5 py-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             {sortDir === "asc" ? (
               <ArrowUpNarrowWide className="size-3.5" />
@@ -217,7 +214,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
             ))}
           </div>
         ) : tasks.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">{emptyText}</p>
+          <EmptyState icon={FileCheck2} title={emptyText} description="You're all caught up!" />
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => {

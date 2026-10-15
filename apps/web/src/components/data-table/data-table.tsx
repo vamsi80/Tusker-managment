@@ -52,6 +52,10 @@ interface DataTableProps<TData, TValue> {
     enableRowSelection?: (row: any) => boolean;
     getRowClassName?: (row: any) => string;
     extraToolbarContent?: React.ReactNode;
+    /** Rendered at the start of the toolbar, before search (e.g. a month switcher). */
+    toolbarLeading?: React.ReactNode;
+    /** Columns hidden until the user turns them on from the Columns menu. */
+    initialColumnVisibility?: VisibilityState;
     onFilterChange?: (filters: ColumnFiltersState) => void;
     onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
     manualFiltering?: boolean;
@@ -85,6 +89,8 @@ export function DataTable<TData, TValue>({
     enableRowSelection,
     getRowClassName,
     extraToolbarContent,
+    toolbarLeading,
+    initialColumnVisibility,
     onFilterChange,
     onPaginationChange,
     containerClassName,
@@ -94,7 +100,7 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility ?? {});
     const [internalRowSelection, setInternalRowSelection] = React.useState({});
     const [globalFilter, setGlobalFilter] = React.useState("");
     /**
@@ -177,8 +183,9 @@ export function DataTable<TData, TValue>({
     return (
         <div className="space-y-4">
             {/* Toolbar */}
-            {(searchKey || enableGlobalFilter || (filterFields && filterFields.length > 0) || extraToolbarContent || showColumnToggle) && (
+            {(searchKey || enableGlobalFilter || (filterFields && filterFields.length > 0) || extraToolbarContent || toolbarLeading || showColumnToggle) && (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                    {toolbarLeading && <div className="sm:mr-auto">{toolbarLeading}</div>}
                     {/* Search */}
                     {searchKey && (
                         <div className="flex items-center flex-1 max-w-sm w-full">
@@ -200,7 +207,7 @@ export function DataTable<TData, TValue>({
                                         if (manualFiltering && searchDraft !== committedSearch) commitSearch(searchDraft);
                                     }}
                                     className={cn(
-                                        "pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20",
+                                        "pl-9 w-full h-9 rounded-full bg-white/90 shadow-xs dark:bg-input/30",
                                         searchValue ? (searchDraft !== committedSearch ? "pr-16" : "pr-8") : ""
                                     )}
                                 />
@@ -224,7 +231,7 @@ export function DataTable<TData, TValue>({
                                     value={globalFilter ?? ""}
                                     onChange={(event) => setGlobalFilter(event.target.value)}
                                     className={cn(
-                                        "pl-9 w-full h-9 bg-background/50 border-muted-foreground/20 focus:ring-primary/20",
+                                        "pl-9 w-full h-9 rounded-full bg-white/90 shadow-xs dark:bg-input/30",
                                         globalFilter ? "pr-8" : ""
                                     )}
                                 />
@@ -238,7 +245,7 @@ export function DataTable<TData, TValue>({
                         {filterDisplay === "menu" && mounted ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 border-dashed">
+                                    <Button variant="outline" size="sm" className="h-9">
                                         <Filter className="mr-2 size-4" />
                                         Filters
                                     </Button>
@@ -425,9 +432,9 @@ export function DataTable<TData, TValue>({
 
 
             {/* Table */}
-            <div className={cn("rounded-md border overflow-hidden", containerClassName)}>
+            <div className={cn("overflow-hidden", containerClassName)}>
                 <Table containerClassName="max-h-[inherit] overflow-auto">
-                    <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
+                    <TableHeader className="sticky top-0 z-10 bg-surface-solid">
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => {
@@ -435,7 +442,7 @@ export function DataTable<TData, TValue>({
                                             <TableHead
                                                 key={header.id}
                                                 className={cn(
-                                                    "text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80 py-3 h-auto",
+                                                    "text-sm text-muted-foreground py-2 h-auto",
                                                     (header.column.columnDef.meta as { className?: string })?.className
                                                 )}
                                             >
@@ -516,7 +523,7 @@ export function DataTable<TData, TValue>({
                                     onClick={onAdd}
                                 >
                                     <TableCell colSpan={columns.length} className="p-2">
-                                        <div className="flex items-center justify-center gap-2 h-9 text-primary font-medium transition-colors border-dashed border border-primary/50 bg-primary/5 rounded-md hover:bg-primary/10">
+                                        <div className="flex items-center justify-center gap-2 h-9 text-primary font-medium transition-colors border-dashed border border-primary/50 bg-primary/5 rounded-xl hover:bg-primary/10">
                                             <Plus className="size-4" />
                                             <span className="text-sm">{addButtonLabel}</span>
                                         </div>
@@ -533,14 +540,14 @@ export function DataTable<TData, TValue>({
                     <div className="flex items-center gap-4 sm:gap-6 order-2 sm:order-1 w-full sm:w-auto justify-between sm:justify-start">
                         {/* Page Size Selector */}
                         <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
+                            <p className="text-sm text-muted-foreground whitespace-nowrap">Show</p>
                             <Select
                                 value={`${table.getState().pagination.pageSize}`}
                                 onValueChange={(value) => {
                                     table.setPageSize(Number(value));
                                 }}
                             >
-                                <SelectTrigger className="h-8 w-[70px]">
+                                <SelectTrigger size="sm" className="w-[76px]">
                                     <SelectValue placeholder={table.getState().pagination.pageSize} />
                                 </SelectTrigger>
                                 <SelectContent side="top">
@@ -554,7 +561,7 @@ export function DataTable<TData, TValue>({
                         </div>
 
                         {/* Page Count Info */}
-                        <div className="flex w-[100px] items-center justify-center text-sm font-medium whitespace-nowrap">
+                        <div className="flex w-[100px] items-center justify-center text-sm text-muted-foreground whitespace-nowrap">
                             Page {table.getState().pagination.pageIndex + 1} of{" "}
                             {table.getPageCount()}
                         </div>

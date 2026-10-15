@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { memo, useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -154,14 +154,14 @@ function TaskTable(props: TaskTableProps) {
           setColumnVisibility={setColumnVisibility}
         />
 
-        <div className="rounded-md border overflow-hidden relative">
+        <div className="overflow-hidden relative">
           {logic.isLoadingFilters && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
               <Loader2 className="size-8 animate-spin text-primary" />
             </div>
           )}
           <div ref={scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>
-            <table className="w-full caption-bottom text-sm table-fixed">
+            <table className="w-full caption-bottom text-sm table-fixed border-separate border-spacing-y-1.5">
               <TaskTableHeader
                 sorts={logic.sorts}
                 onSortChange={logic.handleSort}

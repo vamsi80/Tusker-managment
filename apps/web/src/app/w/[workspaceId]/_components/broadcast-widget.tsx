@@ -112,17 +112,17 @@ export function BroadcastTicker({
     <span key={key} className="flex shrink-0 items-center" aria-hidden={key === "b"}>
       {line.map((m, i) => (
         <span key={i} className="flex items-center">
-          <span className="px-3 text-xs font-medium text-foreground">{m}</span>
-          <span className="text-primary/50">•</span>
+          <span className="px-4 text-sm font-medium text-foreground">{m}</span>
+          <span className="size-1.5 rounded-full bg-broadcast" />
         </span>
       ))}
     </span>
   );
 
   return (
-    <div className="broadcast-ticker flex min-w-0 lg:flex-1 items-center overflow-hidden rounded-xl border bg-card shadow-xs">
-      <span className="flex shrink-0 items-center gap-1.5 self-stretch rounded-l-xl bg-rose-600 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white">
-        <Megaphone className="size-3" />
+    <div className="broadcast-ticker flex min-w-0 items-center overflow-hidden rounded-full border border-white/70 bg-card shadow-md dark:border-border">
+      <span className="flex shrink-0 items-center gap-2 self-stretch rounded-full bg-broadcast px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white">
+        <Megaphone className="size-4" />
         Broadcast
       </span>
       <div className="min-w-0 flex-1 overflow-hidden">
@@ -233,17 +233,15 @@ export function BroadcastWidget({
   };
 
   return (
-    <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Broadcast
-          </h3>
-          <span className="text-xs text-muted-foreground">Workspace announcements</span>
-        </div>
-        <div className="p-1.5 rounded-xl bg-amber-500/10 text-amber-500">
-          <Megaphone className="size-4.5" />
-        </div>
+    <div className="flex flex-col p-6 rounded-3xl border border-white/70 bg-card text-card-foreground shadow-md backdrop-blur-xl h-full dark:border-border">
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <h3 className="flex items-center gap-2.5 text-base font-bold uppercase tracking-wide">
+          <Megaphone className="size-5" />
+          Broadcast
+        </h3>
+        <span className="text-sm text-muted-foreground text-right">
+          Workspace announcements
+        </span>
       </div>
 
       {canBroadcast && (
@@ -253,7 +251,7 @@ export function BroadcastWidget({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={120}
-            className="h-9 rounded-xl text-sm"
+            className="h-11 rounded-2xl text-sm"
           />
           {!editingId && departments.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -261,7 +259,7 @@ export function BroadcastWidget({
                 type="button"
                 onClick={() => setDeptIds([])}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors",
+                  "px-3 py-1 rounded-full border text-xs font-medium transition-colors",
                   deptIds.length === 0
                     ? "bg-primary text-primary-foreground border-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -275,7 +273,7 @@ export function BroadcastWidget({
                   type="button"
                   onClick={() => toggleDept(d.id)}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors",
+                    "px-3 py-1 rounded-full border text-xs font-medium transition-colors",
                     deptIds.includes(d.id)
                       ? "bg-primary text-primary-foreground border-primary"
                       : "text-muted-foreground hover:text-foreground"
@@ -295,13 +293,13 @@ export function BroadcastWidget({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={2000}
-            className="rounded-xl min-h-[70px] resize-none text-sm"
+            className="min-h-[80px] resize-none text-sm"
           />
           <Select value={visibleFor} onValueChange={setVisibleFor}>
-            <SelectTrigger className="h-9 rounded-xl text-sm">
+            <SelectTrigger className="w-full text-sm">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl">
+            <SelectContent>
               {VISIBILITY_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -314,7 +312,7 @@ export function BroadcastWidget({
               type="submit"
               size="sm"
               disabled={isSending || !message.trim()}
-              className="rounded-xl gap-1.5 font-semibold flex-1"
+              className="h-11 gap-2 font-semibold flex-1"
             >
               <Send className="size-3.5" />
               {isSending
@@ -332,7 +330,7 @@ export function BroadcastWidget({
                 variant="outline"
                 onClick={resetComposer}
                 disabled={isSending}
-                className="rounded-xl"
+                className="h-11"
                 title="Cancel editing"
               >
                 <X className="size-3.5" />
@@ -408,7 +406,7 @@ export function BroadcastWidget({
       </div>
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this broadcast?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -416,10 +414,10 @@ export function BroadcastWidget({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>

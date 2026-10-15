@@ -18,7 +18,7 @@ export function SortableHeader({ field, label, sorts, onSortChange, className }:
     const sortIndex = sorts.findIndex(s => s.field === field);
 
     return (
-        <th className={cn("text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap bg-background", className)}>
+        <th className={cn("text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap bg-surface-solid", className)}>
             <button
                 onClick={() => onSortChange(field)}
                 className="flex items-center gap-1.5 hover:text-primary transition-colors group w-full"

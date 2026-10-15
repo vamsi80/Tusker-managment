@@ -16,7 +16,7 @@ export default async function WorkspaceTasksLayout({ children, params }: Props) 
                 <Suspense fallback={null}>
                     <WorkspaceTasksHeader workspaceId={workspaceId} />
                 </Suspense>
-                {children}
+                <div className="flex flex-1 min-h-0 flex-col surface p-4 sm:p-5">{children}</div>
             </div>
         </TaskPageWrapper>
     );

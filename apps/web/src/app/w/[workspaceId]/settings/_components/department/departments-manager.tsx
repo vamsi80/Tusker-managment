@@ -80,11 +80,11 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
             <div className="space-y-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div className="flex flex-col gap-1">
-                        <CardTitle className="text-xl flex items-center gap-2">
+                        <CardTitle className="text-base flex items-center gap-2">
                             <Building2 className="size-4" />
                             Departments
                         </CardTitle>
-                        <CardDescription className="text-base">
+                        <CardDescription className="text-sm">
                             Assign people to a department from the team page. Anyone without one
                             keeps the workspace-wide timings.
                         </CardDescription>
@@ -99,14 +99,14 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                 </div>
 
                 {departments.length === 0 ? (
-                    <div className="rounded-lg border border-dashed p-10 text-center">
+                    <div className="rounded-2xl border border-dashed p-10 text-center">
                         <Building2 className="mx-auto size-8 text-muted-foreground/40" />
                         <p className="mt-3 text-sm text-muted-foreground">
                             No departments yet. Everyone currently follows the workspace-wide timings.
                         </p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-border rounded-lg border bg-card/30 overflow-hidden shadow-sm">
+                    <div className="space-y-2">
                         {departments.map((department) => {
                             const isExpanded = !!expandedDepts[department.id];
                             const members = department.members ?? [];
@@ -117,9 +117,9 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                     key={department.id}
                                     open={isExpanded}
                                     onOpenChange={() => toggleDept(department.id)}
-                                    className="transition-colors"
+                                    className="overflow-hidden rounded-2xl bg-white shadow-xs transition-colors dark:bg-card"
                                 >
-                                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 hover:bg-muted/10 transition-colors">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 hover:bg-accent/30 transition-colors">
                                         <div className="flex items-center gap-3">
                                             <CollapsibleTrigger asChild>
                                                 <Button
@@ -154,7 +154,7 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <Badge variant={department.shiftSchedule ? "secondary" : "outline"} className="text-xs">
+                                            <Badge variant="outline" className="px-3 py-1 text-xs">
                                                 {department.shiftSchedule?.name ?? "Workspace default timings"}
                                             </Badge>
 

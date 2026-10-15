@@ -115,21 +115,19 @@ export const KanbanColumn = React.memo(function KanbanColumn({
         <div
             ref={setNodeRef}
             className={cn(
-                "flex-shrink-0 w-[calc(100vw-4rem)] sm:w-80 flex flex-col h-full transition-all duration-200 rounded-lg overflow-hidden border-2",
-                isOver ? "bg-primary/5 ring-2 ring-primary/20 scale-[1.01] border-primary/50" : "bg-transparent border-transparent"
+                "flex-shrink-0 w-[calc(100vw-4rem)] sm:w-80 flex flex-col h-full transition-all duration-200 rounded-2xl overflow-hidden border-2 shadow-xs",
+                isOver ? "bg-accent ring-2 ring-primary/20 scale-[1.01] border-primary/50" : "bg-white border-transparent dark:bg-card"
             )}
         >
             {/* Column Header */}
             <div
-                className={cn(
-                    "border-b p-4",
-                    column.borderColor,
-                    column.bgColor
-                )}
+                className="m-2 mb-0 rounded-full border bg-white px-4 py-2 dark:bg-card"
             >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
-                        <h3 className={cn("font-semibold text-sm truncate", column.color)}>
+                        {/* The status colour survives as a small bar before the title. */}
+                        <span className={cn("h-4 w-1 shrink-0 rounded-full bg-current", column.color)} />
+                        <h3 className="font-medium text-sm truncate">
                             {column.title}
                         </h3>
                         {isDragging && (
@@ -236,10 +234,10 @@ export const KanbanColumn = React.memo(function KanbanColumn({
 
                     {tasks.length === 0 && !isLoadingMore && (
                         <div className={cn(
-                            "flex items-center justify-center h-24 text-muted-foreground text-xs uppercase font-medium tracking-wider border-2 border-dashed rounded-lg transition-all duration-200",
+                            "flex items-center justify-center h-24 text-foreground text-sm uppercase font-medium tracking-wide rounded-xl transition-all duration-200",
                             isOver
-                                ? "bg-primary/10 border-primary/40 text-primary scale-[1.02]"
-                                : "bg-muted/20"
+                                ? "bg-primary/10 border-2 border-dashed border-primary/40 text-primary scale-[1.02]"
+                                : ""
                         )}>
                             {isOver ? "Drop here" : "No tasks found"}
                         </div>

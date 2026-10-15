@@ -8,6 +8,7 @@ import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/work
 import { DataLoadReporter } from "@/app/w/[workspaceId]/_components/data-load-reporter";
 import { WorkspaceLayoutProvider } from "../../[workspaceId]/_components/workspace-layout-context";
 import { TopLoader } from "@/components/shared/top-loader";
+import { AppBackground } from "@/components/shared/app-background";
 import { WorkspaceLayoutData } from "@tusker/core/types/workspace";
 import { usePathname } from "next/navigation";
 import { useFilterStore } from "@/lib/store/filter-store";
@@ -46,6 +47,8 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
       <DataLoadReporter />
       <TopLoader />
       <SidebarProvider
+        // isolate: the backdrop's -z-10 layer paints above this base colour, below the content.
+        className="app-bg isolate"
         style={
           {
             "--sidebar-width": "18rem",
@@ -54,13 +57,14 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
           } as React.CSSProperties
         }
       >
+        <AppBackground />
         <AppSidebar />
 
-        <SidebarInset className="relative flex min-h-svh flex-1 flex-col bg-background transition-all duration-300">
+        <SidebarInset className="relative flex min-h-svh flex-1 flex-col bg-transparent transition-all duration-300">
           <SiteHeader />
           <main className="flex flex-1 flex-col w-full max-w-full">
             <div className="@container/main size-full flex-1 flex flex-col min-w-0">
-              <div className="flex h-full grow flex-col gap-6 pb-6 px-2 sm:px-4 lg:px-6 w-full max-w-full animate-in fade-in duration-500 flex-1">
+              <div className="flex h-full grow flex-col gap-6 pt-6 pb-8 px-4 sm:px-6 lg:px-8 w-full max-w-full animate-in fade-in duration-500 flex-1">
                 {children}
               </div>
             </div>

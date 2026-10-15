@@ -15,7 +15,6 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
-  Plus,
   Search,
   CheckSquare,
   Sparkles,
@@ -45,7 +44,6 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
     setFilterType,
     searchQuery,
     setSearchQuery,
-    openScheduleModal,
     fetchCalendarData,
     handleRealtimeSync,
   } = useMeetingStore();
@@ -146,14 +144,14 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-4">
       {/* Calendar Control Bar */}
-      <div className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl border bg-card text-card-foreground shadow-xs">
+      <div className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Today, then prev/next flanking the period they move */}
         <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
             size="sm"
             onClick={handleToday}
-            className="h-8 px-3 rounded-xl text-xs font-semibold"
+            className="h-8 px-3 text-xs font-semibold"
           >
             Today
           </Button>
@@ -163,19 +161,19 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
               variant="outline"
               size="sm"
               onClick={handlePrev}
-              className="size-8 p-0 rounded-xl"
+              className="size-8 p-0 shadow-sm"
               title="Previous"
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <h2 className="text-lg sm:text-xl font-bold text-foreground text-center min-w-[170px]">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center min-w-[190px]">
               {headerTitle}
             </h2>
             <Button
               variant="outline"
               size="sm"
               onClick={handleNext}
-              className="size-8 p-0 rounded-xl"
+              className="size-8 p-0 shadow-sm"
               title="Next"
             >
               <ChevronRight className="size-4" />
@@ -192,16 +190,16 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
               placeholder="Search meetings..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs rounded-xl"
+              className="h-8 pl-8 text-xs rounded-full"
             />
           </div>
 
           {/* Meeting Type filter */}
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="h-8 text-xs rounded-xl w-32">
+            <SelectTrigger size="sm" className="text-xs w-32">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl">
+            <SelectContent>
               <SelectItem value="ALL">All Types</SelectItem>
               <SelectItem value="INTERNAL">Internal</SelectItem>
               <SelectItem value="CLIENT">Client</SelectItem>
@@ -212,15 +210,15 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
           </Select>
 
           {/* View Mode Switcher */}
-          <div className="flex items-center p-1 rounded-xl bg-muted border text-xs">
+          <div className="flex items-center p-1 rounded-full bg-muted text-xs">
             {(["month", "week", "agenda"] as CalendarViewMode[]).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => setActiveView(v)}
-                className={`px-3 py-1 rounded-lg font-semibold capitalize transition-all ${
+                className={`px-3.5 py-1.5 rounded-full font-semibold capitalize transition-all ${
                   activeView === v
-                    ? "bg-background text-foreground shadow-xs"
+                    ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -229,15 +227,6 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
             ))}
           </div>
 
-          {/* Schedule Meeting Primary Action */}
-          <Button
-            size="sm"
-            onClick={() => openScheduleModal()}
-            className="rounded-xl font-semibold gap-1.5 shadow-sm h-8 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="size-3.5" />
-            Schedule Meeting
-          </Button>
         </div>
       </div>
 
@@ -251,7 +240,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
         <button
           type="button"
           onClick={() => toggleLayer("meetings")}
-          className={`text-xs px-2.5 py-1 rounded-xl font-medium border transition-all flex items-center gap-1.5 ${
+          className={`text-xs px-3 py-1 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
             activeLayers.meetings
               ? "bg-primary/10 text-primary border-primary/30"
               : "bg-muted/40 text-muted-foreground/60 border-transparent hover:border-border"
@@ -268,7 +257,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
         <button
           type="button"
           onClick={() => toggleLayer("tasks")}
-          className={`text-xs px-2.5 py-1 rounded-xl font-medium border transition-all flex items-center gap-1.5 ${
+          className={`text-xs px-3 py-1 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
             activeLayers.tasks
               ? "bg-[#4D4DFF]/10 text-[#4D4DFF] border-[#4D4DFF]/30 dark:bg-[#4D4DFF]/20 dark:text-[#8080FF]"
               : "bg-muted/40 text-muted-foreground/60 border-transparent hover:border-border"
@@ -285,7 +274,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
         <button
           type="button"
           onClick={() => toggleLayer("holidays")}
-          className={`text-xs px-2.5 py-1 rounded-xl font-medium border transition-all flex items-center gap-1.5 ${
+          className={`text-xs px-3 py-1 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
             activeLayers.holidays
               ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
               : "bg-muted/40 text-muted-foreground/60 border-transparent hover:border-border"
@@ -302,7 +291,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
         <button
           type="button"
           onClick={() => toggleLayer("leaves")}
-          className={`text-xs px-2.5 py-1 rounded-xl font-medium border transition-all flex items-center gap-1.5 ${
+          className={`text-xs px-3 py-1 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
             activeLayers.leaves
               ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
               : "bg-muted/40 text-muted-foreground/60 border-transparent hover:border-border"

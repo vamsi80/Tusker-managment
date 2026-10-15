@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, MapPin, Video } from "lucide-react";
+import { CalendarDays, MapPin, Video } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@tusker/api-client";
 import type { MeetingUI } from "@tusker/api-client/meetings";
@@ -114,31 +115,27 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
   };
 
   return (
-    <div className="flex flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-sm h-full">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Meetings
-          </h3>
-          <span className="text-xs text-muted-foreground">
-            {tab === "upcoming" ? "Next 30 days" : "Past 30 days"}
-          </span>
-        </div>
-        <div className="p-1.5 rounded-xl bg-indigo-500/10 text-indigo-500">
-          <CalendarClock className="size-4.5" />
-        </div>
+    <div className="flex flex-col p-6 rounded-3xl border border-white/70 bg-card text-card-foreground shadow-md backdrop-blur-xl h-full dark:border-border">
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <h3 className="flex items-center gap-2.5 text-base font-bold uppercase tracking-wide">
+          <CalendarDays className="size-5" />
+          Meetings
+        </h3>
+        <span className="text-sm text-muted-foreground text-right">
+          {tab === "upcoming" ? "Next 30 days" : "Past 30 days"}
+        </span>
       </div>
 
-      <div className="flex items-center p-1 rounded-xl bg-muted border text-xs mb-4 w-fit">
+      <div className="flex items-center p-1 rounded-full bg-muted text-sm mb-4">
         {(["previous", "upcoming"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              "px-3 py-1 rounded-lg font-semibold capitalize transition-all",
+              "flex-1 px-3 py-2 rounded-full capitalize transition-all",
               tab === t
-                ? "bg-background text-foreground shadow-xs"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -155,9 +152,11 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
             ))}
           </div>
         ) : shown.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground/60 py-6 text-center">
-            {tab === "upcoming" ? "No upcoming meetings" : "No previous meetings"}
-          </p>
+          <EmptyState
+            icon={CalendarDays}
+            title={tab === "upcoming" ? "No upcoming meetings" : "No previous meetings"}
+            description={tab === "upcoming" ? "Enjoy your free time!" : undefined}
+          />
         ) : (
           <div className="divide-y divide-border">{shown.map(renderMeeting)}</div>
         )}

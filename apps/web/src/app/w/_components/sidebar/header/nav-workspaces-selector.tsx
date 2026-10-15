@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -82,12 +82,12 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                className={`data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${isPending ? 'opacity-60' : ''}`}
+                className={`hover:bg-transparent data-[state=open]:bg-transparent ${isPending ? 'opacity-60' : ''}`}
               >
                 {isPending ? (
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 ) : (
-                  <Avatar className="size-8 rounded-lg">
+                  <Avatar className="size-8 rounded-none">
                     <AvatarImage src="/icon.png" alt={selected?.name || "Workspace"} />
                     <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                       {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
@@ -95,17 +95,15 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                   </Avatar>
                 )}
 
-                <div className="flex flex-col ml-2">
-                  <div className="font-semibold text-muted-foreground">
-                    {isPending ? "Switching..." : (selected?.name || "Workspace")}
-                  </div>
-                </div>
-                <ChevronsUpDown className="ml-auto" />
+                {/* The workspace name doubles as the wordmark; clicking still switches workspace. */}
+                <span className="font-heading text-lg font-bold uppercase tracking-wide text-foreground">
+                  {isPending ? "Switching..." : (selected?.name || "Workspace")}
+                </span>
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent
-              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              className="w-[--radix-dropdown-menu-trigger-width] min-w-56"
               align="start"
               sideOffset={5}
             >

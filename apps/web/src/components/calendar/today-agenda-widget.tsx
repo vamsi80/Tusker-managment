@@ -25,11 +25,11 @@ export function TodayAgendaWidget() {
   todayMeetings.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-6 rounded-2xl border bg-card text-card-foreground shadow-xs">
+    <div className="flex h-full min-h-0 flex-col p-4 rounded-2xl bg-white text-card-foreground shadow-xs dark:bg-card">
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
               Today's Agenda
             </h3>
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -45,7 +45,7 @@ export function TodayAgendaWidget() {
           size="sm"
           variant="outline"
           onClick={() => openScheduleModal({ date: now })}
-          className="size-8 p-0 rounded-xl"
+          className="size-8 p-0"
           title="Schedule meeting for today"
         >
           <Plus className="size-4" />
