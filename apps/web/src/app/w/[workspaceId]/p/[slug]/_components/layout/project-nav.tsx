@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { LayoutDashboard, LayoutList, LayoutGrid, GanttChartSquare, Folder, ShoppingCart, Package } from "lucide-react";
-import { useSafeNavigation } from "@/hooks/use-safe-navigation";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { SegmentedNav } from "@/components/shared/segmented-nav";
+import { LayoutGrid, List, Columns3, ChartGantt, ShoppingCart, Package } from "lucide-react";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { can } from "@tusker/core/lib/constants/capabilities";
 import { CreateTaskForm } from "../forms/create-task-form";
@@ -35,8 +35,6 @@ export function ProjectNav({
 }: ProjectNavProps) {
     const pathname = usePathname();
     const capabilities = useWorkspaceLayout().data?.permissions?.capabilities;
-    const router = useSafeNavigation();
-    const isPending = router.isNavigating;
     const baseUrl = `/w/${workspaceId}/p/${slug}`;
 
     const viewMatch = pathname.match(new RegExp(`^/w/[^/]+/p/[^/]+/([^/]+)`));
@@ -48,25 +46,25 @@ export function ProjectNav({
         {
             name: "Dashboard",
             href: `${baseUrl}/dashboard`,
-            icon: LayoutDashboard,
+            icon: LayoutGrid,
             value: "dashboard"
         },
         {
             name: "List",
             href: `${baseUrl}/list`,
-            icon: LayoutList,
+            icon: List,
             value: "list"
         },
         {
             name: "Kanban",
             href: `${baseUrl}/kanban`,
-            icon: LayoutGrid,
+            icon: Columns3,
             value: "kanban"
         },
         {
             name: "Gantt",
             href: `${baseUrl}/gantt`,
-            icon: GanttChartSquare,
+            icon: ChartGantt,
             value: "gantt"
         },
         {
@@ -84,68 +82,46 @@ export function ProjectNav({
         },
     ].filter((tab) => !tab.capability || can(capabilities, tab.capability));
 
-    const handleViewChange = (href: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        if (isPending) return;
-        router.push(href);
-    };
-
     return (
-        <div className={cn("border-b mt-2", isPending && "opacity-60 pointer-events-none transition-opacity")}>
-            <div className="flex h-10 items-center gap-4 overflow-x-auto scrollbar-hide">
-                <div className="flex items-center gap-2 px-3 border-r border-border/50 h-full flex-shrink-0">
-                    <div 
-                        className="size-3 rounded-full border shadow-sm shrink-0" 
+        <PageHeader
+            title={
+                <span className="flex flex-wrap items-center gap-3">
+                    <span
+                        className="size-3.5 rounded-full shadow-sm shrink-0"
                         style={{ backgroundColor: projectColor || '#888' }}
                     />
-                    <span className="text-sm font-bold truncate max-w-[150px]">{projectName}</span>
+                    <span className="truncate">{projectName}</span>
                     {projectCategory && (
-                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/50 shrink-0">
-                            {PROJECT_CATEGORY_LABELS[projectCategory]}
-                        </span>
+                        <Badge variant="muted" className="font-sans">{PROJECT_CATEGORY_LABELS[projectCategory]}</Badge>
                     )}
                     {userRole && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20 shrink-0">
-                            {userRole}
-                        </span>
+                        <Badge variant="warning" className="font-sans uppercase tracking-wide">{userRole}</Badge>
                     )}
-                </div>
-
-                {isProjectPage && viewTabs.map((tab) => {
-                    const isActive = currentView === tab.value;
-                    const Icon = tab.icon;
-                    return (
-                        <Link
-                            key={tab.href}
-                            href={tab.href}
-                            prefetch={false}
-                            scroll={false}
-                            onClick={(e) => handleViewChange(tab.href, e)}
-                            className={cn(
-                                "flex h-full items-center gap-2 border-b-2 px-2 sm:px-3 text-sm font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0 cursor-pointer",
-                                isActive
-                                    ? "border-primary text-primary"
-                                    : "border-transparent text-muted-foreground"
-                            )}
-                        >
-                            <Icon className="size-3" />
-                            <span className="text-xs sm:text-xs">{tab.name}</span>
-                        </Link>
-                    );
-                })}
-
-                <div className="ml-auto flex items-center gap-2 pr-2">
-                    {canPerformBulkOperations && (
-                        <>
-                            <BulkUploadForm projectId={projectId} />
-                            <CreateTaskForm
-                                workspaceId={workspaceId}
-                                projectId={projectId}
-                            />
-                        </>
-                    )}
-                </div>
-            </div>
-        </div>
+                </span>
+            }
+            nav={
+                isProjectPage && (
+                    <SegmentedNav
+                        items={viewTabs.map((tab) => ({
+                            label: tab.name,
+                            href: tab.href,
+                            icon: tab.icon,
+                            active: currentView === tab.value,
+                        }))}
+                    />
+                )
+            }
+            actions={
+                canPerformBulkOperations && (
+                    <>
+                        <BulkUploadForm projectId={projectId} />
+                        <CreateTaskForm
+                            workspaceId={workspaceId}
+                            projectId={projectId}
+                        />
+                    </>
+                )
+            }
+        />
     );
 }

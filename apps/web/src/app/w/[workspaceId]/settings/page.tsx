@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getWorkspaceTagsWithCount } from "@/data/tag/get-tags";
 import { TagsManager } from "./_components/tag/tags-manager";
+import { AppearanceSettings } from "./_components/appearance-settings";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { AppLoader } from "@/components/shared/app-loader";
 
@@ -28,7 +29,8 @@ async function SettingsContent({ workspaceId }: { workspaceId: string }) {
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-6">
+            <AppearanceSettings />
             <TagsManager
                 workspaceId={workspaceId}
                 tags={tags}

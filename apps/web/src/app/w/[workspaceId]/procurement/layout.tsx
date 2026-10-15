@@ -36,14 +36,14 @@ export default async function ProcurementLayout({ children, params }: LayoutProp
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full bg-background">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
       {/* Shared Tabs Navigation */}
-      <div className="shrink-0 mb-4">
+      <div className="shrink-0 mb-5">
         <ProcurementTabs workspaceId={workspaceId} workspaceName={workspace.name} />
       </div>
 
       {/* Page Content */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col surface p-4 sm:p-5">
         {children}
       </div>
     </div>

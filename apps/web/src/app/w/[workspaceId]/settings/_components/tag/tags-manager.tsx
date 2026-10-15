@@ -92,8 +92,8 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
 
     return (
         <>
-            <Card>
-                <CardHeader>
+            <Card className="border-0 bg-transparent shadow-none backdrop-blur-none">
+                <CardHeader className="px-0">
                     <div className="flex items-center justify-between">
                         <div>
                             <CardTitle>Task Tags</CardTitle>
@@ -109,44 +109,52 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
                         )}
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-0">
                     {tags.length === 0 ? (
                         <div className="text-center text-muted-foreground">
                             <p>No tags yet. {isWorkspaceAdmin ? "Create your first tag to get started." : "No tags available in this workspace."}</p>
                         </div>
                     ) : (
-                        <div className="flex flex-wrap gap-1">
-                            {tags.map((tag) => (
-                                <Badge
-                                    key={tag.id}
-                                    variant="outline"
-                                    className="group relative inline-flex items-center gap-1 px-2 py-1 transition-all hover:shadow-md"
-                                >
-                                    <span className="text-xs font-medium">{toTitleCase(tag.name)}</span>
-                                    {tag._count && tag._count.tasks > 0 && (
-                                        <span className="text-xs opacity-70">
-                                            ({tag._count.tasks})
-                                        </span>
-                                    )}
-                                    {isWorkspaceAdmin && (
-                                        <div className="flex items-center gap-1 ml-1">
-                                            <button
-                                                onClick={() => handleEdit(tag)}
-                                                className="p-1 hover:bg-accent rounded transition-colors"
-                                                aria-label="Edit tag"
-                                            >
-                                                <Pencil className="size-3" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteClick(tag)}
-                                                className="p-1 hover:bg-destructive/10 rounded transition-colors"
-                                                aria-label="Delete tag"
-                                            >
-                                                <X className="size-3" />
-                                            </button>
-                                        </div>
-                                    )}
-                                </Badge>
+                        // Alphabetical, split into up to five columns of white cards.
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                            {chunk(
+                                [...tags].sort((x, y) => x.name.localeCompare(y.name)),
+                                Math.ceil(tags.length / 5)
+                            ).map((column, i) => (
+                                <div key={i} className="flex flex-col items-start gap-3 rounded-2xl bg-white p-4 shadow-xs dark:bg-card">
+                                    {column.map((tag) => (
+                                        <Badge
+                                            key={tag.id}
+                                            variant="outline"
+                                            className="group relative gap-2 bg-white px-3 py-1.5 text-sm font-normal shadow-xs dark:bg-card"
+                                        >
+                                            {toTitleCase(tag.name)}
+                                            {tag._count && tag._count.tasks > 0 && (
+                                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full border border-foreground/40 px-1 text-[10px] tabular-nums">
+                                                    {String(tag._count.tasks).padStart(2, "0")}
+                                                </span>
+                                            )}
+                                            {isWorkspaceAdmin && (
+                                                <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                                                    <button
+                                                        onClick={() => handleEdit(tag)}
+                                                        className="p-0.5 hover:bg-accent rounded-full transition-colors"
+                                                        aria-label="Edit tag"
+                                                    >
+                                                        <Pencil className="size-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClick(tag)}
+                                                        className="p-0.5 hover:bg-destructive/10 rounded-full transition-colors"
+                                                        aria-label="Delete tag"
+                                                    >
+                                                        <X className="size-3" />
+                                                    </button>
+                                                </span>
+                                            )}
+                                        </Badge>
+                                    ))}
+                                </div>
                             ))}
                         </div>
                     )}
@@ -184,4 +192,10 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
             </AlertDialog>
         </>
     );
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < items.length; i += Math.max(1, size)) out.push(items.slice(i, i + Math.max(1, size)));
+    return out;
 }

@@ -6,12 +6,14 @@ import {
     createActionsColumn,
     DataTableCellAction,
 } from "@/components/data-table/column-helpers";
-import { Eye, Edit, Trash, Mail, CalendarDays, Hash } from "lucide-react";
+import { Eye, Edit, Trash, Mail } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { type WorkspaceMemberRow } from "@tusker/core/types/workspace";
 import { format } from "date-fns";
 
 import { cn } from "@/lib/utils";
+import { badgeVariants } from "@/components/ui/badge";
+import { StatusDot } from "@/components/shared/status-dot";
 
 export function createTeamMemberColumns(
     isAdmin: boolean,
@@ -39,14 +41,8 @@ export function createTeamMemberColumns(
                         }}
                         title={`View ${row.original.name || "member"}'s tasks`}
                         className={cn(
-                            "w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all hover:ring-1 hover:ring-inset hover:ring-current",
-                            count === 0
-                                ? "bg-muted text-muted-foreground"
-                                : count < 5
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : count < 10
-                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                            badgeVariants({ variant: count === 0 ? "muted" : count < 5 ? "success" : count < 10 ? "warning" : "danger" }),
+                            "cursor-pointer transition-all hover:ring-1 hover:ring-inset hover:ring-current"
                         )}
                     >
                         {count} {count === 1 ? "task" : "tasks"}
@@ -69,7 +65,7 @@ export function createTeamMemberColumns(
 
                 return (
                     <div className="flex items-center gap-3">
-                        <Avatar className="size-9">
+                        <Avatar className="size-10">
                             <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
@@ -83,73 +79,39 @@ export function createTeamMemberColumns(
 
         {
             accessorKey: "surname",
-            header: "Nickname",
-            cell: ({ row }) => {
-                const surname = row.original.surname;
-                return (
-                    <div className="text-muted-foreground">
-                        {surname || "—"}
-                    </div>
-                );
-            },
+            header: "Surname",
+            cell: ({ row }) => (
+                <div className="text-muted-foreground">{row.original.surname || "—"}</div>
+            ),
         },
         {
             accessorKey: "employeeId",
-            header: "Emp ID",
+            header: "Emp ID / DOB",
             cell: ({ row }) => {
-                const empId = row.original.employeeId;
-                return (
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded w-fit border border-slate-200 dark:border-slate-700">
-                        <Hash className="size-3 opacity-50" />
-                        {empId || "—"}
-                    </div>
-                );
-            },
-        },
-        {
-            accessorKey: "dateOfBirth",
-            header: "DOB",
-            cell: ({ row }) => {
-                const dob = row.original.dateOfBirth;
-                if (!dob) return <span className="text-muted-foreground text-xs">—</span>;
+                const { employeeId, dateOfBirth } = row.original;
+                let dob = "—";
                 try {
-                    return (
-                        <div className="flex items-center gap-1.5 text-muted-foreground text-sm">
-                            <CalendarDays className="size-3 opacity-50" />
-                            {format(new Date(dob), "dd MMM yyyy")}
-                        </div>
-                    );
-                } catch (e) {
-                    return <span className="text-muted-foreground text-xs">—</span>;
-                }
-            },
-        },
-
-        {
-            accessorKey: "designation",
-            header: "Designation",
-            cell: ({ row }) => {
-                const designation = row.original.designation;
+                    if (dateOfBirth) dob = format(new Date(dateOfBirth), "dd-MM-yyyy");
+                } catch {}
                 return (
-                    <div className="text-muted-foreground font-medium">
-                        {designation || "—"}
+                    <div className="flex flex-col">
+                        <span className="font-medium"># {employeeId || "—"}</span>
+                        <span className="text-xs text-muted-foreground">{dob}</span>
                     </div>
                 );
             },
         },
-
         {
+            // Keeps the "department" id: the Department filter targets it.
             id: "department",
             accessorKey: "departmentName",
-            header: "Department",
-            cell: ({ row }) => {
-                const department = row.original.departmentName;
-                return (
-                    <div className="text-muted-foreground font-medium">
-                        {department || "—"}
-                    </div>
-                );
-            },
+            header: "Designation / Department",
+            cell: ({ row }) => (
+                <div className="flex flex-col">
+                    <span className="font-medium">{row.original.designation || "—"}</span>
+                    <span className="text-xs text-muted-foreground">{row.original.departmentName || "—"}</span>
+                </div>
+            ),
         },
 
         ...(canSeeWorkload ? [tasksAssignedColumn] : []),
@@ -157,41 +119,23 @@ export function createTeamMemberColumns(
         {
             id: "reportedTo",
             accessorKey: "reportToName",
-            header: "Reported To",
-            cell: ({ row }) => {
-                const managerName = row.original.reportToName || "—";
-                return (
-                    <div className="text-muted-foreground italic">
-                        {managerName}
-                    </div>
-                );
-            },
-        },
-
-        {
-            accessorKey: "workspaceRole",
-            header: "Role",
-            cell: ({ row }) => {
-                const role = row.original.workspaceRole;
-                return (
-                    <div className="font-medium capitalize">
-                        {role.toLowerCase().replace("_", " ")}
-                    </div>
-                );
-            },
+            header: "Reported to / Role",
+            cell: ({ row }) => (
+                <div className="flex flex-col">
+                    <span className="font-medium italic">{row.original.reportToName || "—"}</span>
+                    <span className="text-xs text-muted-foreground capitalize">
+                        {row.original.workspaceRole.toLowerCase().replace("_", " ")}
+                    </span>
+                </div>
+            ),
         },
 
         {
             accessorKey: "phoneNumber",
             header: "Phone",
-            cell: ({ row }) => {
-                const phone = row.original.phoneNumber;
-                return (
-                    <div className="text-muted-foreground">
-                        {phone || "—"}
-                    </div>
-                );
-            },
+            cell: ({ row }) => (
+                <div className="text-muted-foreground">{row.original.phoneNumber || "—"}</div>
+            ),
         },
 
         {
@@ -200,18 +144,7 @@ export function createTeamMemberColumns(
             header: "Status",
             cell: ({ row }) => {
                 const status = row.original.status || "Pending";
-                const isVerified = status === "Verified";
-
-                return (
-                    <div className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                        isVerified
-                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-                            : "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
-                    )}>
-                        {status}
-                    </div>
-                );
+                return <StatusDot tone={status === "Verified" ? "success" : "warning"} label={status} />;
             },
         },
     ];

@@ -6,6 +6,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { countDateOnlyDays, formatDateOnly, toDateOnly } from "@tusker/core/lib/date-utils";
 import { Badge } from "@/components/ui/badge";
+import { StatusDot } from "@/components/shared/status-dot";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
@@ -252,12 +253,7 @@ export function LeavesTable({
             cell: ({ row }) => {
                 const type = row.original.type;
                 return (
-                    <Badge variant="outline" className={cn(
-                        "font-medium uppercase text-[10px] tracking-wider",
-                        type === "SICK" ? "border-rose-200 text-rose-600 bg-rose-50/50" : "border-blue-200 text-blue-600 bg-blue-50/50"
-                    )}>
-                        {type}
-                    </Badge>
+                    <span className="text-sm font-medium capitalize">{type.toLowerCase()} Leave</span>
                 );
             }
         },
@@ -310,22 +306,11 @@ export function LeavesTable({
             header: "Status",
             cell: ({ row }) => {
                 const status = row.original.status;
-                let content;
-                switch (status) {
-                    case "APPROVED":
-                        content = <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">Approved</Badge>;
-                        break;
-                    case "REJECTED":
-                        content = <Badge variant="destructive" className="px-2.5 py-0.5 rounded-full font-medium">Rejected</Badge>;
-                        break;
-                    case "DELETED":
-                        content = <Badge className="bg-slate-500/10 text-slate-600 hover:bg-slate-500/20 border-slate-500/20 px-2.5 py-0.5 rounded-full font-medium">Deleted</Badge>;
-                        break;
-                    case "PENDING":
-                    default:
-                        content = <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 px-2.5 py-0.5 rounded-full font-medium">Pending</Badge>;
-                }
-                return content;
+                const s = status === "APPROVED" ? { tone: "success" as const, label: "Approved" }
+                    : status === "REJECTED" ? { tone: "danger" as const, label: "Rejected" }
+                    : status === "DELETED" ? { tone: "muted" as const, label: "Deleted" }
+                    : { tone: "warning" as const, label: "Pending" };
+                return <StatusDot tone={s.tone} label={s.label} />;
             },
         },
         {

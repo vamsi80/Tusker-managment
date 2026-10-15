@@ -131,14 +131,14 @@ export function PermissionsManager({ workspaceId, viewerRole, roleOverrides, mem
                 </CardHeader>
                 <CardContent>
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[720px] border-collapse text-sm">
+                        <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
                             <thead>
-                                <tr className="border-b">
-                                    <th className="py-2 pr-4 text-left font-medium text-muted-foreground">
+                                <tr>
+                                    <th className="py-2 px-4 text-left font-normal text-muted-foreground">
                                         Capability
                                     </th>
                                     {WORKSPACE_ROLES.map((role) => (
-                                        <th key={role} className="px-2 py-2 text-center font-medium">
+                                        <th key={role} className="px-2 py-2 text-center font-normal text-muted-foreground">
                                             <span className="flex flex-col items-center gap-1">
                                                 <span className="text-xs">{ROLE_LABEL[role]}</span>
                                                 {roleLocked(role) && (
@@ -151,8 +151,8 @@ export function PermissionsManager({ workspaceId, viewerRole, roleOverrides, mem
                             </thead>
                             <tbody>
                                 {CAPABILITIES.map((capability) => (
-                                    <tr key={capability.id} className="border-b last:border-0">
-                                        <td className="py-2.5 pr-4">
+                                    <tr key={capability.id} className="bg-white shadow-xs dark:bg-card [&>td:first-child]:rounded-l-xl [&>td:last-child]:rounded-r-xl">
+                                        <td className="py-4 px-4">
                                             <span className="font-medium">{capability.label}</span>
                                             <span className="ml-2 text-xs text-muted-foreground">
                                                 {capability.group}
@@ -162,7 +162,7 @@ export function PermissionsManager({ workspaceId, viewerRole, roleOverrides, mem
                                             const locked = roleLocked(role);
                                             const changed = roles[role]?.[capability.id] !== undefined;
                                             return (
-                                                <td key={role} className="px-2 py-2.5 text-center">
+                                                <td key={role} className="px-2 py-4 text-center">
                                                     <span className="inline-flex items-center justify-center">
                                                         <Checkbox
                                                             checked={effective(role, capability.id)}
@@ -201,7 +201,7 @@ export function PermissionsManager({ workspaceId, viewerRole, roleOverrides, mem
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search members..."
-                            className="h-9 pl-8"
+                            className="h-9 rounded-full pl-8"
                         />
                     </div>
                 </CardHeader>
@@ -222,7 +222,7 @@ export function PermissionsManager({ workspaceId, viewerRole, roleOverrides, mem
                         return (
                             <div
                                 key={member.id}
-                                className="rounded-lg border p-3 transition-colors hover:bg-muted/30"
+                                className="rounded-2xl bg-white p-4 shadow-xs transition-colors hover:bg-accent/30 dark:bg-card"
                             >
                                 <div className="mb-2 flex flex-wrap items-center gap-2">
                                     <span className="font-medium">{member.name}</span>

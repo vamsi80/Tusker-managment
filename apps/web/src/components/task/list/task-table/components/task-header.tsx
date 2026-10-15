@@ -29,9 +29,9 @@ export function TaskTableHeader({
   const { columnVisibility } = useTaskTableContext();
 
   return (
-    <thead className="[&_tr]:border-b">
-      <tr className="sticky top-0 z-10 bg-background border-b shadow-sm hover:bg-muted/50">
-        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[50px] sticky left-0 z-0 bg-background">
+    <thead>
+      <tr className="sticky top-0 z-10 bg-surface-solid">
+        <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[50px] sticky left-0 z-0 bg-surface-solid">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="size-8 hover:bg-muted">
@@ -55,20 +55,20 @@ export function TaskTableHeader({
           label="Task Name"
           sorts={sorts}
           onSortChange={onSortChange}
-          className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-30 bg-background"
+          className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-30 bg-surface-solid"
         />
         {columnVisibility.description && (
-          <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[150px] sm:w-[200px] bg-background">
+          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[150px] sm:w-[200px] bg-surface-solid">
             Description
           </th>
         )}
         {columnVisibility.assignee && (
-          <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
+          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[80px] sm:w-[100px] bg-surface-solid">
             Assignee
           </th>
         )}
         {columnVisibility.reviewer && (
-          <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[80px] sm:w-[100px] bg-background">
+          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[80px] sm:w-[100px] bg-surface-solid">
             Reviewer
           </th>
         )}
@@ -82,12 +82,12 @@ export function TaskTableHeader({
           />
         )}
         {columnVisibility.startDate && (
-          <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[90px] sm:w-[120px] bg-background">
+          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[90px] sm:w-[120px] bg-surface-solid">
             Start Date
           </th>
         )}
         {columnVisibility.dueDate && (
-          <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[120px] bg-background">
+          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[100px] sm:w-[120px] bg-surface-solid">
             Due Date
           </th>
         )}
@@ -101,11 +101,11 @@ export function TaskTableHeader({
           />
         )}
         {columnVisibility.tag && (
-          <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[100px] sm:w-[100px] bg-background">
+          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[100px] sm:w-[100px] bg-surface-solid">
             Tag
           </th>
         )}
-        <th className="text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap w-[40px] bg-background"></th>
+        <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[40px] bg-surface-solid"></th>
       </tr>
     </thead>
   );

@@ -14,7 +14,7 @@ import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { FolderOpen, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 const CATEGORY_CHIPS = [
   { value: "WHITE_TUSKER", label: "TWT" },
   { value: "LATTICE_LANE", label: "PL/LL" },
-  { value: "MISCELLANEOUS", label: "Others" },
+  { value: "MISCELLANEOUS", label: "Other" },
 ] as const;
 
 interface iAppProps {
@@ -45,6 +45,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
   const isInitialLoading = isLayoutLoading && projects.length === 0;
 
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
 
   const visibleProjects = projects.filter((p: any) => {
@@ -185,32 +186,47 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>
-          <div className="flex text-sm items-center justify-between w-full mb-4">
+        <SidebarGroupLabel className="text-base font-normal text-sidebar-foreground">
+          <div className="flex items-center justify-between w-full">
             <span>Projects</span>
-            {mounted && (
-              <Link
-                href={`/w/${workspaceId}/createProject`}
-                className={cn(
-                  "cursor-pointer hover:bg-sidebar-accent p-1 rounded-sm transition-colors",
-                  !canCreateProject && "opacity-50 pointer-events-none"
-                )}
-                title={canCreateProject ? "Create New Project" : "Insufficient permissions"}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchOpen((o) => !o);
+                  setSearch("");
+                }}
+                className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                title="Search projects"
               >
-                <Plus size={16} />
-              </Link>
-            )}
+                <Search size={16} />
+              </button>
+              {mounted && (
+                <Link
+                  href={`/w/${workspaceId}/createProject`}
+                  className={cn(
+                    "p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors",
+                    !canCreateProject && "opacity-50 pointer-events-none"
+                  )}
+                  title={canCreateProject ? "Create New Project" : "Insufficient permissions"}
+                >
+                  <Plus size={16} />
+                </Link>
+              )}
+            </div>
           </div>
         </SidebarGroupLabel>
 
-        <div className="px-1 pb-2 space-y-2">
+        <div className="px-1 pt-2 pb-3 space-y-3">
+          {searchOpen && (
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search projects"
-              className="h-8 pl-7 pr-7 text-xs"
+              className="h-9 rounded-full pl-7 pr-7 text-xs"
+              autoFocus
             />
             {search && (
               <button
@@ -223,7 +239,8 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
               </button>
             )}
           </div>
-          <div className="flex gap-1">
+          )}
+          <div className="flex gap-2">
             {CATEGORY_CHIPS.map((c) => (
               <button
                 key={c.value}
@@ -231,10 +248,10 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                 // Clicking the active chip clears the filter, so there is no "All" button.
                 onClick={() => setCategory((cur) => (cur === c.value ? null : c.value))}
                 className={cn(
-                  "flex-1 rounded-md border px-1 py-1 text-[11px] font-medium transition-colors",
+                  "flex-1 rounded-full border px-2 py-1 text-xs transition-colors",
                   category === c.value
-                    ? "bg-foreground/10 dark:bg-foreground/20 text-foreground border-foreground/30"
-                    : "text-muted-foreground hover:bg-sidebar-accent"
+                    ? "bg-sidebar-accent text-foreground border-white/70 shadow-md dark:border-border"
+                    : "border-border text-muted-foreground hover:bg-sidebar-accent/70"
                 )}
               >
                 {c.label}
@@ -253,19 +270,14 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
 
             return (
               <SidebarMenuItem key={proj.id}>
-                <SidebarMenuButton asChild disabled={router.isNavigating}>
+                <SidebarMenuButton asChild isActive={isActive} disabled={router.isNavigating} className="h-auto min-h-10">
                   <Link
                     href={href}
                     prefetch={false}
                     onClick={(e) => handleLinkClick(e, href)}
-                    className={
-                      isActive
-                        ? "bg-foreground/10 dark:bg-foreground/20 border-foreground/50 hover:bg-foreground/20 dark:hover:bg-foreground/30 text-foreground hover:text-primary"
-                        : "text-muted-foreground"
-                    }
                   >
-                    <Building2Icon style={{ color: proj.color || "currentColor" }} />
-                    <span className="truncate">{proj.name}</span>
+                    <FolderOpen style={{ color: proj.color || "currentColor" }} strokeWidth={1.5} />
+                    <span className="line-clamp-2 whitespace-normal leading-snug">{proj.name}</span>
                   </Link>
                 </SidebarMenuButton>
 

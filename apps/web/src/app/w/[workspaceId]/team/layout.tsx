@@ -14,7 +14,7 @@ export default async function TeamLayout({ children, params }: TeamLayoutProps) 
     return (
         <div className="flex flex-col w-full">
             <TeamNav workspaceId={workspaceId} isAdmin={permissions.isWorkspaceAdmin} />
-            <div className="mt-4">
+            <div className="mt-5 surface p-4 sm:p-5">
                 {children}
             </div>
         </div>

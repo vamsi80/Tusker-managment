@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
@@ -23,10 +23,10 @@ export function ProjectRow({
     return (
         <>
             <TableRow
-                className="group [&_td]:py-2 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer transition-colors h-8 sticky top-10 z-[15]"
+                className="group bg-white dark:bg-card hover:bg-accent/40 cursor-pointer transition-colors h-8 sticky top-10 z-[15]"
                 onClick={onToggle}
             >
-                <TableCell colSpan={colSpan} className="py-2 px-4 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] border-y border-neutral-200 dark:border-neutral-800">
+                <TableCell colSpan={colSpan} className="py-2.5 px-4 border border-border/70">
                     <div className="flex items-center gap-2">
                         <Button
                             variant="ghost"
@@ -49,8 +49,12 @@ export function ProjectRow({
                             style={{ color: project.color || "#666", fill: project.color ? `${project.color}33` : "#66633" }}
                         />
 
-                        <span className="text-sm font-semibold text-foreground">{project.name}</span>
-
+                        <span className="text-[15px] font-medium text-foreground">{project.name}</span>
+                        {totalTasksCount != null && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full border border-foreground/40 px-1 text-[10px] tabular-nums">
+                                {totalTasksCount}
+                            </span>
+                        )}
 
                     </div>
                 </TableCell>

@@ -14,7 +14,7 @@ export default async function SettingsLayout({
     return (
         <div className="flex flex-col size-full">
             <SettingsNav workspaceId={workspaceId} />
-            <div className="flex-1 w-full">
+            <div className="flex-1 w-full surface p-4 sm:p-5">
                 {children}
             </div>
         </div>
