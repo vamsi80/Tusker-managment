@@ -105,7 +105,39 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
 
             // 2. Handle Updates
             if (flatRecord && action === "MEMBER_UPDATED") {
-                setMembers(prev => prev.map(m => m.id === flatRecord.id ? flatRecord : m));
+                setMembers(prev => prev.map(m => {
+                    if (m.id !== flatRecord.id) return m;
+
+                    // ponytail: fallback to client lookup if payload omits relations
+                    let deptName = flatRecord.departmentName;
+                    if (deptName === undefined) {
+                        const targetDeptId = flatRecord.departmentId !== undefined ? flatRecord.departmentId : m.departmentId;
+                        if (!targetDeptId) {
+                            deptName = null;
+                        } else {
+                            const foundDept = departments.find(d => d.id === targetDeptId);
+                            deptName = foundDept ? foundDept.name : m.departmentName;
+                        }
+                    }
+
+                    let repName = flatRecord.reportToName;
+                    if (repName === undefined) {
+                        const targetReportId = flatRecord.reportToId !== undefined ? flatRecord.reportToId : m.reportToId;
+                        if (!targetReportId) {
+                            repName = null;
+                        } else {
+                            repName = m.reportToName;
+                        }
+                    }
+
+                    return {
+                        ...m,
+                        ...flatRecord,
+                        departmentName: deptName,
+                        reportToName: repName,
+                        openTaskCount: flatRecord.openTaskCount ?? m.openTaskCount,
+                    };
+                }));
                 return;
             }
 
@@ -133,7 +165,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
         };
         window.addEventListener("realtime-sync-refresh", handler);
         return () => window.removeEventListener("realtime-sync-refresh", handler);
-    }, [workspaceId, page, limit, debouncedSearch, fetchData]);
+    }, [workspaceId, page, limit, debouncedSearch, fetchData, departments]);
 
     // Fetch data when page, limit, or debouncedSearch changes
     useEffect(() => {

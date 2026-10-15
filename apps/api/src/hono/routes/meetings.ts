@@ -79,6 +79,32 @@ meetings.post("/", async (c) => {
   return c.json({ success: true, data: result }, 201);
 });
 
+const conflictsSchema = z.object({
+  workspaceId: z.string().min(1, "Workspace ID is required"),
+  startTime: z.string(),
+  endTime: z.string(),
+  location: z.string().max(200).optional().nullable(),
+  attendeeUserIds: z.array(z.string()).optional(),
+  excludeMeetingId: z.string().optional(),
+});
+
+/**
+ * POST /api/v1/meetings/conflicts
+ * Overlapping meetings that share a member or venue with the proposed slot.
+ */
+meetings.post("/conflicts", async (c) => {
+  const user = c.get("user");
+  const parsed = conflictsSchema.safeParse(await c.req.json());
+
+  if (!parsed.success) {
+    throw AppError.ValidationError(parsed.error.issues.map((i) => i.message).join(", "));
+  }
+
+  const { workspaceId, ...data } = parsed.data;
+  const result = await MeetingService.findConflicts(workspaceId, user.id, data);
+  return c.json({ success: true, data: result });
+});
+
 /**
  * PATCH /api/v1/meetings/:id
  */

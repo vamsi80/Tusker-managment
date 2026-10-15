@@ -25,7 +25,14 @@ export default function DayItemsSheet({
         const key = calendarDayKey(date);
 
         const dayMeetings = activeLayers.meetings ? meetings.filter((m) => calendarDayKey(m.startTime) === key) : [];
-        const dayTasks = activeLayers.tasks ? taskDeadlines.filter((t) => calendarDayKey(t.date) === key) : [];
+        const dayTasks = activeLayers.tasks
+            ? taskDeadlines.filter(
+                  (t) =>
+                      t.status !== "COMPLETED" &&
+                      t.status !== "CANCELLED" &&
+                      calendarDayKey(t.date) === key
+              )
+            : [];
         const dayHolidays = activeLayers.holidays ? publicHolidays.filter((h) => calendarDayKey(h.date) === key) : [];
         const dayLeaves = activeLayers.leaves
             ? leaves.filter((l) => {
@@ -101,7 +108,9 @@ export default function DayItemsSheet({
                         }}
                         style={[styles.row, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30" }]}
                     >
-                        {m.meetingUrl ? (
+                        {m.overlapsWith?.length ? (
+                            <Ionicons name="warning" size={14} color={colors.warning} accessibilityLabel="Overlaps another meeting" />
+                        ) : m.meetingUrl ? (
                             <Ionicons name="videocam" size={14} color={colors.primary} />
                         ) : (
                             <Ionicons name="calendar-outline" size={14} color={colors.primary} />
@@ -123,10 +132,10 @@ export default function DayItemsSheet({
                             onClose();
                             openTask(t);
                         }}
-                        style={[styles.row, { backgroundColor: "#64748b14", borderColor: "#64748b30" }]}
+                        style={[styles.row, { backgroundColor: "#4D4DFF14", borderColor: "#4D4DFF30" }]}
                     >
-                        <Ionicons name="checkbox-outline" size={14} color="#64748b" />
-                        <Text style={[styles.rowText, { color: colors.textMuted, flex: 1 }]} numberOfLines={1}>
+                        <Ionicons name="checkbox-outline" size={14} color="#4D4DFF" />
+                        <Text style={[styles.rowText, { color: "#4D4DFF", flex: 1 }]} numberOfLines={1}>
                             {t.title}
                         </Text>
                     </TouchableOpacity>

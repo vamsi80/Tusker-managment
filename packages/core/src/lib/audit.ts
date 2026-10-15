@@ -168,7 +168,7 @@ export async function recordActivity(options: RecordActivityOptions) {
     // 3. BROADCAST via Pusher IMMEDIATELY (no DB round-trip needed)
     if (workspaceId) {
       if (!providedName) {
-        throw new Error("Audit Log Error: User name/surname is missing for this activity.");
+        throw new Error("Audit Log Error: User name/nickname is missing for this activity.");
       }
       const userName = providedName;
       let actionLabel = action.replace(/_/g, " ").toLowerCase();
@@ -384,6 +384,9 @@ export async function recordActivity(options: RecordActivityOptions) {
             await pusherServer.trigger(syncChannels, options.broadcastEvent, {
               workspaceId,
               userId,
+              action,
+              entityType,
+              entityId,
               type: normalizedType,
               message,
               payload,

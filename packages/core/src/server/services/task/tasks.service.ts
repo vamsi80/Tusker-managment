@@ -28,6 +28,7 @@ import { TaskStatus, CreateTaskParams, CreateSubTaskParams } from "../../../type
 import {
   canProject,
   canSetStatus,
+  canLeaveCompleted,
   isMandatoryTransition,
   missingTransitionEvidence,
   DEFAULT_PROJECT_SETTINGS,
@@ -426,7 +427,12 @@ export class TasksService {
       fullAccessProjectIds,
       restrictedProjectIds,
       authorizedProjectIds,
-    } = await this.resolveTaskPermissions(workspaceId, projectId, userId);
+    } = await this.resolveTaskPermissions(
+      workspaceId,
+      projectId,
+      userId,
+      opts.view_mode !== "kanban" && !opts.membersOwnOnly,
+    );
 
     if (!isWorkspaceAdmin && authorizedProjectIds.length === 0) {
       return {
@@ -631,6 +637,9 @@ export class TasksService {
     workspaceId: string,
     projectId?: string,
     userId?: string,
+    // false = a plain MEMBER sees only their own tasks (kanban, dashboard);
+    // other views keep full project visibility for members.
+    membersSeeAll = true,
   ) {
     const { fetchUserPermissions, fetchWorkspacePermissions } =
       await import("../../../permissions");
@@ -652,7 +661,8 @@ export class TasksService {
         permissions.isWorkspaceAdmin ||
         permissions.isProjectManager ||
         permissions.isProjectCoordinator ||
-        permissions.isProjectLead;
+        permissions.isProjectLead ||
+        (membersSeeAll && permissions.isMember);
 
       return {
         permissions,
@@ -674,12 +684,12 @@ export class TasksService {
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      // Full access = ONLY projects where user is explicitly a LEAD, PROJECT_COORDINATOR or PROJECT_MANAGER.
-      // Being a PM in Project A does NOT grant full access to Project B (where they may be just a MEMBER).
+      // Full access for viewing tasks/subtasks includes all projects where user is a member, lead, or manager
       const fullAccessProjectIds = [
         ...(wsPerms.leadProjectIds ?? []),
         ...(wsPerms.managedProjectIds ?? []),
         ...(wsPerms.coordinatorProjectIds ?? []),
+        ...(membersSeeAll ? wsPerms.memberProjectIds ?? [] : []),
       ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
@@ -1987,10 +1997,20 @@ export class TasksService {
       reviewerId: true,
       parentTaskId: true,
       updatedAt: true,
+      projectId: true,
+      workspaceId: true,
     })) as any;
 
     if (!subTask) {
       throw AppError.NotFound("Subtask not found");
+    }
+
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (subTask.workspaceId && subTask.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (subTask.projectId && subTask.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
     }
 
     // 2. Authorization Checks
@@ -2041,6 +2061,15 @@ export class TasksService {
       throw AppError.Forbidden(
         "You cannot move this task out of Review status.",
       );
+    }
+
+    // Moving a task out of COMPLETED (e.g. to REVIEW) requires PM, Owner, or Admin
+    if (subTask.status === "COMPLETED" && newStatus !== "COMPLETED") {
+      if (!canLeaveCompleted(permissions.isWorkspaceAdmin, permissions.isProjectManager)) {
+        throw AppError.Forbidden(
+          "Only project managers, owners, and admins can move tasks from Completed to Review.",
+        );
+      }
     }
 
     // 3. Status Transition Validation
@@ -2165,11 +2194,20 @@ export class TasksService {
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
+      projectId: true,
+      workspaceId: true,
       name: true,
       status: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
@@ -2281,6 +2319,15 @@ export class TasksService {
           throw AppError.Forbidden("You cannot move this task out of Review status.");
         }
 
+        // 3b. Moving out of COMPLETED requires PM, Owner, or Admin
+        if (task.status === "COMPLETED" && data.status !== "COMPLETED") {
+          if (!canLeaveCompleted(isWorkspaceAdmin, isProjectManager)) {
+            throw AppError.Forbidden(
+              "Only project managers, owners, and admins can move tasks from Completed to Review.",
+            );
+          }
+        }
+
         // 4. Comment check: Since general task editing does not collect transition comments,
         // block any move that requires a comment and tell them to do it from the list/board status changer.
         if (isMandatoryTransition(task.status, data.status)) {
@@ -2385,10 +2432,18 @@ export class TasksService {
       createdById: true,
       parentTaskId: true,
       projectId: true,
+      workspaceId: true,
       position: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     const currentProjectMemberId = permissions.projectMember?.id;
     const isAuthorized =
@@ -2484,10 +2539,16 @@ export class TasksService {
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
+      projectId: true,
+      workspaceId: true,
       name: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
 
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
     const isProjectManager = permissions.isProjectManager;
@@ -2839,6 +2900,8 @@ export class TasksService {
         createdById: true,
         assigneeId: true,
         parentTaskId: true,
+        projectId: true,
+        workspaceId: true,
         name: true,
         status: true,
       }) as any,
@@ -2846,6 +2909,13 @@ export class TasksService {
     ]);
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     // 2. Permission Check
     const currentProjectMemberId = permissions.projectMember?.id;
@@ -2933,6 +3003,8 @@ export class TasksService {
       createdById: true,
       assigneeId: true,
       parentTaskId: true,
+      projectId: true,
+      workspaceId: true,
       startDate: true,
       dueDate: true,
       status: true,
@@ -2940,6 +3012,13 @@ export class TasksService {
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
+    // ponytail: verify task belongs to the scoped workspace and project
+    if (task.workspaceId && task.workspaceId !== workspaceId) {
+      throw AppError.Forbidden("Task does not belong to this workspace");
+    }
+    if (task.projectId && task.projectId !== projectId) {
+      throw AppError.Forbidden("Task does not belong to this project");
+    }
 
     const currentProjectMemberId = permissions.projectMember?.id;
     const isWorkspaceAdmin = permissions.isWorkspaceAdmin;
@@ -3216,14 +3295,25 @@ export class TasksService {
           accessConditions.push({
             OR: [
               { projectId: { in: fullAccessProjectIds } },
-              { projectId: { in: restrictedProjectIds }, assignee: { workspaceMember: { userId } } },
+              {
+                projectId: { in: restrictedProjectIds },
+                OR: [
+                  { assignee: { workspaceMember: { userId } } },
+                  { createdBy: { workspaceMember: { userId } } },
+                ]
+              },
             ]
           });
         } else if (fullAccessProjectIds.length > 0) {
           accessConditions.push({ projectId: { in: fullAccessProjectIds } });
         } else if (restrictedProjectIds.length > 0) {
-          accessConditions.push({ projectId: { in: restrictedProjectIds } });
-          accessConditions.push({ assignee: { workspaceMember: { userId } } });
+          accessConditions.push({
+            projectId: { in: restrictedProjectIds },
+            OR: [
+              { assignee: { workspaceMember: { userId } } },
+              { createdBy: { workspaceMember: { userId } } },
+            ]
+          });
         }
 
         if (accessConditions.length > 0) {

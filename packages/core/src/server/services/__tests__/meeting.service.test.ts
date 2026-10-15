@@ -129,6 +129,33 @@ describe("MeetingService", () => {
     expect(result.taskDeadlines[0].title).toBe("Task Due: Design Review");
   });
 
+  it("lists only the viewer's meetings and flags overlaps", async () => {
+    const at = (h: number) => new Date(`2026-09-10T${String(h).padStart(2, "0")}:00:00Z`);
+    (prisma.meeting.findMany as any).mockResolvedValue([
+      { id: "a", title: "A", startTime: at(10), endTime: at(11), status: "SCHEDULED", isAllDay: false, attendees: [] },
+      { id: "b", title: "B", startTime: at(10), endTime: at(12), status: "SCHEDULED", isAllDay: false, attendees: [] },
+      { id: "c", title: "C", startTime: at(11), endTime: at(12), status: "CANCELLED", isAllDay: false, attendees: [] },
+      { id: "d", title: "D", startTime: at(11), endTime: at(13), status: "SCHEDULED", isAllDay: false,
+        attendees: [{ userId: "user-1", status: "DECLINED" }] },
+      { id: "e", title: "E", startTime: at(12), endTime: at(13), status: "SCHEDULED", isAllDay: false, attendees: [] },
+    ]);
+
+    const { meetings } = await MeetingService.getMeetings("w-1", {}, "user-1");
+
+    expect((prisma.meeting.findMany as any).mock.calls[0][0].where.OR).toEqual([
+      { organizerId: "user-1" },
+      { attendees: { some: { userId: "user-1" } } },
+    ]);
+    const byId = Object.fromEntries(meetings.map((m: any) => [m.id, m.overlapsWith.map((o: any) => o.id)]));
+    expect(byId).toEqual({ a: ["b"], b: ["a"], c: [], d: [], e: [] });
+  });
+
+  it("calendar shows no tasks without a viewer", async () => {
+    (prisma.meeting.findMany as any).mockResolvedValue([]);
+    await MeetingService.getMeetings("w-1", { includeLayers: true });
+    expect((prisma.task.findMany as any).mock.calls[0][0].where.id).toBe("__none__");
+  });
+
   it("updates RSVP status and broadcasts RSVP_UPDATE event", async () => {
     (prisma.meetingAttendee.upsert as any).mockResolvedValue({
       id: "att-1",
@@ -212,7 +239,7 @@ describe("MeetingService", () => {
       );
     });
 
-    it("allows a project manager to view their team members' tasks (managed projects and subordinates)", async () => {
+    it("lets a project manager see their projects' tasks but not their direct reports' other tasks", async () => {
       (prisma.meeting.findMany as any).mockResolvedValue([]);
       (prisma.public_holiday.findMany as any).mockResolvedValue([]);
       (prisma.leave_request.findMany as any).mockResolvedValue([]);
@@ -232,29 +259,14 @@ describe("MeetingService", () => {
         "user-pm"
       );
 
-      expect(prisma.task.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            workspaceId: "w-1",
-            AND: expect.arrayContaining([
-              expect.objectContaining({
-                OR: expect.arrayContaining([
-                  { assignee: { workspaceMember: { userId: "user-pm" } } },
-                  { assigneeId: "user-pm" },
-                  { assignee: { workspaceMemberId: "pm-1" } },
-                  { projectId: { in: ["proj-managed-1", "proj-lead-1"] } },
-                  {
-                    OR: [
-                      { assignee: { workspaceMemberId: { in: ["sub-member-1"] } } },
-                      { assignee: { workspaceMember: { userId: { in: ["sub-user-1"] } } } },
-                    ],
-                  },
-                ]),
-              }),
-            ]),
-          }),
-        })
-      );
+      const where = (prisma.task.findMany as any).mock.calls[0][0].where;
+      expect(where.workspaceId).toBe("w-1");
+      expect(where.AND[0].OR).toEqual([
+        { assignee: { workspaceMember: { userId: "user-pm" } } },
+        { assigneeId: "user-pm" },
+        { assignee: { workspaceMemberId: "pm-1" } },
+        { projectId: { in: ["proj-managed-1", "proj-lead-1"] } },
+      ]);
     });
 
     it("allows an owner to view everybody's tasks without restrictions", async () => {
@@ -281,6 +293,7 @@ describe("MeetingService", () => {
         expect.objectContaining({
           where: {
             workspaceId: "w-1",
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
             dueDate: expect.any(Object),
           },
         })
@@ -288,6 +301,35 @@ describe("MeetingService", () => {
       // Verify no AND condition was added restricting assignees
       const lastCall = (prisma.task.findMany as any).mock.calls.at(-1)[0];
       expect(lastCall.where.AND).toBeUndefined();
+    });
+
+    it("excludes completed and cancelled tasks from calendar deadlines", async () => {
+      (prisma.meeting.findMany as any).mockResolvedValue([]);
+      (prisma.public_holiday.findMany as any).mockResolvedValue([]);
+      (prisma.leave_request.findMany as any).mockResolvedValue([]);
+
+      (prisma.workspaceMember.findFirst as any).mockResolvedValue({
+        id: "owner-member-1",
+        workspaceRole: "OWNER",
+        workspace: { ownerId: "user-owner" },
+        managedProjects: [],
+        projectMembers: [],
+        subordinates: [],
+      });
+
+      await MeetingService.getMeetings(
+        "w-1",
+        { startDate: "2026-09-01", endDate: "2026-09-30", includeLayers: true },
+        "user-owner"
+      );
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          }),
+        })
+      );
     });
   });
 });

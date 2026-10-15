@@ -108,12 +108,13 @@ workspaces.get("/verify", async (c) => {
   const q = c.req.query();
   const workspaceId = q.workspaceId;
   const role = q.role;
+  const token = q.token;
 
-  if (!workspaceId || !role) {
-    return c.redirect("/");
+  if (!workspaceId || !role || !token) {
+    return c.redirect("/?error=missing_invitation_token");
   }
 
-  await WorkspaceService.verifyInvitation(workspaceId, role, user.id);
+  await WorkspaceService.verifyInvitation(workspaceId, role, user.id, token);
 
   return c.redirect(`/w/${workspaceId}`);
 });

@@ -16,6 +16,7 @@
     "db:push": "pnpm --filter @tusker/db db:push",
     "db:studio": "pnpm --filter @tusker/db db:studio",
     "db:seed": "pnpm --filter @tusker/db db:seed",
+    "db:seed-demo": "pnpm --filter @tusker/core db:seed-demo",
     "db:generate": "pnpm --filter @tusker/db exec prisma generate",
     "mobile": "pnpm --dir apps/mobile --ignore-workspace start",
     "mobile:go": "pnpm --dir apps/mobile --ignore-workspace start:go",

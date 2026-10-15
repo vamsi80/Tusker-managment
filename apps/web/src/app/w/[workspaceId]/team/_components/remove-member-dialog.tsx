@@ -47,7 +47,7 @@ interface StagedBatch {
     collisions: string[];
 }
 
-interface Props {
+export interface RemoveMemberDialogProps {
     workspaceId: string;
     member: WorkspaceMemberRow;
     onClose: () => void;
@@ -59,7 +59,7 @@ export function RemoveMemberDialog({
     member,
     onClose,
     onDone,
-}: Props) {
+}: RemoveMemberDialogProps) {
     const [work, setWork] = useState<MemberPendingWork | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [ticked, setTicked] = useState<Set<string>>(new Set());
@@ -101,13 +101,10 @@ export function RemoveMemberDialog({
                 .filter((m: any) => m.userId && m.userId !== member.userId)
                 .map((m: any) => {
                     const rawName = (m.name || m.user?.name || "").trim();
-                    const rawSurname = (m.surname || m.user?.surname || "").trim();
-                    let displayName = "";
-                    if (rawName && rawSurname && rawName !== rawSurname && rawSurname !== "Member") {
-                        displayName = `${rawName} ${rawSurname}`;
-                    } else {
-                        displayName = rawName || (rawSurname !== "Member" ? rawSurname : "") || m.email || "Unknown";
-                    }
+                    const rawNickname = (m.surname || m.user?.surname || "").trim();
+                    // Nickname is what the rest of the app shows; `name` is only a fallback.
+                    const displayName =
+                        (rawNickname !== "Member" ? rawNickname : "") || rawName || m.email || "Unknown";
                     return {
                         userId: m.userId as string,
                         name: displayName,
@@ -118,7 +115,8 @@ export function RemoveMemberDialog({
 
     const tasks = work?.tasks ?? [];
     const resolvedCount = dest.size;
-    const allResolved = tasks.length > 0 && resolvedCount === tasks.length;
+    // Vacuously true with no tasks, so a member with no pending work can be removed.
+    const allResolved = resolvedCount === tasks.length;
     const nameOf = (userId: string) =>
         candidates.find((c) => c.userId === userId)?.name ?? "Unknown";
 
@@ -319,7 +317,7 @@ export function RemoveMemberDialog({
 
                         <div className="flex-1 overflow-y-auto -mx-1 px-1">
                             {tasks.map((t) => (
-                                <TaskRow
+                                <TransferTaskRow
                                     key={t.id}
                                     task={t}
                                     checked={ticked.has(t.id)}
@@ -478,7 +476,7 @@ export function RemoveMemberDialog({
     );
 }
 
-function TaskRow({
+function TransferTaskRow({
     task,
     checked,
     onToggle,

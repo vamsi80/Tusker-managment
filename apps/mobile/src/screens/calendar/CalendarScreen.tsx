@@ -84,7 +84,12 @@ export default function CalendarScreen({ navigation }: any) {
         if (!workspaceId) return;
         try {
             const result = await getCalendarData(workspaceId);
-            setData(result);
+            setData({
+                ...result,
+                taskDeadlines: (result.taskDeadlines || []).filter(
+                    (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
+                ),
+            });
             setLoadError(null);
         } catch (error: any) {
             console.error("[CalendarScreen] loadData error:", error);
@@ -122,16 +127,13 @@ export default function CalendarScreen({ navigation }: any) {
             const action = (evt?.type || evt?.action || "").toUpperCase();
             const payload = evt?.payload || evt?.record || evt?.newData;
             if (!payload) return;
-            if (action === "CREATE") {
-                setData((d) => ({ ...d, meetings: [payload, ...d.meetings.filter((m) => m.id !== payload.id)] }));
-            } else if (action === "DELETE") {
+            // Broadcasts go to the whole workspace, so refetch instead of applying the
+            // payload: the server keeps only this user's meetings and recomputes overlaps.
+            loadData();
+            if (action === "DELETE") {
                 const id = payload.id || evt?.meetingId;
-                if (id) {
-                    setData((d) => ({ ...d, meetings: d.meetings.filter((m) => m.id !== id) }));
-                    setSelectedMeeting((m) => (m?.id === id ? null : m));
-                }
+                if (id) setSelectedMeeting((m) => (m?.id === id ? null : m));
             } else if (action === "UPDATE" || action === "RSVP_UPDATE") {
-                setData((d) => ({ ...d, meetings: d.meetings.map((m) => (m.id === payload.id ? { ...m, ...payload } : m)) }));
                 setSelectedMeeting((m) => (m?.id === payload.id ? { ...m, ...payload } : m));
             }
         });
@@ -351,7 +353,7 @@ export default function CalendarScreen({ navigation }: any) {
                 <View style={styles.layersRow}>
                     {[
                         { key: "meetings" as const, label: "Meetings", icon: "videocam-outline" as const, tint: colors.primary, count: data.meetings.length },
-                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#3b82f6", count: data.taskDeadlines.length },
+                        { key: "tasks" as const, label: "Tasks", icon: "checkbox-outline" as const, tint: "#4D4DFF", count: data.taskDeadlines.length },
                         { key: "holidays" as const, label: "Holidays", icon: "sparkles-outline" as const, tint: "#f43f5e", count: data.publicHolidays.length },
                         { key: "leaves" as const, label: "Leaves", icon: "person-remove-outline" as const, tint: "#a855f7", count: data.leaves.length },
                     ].map((l) => {

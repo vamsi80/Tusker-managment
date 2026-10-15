@@ -2,6 +2,7 @@ import prisma from "@tusker/db";
 import { broadcastMeetingUpdate } from "../../lib/realtime";
 import { pusherServer } from "../../lib/pusher";
 import { randomUUID } from "crypto";
+import { AppError } from "../../lib/errors/app-error";
 import type { MeetingType, MeetingStatus, AttendeeStatus } from "@tusker/db";
 
 export interface CreateMeetingInput {
@@ -95,6 +96,74 @@ export class MeetingService {
   }
 
   /**
+   * Meetings that overlap [startTime, endTime) and share a venue or a person
+   * with the proposed one. Cancelled meetings and declined invites don't count.
+   */
+  static async findConflicts(
+    workspaceId: string,
+    userId: string,
+    data: {
+      startTime: Date | string;
+      endTime: Date | string;
+      location?: string | null;
+      attendeeUserIds?: string[];
+      excludeMeetingId?: string;
+    }
+  ) {
+    const member = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId, deactivatedAt: null },
+      select: { id: true },
+    });
+    if (!member) throw AppError.Forbidden("You are not a member of this workspace.");
+
+    const start = new Date(data.startTime);
+    const end = new Date(data.endTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return [];
+
+    const location = data.location?.trim() || null;
+    const people = Array.from(new Set([userId, ...(data.attendeeUserIds ?? [])]));
+
+    const overlapping = await prisma.meeting.findMany({
+      where: {
+        workspaceId,
+        status: { not: "CANCELLED" },
+        startTime: { lt: end },
+        endTime: { gt: start },
+        ...(data.excludeMeetingId ? { id: { not: data.excludeMeetingId } } : {}),
+        OR: [
+          ...(location ? [{ location: { equals: location, mode: "insensitive" as const } }] : []),
+          { attendees: { some: { userId: { in: people }, status: { not: "DECLINED" } } } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        location: true,
+        attendees: {
+          where: { userId: { in: people }, status: { not: "DECLINED" } },
+          select: { user: { select: { id: true, name: true, surname: true } } },
+        },
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    return overlapping.map((m) => ({
+      id: m.id,
+      title: m.title,
+      startTime: m.startTime,
+      endTime: m.endTime,
+      location: m.location,
+      venueClash: !!location && m.location?.trim().toLowerCase() === location.toLowerCase(),
+      clashingMembers: m.attendees.map((a) => ({
+        id: a.user.id,
+        name: a.user.surname || a.user.name,
+      })),
+    }));
+  }
+
+  /**
    * Retrieve workspace meetings and optional ERP calendar layers (tasks, holidays, leaves).
    */
   static async getMeetings(workspaceId: string, filter: GetMeetingsFilter = {}, userId?: string) {
@@ -115,6 +184,13 @@ export class MeetingService {
 
     if (filter.projectId) where.projectId = filter.projectId;
     if (filter.type) where.type = filter.type;
+
+    // Only meetings the viewer organises or is invited to.
+    if (userId) {
+      where.OR = [{ organizerId: userId }, { attendees: { some: { userId } } }];
+    } else {
+      where.id = "__none__";
+    }
 
     const meetingSelect = {
       id: true,
@@ -169,11 +245,28 @@ export class MeetingService {
       },
     };
 
-    const meetings = await prisma.meeting.findMany({
+    const rows = await prisma.meeting.findMany({
       where,
       select: meetingSelect,
       orderBy: { startTime: "asc" },
     });
+
+    // Flag each meeting that clashes with another of the viewer's meetings.
+    // Cancelled, all-day and declined meetings don't count as a clash.
+    // ponytail: O(n²) over one viewer's meetings in range; sweep by startTime if that grows large.
+    const counts = (m: (typeof rows)[number]) =>
+      m.status !== "CANCELLED" &&
+      !m.isAllDay &&
+      !m.attendees?.some((a) => a.userId === userId && a.status === "DECLINED");
+    const active = rows.filter(counts);
+    const meetings = rows.map((m) => ({
+      ...m,
+      overlapsWith: counts(m)
+        ? active
+            .filter((o) => o.id !== m.id && o.startTime < m.endTime && o.endTime > m.startTime)
+            .map((o) => ({ id: o.id, title: o.title }))
+        : [],
+    }));
 
     if (!filter.includeLayers) {
       return { meetings, taskDeadlines: [], publicHolidays: [], leaves: [] };
@@ -181,10 +274,13 @@ export class MeetingService {
 
     // ponytail: Role-based task visibility filter for calendar
     // - Normal members see only their assigned tasks
-    // - Project managers see their team members' tasks (managed projects & direct reports) + their own tasks
+    // - Project managers / coordinators / leads see all tasks in their projects + their own tasks
     // - Owners/Admins see all tasks across the workspace
+    // - Completed and cancelled tasks are excluded from calendar deadlines
+    // Direct reports' tasks are NOT included: a manager may not have access to those projects.
     let taskWhere: any = {
       workspaceId,
+      status: { notIn: ["COMPLETED", "CANCELLED"] },
       dueDate: { not: null, ...(start && end ? { gte: start, lte: end } : {}) },
     };
 
@@ -192,7 +288,10 @@ export class MeetingService {
       taskWhere.projectId = filter.projectId;
     }
 
-    if (userId) {
+    if (!userId) {
+      // No viewer, no task visibility.
+      taskWhere.id = "__none__";
+    } else {
       const workspaceMember = await prisma.workspaceMember.findFirst({
         where: { workspaceId, userId },
         select: {
@@ -206,12 +305,9 @@ export class MeetingService {
           },
           projectMembers: {
             where: {
-              projectRole: { in: ["PROJECT_MANAGER", "LEAD"] },
+              projectRole: { in: ["PROJECT_MANAGER", "PROJECT_COORDINATOR", "LEAD"] },
             },
             select: { projectId: true },
-          },
-          subordinates: {
-            select: { id: true, userId: true },
           },
         },
       });
@@ -232,14 +328,10 @@ export class MeetingService {
               ...workspaceMember.projectMembers.map((pm) => pm.projectId),
             ])
           );
-          const subordinateMemberIds = workspaceMember.subordinates.map((s) => s.id);
-          const subordinateUserIds = workspaceMember.subordinates.map((s) => s.userId);
 
           // Criteria:
           // 1. Members can view their own tasks (assigned to their project member / user ID)
-          // 2. Project managers can see their team members' tasks:
-          //    - all tasks in projects they manage (their project team's tasks)
-          //    - all tasks assigned to direct subordinate team members (reportTo)
+          // 2. PM / Coordinator / Lead can see all tasks in projects they run
           const visibilityConditions: any[] = [
             { assignee: { workspaceMember: { userId } } },
             { assigneeId: userId },
@@ -249,15 +341,6 @@ export class MeetingService {
           if (managedProjectIds.length > 0) {
             visibilityConditions.push({
               projectId: { in: managedProjectIds },
-            });
-          }
-
-          if (subordinateMemberIds.length > 0 || subordinateUserIds.length > 0) {
-            visibilityConditions.push({
-              OR: [
-                { assignee: { workspaceMemberId: { in: subordinateMemberIds } } },
-                { assignee: { workspaceMember: { userId: { in: subordinateUserIds } } } },
-              ],
             });
           }
 

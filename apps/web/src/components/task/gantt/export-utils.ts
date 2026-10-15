@@ -68,7 +68,7 @@ export const exportGanttToExcel = async (
   };
 
   const getDelayedDays = (end: string | null, status: string): number => {
-    if (!end || status === "COMPLETED" || status === "CANCELLED") return 0;
+    if (!end || status === "COMPLETED" || status === "CANCELLED" || status === "HOLD") return 0;
     const e = parseDisplayDate(end);
     if (!e) return 0;
 

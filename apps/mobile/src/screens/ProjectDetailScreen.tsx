@@ -90,7 +90,7 @@ export default function ProjectDetailScreen({ route, navigation }: Props) {
         if (label === "Completed Sub Tasks") {
             newFilters = { ...filters, status: ["COMPLETED"] };
         } else if (label === "Pending Sub Tasks") {
-            newFilters = { ...filters, status: ["TO_DO", "IN_PROGRESS", "REVIEW", "HOLD"] };
+            newFilters = { ...filters, status: ["TO_DO", "IN_PROGRESS", "REVIEW"] };
         } else if (label === "Total Sub Tasks") {
             newFilters = DEFAULT_FILTERS;
         }

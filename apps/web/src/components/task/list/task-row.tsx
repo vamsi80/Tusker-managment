@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,27 +72,12 @@ export const TaskRow = memo(function TaskRow({
     const subtaskCount = Math.max(task.subtaskCount || 0, (task as any)._count?.subTasks || 0);
     const rowRef = useRef<HTMLTableRowElement>(null);
 
+    // Subtask fetching when expanded
     useEffect(() => {
         if (!isExpanded || !onRequestSubtasks || subtaskCount === 0 || task.subTasks !== undefined) return;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    onRequestSubtasks(task.id);
-                    observer.disconnect();
-                }
-            },
-            { rootMargin: "150px" }
-        );
-
-        const currentRef = rowRef.current;
-        if (currentRef) {
-            observer.observe(currentRef);
-        }
-
-        return () => {
-            observer.disconnect();
-        };
+        // ponytail: direct call to onRequestSubtasks; batch queue in useTaskTableLogic handles debouncing
+        onRequestSubtasks(task.id);
     }, [isExpanded, task.subTasks, task.id, subtaskCount, onRequestSubtasks]);
 
     const visiblePropsCount = Object.entries(columnVisibility)

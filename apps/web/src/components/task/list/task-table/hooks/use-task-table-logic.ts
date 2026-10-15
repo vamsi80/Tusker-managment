@@ -269,6 +269,10 @@ export function useTaskTableLogic({
           ps: "10", // 🚀 Reduced initial batch size to trigger cursor-based loading earlier
           ef: "description"
         };
+        const effectiveProjectId = projectId || tasksRef.current.find(t => chunk.includes(t.id))?.projectId;
+        if (effectiveProjectId) {
+          paramsInit.p = effectiveProjectId;
+        }
 
         const params = new URLSearchParams(paramsInit);
 
@@ -288,7 +292,10 @@ export function useTaskTableLogic({
             const merged = [...existing, ...(result.subTasks || [])];
 
             const ordered = orderSubTasksForParent(taskId, merged);
-            processedSubTasksRef.current.add(taskId);
+            // ponytail: mark as processed if subtasks returned or task is known to have 0 subtasks
+            if ((result.subTasks && result.subTasks.length > 0) || !currentTask || (currentTask.subtaskCount || 0) === 0) {
+              processedSubTasksRef.current.add(taskId);
+            }
 
             updates[taskId] = {
               subTasks: ordered,
@@ -679,27 +686,26 @@ export function useTaskTableLogic({
 
   // toggleExpand
   const toggleExpand = useCallback((taskId: string) => {
-    let shouldFetch = false;
+    const isCurrentlyExpanded = !!expanded[taskId];
+    const willExpand = !isCurrentlyExpanded;
 
     setExpanded((prev: Record<string, boolean>) => {
-      const isExpanding = !prev[taskId];
-      if (isExpanding) {
+      if (willExpand) {
         manuallyCollapsedRef.current.delete(taskId);
-        const hasNotProcessed = !processedSubTasksRef.current.has(taskId);
-        if (hasNotProcessed) shouldFetch = true;
       } else {
         manuallyCollapsedRef.current.add(taskId);
       }
-      return { ...prev, [taskId]: isExpanding };
+      return { ...prev, [taskId]: willExpand };
     });
 
-    if (shouldFetch) {
+    if (willExpand) {
       const t = tasksRef.current.find((x) => x.id === taskId);
-      if (t && (filtersActive || t.subtaskCount > 0)) {
+      const hasSubtasksOrFilters = filtersActive || (t && ((t.subtaskCount ?? 0) > 0 || (t as any)._count?.subTasks > 0));
+      if (hasSubtasksOrFilters && !processedSubTasksRef.current.has(taskId) && !fetchingSubTasksRef.current.has(taskId)) {
         handleRequestSubtasks(taskId);
       }
     }
-  }, [handleRequestSubtasks, filtersActive, setExpanded]);
+  }, [expanded, handleRequestSubtasks, filtersActive, setExpanded]);
 
 
   // Deep links (calendar, notifications) land with ?subtask=<slug>: open the

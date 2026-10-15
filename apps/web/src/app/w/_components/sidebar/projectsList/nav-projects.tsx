@@ -12,7 +12,6 @@ import { projectsClient } from "@tusker/api-client/projects";
 import type { WorkspaceMembersResult } from "@tusker/core/types/workspace";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { ManageProjectMembersDialog } from "./options/manage-members-dialog";
-import { ProjectSettingsDialog } from "./options/project-settings-dialog";
 import { CreateProjectForm } from "@/app/w/[workspaceId]/p/_components/create-project-form";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
 import { Building2Icon, MoreHorizontal, Eye, Pencil, Trash2, Loader2, Users, Plus, Search, SlidersHorizontal, X } from "lucide-react";
@@ -94,10 +93,6 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
   const [manageMembersDialogOpen, setManageMembersDialogOpen] = useState(false);
   const [projectToManageMembers, setProjectToManageMembers] = useState<FullProjectData | null>(null);
 
-  // Project settings dialog state. The sidebar sits outside ProjectLayoutProvider,
-  // so the dialog fetches its own data on open — id and name are already in hand.
-  const [settingsProject, setSettingsProject] = useState<{ id: string; name: string } | null>(null);
-
   // Members list (loaded on demand)
   const [members, setMembers] = useState<WorkspaceMembersResult["workspaceMembers"]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
@@ -127,6 +122,10 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
 
   const handleEditClick = (projectId: string) => {
     router.push(`/w/${workspaceId}/editProject/${projectId}`);
+  };
+
+  const handleProjectSettingsClick = (projectId: string) => {
+    router.push(`/w/${workspaceId}/projectSettings/${projectId}`);
   };
 
   const handleManageMembersClick = async (projectId: string) => {
@@ -324,7 +323,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                       {proj.canManageMembers && (
                         <DropdownMenuItem
                           className="flex items-center gap-2 cursor-pointer"
-                          onClick={() => setSettingsProject({ id: proj.id, name: proj.name })}
+                          onClick={() => handleProjectSettingsClick(proj.id)}
                         >
                           <SlidersHorizontal className="size-4" />
                           <span>Project settings</span>
@@ -375,19 +374,6 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
             })) || []
           }
           workspaceMembers={members}
-        />
-      )}
-
-      {/* Project Settings Dialog */}
-      {settingsProject && (
-        <ProjectSettingsDialog
-          open={!!settingsProject}
-          onOpenChange={(open) => {
-            if (!open) setSettingsProject(null);
-          }}
-          workspaceId={workspaceId}
-          projectId={settingsProject.id}
-          projectName={settingsProject.name}
         />
       )}
 

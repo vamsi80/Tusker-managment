@@ -193,7 +193,7 @@ export const InviteUserForm = ({ workspaceId, isAdmin, open: controlledOpen, onO
                                 name="niceName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Nick Name</FormLabel>
+                                        <FormLabel>Nickname</FormLabel>
                                         <FormControl>
                                             <Input
                                                 placeholder="John"

@@ -55,7 +55,9 @@ export function presignUpload(key: string, mime: string) {
 
 /** Presigned GET. `download` forces a save dialog with the original filename instead of inline rendering. */
 export function presignDownload(key: string, opts?: { download?: boolean; filename?: string }) {
-    const filename = (opts?.filename || key.split("/").pop() || "file").replace(/"/g, "");
+    const rawName = opts?.filename || key.split("/").pop() || "file";
+    // ponytail: strip control chars, quotes, semicolons to prevent header injection in ResponseContentDisposition
+    const filename = rawName.replace(/["\r\n;\\]/g, "").trim() || "file";
     return getSignedUrl(
         getClient(),
         new GetObjectCommand({

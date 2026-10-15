@@ -21,6 +21,15 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const user = c.get("user");
     if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
+    // ponytail: verify caller belongs to workspace before releasing employee directory
+    const membership = await prisma.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId: user.id, workspaceId } },
+      select: { id: true },
+    });
+    if (!membership) {
+      return c.json({ success: false, error: "Forbidden: Not a member of this workspace" }, 403);
+    }
+
     const members = await ConversationService.getWorkspaceMembers(workspaceId, user.id);
     return c.json({ success: true, data: members });
   })

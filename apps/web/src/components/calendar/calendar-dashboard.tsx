@@ -69,6 +69,17 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
     const handleTaskSyncEvent = (e: any) => {
       if (e.detail && workspaceId) {
         console.log("[CALENDAR_DASHBOARD] 🔄 Real-time task sync event received:", e.detail.action);
+        const record = e.detail.record;
+        if (
+          record?.id &&
+          (record.status === "COMPLETED" ||
+            record.status === "CANCELLED" ||
+            e.detail.action?.includes("DELETE"))
+        ) {
+          useMeetingStore.setState((state) => ({
+            taskDeadlines: state.taskDeadlines.filter((t) => t.id !== record.id),
+          }));
+        }
         fetchCalendarData(workspaceId);
       }
     };
@@ -259,7 +270,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
           onClick={() => toggleLayer("tasks")}
           className={`text-xs px-2.5 py-1 rounded-xl font-medium border transition-all flex items-center gap-1.5 ${
             activeLayers.tasks
-              ? "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30"
+              ? "bg-[#4D4DFF]/10 text-[#4D4DFF] border-[#4D4DFF]/30 dark:bg-[#4D4DFF]/20 dark:text-[#8080FF]"
               : "bg-muted/40 text-muted-foreground/60 border-transparent hover:border-border"
           }`}
         >

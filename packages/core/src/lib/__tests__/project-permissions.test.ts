@@ -9,6 +9,7 @@ import {
     coerceProjectOverrides,
     coerceProjectSettings,
     canSetStatus,
+    canLeaveCompleted,
     isMandatoryTransition,
     missingTransitionEvidence,
 } from "../constants/project-permissions";
@@ -106,6 +107,23 @@ describe("canSetStatus", () => {
         expect(canSetStatus(member, "IN_PROGRESS", false)).toBe(true);
         expect(canSetStatus(member, "COMPLETED", false)).toBe(false);
         expect(canSetStatus(resolveProjectPermissions("VIEWER"), "TO_DO", false)).toBe(false);
+    });
+});
+
+describe("canLeaveCompleted", () => {
+    it("allows workspace admin (owner or admin)", () => {
+        expect(canLeaveCompleted(true, false)).toBe(true);
+        expect(canLeaveCompleted(true, true)).toBe(true);
+    });
+
+    it("allows project manager", () => {
+        expect(canLeaveCompleted(false, true)).toBe(true);
+    });
+
+    it("rejects non-admin, non-PM members", () => {
+        expect(canLeaveCompleted(false, false)).toBe(false);
+        expect(canLeaveCompleted(null, null)).toBe(false);
+        expect(canLeaveCompleted(undefined, undefined)).toBe(false);
     });
 });
 

@@ -16,6 +16,8 @@ export interface MeetingAttendeeUI {
 
 export interface MeetingUI {
   id: string;
+  /** Other meetings of the viewer's that clash with this one (set by the server). */
+  overlapsWith?: { id: string; title: string }[];
   workspaceId: string;
   title: string;
   description?: string | null;
@@ -89,7 +91,32 @@ export interface CreateMeetingPayload {
   attendeeUserIds?: string[];
 }
 
+export interface MeetingConflict {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  location?: string | null;
+  venueClash: boolean;
+  clashingMembers: Array<{ id: string; name: string }>;
+}
+
 export const meetingsClient = {
+  checkConflicts: async (data: {
+    workspaceId: string;
+    startTime: string;
+    endTime: string;
+    location?: string;
+    attendeeUserIds?: string[];
+    excludeMeetingId?: string;
+  }): Promise<MeetingConflict[]> => {
+    const res = await apiFetch<ApiResponse<MeetingConflict[]>>("/meetings/conflicts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return res.data ?? [];
+  },
+
   getMeetings: async (params: {
     workspaceId: string;
     startDate?: string;

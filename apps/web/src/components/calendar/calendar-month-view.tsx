@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useMeetingStore } from "@/lib/store/meeting-store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, CheckSquare, Sparkles, UserX, Video } from "lucide-react";
+import { OverlapIcon } from "./overlap-icon";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { addDateOnlyDays, calendarDayKey } from "@tusker/core/lib/date-utils";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
@@ -152,6 +153,7 @@ export function CalendarMonthView() {
 
     if (activeLayers.tasks) {
       taskDeadlines.forEach((t) => {
+        if (t.status === "COMPLETED" || t.status === "CANCELLED") return;
         const key = calendarDayKey(t.date);
         getEntry(key).tasks.push(t);
       });
@@ -282,6 +284,7 @@ export function CalendarMonthView() {
                       className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors truncate"
                       title={`${startTime} ${m.title}`}
                     >
+                      <OverlapIcon meeting={m} className="size-2.5" />
                       {m.meetingUrl && <Video className="size-2.5 shrink-0 text-primary" />}
                       <span className="text-[10px] text-primary/80 shrink-0">{startTime}</span>
                       <span className="truncate">{m.title}</span>
@@ -297,7 +300,7 @@ export function CalendarMonthView() {
                       e.stopPropagation();
                       openTask(t);
                     }}
-                    className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-300 border border-slate-500/20 truncate cursor-pointer hover:bg-slate-500/20 transition-colors"
+                    className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-[#4D4DFF]/10 text-[#4D4DFF] dark:text-[#8080FF] border border-[#4D4DFF]/20 truncate cursor-pointer hover:bg-[#4D4DFF]/20 transition-colors"
                     title={`Task: ${t.title} — open task`}
                   >
                     <CheckSquare className="size-2.5 shrink-0" />
@@ -330,7 +333,10 @@ export function CalendarMonthView() {
                             onClick={() => openDetailsModal(m)}
                             className="p-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium cursor-pointer hover:bg-primary/20 transition-colors"
                           >
-                            <p className="font-semibold truncate">{m.title}</p>
+                            <p className="font-semibold truncate flex items-center gap-1">
+                              <OverlapIcon meeting={m} />
+                              <span className="truncate">{m.title}</span>
+                            </p>
                             <p className="text-[10px] opacity-80">
                               {new Date(m.startTime).toLocaleTimeString([], {
                                 hour: "numeric",
@@ -344,10 +350,10 @@ export function CalendarMonthView() {
                           <div
                             key={t.id}
                             onClick={() => openTask(t)}
-                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20 truncate cursor-pointer hover:bg-slate-500/20 transition-colors"
+                            className="flex items-center gap-1.5 text-xs font-medium p-1.5 rounded-lg bg-[#4D4DFF]/10 text-[#4D4DFF] dark:text-[#8080FF] border border-[#4D4DFF]/20 truncate cursor-pointer hover:bg-[#4D4DFF]/20 transition-colors"
                             title={`Task: ${t.title} — open task`}
                           >
-                            <CheckSquare className="size-3 shrink-0 text-slate-600 dark:text-slate-400" />
+                            <CheckSquare className="size-3 shrink-0 text-[#4D4DFF] dark:text-[#8080FF]" />
                             <span className="truncate">{t.title}</span>
                           </div>
                         ))}

@@ -141,7 +141,9 @@ export const useMeetingStore = create<MeetingStoreState>((set, get) => ({
 
       set({
         meetings: data.meetings || [],
-        taskDeadlines: data.taskDeadlines || [],
+        taskDeadlines: (data.taskDeadlines || []).filter(
+          (t) => t.status !== "COMPLETED" && t.status !== "CANCELLED"
+        ),
         publicHolidays: data.publicHolidays || [],
         leaves: data.leaves || [],
         isLoading: false,
@@ -192,18 +194,9 @@ export const useMeetingStore = create<MeetingStoreState>((set, get) => ({
   },
 
   handleRealtimeSync: (data) => {
-    const action = (data.action || data.type || "").toUpperCase();
-    const payload = data.record || data.newData || data.payload;
-
-    if (!payload) return;
-
-    if (action.includes("CREATE") || action === "MEETING_SCHEDULED") {
-      get().addMeetingOptimistic(payload);
-    } else if (action.includes("DELETE")) {
-      const id = payload.id || data.meetingId;
-      if (id) get().removeMeetingOptimistic(id);
-    } else if (action.includes("UPDATE") || action === "RSVP_UPDATE") {
-      get().updateMeetingOptimistic(payload);
-    }
+    // Broadcasts go to the whole workspace, so refetch instead of applying the
+    // payload: the server keeps only the viewer's meetings and recomputes overlaps.
+    const { workspaceId } = get();
+    if (workspaceId) get().fetchCalendarData(workspaceId);
   },
 }));

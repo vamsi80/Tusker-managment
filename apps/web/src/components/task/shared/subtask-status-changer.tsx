@@ -21,6 +21,7 @@ import {
     resolveProjectPermissions,
     canProject,
     canSetStatus,
+    canLeaveCompleted,
     isMandatoryTransition,
     DEFAULT_PROJECT_SETTINGS,
 } from "@tusker/core/lib/constants/project-permissions";
@@ -153,6 +154,13 @@ export function SubtaskStatusChanger({
         // Constraint: COMPLETED status can only be reached from REVIEW
         if (targetStatus === "COMPLETED" && displayStatus !== "REVIEW") {
             return { allowed: false, reason: "Before marking a task as Completed, you must first move it to Review status." };
+        }
+
+        // Constraint: Moving out of COMPLETED requires PM, Owner, or Admin
+        if (displayStatus === "COMPLETED" && targetStatus !== "COMPLETED") {
+            if (!canLeaveCompleted(isWorkspaceAdmin, isPM)) {
+                return { allowed: false, reason: "Only project managers, owners, and admins can move tasks from Completed to Review." };
+            }
         }
 
         return { allowed: true };

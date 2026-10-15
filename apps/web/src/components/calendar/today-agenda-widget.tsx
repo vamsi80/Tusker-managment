@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, Clock, Plus, Video } from "lucide-react";
 import { calendarDayKey } from "@tusker/core/lib/date-utils";
+import { OverlapIcon } from "./overlap-icon";
 
 export function TodayAgendaWidget() {
   const { meetings, openScheduleModal, openDetailsModal } = useMeetingStore();
@@ -101,8 +102,9 @@ export function TodayAgendaWidget() {
                       )}
                     </div>
 
-                    <h4 className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                      {meeting.title}
+                    <h4 className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
+                      <OverlapIcon meeting={meeting} />
+                      <span className="truncate">{meeting.title}</span>
                     </h4>
                   </div>
 

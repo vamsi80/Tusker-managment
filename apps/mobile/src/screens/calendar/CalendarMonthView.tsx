@@ -119,6 +119,7 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
         }
         if (activeLayers.tasks) {
             taskDeadlines.forEach((t) => {
+                if (t.status === "COMPLETED" || t.status === "CANCELLED") return;
                 getEntry(calendarDayKey(t.date)).tasks += 1;
             });
         }
@@ -207,7 +208,7 @@ export default function CalendarMonthView({ ctx }: { ctx: CalendarCtx }) {
                                         {hasHoliday && <View style={[styles.dot, { backgroundColor: "#f43f5e" }]} />}
                                         {hasLeave && <View style={[styles.dot, { backgroundColor: "#a855f7" }]} />}
                                         {meetingCount > 0 && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
-                                        {hasTask && <View style={[styles.dot, { backgroundColor: "#64748b" }]} />}
+                                        {hasTask && <View style={[styles.dot, { backgroundColor: "#4D4DFF" }]} />}
                                     </View>
                                 )}
                             </TouchableOpacity>

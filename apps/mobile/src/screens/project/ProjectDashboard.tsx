@@ -11,6 +11,7 @@ import { Task } from "../../types";
 import { format } from "date-fns";
 import AppCard from "../../components/AppCard";
 import PressableScale from "../../components/PressableScale";
+import { getUserDisplayName } from "../../utils/userDisplayName";
 
 interface ProjectDashboardProps {
     projectId: string;
@@ -227,7 +228,7 @@ export default function ProjectDashboard({ projectId, tasks, isManagerOfProject,
             })
             .map((member: any) => {
                 const user = member.workspaceMember?.user || {};
-                const name = [user.name, user.surname].filter(Boolean).join(" ") || user.surname || user.name || "Member";
+                const name = getUserDisplayName(user);
                 return {
                     id: member.id,
                     projectRole: member.projectRole || "MEMBER",

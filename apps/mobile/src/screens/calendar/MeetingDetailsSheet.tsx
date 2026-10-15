@@ -117,6 +117,18 @@ export default function MeetingDetailsSheet({
 
                     <Text style={[styles.title, { color: colors.text }]}>{meeting.title}</Text>
 
+                    {!!meeting.overlapsWith?.length && (
+                        <View
+                            accessibilityRole="alert"
+                            style={{ flexDirection: "row", alignItems: "center", gap: 6, padding: SPACING.sm, marginBottom: SPACING.sm, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: colors.warning + "50", backgroundColor: colors.warning + "18" }}
+                        >
+                            <Ionicons name="warning-outline" size={14} color={colors.warning} />
+                            <Text style={{ flex: 1, fontSize: 12, fontFamily: FONTS.semibold, color: colors.warning }}>
+                                Overlaps with {meeting.overlapsWith.map((o) => o.title).join(", ")}
+                            </Text>
+                        </View>
+                    )}
+
                     <View style={[styles.timeCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                         <View style={styles.timeCardRow}>
                             <Ionicons name="calendar-outline" size={15} color={colors.primary} />

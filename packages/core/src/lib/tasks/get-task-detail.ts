@@ -1,6 +1,7 @@
 import prisma from "@tusker/db";
 import { fetchUserPermissions as getUserPermissions } from "../../permissions";
 import { TasksService } from "../../server/services/task/tasks.service";
+import { getUserDisplayName } from "../user-display-name";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -70,7 +71,7 @@ export async function getAccessibleTask(taskId: string, userId: string) {
         assignee: assigneeUser
             ? {
                 id: assigneeUser.id,
-                name: `${assigneeUser.name || ""} ${assigneeUser.surname || ""}`.trim(),
+                name: getUserDisplayName(assigneeUser),
                 image: assigneeUser.image,
             }
             : null,
@@ -78,7 +79,7 @@ export async function getAccessibleTask(taskId: string, userId: string) {
         createdBy: createdByUser
             ? {
                 id: createdByUser.id,
-                name: `${createdByUser.name || ""} ${createdByUser.surname || ""}`.trim(),
+                name: getUserDisplayName(createdByUser),
                 surname: createdByUser.surname,
                 image: createdByUser.image,
             }
@@ -133,7 +134,7 @@ export async function getTaskCommentsPage(
             user: comment.user
                 ? {
                     id: comment.user.id,
-                    name: `${comment.user.name || ""} ${comment.user.surname || ""}`.trim(),
+                    name: getUserDisplayName(comment.user),
                     surname: comment.user.surname,
                     image: comment.user.image ?? null,
                 }
@@ -267,7 +268,7 @@ export async function getTaskDetail(
             user: comment.user
                 ? {
                     id: comment.user.id,
-                    name: `${comment.user.name || ""} ${comment.user.surname || ""}`.trim(),
+                    name: getUserDisplayName(comment.user),
                     surname: comment.user.surname,
                     image: comment.user.image ?? null,
                 }
