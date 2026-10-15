@@ -2,7 +2,7 @@
   "expo": {
     "name": "Trava",
     "slug": "trava-tasks",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "travaapp",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.thewhitetusker.trava",
-      "versionCode": 19,
+      "versionCode": 20,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
