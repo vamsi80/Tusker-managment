@@ -37,7 +37,7 @@ export function BirthdaysWidget({ workspaceId }: { workspaceId: string }) {
         </span>
       </div>
 
-      <div className="flex-1 overflow-auto max-h-[360px] pr-1">
+      <div className="flex-1 overflow-auto max-h-[320px] pr-1">
         {members === null ? (
           <p className="text-sm italic text-muted-foreground/60 py-6 text-center">Loading…</p>
         ) : members.length === 0 ? (

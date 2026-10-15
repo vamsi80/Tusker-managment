@@ -68,9 +68,7 @@ export default function WorkSpacePage() {
         <MeetingsWidget key={`meetings-${workspaceId}`} workspaceId={workspaceId} />
         <ReviewsWidget key={`reviews-${workspaceId}`} workspaceId={workspaceId} />
         {canSeeWorkload && <WorkloadWidget key={`workload-${workspaceId}`} workspaceId={workspaceId} />}
-        <div className="lg:col-span-3">
-          <BirthdaysWidget key={`birthdays-${workspaceId}`} workspaceId={workspaceId} />
-        </div>
+        <BirthdaysWidget key={`birthdays-${workspaceId}`} workspaceId={workspaceId} />
       </div>
     </div>
   );
