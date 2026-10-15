@@ -233,7 +233,7 @@ export function BroadcastWidget({
   };
 
   return (
-    <div className="flex flex-col p-6 rounded-3xl border border-white/70 bg-card text-card-foreground shadow-lg backdrop-blur-xl h-full dark:border-border">
+    <div className="flex flex-col p-6 glass glass-card rounded-3xl text-card-foreground h-full">
       <div className="flex items-center justify-between gap-3 mb-5">
         <h3 className="flex items-center gap-2.5 text-base font-bold uppercase tracking-wide">
           <Megaphone className="size-5" />
