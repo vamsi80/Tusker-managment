@@ -57,26 +57,74 @@ function normalizeManager(candidate: any) {
     if (!candidate) return null;
 
     const workspaceMember = candidate.WorkspaceMember || candidate.workspaceMember;
-    const user = workspaceMember?.user || candidate.user || candidate;
+    const user = workspaceMember?.user || candidate.user || (typeof candidate === "object" ? candidate : null);
+
+    const surname =
+        user?.surname ||
+        candidate?.surname ||
+        candidate?.userName ||
+        user?.name ||
+        candidate?.name ||
+        "";
+
+    const name =
+        user?.name ||
+        candidate?.name ||
+        candidate?.userName ||
+        surname ||
+        "";
+
+    if (!surname && !name && !user?.id && !candidate?.id && !candidate?.userId) return null;
 
     return {
-        id: user?.id || candidate.id || workspaceMember?.userId,
-        userId: candidate.userId || workspaceMember?.userId || user?.id,
-        name: user?.name || candidate.name || "",
-        surname: user?.surname || candidate.surname || "",
-        image: user?.image || candidate.image,
-        projectRole: candidate.projectRole,
+        id: user?.id || candidate?.id || workspaceMember?.userId || candidate?.userId,
+        userId: candidate?.userId || workspaceMember?.userId || user?.id || candidate?.id,
+        name,
+        surname,
+        image: user?.image || candidate?.image,
+        projectRole: candidate?.projectRole,
     };
 }
 
 const resolveProjectManager = (managersList?: any[] | null) => {
-    if (!managersList || managersList.length === 0) return null;
-    // Prioritize PROJECT_MANAGER over LEAD
+    if (!managersList || !Array.isArray(managersList) || managersList.length === 0) return null;
     const pm = managersList.find((m: any) => m?.projectRole === "PROJECT_MANAGER") ||
         managersList.find((m: any) => m?.projectRole === "LEAD") ||
         managersList[0];
     return pm;
 };
+
+function extractFromProj(proj: any) {
+    if (!proj) return null;
+
+    // 1. Check projectManager object directly
+    if (proj.projectManager) {
+        const norm = normalizeManager(proj.projectManager);
+        if (norm) return norm;
+    }
+
+    // 2. Check projectManagers array
+    if (proj.projectManagers && Array.isArray(proj.projectManagers) && proj.projectManagers.length > 0) {
+        const pm = resolveProjectManager(proj.projectManagers);
+        if (pm) {
+            const norm = normalizeManager(pm);
+            if (norm) return norm;
+        }
+    }
+
+    // 3. Check projectMembers array for PROJECT_MANAGER or LEAD
+    if (proj.projectMembers && Array.isArray(proj.projectMembers) && proj.projectMembers.length > 0) {
+        const pm = proj.projectMembers.find((m: any) => m?.projectRole === "PROJECT_MANAGER") ||
+            proj.projectMembers.find((m: any) => m?.projectRole === "LEAD") ||
+            proj.projectMembers[0];
+        if (pm) {
+            const norm = normalizeManager(pm);
+            if (norm) return norm;
+        }
+    }
+
+    return null;
+}
 
 export default function ProjectKanban({ projectId, navigation, refreshData, parentId, tasks }: ProjectKanbanProps) {
     const { colors } = useTheme();
@@ -174,24 +222,24 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
             if (!projectId) return;
 
             try {
+                // 1. First check if global context projects has this project's manager
+                const contextProj = projects.find(p => p.id === projectId || p.name?.toLowerCase() === projectId.toLowerCase());
+                if (contextProj) {
+                    const normCtx = extractFromProj(contextProj);
+                    if (normCtx) setProjectManager(normCtx);
+                }
+
+                // 2. Fetch full project details
                 const project = await getProject(projectId);
                 if (cancelled || !project) return;
 
-                const explicitManager = normalizeManager(resolveProjectManager(project.projectManagers));
-                const memberManager = normalizeManager(
-                    resolveProjectManager(
-                        project.projectMembers?.filter(
-                            (member: any) =>
-                                member.projectRole === "PROJECT_MANAGER" || member.projectRole === "LEAD"
-                        )
-                    )
-                );
-
-                setProjectManager(explicitManager || memberManager || null);
+                const norm = extractFromProj(project);
+                if (norm) {
+                    setProjectManager(norm);
+                }
             } catch (error) {
                 if (!cancelled) {
                     console.error("[ProjectKanban] Failed to load project manager:", error);
-                    setProjectManager(null);
                 }
             }
         };
@@ -201,7 +249,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
         return () => {
             cancelled = true;
         };
-    }, [projectId]);
+    }, [projectId, projects]);
 
     const handleStatusUpdate = async (taskId: string, newStatus: string, comment?: string, attachmentData?: any) => {
         if (!activeWorkspace) return;
@@ -388,16 +436,28 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
 
                     {/* Project Manager attribution */}
                     {(() => {
-                        // Priority 1: Use projectManagers from the task's own project object (new payload)
-                        // Priority 2: Use the hoisted projectManager state (fetched for the current project)
-                        // Priority 3: Fallback to global projects context
-                        const taskManagers = (task.project as any)?.projectManagers;
-                        const contextManagers = projects.find(p => p.id === task.projectId || p.name?.toLowerCase() === task.project?.name?.toLowerCase())?.projectManagers;
+                        const projectObj = projects.find(p => p.id === task.projectId || p.id === projectId || p.name?.toLowerCase() === task.project?.name?.toLowerCase());
 
-                        const firstManager = normalizeManager(resolveProjectManager(taskManagers)) ||
+                        const extractFromProj = (proj: any) => {
+                            if (!proj) return null;
+                            if (proj.projectManagers && Array.isArray(proj.projectManagers) && proj.projectManagers.length > 0) {
+                                const pm = resolveProjectManager(proj.projectManagers);
+                                if (pm) return normalizeManager(pm);
+                            }
+                            if (proj.projectManager) return normalizeManager(proj.projectManager);
+                            if (proj.projectMembers && Array.isArray(proj.projectMembers)) {
+                                const pm = proj.projectMembers.find((m: any) => m?.projectRole === "PROJECT_MANAGER" || m?.projectRole === "LEAD");
+                                if (pm) return normalizeManager(pm);
+                            }
+                            return null;
+                        };
+
+                        const firstManager = extractFromProj(task.project) ||
                             (task.projectId === projectId ? projectManager : null) ||
-                            normalizeManager(resolveProjectManager(contextManagers));
+                            extractFromProj(projectObj) ||
+                            projectManager;
 
+                        const displayName = firstManager?.surname || firstManager?.name || "None";
                         const managerInitial = (firstManager?.surname?.[0] || firstManager?.name?.[0] || "M").toUpperCase();
 
                         return (
@@ -405,7 +465,7 @@ export default function ProjectKanban({ projectId, navigation, refreshData, pare
                                 <View style={{ alignItems: "flex-end", marginRight: 6 }}>
                                     <Text style={[styles.roleLabel, { color: colors.statusReview }]}>Manager</Text>
                                     <Text style={[styles.memberSurname, { color: colors.text }]}>
-                                        {firstManager?.surname || firstManager?.name || "None"}
+                                        {displayName}
                                     </Text>
                                 </View>
                                 <View style={[styles.avatarCircle, { backgroundColor: colors.statusReview + "30", borderColor: colors.statusReview }]}>
