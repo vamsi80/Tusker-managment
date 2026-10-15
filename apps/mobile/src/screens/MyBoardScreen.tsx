@@ -55,14 +55,14 @@ function groupTasks(tasks: Task[]): Section[] {
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString([], { month: "short", day: "numeric" }) : "—";
 
 function getUrg(due?: string, status?: string) {
-    if (!due || status === "HOLD") return null;
+    if (!due || status === "HOLD" || status === "COMPLETED" || status === "CANCELLED") return null;
     const now = new Date(); now.setHours(0, 0, 0, 0);
     const d = new Date(due); d.setHours(0, 0, 0, 0);
     const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
     if (diff < 0) return { text: `${Math.abs(diff)}d late`, color: "#ef4444" };
     if (diff === 0) return { text: "Today", color: "#f59e0b" };
     if (diff <= 3) return { text: `${diff}d left`, color: "#3b82f6" };
-    return { text: `${diff} days`, color: "#9ca3af" };
+    return { text: `In ${diff}d`, color: "#9ca3af" };
 }
 
 export default function MyBoardScreen() {
@@ -179,18 +179,16 @@ export default function MyBoardScreen() {
     ), [isDark, shimmerAnim]);
 
 
-    const isWorkspaceAdmin = useMemo(() => {
+    const isWorkspaceOwner = useMemo(() => {
         const wsFromList = workspaces.find(w => w.id === activeWorkspace?.id);
         const role = activeWorkspace?.workspaceRole || (activeWorkspace as any)?.role || wsFromList?.workspaceRole || (wsFromList as any)?.role;
 
         const wsOwnerId = activeWorkspace?.ownerId || wsFromList?.ownerId;
         const currentUserId = currentUser?.id;
 
-        // Comprehensive check: role string or being the workspace owner
-        const isOwner = !!(wsOwnerId && currentUserId && wsOwnerId === currentUserId);
-        const isAdmin = role === "ADMIN" || role === "OWNER";
+        const isOwner = (wsOwnerId && currentUserId && wsOwnerId === currentUserId) || role === "OWNER";
 
-        return isAdmin || isOwner;
+        return !!isOwner;
     }, [activeWorkspace, workspaces, currentUser]);
     const { globalFilters, setGlobalFilters } = useWorkspace();
     const headerScrollRef = useRef<ScrollView>(null);
@@ -274,8 +272,9 @@ export default function MyBoardScreen() {
 
         try {
             if (activeWorkspace) {
-                // Only workspace owners/admins may see other members' subtasks.
-                const isMyTasksMode = !isWorkspaceAdmin || ownerViewMode === "Personal";
+                // Only workspace owners may see other members' subtasks in Universal view.
+                // Rest of the members see only subtasks assigned to them in My Board.
+                const isMyTasksMode = !isWorkspaceOwner || ownerViewMode === "Personal";
 
                 const PAGE_SIZE = 15;
 
@@ -340,7 +339,7 @@ export default function MyBoardScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [activeWorkspace?.id, filters, ownerViewMode, currentUser, isWorkspaceAdmin]);
+    }, [activeWorkspace?.id, filters, ownerViewMode, currentUser, isWorkspaceOwner]);
 
     const loadMore = useCallback(async () => {
         if (!hasMore || loadingMore || !nextCursor || isFetchingMoreRef.current) return;
@@ -365,8 +364,8 @@ export default function MyBoardScreen() {
 
         const cursor = kanbanCols[status].nextCursor ?? undefined;
         const KANBAN_PAGE = 10;
-        // Only workspace owners/admins may see other members' subtasks.
-        const isMyTasksMode = !isWorkspaceAdmin || ownerViewMode === "Personal";
+        // Only workspace owners may see other members' subtasks in Universal view.
+        const isMyTasksMode = !isWorkspaceOwner || ownerViewMode === "Personal";
 
         const baseFilters: Parameters<typeof getTasks>[1] = {
             ...filters,
@@ -403,14 +402,14 @@ export default function MyBoardScreen() {
             console.error(`[Kanban] Failed to fetch column ${status}:`, e);
             setKanbanCols(prev => ({ ...prev, [status]: { ...prev[status], loadingMore: false, initialized: true } }));
         }
-    }, [activeWorkspace, currentUser, ownerViewMode, filters, kanbanCols, isWorkspaceAdmin]);
+    }, [activeWorkspace, currentUser, ownerViewMode, filters, kanbanCols, isWorkspaceOwner]);
 
     const refreshKanbanCols = useCallback(async () => {
         if (!activeWorkspace || !currentUser) return;
         setKanbanRefreshing(true);
         try {
-            // Only workspace owners/admins may see other members' subtasks.
-            const isMyTasksMode = !isWorkspaceAdmin || ownerViewMode === "Personal";
+            // Only workspace owners may see other members' subtasks in Universal view.
+            const isMyTasksMode = !isWorkspaceOwner || ownerViewMode === "Personal";
             const columns = await getKanbanBoard(activeWorkspace.id, {
                 projectId: filters.projectId?.length ? filters.projectId : undefined,
                 assigneeId: isMyTasksMode && currentUser.id
@@ -443,7 +442,7 @@ export default function MyBoardScreen() {
         } finally {
             setKanbanRefreshing(false);
         }
-    }, [activeWorkspace, currentUser, ownerViewMode, filters, isWorkspaceAdmin]);
+    }, [activeWorkspace, currentUser, ownerViewMode, filters, isWorkspaceOwner]);
 
     const handleLongPress = (task: Task) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -525,7 +524,7 @@ export default function MyBoardScreen() {
         } else if (viewMode === "Kanban") {
             refreshKanbanCols();
         }
-    }, [viewMode, activeWorkspace?.id, currentUser?.id, filters, ownerViewMode, isWorkspaceAdmin]);
+    }, [viewMode, activeWorkspace?.id, currentUser?.id, filters, ownerViewMode, isWorkspaceOwner]);
 
     // Reset filters when the tab is switched/blurred
     useEffect(() => {
@@ -893,23 +892,38 @@ export default function MyBoardScreen() {
             const getStatusBg = (status: string) => getStatusBgColor(status as any);
 
             const resolveManager = (task: Task) => {
-                const taskManagers = (task.project as any)?.projectManagers;
-                const contextManagers = projects.find(
-                    p => p.id === task.projectId || p.name?.toLowerCase() === task.project?.name?.toLowerCase()
-                )?.projectManagers;
-                const resolve = (list?: any[] | null) => {
-                    if (!list || list.length === 0) return null;
-                    return list.find((m: any) => m?.projectRole === "PROJECT_MANAGER") ||
-                           list.find((m: any) => m?.projectRole === "LEAD") ||
-                           list[0];
+                const projectObj = projects.find(
+                    p => p.id === task.projectId || p.id === task.project?.id || p.name?.toLowerCase() === task.project?.name?.toLowerCase()
+                );
+
+                const extractManager = (proj: any) => {
+                    if (!proj) return null;
+                    if (proj.projectManagers && Array.isArray(proj.projectManagers) && proj.projectManagers.length > 0) {
+                        const m = proj.projectManagers.find((x: any) => x?.projectRole === "PROJECT_MANAGER") ||
+                            proj.projectManagers.find((x: any) => x?.projectRole === "LEAD") ||
+                            proj.projectManagers[0];
+                        if (m) return m;
+                    }
+                    if (proj.projectManager) return proj.projectManager;
+                    if (proj.projectMembers && Array.isArray(proj.projectMembers)) {
+                        const pm = proj.projectMembers.find((x: any) => x?.projectRole === "PROJECT_MANAGER") ||
+                            proj.projectMembers.find((x: any) => x?.projectRole === "LEAD");
+                        if (pm) return pm;
+                    }
+                    return null;
                 };
-                const normalize = (candidate: any) => {
-                    if (!candidate) return null;
-                    const wm = candidate.WorkspaceMember || candidate.workspaceMember;
-                    const u = wm?.user || candidate.user || candidate;
-                    return { name: u?.name || candidate.name || "", surname: u?.surname || candidate.surname || "" };
-                };
-                return normalize(resolve(taskManagers)) || normalize(resolve(contextManagers));
+
+                const candidate = extractManager(task.project) || extractManager(projectObj);
+                if (!candidate) return null;
+
+                const wm = candidate.WorkspaceMember || candidate.workspaceMember;
+                const u = wm?.user || candidate.user || candidate;
+
+                const surname = u?.surname || candidate?.surname || u?.name || candidate?.name || "";
+                const name = u?.name || candidate?.name || surname || "";
+
+                if (!surname && !name) return null;
+                return { name, surname };
             };
 
             const renderKanbanCard = (task: Task) => {
@@ -1129,8 +1143,8 @@ export default function MyBoardScreen() {
                                 <View style={s.headerTitleRow}>
                                     <Text style={[s.headerTitle, { color: colors.text }]} numberOfLines={1}>Tasks</Text>
 
-                                    {/* "My Tasks" Checkbox for Owners/Admins (everyone else only sees their own) */}
-                                    {isWorkspaceAdmin && (
+                                    {/* "My Tasks" Checkbox for Workspace Owners (everyone else only sees their own assigned tasks) */}
+                                    {isWorkspaceOwner && (
                                         <TouchableOpacity
                                             onPress={() => {
                                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

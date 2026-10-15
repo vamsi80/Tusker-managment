@@ -152,6 +152,7 @@ export interface Task {
         name: string;
     }>;
     project?: {
+        id?: string;
         name: string;
         color?: string;
     };
