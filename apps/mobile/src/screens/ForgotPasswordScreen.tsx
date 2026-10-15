@@ -88,11 +88,7 @@ export default function ForgotPasswordScreen({ navigation, route }: Props) {
 
     return (
         <SafeAreaView style={styles.safe} edges={["top"]}>
-            <StatusBar
-                barStyle={isDark ? "light-content" : "dark-content"}
-                translucent
-                backgroundColor="transparent"
-            />
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
             <AmbientBackground />
             <KeyboardAvoidingView
                 style={styles.flex}

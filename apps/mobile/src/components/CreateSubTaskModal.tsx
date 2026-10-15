@@ -680,7 +680,13 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                                 onPress={() => setShowStartDatePicker(true)}
                                             >
                                                 <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-                                                <Text style={[styles.dateText, { color: startDate ? colors.text : colors.textDim }]}>
+                                                <Text
+                                                    style={[styles.dateText, { color: startDate ? colors.text : colors.textDim }]}
+                                                    numberOfLines={1}
+                                                    adjustsFontSizeToFit={true}
+                                                    minimumFontScale={0.7}
+                                                    maxFontSizeMultiplier={1.15}
+                                                >
                                                     {startDate ? format(startDate, "dd-MM-yyyy") : "DD-MM-YYYY"}
                                                 </Text>
                                             </TouchableOpacity>
@@ -700,7 +706,7 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                                 minimumDate={startOfToday()}
                                             />
                                         </View>
-                                        <View style={{ width: 16 }} />
+                                        <View style={{ width: 12 }} />
                                         <View style={{ flex: 1 }}>
                                             <Text style={[styles.label, { color: colors.textDim }]}>Start Time</Text>
                                             <TouchableOpacity
@@ -708,7 +714,13 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                                 onPress={() => setShowStartTimePicker(true)}
                                             >
                                                 <Ionicons name="time-outline" size={18} color={colors.primary} />
-                                                <Text style={[styles.dateText, { color: startDate ? colors.text : colors.textDim }]}>
+                                                <Text
+                                                    style={[styles.dateText, { color: startDate ? colors.text : colors.textDim }]}
+                                                    numberOfLines={1}
+                                                    adjustsFontSizeToFit={true}
+                                                    minimumFontScale={0.7}
+                                                    maxFontSizeMultiplier={1.15}
+                                                >
                                                     {startDate ? format(startDate, "hh:mm a") : "Select Time"}
                                                 </Text>
                                             </TouchableOpacity>
@@ -737,7 +749,13 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                                 onPress={() => setShowDueDatePicker(true)}
                                             >
                                                 <Ionicons name="calendar-outline" size={18} color="#ef4444" />
-                                                <Text style={[styles.dateText, { color: dueDate ? colors.text : colors.textDim }]}>
+                                                <Text
+                                                    style={[styles.dateText, { color: dueDate ? colors.text : colors.textDim }]}
+                                                    numberOfLines={1}
+                                                    adjustsFontSizeToFit={true}
+                                                    minimumFontScale={0.7}
+                                                    maxFontSizeMultiplier={1.15}
+                                                >
                                                     {dueDate ? format(dueDate, "dd-MM-yyyy") : "DD-MM-YYYY"}
                                                 </Text>
                                             </TouchableOpacity>
@@ -754,7 +772,7 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                                 minimumDate={startDate || startOfToday()}
                                             />
                                         </View>
-                                        <View style={{ width: 16 }} />
+                                        <View style={{ width: 12 }} />
                                         <View style={{ flex: 1 }}>
                                             <Text style={[styles.label, { color: colors.textDim }]}>Due Time</Text>
                                             <TouchableOpacity
@@ -762,7 +780,13 @@ export default function CreateSubTaskModal({ visible, onClose, initialParentId, 
                                                 onPress={() => setShowDueTimePicker(true)}
                                             >
                                                 <Ionicons name="time-outline" size={18} color="#ef4444" />
-                                                <Text style={[styles.dateText, { color: dueDate ? colors.text : colors.textDim }]}>
+                                                <Text
+                                                    style={[styles.dateText, { color: dueDate ? colors.text : colors.textDim }]}
+                                                    numberOfLines={1}
+                                                    adjustsFontSizeToFit={true}
+                                                    minimumFontScale={0.7}
+                                                    maxFontSizeMultiplier={1.15}
+                                                >
                                                     {dueDate ? format(dueDate, "hh:mm a") : "Select Time"}
                                                 </Text>
                                             </TouchableOpacity>

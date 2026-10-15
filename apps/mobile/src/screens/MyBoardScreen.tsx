@@ -254,13 +254,6 @@ export default function MyBoardScreen() {
         return chips;
     }, [filters, projects, tags, currentUser, setGlobalFilters]);
 
-    const managedProjectIds = useMemo(() => {
-        if (!currentUser) return [];
-        return projects
-            .filter(p => p.projectManagers?.some(m => m.id === currentUser.id))
-            .map(p => p.id);
-    }, [projects, currentUser]);
-
     useEffect(() => {
         const loadUser = async () => {
             const session = await getCachedSession();
@@ -281,7 +274,8 @@ export default function MyBoardScreen() {
 
         try {
             if (activeWorkspace) {
-                const isMyTasksMode = ownerViewMode === "Personal";
+                // Only workspace owners/admins may see other members' subtasks.
+                const isMyTasksMode = !isWorkspaceAdmin || ownerViewMode === "Personal";
 
                 const PAGE_SIZE = 15;
 
@@ -315,7 +309,7 @@ export default function MyBoardScreen() {
                         result = await getTasks(activeWorkspace.id, buildFilters(assigneeFilter));
                     }
                 } else {
-                    // Universal mode is authorized by the backend. It returns
+                    // Universal mode (owners/admins only) is authorized by the backend. It returns
                     // every subtask in projects the user manages and only the
                     // user's assigned work in restricted member projects.
                     if (isFirstPage) {
@@ -346,7 +340,7 @@ export default function MyBoardScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [activeWorkspace?.id, filters, ownerViewMode, currentUser]);
+    }, [activeWorkspace?.id, filters, ownerViewMode, currentUser, isWorkspaceAdmin]);
 
     const loadMore = useCallback(async () => {
         if (!hasMore || loadingMore || !nextCursor || isFetchingMoreRef.current) return;
@@ -371,7 +365,8 @@ export default function MyBoardScreen() {
 
         const cursor = kanbanCols[status].nextCursor ?? undefined;
         const KANBAN_PAGE = 10;
-        const isMyTasksMode = ownerViewMode === "Personal";
+        // Only workspace owners/admins may see other members' subtasks.
+        const isMyTasksMode = !isWorkspaceAdmin || ownerViewMode === "Personal";
 
         const baseFilters: Parameters<typeof getTasks>[1] = {
             ...filters,
@@ -408,13 +403,14 @@ export default function MyBoardScreen() {
             console.error(`[Kanban] Failed to fetch column ${status}:`, e);
             setKanbanCols(prev => ({ ...prev, [status]: { ...prev[status], loadingMore: false, initialized: true } }));
         }
-    }, [activeWorkspace, currentUser, ownerViewMode, filters, kanbanCols]);
+    }, [activeWorkspace, currentUser, ownerViewMode, filters, kanbanCols, isWorkspaceAdmin]);
 
     const refreshKanbanCols = useCallback(async () => {
         if (!activeWorkspace || !currentUser) return;
         setKanbanRefreshing(true);
         try {
-            const isMyTasksMode = ownerViewMode === "Personal";
+            // Only workspace owners/admins may see other members' subtasks.
+            const isMyTasksMode = !isWorkspaceAdmin || ownerViewMode === "Personal";
             const columns = await getKanbanBoard(activeWorkspace.id, {
                 projectId: filters.projectId?.length ? filters.projectId : undefined,
                 assigneeId: isMyTasksMode && currentUser.id
@@ -447,7 +443,7 @@ export default function MyBoardScreen() {
         } finally {
             setKanbanRefreshing(false);
         }
-    }, [activeWorkspace, currentUser, ownerViewMode, filters]);
+    }, [activeWorkspace, currentUser, ownerViewMode, filters, isWorkspaceAdmin]);
 
     const handleLongPress = (task: Task) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -529,7 +525,7 @@ export default function MyBoardScreen() {
         } else if (viewMode === "Kanban") {
             refreshKanbanCols();
         }
-    }, [viewMode, activeWorkspace?.id, currentUser?.id, filters, ownerViewMode]);
+    }, [viewMode, activeWorkspace?.id, currentUser?.id, filters, ownerViewMode, isWorkspaceAdmin]);
 
     // Reset filters when the tab is switched/blurred
     useEffect(() => {
@@ -1108,7 +1104,7 @@ export default function MyBoardScreen() {
 
     return (
         <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={["top"]}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.surface} />
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
             <View style={[s.appHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingHorizontal: value(SPACING.lg, SPACING.xl, SPACING.xxl) }]}>
                 <View style={{ maxWidth: MAX_CONTENT_WIDTH, width: '100%', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1133,8 +1129,8 @@ export default function MyBoardScreen() {
                                 <View style={s.headerTitleRow}>
                                     <Text style={[s.headerTitle, { color: colors.text }]} numberOfLines={1}>Tasks</Text>
 
-                                    {/* "My Tasks" Checkbox for Owners/PMs */}
-                                    {(isWorkspaceAdmin || managedProjectIds.length > 0) && (
+                                    {/* "My Tasks" Checkbox for Owners/Admins (everyone else only sees their own) */}
+                                    {isWorkspaceAdmin && (
                                         <TouchableOpacity
                                             onPress={() => {
                                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
