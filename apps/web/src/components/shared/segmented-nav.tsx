@@ -22,7 +22,7 @@ export function SegmentedNav({ items, className }: { items: SegmentedNavItem[]; 
     return (
         <nav
             className={cn(
-                "inline-flex max-w-full items-center gap-1 overflow-x-auto scrollbar-hide rounded-full border border-white/70 bg-muted p-1 shadow-xs dark:border-border",
+                "inline-flex max-w-full items-center gap-1 overflow-x-auto scrollbar-hide glass rounded-full p-1",
                 router.isNavigating && "opacity-60 pointer-events-none transition-opacity",
                 className
             )}

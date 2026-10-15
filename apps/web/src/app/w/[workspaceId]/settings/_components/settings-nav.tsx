@@ -65,7 +65,7 @@ export function SettingsNav({ workspaceId }: SettingsNavProps) {
                 />
             }
             actions={
-                <div className="flex size-10 items-center justify-center rounded-full border border-white/70 bg-card shadow-md dark:border-border">
+                <div className="flex size-10 items-center justify-center glass rounded-full">
                     <RefreshCw className={cn("size-4 transition-all duration-500", isPending ? "text-primary animate-spin" : "text-muted-foreground")} />
                 </div>
             }

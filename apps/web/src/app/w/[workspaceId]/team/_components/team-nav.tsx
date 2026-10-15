@@ -64,7 +64,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                 <>
                     <div
                         title={isQuerying ? "Refreshing..." : "Up to date"}
-                        className="flex size-10 items-center justify-center rounded-full border border-white/70 bg-card shadow-md dark:border-border"
+                        className="flex size-10 items-center justify-center glass rounded-full"
                     >
                         <RefreshCw className={cn("size-4 transition-all duration-500", isQuerying ? "text-primary animate-spin" : "text-muted-foreground")} />
                     </div>

@@ -20,6 +20,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuAction, useSidebar } from "@/components/ui/sidebar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useAppearanceStore } from "@/lib/store/appearance-store";
+import { COMET_CYCLE_SECONDS, SIDEBAR_COMET_DELAY } from "@/components/shared/app-background";
 
 /** Sidebar-width labels for the three verticals. The full names live in PROJECT_CATEGORY_LABELS. */
 const CATEGORY_CHIPS = [
@@ -27,6 +29,9 @@ const CATEGORY_CHIPS = [
   { value: "LATTICE_LANE", label: "PL/LL" },
   { value: "MISCELLANEOUS", label: "Other" },
 ] as const;
+
+/** The curve behind the chips, in the pixel units of its 288x136 box. */
+const CHIP_RIBBON = "M 17 -3 C 29 52 109 71 294 76";
 
 interface iAppProps {
   workspaceId: string;
@@ -39,6 +44,7 @@ interface iAppProps {
 export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, currentUserId }: iAppProps) {
   const { data: layoutData, isLoading: isLayoutLoading, isRevalidating, revalidate } = useWorkspaceLayout();
   const projects = layoutData.projects || [];
+  const flowingLight = useAppearanceStore((s) => s.flowingLight);
 
   // Optimized loading: only show skeleton if we have NO data yet.
   // We avoid showing skeletons during silent revalidations to keep the UI stable (Surgical Sync).
@@ -240,7 +246,69 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
             )}
           </div>
           )}
-          <div className="flex gap-2">
+          <div className="relative flex gap-2">
+            {/* A ribbon sweeping in from the top-left, under the chips and off toward
+                the project list, so their glass has something to show through. Drawn
+                like the background ribbons: a hairline over a soft blurred glow, with
+                the flowing light passing along it in its turn. Kept inside the
+                sidebar's width: the scrolling content would clip it. Units are pixels
+                at the 18rem sidebar, so the comet keeps its shape. */}
+            <svg
+              aria-hidden
+              viewBox="0 0 288 136"
+              preserveAspectRatio="none"
+              className="pointer-events-none absolute -top-10 -inset-x-3 h-[calc(100%+6rem)] w-[calc(100%+1.5rem)] overflow-visible"
+            >
+              <defs>
+                <linearGradient id="chip-ribbon-fade" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#fff" stopOpacity={0.2} />
+                  <stop offset="0.4" stopColor="#fff" stopOpacity={1} />
+                  <stop offset="1" stopColor="#fff" stopOpacity={0.3} />
+                </linearGradient>
+                <mask id="chip-ribbon-mask" maskContentUnits="objectBoundingBox">
+                  <rect width="1" height="1" fill="url(#chip-ribbon-fade)" />
+                </mask>
+                <linearGradient id="chip-comet-tail" x1="-45" x2="0" y1="0" y2="0" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0 }} />
+                  <stop offset="0.7" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0.35 }} />
+                  <stop offset="1" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0.95 }} />
+                </linearGradient>
+                <radialGradient id="chip-comet-head">
+                  <stop offset="0" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0.85 }} />
+                  <stop offset="0.15" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0.4 }} />
+                  <stop offset="0.45" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0.12 }} />
+                  <stop offset="1" style={{ stopColor: "var(--bg-comet)", stopOpacity: 0 }} />
+                </radialGradient>
+              </defs>
+              <g mask="url(#chip-ribbon-mask)">
+                <path
+                  d={CHIP_RIBBON}
+                  fill="none"
+                  vectorEffect="non-scaling-stroke"
+                  style={{ stroke: "var(--bg-line-glow)", strokeWidth: 14, filter: "blur(6px)" }}
+                />
+                <path
+                  d={CHIP_RIBBON}
+                  fill="none"
+                  vectorEffect="non-scaling-stroke"
+                  style={{ stroke: "var(--bg-line)", strokeWidth: 1.5 }}
+                />
+              </g>
+              {flowingLight && (
+                <g
+                  className="bg-comet"
+                  style={{
+                    offsetPath: `path("${CHIP_RIBBON}")`,
+                    animationDuration: `${COMET_CYCLE_SECONDS}s`,
+                    animationDelay: `${SIDEBAR_COMET_DELAY}s`,
+                  }}
+                >
+                  <path d="M -45 0 Q -22 -0.6 0 -1.2 L 0 1.2 Q -22 0.6 -45 0 Z" fill="url(#chip-comet-tail)" />
+                  <circle r="12" fill="url(#chip-comet-head)" />
+                  <circle r="1.6" style={{ fill: "var(--bg-comet)" }} />
+                </g>
+              )}
+            </svg>
             {CATEGORY_CHIPS.map((c) => (
               <button
                 key={c.value}
@@ -248,10 +316,10 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                 // Clicking the active chip clears the filter, so there is no "All" button.
                 onClick={() => setCategory((cur) => (cur === c.value ? null : c.value))}
                 className={cn(
-                  "flex-1 rounded-full border px-2 py-1 text-xs transition-colors",
+                  "relative flex-1 rounded-full border px-3 py-2 text-[15px] font-medium transition-colors",
                   category === c.value
                     ? "bg-sidebar-accent text-foreground border-white/70 shadow-md dark:border-border"
-                    : "border-border text-muted-foreground hover:bg-sidebar-accent/70"
+                    : "glass text-muted-foreground hover:text-foreground"
                 )}
               >
                 {c.label}

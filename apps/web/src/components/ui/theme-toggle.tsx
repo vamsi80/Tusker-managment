@@ -29,7 +29,7 @@ export default function ThemeToggle() {
               pressed={isDark}
               onPressedChange={toggleTheme}
               aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-              className="relative inline-flex items-center justify-center size-11 rounded-full border border-white/70 bg-card shadow-md dark:border-border p-0 hover:bg-card data-[state=on]:bg-card focus:outline-none"
+              className="relative inline-flex items-center justify-center size-11 glass rounded-full p-0 hover:bg-white/20 dark:hover:bg-white/10 data-[state=on]:bg-transparent focus:outline-none"
             >
               {/* Shows the mode a click switches to: moon in light, sun in dark. */}
               <SunIcon

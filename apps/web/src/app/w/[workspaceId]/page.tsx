@@ -49,7 +49,7 @@ export default function WorkSpacePage() {
             Announcements, your tasks and this week&apos;s meetings across {workspaceName}.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-white/70 bg-card px-4 py-2 text-sm shadow-md dark:border-border">
+        <div className="flex items-center gap-2 glass rounded-full px-4 py-2 text-sm">
           <CalendarDays className="size-4" />
           {formattedToday}
         </div>

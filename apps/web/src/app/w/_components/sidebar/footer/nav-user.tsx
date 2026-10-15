@@ -47,7 +47,7 @@ export function NavUser({ workspaceId }: { workspaceId?: string }) {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                className="h-14 rounded-2xl border border-white/70 bg-sidebar-accent shadow-md dark:border-border data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                className="glass h-14 rounded-2xl data-[state=open]:text-sidebar-accent-foreground"
               >
                 <Avatar className="size-8 rounded-full">
                   <AvatarImage src={session?.user?.image || ""} alt={displayName} />

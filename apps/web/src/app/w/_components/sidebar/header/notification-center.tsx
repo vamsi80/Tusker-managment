@@ -75,7 +75,7 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
                     variant="ghost"
                     size="icon"
                     className={cn(
-                        "relative size-11 rounded-full border border-white/70 bg-card shadow-md dark:border-border hover:bg-card transition-all cursor-pointer",
+                        "relative size-11 glass rounded-full hover:bg-white/20 dark:hover:bg-white/10 transition-all cursor-pointer",
                         isPulsing && "ring-2 ring-primary ring-offset-2 bg-primary/10"
                     )}
                     onClick={() => {

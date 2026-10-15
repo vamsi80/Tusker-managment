@@ -79,7 +79,12 @@ const GLOWS = [
 ];
 
 // The flowing light: one point that travels each ribbon in turn, so only one is ever lit.
-const COMET_SECONDS_PER_RIBBON = 6;
+export const COMET_SECONDS_PER_RIBBON = 6;
+// Six stops: the five ribbons here plus the sidebar's ribbon behind the project
+// chips (nav-projects.tsx), which takes the slot right after the top-left ribbon
+// so the light seems to run on into it. The bg-comet keyframes assume six.
+export const COMET_CYCLE_SECONDS = COMET_SECONDS_PER_RIBBON * 6;
+export const SIDEBAR_COMET_DELAY = COMET_SECONDS_PER_RIBBON;
 // The comet's tail length, in the same units as the ribbon coordinates.
 const COMET_TAIL = 110;
 
@@ -192,8 +197,9 @@ export function AppBackground() {
                             className="bg-comet"
                             style={{
                                 offsetPath: `path("${r.line}")`,
-                                animationDuration: `${COMET_SECONDS_PER_RIBBON * RIBBONS.length}s`,
-                                animationDelay: `${i * COMET_SECONDS_PER_RIBBON}s`,
+                                animationDuration: `${COMET_CYCLE_SECONDS}s`,
+                                // Slot 1 belongs to the sidebar ribbon.
+                                animationDelay: `${(i === 0 ? 0 : i + 1) * COMET_SECONDS_PER_RIBBON}s`,
                             }}
                         >
                             <path d={tailPath(r.bend)} fill="url(#bg-comet-tail)" />
