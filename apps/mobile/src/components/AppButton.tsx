@@ -79,6 +79,9 @@ export default function AppButton({
             )}
             <Text
                 numberOfLines={1}
+                adjustsFontSizeToFit={true}
+                minimumFontScale={0.8}
+                maxFontSizeMultiplier={1.2}
                 style={[
                     styles.label,
                     { color: p.fg, fontSize: dims.fontSize, opacity: loading ? 0 : 1 },

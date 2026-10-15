@@ -94,7 +94,13 @@ function TabButton({
                     color={focused ? activeContent : inactiveContent}
                 />
                 {focused && (
-                    <Text style={[styles.tabLabel, { color: activeContent }]} numberOfLines={1}>
+                    <Text
+                        style={[styles.tabLabel, { color: activeContent }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit={true}
+                        minimumFontScale={0.75}
+                        maxFontSizeMultiplier={1.15}
+                    >
                         {meta.label}
                     </Text>
                 )}
@@ -214,11 +220,12 @@ const styles = StyleSheet.create({
         height: "100%",
     },
     tabInner: {
+        width: "100%",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 6,
         borderRadius: 24,
         minHeight: 44,
     },
@@ -232,8 +239,9 @@ const styles = StyleSheet.create({
     tabLabel: {
         fontSize: 10,
         fontFamily: FONTS.bold,
-        letterSpacing: 0.2,
+        letterSpacing: 0.1,
         marginTop: 2,
+        textAlign: "center",
     },
     fabSlot: {
         width: 72,

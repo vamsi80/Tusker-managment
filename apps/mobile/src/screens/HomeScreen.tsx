@@ -78,12 +78,7 @@ export default function HomeScreen({ navigation }: Props) {
     const { colors, isDark, toggleTheme } = useTheme();
     const { unreadCount } = useNotifications();
     const { MAX_CONTENT_WIDTH, value, isCompact } = useResponsive();
-    // The greeting/check-in "hero" was sized for a normal phone height; on a
-    // compact screen (e.g. a 360x640dp small phone) it still ate a
-    // disproportionate share of vertical space even at a first, milder
-    // reduction — shrunk further here, along with the surrounding text and
-    // spacing, so the hero reads proportionate instead of "zoomed in".
-    const checkInSize = isCompact ? 72 : 124;
+    const checkInSize = isCompact ? 104 : 124;
     const isAdminOrOwner = activeWorkspace?.workspaceRole === "OWNER" || activeWorkspace?.workspaceRole === "ADMIN";
 
     const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -402,34 +397,32 @@ export default function HomeScreen({ navigation }: Props) {
                 <View style={[styles.mainCard, isCompact && styles.mainCardCompact, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     {/* Card Header: Workspace Name, Notification Bell, User Avatar */}
                     <View style={styles.cardHeaderRow}>
-                        <View style={StyleSheet.absoluteFill}>
-                            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                                {wsLoading && !activeWorkspace ? (
-                                    <Skeleton width={130} height={16} />
-                                ) : (
-                                    <Text style={[styles.workspaceNameHeader, { color: colors.text }]} numberOfLines={1}>
-                                        {activeWorkspace?.name ?? ""}
-                                    </Text>
-                                )}
-                            </View>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                            {wsLoading && !activeWorkspace ? (
+                                <Skeleton width={130} height={16} />
+                            ) : (
+                                <Text style={[styles.workspaceNameHeader, { color: colors.text }]} numberOfLines={1}>
+                                    {activeWorkspace?.name ?? ""}
+                                </Text>
+                            )}
                         </View>
-                        <View style={{ position: "absolute", top: 0, right: 0, flexDirection: "column", gap: SPACING.xs, alignItems: "center", zIndex: 10 }}>
+                        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
                             <TouchableOpacity
                                 style={[styles.bellBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}
                                 onPress={openMenu}
                                 accessibilityLabel="More"
                                 accessibilityRole="button"
                             >
-                                <Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
+                                <Ionicons name="ellipsis-vertical" size={18} color={colors.text} />
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.bellBtn, { backgroundColor: "transparent" }]}
+                                style={[styles.bellBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}
                                 onPress={() => (navigation as any)?.navigate("Notifications")}
                                 accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
                                 accessibilityRole="button"
                             >
-                                <Ionicons name="notifications-outline" size={20} color={colors.text} />
+                                <Ionicons name="notifications-outline" size={18} color={colors.text} />
                                 {unreadCount > 0 && (
                                     <View style={[styles.blackBadge, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
                                         <Text style={styles.blackBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
@@ -438,7 +431,7 @@ export default function HomeScreen({ navigation }: Props) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.bellBtn, { backgroundColor: "transparent" }]}
+                                style={[styles.bellBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}
                                 onPress={() => {
                                     haptics.light();
                                     (navigation as any)?.navigate("Calendar");
@@ -446,7 +439,7 @@ export default function HomeScreen({ navigation }: Props) {
                                 accessibilityLabel="Calendar"
                                 accessibilityRole="button"
                             >
-                                <CalendarDateIcon size={26} />
+                                <CalendarDateIcon size={22} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -509,7 +502,13 @@ export default function HomeScreen({ navigation }: Props) {
                                 {actionLoading ? (
                                     <ActivityIndicator size={isCompact ? "small" : "large"} color="#2b1c04" />
                                 ) : (
-                                    <Text style={[styles.circularButtonText, isCompact && { fontSize: 15 }]}>
+                                    <Text
+                                        style={[styles.circularButtonText, isCompact && { fontSize: 14, lineHeight: 18 }]}
+                                        numberOfLines={2}
+                                        adjustsFontSizeToFit={true}
+                                        minimumFontScale={0.7}
+                                        maxFontSizeMultiplier={1.2}
+                                    >
                                         {getCheckInStatusText()}
                                     </Text>
                                 )}
@@ -953,9 +952,9 @@ const styles = StyleSheet.create({
         letterSpacing: 0.3,
     },
     bellBtn: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         justifyContent: "center",
         alignItems: "center",
         position: "relative",
@@ -1028,13 +1027,13 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,255,255,0.32)",
         transform: [{ rotate: "-18deg" }],
     },
-    // Scaled ~0.58x to match the compact 72px check-in button (vs. 124px regular).
+    // Scaled ~0.84x to match the 104px compact check-in button (vs. 124px regular).
     circleSheenTopCompact: {
-        top: -16,
-        left: -10,
-        width: 71,
-        height: 51,
-        borderRadius: 35,
+        top: -20,
+        left: -12,
+        width: 98,
+        height: 70,
+        borderRadius: 48,
     },
     circleSheenBottom: {
         position: "absolute",
@@ -1047,11 +1046,11 @@ const styles = StyleSheet.create({
         transform: [{ rotate: "-14deg" }],
     },
     circleSheenBottomCompact: {
-        bottom: -14,
-        right: -8,
-        width: 56,
-        height: 35,
-        borderRadius: 28,
+        bottom: -18,
+        right: -10,
+        width: 78,
+        height: 48,
+        borderRadius: 38,
     },
     circleRim: {
         ...StyleSheet.absoluteFillObject,
@@ -1062,9 +1061,12 @@ const styles = StyleSheet.create({
     circularButtonText: {
         // Dark ink on the amber face — white would fail contrast on #fbb54a.
         color: "#2b1c04",
-        fontSize: 18,
+        fontSize: 17,
         fontFamily: FONTS.extrabold,
         letterSpacing: 0.2,
+        textAlign: "center",
+        paddingHorizontal: 10,
+        lineHeight: 22,
     },
     locationContainer: {
         flexDirection: "row",
@@ -1080,7 +1082,7 @@ const styles = StyleSheet.create({
     },
 
     gridContainer: {
-        height: 196,
+        minHeight: 180,
         gap: 12,
     },
     gridRow: {

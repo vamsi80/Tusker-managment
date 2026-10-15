@@ -271,6 +271,7 @@ const AttendanceWidget = forwardRef<any, Props>(({ workspaceId, variant = "full"
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.65}
+              maxFontSizeMultiplier={1.2}
             >
               {valueText}
             </Text>
@@ -279,6 +280,7 @@ const AttendanceWidget = forwardRef<any, Props>(({ workspaceId, variant = "full"
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
+              maxFontSizeMultiplier={1.2}
             >
               {titleText}
             </Text>
@@ -346,10 +348,18 @@ const AttendanceWidget = forwardRef<any, Props>(({ workspaceId, variant = "full"
                 disabled={actionLoading}
                 activeOpacity={0.8}
               >
-                {actionLoading ? <ActivityIndicator color="#fff" /> : (
+                {actionLoading ? <ActivityIndicator color="#2b1c04" /> : (
                   <>
-                    <Ionicons name="log-in-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.buttonText}>Check In Now</Text>
+                    <Ionicons name="log-in-outline" size={18} color="#2b1c04" style={{ marginRight: 8 }} />
+                    <Text
+                      style={[styles.buttonText, { color: "#2b1c04" }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit={true}
+                      minimumFontScale={0.8}
+                      maxFontSizeMultiplier={1.2}
+                    >
+                      Check In Now
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -365,7 +375,15 @@ const AttendanceWidget = forwardRef<any, Props>(({ workspaceId, variant = "full"
                 {actionLoading ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.buttonText}>Check Out</Text>
+                    <Text
+                      style={styles.buttonText}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit={true}
+                      minimumFontScale={0.8}
+                      maxFontSizeMultiplier={1.2}
+                    >
+                      Check Out
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
