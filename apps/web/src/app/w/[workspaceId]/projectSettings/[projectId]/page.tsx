@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { projectsClient } from "@tusker/api-client/projects";
@@ -258,7 +258,6 @@ export default function ProjectSettingsPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <TooltipProvider delayDuration={150}>
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[760px] border-collapse text-sm">
                             <thead className="bg-muted/40 border-y">
@@ -380,7 +379,6 @@ export default function ProjectSettingsPage() {
                             </tbody>
                         </table>
                     </div>
-                    </TooltipProvider>
                 </CardContent>
             </Card>
 
