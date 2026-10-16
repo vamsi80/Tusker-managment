@@ -6,7 +6,7 @@ import type { CapabilityMap } from "./capabilities";
  *
  * The per-project twin of `capabilities.ts`. Where the workspace grid is a
  * ceiling that can only take access away, this matrix is authoritative for the
- * nine ids below: it may both grant and revoke, replacing the hard-coded
+ * ids below: it may both grant and revoke, replacing the hard-coded
  * project-role checks that used to live in `tasks.service.ts`.
  *
  * Resolution order (last wins):
@@ -21,6 +21,13 @@ import type { CapabilityMap } from "./capabilities";
  */
 
 export const PROJECT_PERMISSIONS = [
+    /**
+     * Every task in the project, not just the ones assigned to you — on the
+     * board, the dashboard, task details and the workspace-wide Tasks views.
+     * Plain members always see every task in List and Gantt regardless; this
+     * extends that to everywhere else.
+     */
+    { id: "task:view_all", label: "See all tasks", group: "Tasks" },
     { id: "task:create", label: "Create task", group: "Tasks" },
     { id: "task:edit", label: "Edit task", group: "Tasks" },
     { id: "task:status", label: "Change status", group: "Tasks" },
@@ -67,6 +74,8 @@ const all = (value: boolean): ProjectPermissionMap =>
  * ticked. PM / Coordinator / Lead are the execution roles that could already do
  * all of this; MEMBER could only move status on their own tasks (that ownership
  * scoping is orthogonal and still applies on top); VIEWER could do nothing.
+ * `task:view_all` follows the same split: execution roles see the whole
+ * project, MEMBER and VIEWER see their own tasks on the board and dashboard.
  */
 export const DEFAULT_PROJECT_PERMISSIONS: Record<ProjectRole, ProjectPermissionMap> = {
     PROJECT_MANAGER: all(true),

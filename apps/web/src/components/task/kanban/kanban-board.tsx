@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@tusker/core/types/task";
 import type { ProjectMembersType } from "@tusker/core/types/project";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,6 @@ import type { ActivityAttachment } from "@tusker/core/lib/attachments";
 import {
   DndContext,
   DragEndEvent,
-  DragOverEvent,
   DragOverlay,
   DragStartEvent,
   pointerWithin,
@@ -299,10 +299,10 @@ export function KanbanBoard({
   const [activeSubTask, setActiveSubTask] = useState<KanbanSubTaskType | null>(
     null,
   );
-  const [overInfo, setOverInfo] = useState<{
-    overId: string | null;
-    columnId: TaskStatus | null;
-  }>({ overId: null, columnId: null });
+
+  // The DragOverlay is portalled to <body> (see the render), which needs the DOM.
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
 
   const { openSubTaskSheet } = useSubTaskSheetActions();
   // const reloadView = useReloadView();
@@ -572,81 +572,26 @@ export function KanbanBoard({
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const subTask = kanbanTasks[overInfo.columnId as TaskStatus]?.find(t => t.id === active.id) ||
-      Object.values(kanbanTasks).flat().find(t => t.id === active.id);
+    const subTask = Object.values(kanbanTasks).flat().find(t => t.id === event.active.id);
     if (subTask) {
       setActiveSubTask(subTask as KanbanSubTaskType);
     }
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
-    if (!over) {
-      setOverInfo({ overId: null, columnId: null });
-      return;
-    }
-    const overId = over.id as string;
-    const validStatuses: TaskStatus[] = [
-      "TO_DO",
-      "IN_PROGRESS",
-      "CANCELLED",
-      "REVIEW",
-      "HOLD",
-      "COMPLETED",
-    ];
-    // If dropped directly onto a column, overId is the column status
-    if (validStatuses.includes(overId as TaskStatus)) {
-      setOverInfo({ overId: null, columnId: overId as TaskStatus });
-    } else {
-      // overId is a card id â€” find which column it belongs to
-      for (const col of COLUMNS) {
-        if (columnData[col.id].subTaskIds.includes(overId)) {
-          setOverInfo({ overId, columnId: col.id });
-          return;
-        }
-      }
-      setOverInfo({ overId: null, columnId: null });
-    }
-  };
-
+  // No onDragOver: each column highlights itself from useDroppable's isOver, so
+  // the board does not re-render as the pointer crosses cards and columns.
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveSubTask(null);
-    setOverInfo({ overId: null, columnId: null });
 
     if (!over) {
       return;
     }
 
     const subTaskId = active.id as string;
-    const overId = over.id as string;
 
-    const validStatuses: TaskStatus[] = [
-      "TO_DO",
-      "IN_PROGRESS",
-      "CANCELLED",
-      "REVIEW",
-      "HOLD",
-      "COMPLETED",
-    ];
-
-    // Resolve the target column:
-    // 1. If the pointer is directly over a column drop zone, over.id IS the status.
-    // 2. If the pointer is over another card, find which column that card belongs to.
-    let newStatus: TaskStatus | null = null;
-    if (validStatuses.includes(overId as TaskStatus)) {
-      newStatus = overId as TaskStatus;
-    } else {
-      // over.id is a card id â€” find its column
-      for (const col of COLUMNS) {
-        if (columnData[col.id].subTaskIds.includes(overId)) {
-          newStatus = col.id;
-          break;
-        }
-      }
-    }
-
+    // Columns are the only drop targets, so over.id is the target status.
+    const newStatus = COLUMNS.find((c) => c.id === over.id)?.id ?? null;
     if (!newStatus) {
       return;
     }
@@ -867,7 +812,6 @@ export function KanbanBoard({
 
   const handleDragCancel = () => {
     setActiveSubTask(null);
-    setOverInfo({ overId: null, columnId: null });
   };
 
   const handleManualStatusChange = (
@@ -1057,6 +1001,28 @@ export function KanbanBoard({
     ? Object.values(kanbanTasks).flat().find((t) => t.id === pendingReviewMove.subTaskId)
     : null;
 
+  // Stable identities for the handlers every column and card receives. They
+  // were recreated on each board render, which defeated React.memo on
+  // KanbanColumn and the cards, so grabbing a card (drag start/end re-render the
+  // board) re-rendered the whole board. The ref always points at the latest
+  // closures, so behaviour is unchanged.
+  const handlersRef = useRef({ handleSubTaskClick, handleManualStatusChange, handleLoadMore });
+  handlersRef.current = { handleSubTaskClick, handleManualStatusChange, handleLoadMore };
+  const onSubTaskClick = useCallback(
+    (subTask: KanbanSubTaskType) => handlersRef.current.handleSubTaskClick(subTask),
+    [],
+  );
+  const onStatusChange = useCallback(
+    (subTaskId: string, newStatus: TaskStatus, currentStatus: TaskStatus) =>
+      handlersRef.current.handleManualStatusChange(subTaskId, newStatus, currentStatus),
+    [],
+  );
+  const loadMoreByStatus = useMemo(() => {
+    const byStatus = {} as Record<TaskStatus, () => void>;
+    for (const col of COLUMNS) byStatus[col.id] = () => void handlersRef.current.handleLoadMore(col.id);
+    return byStatus;
+  }, []);
+
   return (
     <div className="space-y-4">
       <GlobalFilterToolbar
@@ -1083,7 +1049,6 @@ export function KanbanBoard({
         sensors={sensors}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
         autoScroll={true}
@@ -1122,44 +1087,49 @@ export function KanbanBoard({
                   totalCount={columnData[column.id].totalCount}
                   hasMore={columnData[column.id].hasMore}
                   isLoadingMore={loadingColumns[column.id]}
-                  onSubTaskClick={handleSubTaskClick}
-                  onLoadMore={() => handleLoadMore(column.id)}
+                  onSubTaskClick={onSubTaskClick}
+                  onLoadMore={loadMoreByStatus[column.id]}
                   projectManagers={projectManagers}
                   projectMembers={projectMembers}
                   updatingTaskIds={updatingTaskIds}
                   activeTaskId={activeSubTask?.id ?? null}
-                  overCardId={
-                    overInfo.columnId === column.id ? overInfo.overId : null
-                  }
-                  isOverColumn={overInfo.columnId === column.id}
                   permissions={permissions}
                   userId={userId}
                   projects={projects}
                   projectMap={projectMap}
                   isMobile={isMobile}
-                  onStatusChange={handleManualStatusChange}
+                  onStatusChange={onStatusChange}
                 />
               );
             })}
           </div>
         </div>
 
-        {/* Drag Overlay */}
-        <DragOverlay>
-          {activeSubTask ? (
-            <div className="rotate-3 opacity-80">
-              <KanbanCard
-                subTask={activeSubTask}
-                columnColor="text-slate-700"
-                isDragging
-                projectManagers={projectManagers}
-                projectMembers={projectMembers}
-                projects={projects}
-                projectMap={projectMap}
-              />
-            </div>
-          ) : null}
-        </DragOverlay>
+        {/* Drag Overlay — portalled to <body>. Rendered in place it sat inside the
+            glass `surface` panel, whose backdrop-filter makes it the containing
+            block for position: fixed, so the overlay was offset by the panel's
+            position and the card jumped away from the cursor when grabbed.
+            No drop animation: it flew back to the card's old spot while the card
+            itself had already moved column. */}
+        {isMounted &&
+          createPortal(
+            <DragOverlay dropAnimation={null}>
+              {activeSubTask ? (
+                <div className="rotate-3 opacity-80">
+                  <KanbanCard
+                    subTask={activeSubTask}
+                    columnColor="text-slate-700"
+                    isDragging
+                    projectManagers={projectManagers}
+                    projectMembers={projectMembers}
+                    projects={projects}
+                    projectMap={projectMap}
+                  />
+                </div>
+              ) : null}
+            </DragOverlay>,
+            document.body,
+          )}
       </DndContext>
       <ActivityDialog
         isOpen={isActivityDialogOpen}

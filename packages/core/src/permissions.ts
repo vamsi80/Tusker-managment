@@ -88,6 +88,8 @@ export async function fetchWorkspacePermissions(workspaceId: string, userId: str
         let coordinatorProjectIds: string[] = [];
         let memberProjectIds: string[] = [];
         let viewerProjectIds: string[] = [];
+        // Projects whose "See all tasks" permission is on for this member.
+        let viewAllProjectIds: string[] = [];
 
         if (isWorkspaceAdmin) {
             // 🚀 Admin Override: Grant access to ALL projects in the workspace
@@ -118,6 +120,7 @@ export async function fetchWorkspacePermissions(workspaceId: string, userId: str
             managedProjectIds = allIds;
             coordinatorProjectIds = allIds;
             memberProjectIds = allIds;
+            viewAllProjectIds = allIds;
         } else {
             // Standard User: Fetch explicit roles
             const projectRoles = await prisma.projectMember.findMany({
@@ -130,8 +133,13 @@ export async function fetchWorkspacePermissions(workspaceId: string, userId: str
                 select: {
                     projectId: true,
                     projectRole: true,
+                    permissionOverrides: true,
                 },
             });
+
+            viewAllProjectIds = projectRoles
+                .filter(p => resolveProjectPermissions(p.projectRole, p.permissionOverrides, capabilities)["task:view_all"])
+                .map(p => p.projectId);
 
             managedProjectIds = projectRoles.filter(p => p.projectRole === "PROJECT_MANAGER").map(p => p.projectId);
             leadProjectIds = projectRoles.filter(p => p.projectRole === "LEAD").map(p => p.projectId);
@@ -164,6 +172,7 @@ export async function fetchWorkspacePermissions(workspaceId: string, userId: str
                 coordinatorProjectIds,
                 memberProjectIds,
                 viewerProjectIds,
+                viewAllProjectIds,
             })
         } as any;
     } catch (error) {

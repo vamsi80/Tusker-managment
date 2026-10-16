@@ -911,10 +911,13 @@ export class ProjectService {
     // Caller supplies the viewer; this service resolves no session of its own.
     const permissions = await fetchUserPermissions(workspaceId, project.id, userId);
 
+    // "See all tasks" (task:view_all) decides whole-project vs own-tasks. It is
+    // on by default for PM, Coordinator and Lead — coordinators used to be left
+    // out here, so they saw only their own tasks while every other view showed
+    // them the whole project.
     const hasFullAccess =
       permissions.isWorkspaceAdmin ||
-      permissions.isProjectManager ||
-      permissions.isProjectLead;
+      permissions.projectPermissions?.["task:view_all"] === true;
 
     // Workspace member ID for the current user (used to scope queries for members)
     const currentWorkspaceMemberId = permissions.workspaceMemberId;

@@ -38,6 +38,16 @@ describe("resolveProjectPermissions", () => {
         }
     });
 
+    it("See all tasks: on for execution roles, off for MEMBER and VIEWER, and overridable", () => {
+        for (const role of ["PROJECT_MANAGER", "PROJECT_COORDINATOR", "LEAD"] as const) {
+            expect(resolveProjectPermissions(role)["task:view_all"]).toBe(true);
+        }
+        expect(resolveProjectPermissions("MEMBER")["task:view_all"]).toBe(false);
+        expect(resolveProjectPermissions("VIEWER")["task:view_all"]).toBe(false);
+        expect(resolveProjectPermissions("MEMBER", { "task:view_all": true })["task:view_all"]).toBe(true);
+        expect(resolveProjectPermissions("PROJECT_COORDINATOR", { "task:view_all": false })["task:view_all"]).toBe(false);
+    });
+
     it("no project role at all resolves to nothing", () => {
         for (const { id } of PROJECT_PERMISSIONS) {
             expect(resolveProjectPermissions(null)[id]).toBe(false);

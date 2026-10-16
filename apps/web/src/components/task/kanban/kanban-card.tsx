@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useDraggable } from "@dnd-kit/core";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,23 +82,6 @@ export const KanbanCard = React.memo(function KanbanCard({
 }: KanbanCardProps) {
   const [isStatusDrawerOpen, setIsStatusDrawerOpen] = useState(false);
   const longPressTimer = React.useRef<NodeJS.Timeout | null>(null);
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging: isSortableDragging,
-  } = useSortable({
-    id: subTask.id,
-    disabled: isDragging || isMobile, // Disable sortable logic when rendered in DragOverlay or on Mobile
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
 
   const assigneeUser = subTask.assignee;
   const activityCount = (subTask as any)._count?.activities || 0;
@@ -216,7 +198,6 @@ export const KanbanCard = React.memo(function KanbanCard({
   const delayText = getDelayText(remainingDays, subTask.status);
 
   const handleNameClick = (e: React.MouseEvent) => {
-    if (isSortableDragging) return;
     e.stopPropagation();
     // Inject project metadata if it's missing but we have it in our map
     const subTaskWithMetadata = {
@@ -229,13 +210,9 @@ export const KanbanCard = React.memo(function KanbanCard({
   return (
     <>
       <Card
-        ref={setNodeRef}
-        {...(isMobile ? {} : attributes)}
-        {...(isMobile ? {} : listeners)}
-        style={style}
         className={cn(
           "h-auto py-0 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-primary/20",
-          (isDragging || isSortableDragging) && "opacity-50 shadow-xl",
+          isDragging && "opacity-50 shadow-xl",
           "border-l-4 overflow-hidden",
           isMobile ? "cursor-default" : "cursor-grab active:cursor-grabbing touch-none",
           (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED") && "bg-red-50 dark:bg-red-950/20 shadow-[0_0_8px_rgba(239,68,68,0.2)] animate-[pulse_2s_infinite] border-red-400 dark:border-red-600",
@@ -254,8 +231,6 @@ export const KanbanCard = React.memo(function KanbanCard({
         )}
         onMouseEnter={handlePrefetch}
         onClick={(e) => {
-          // If we're dragging, don't trigger click
-          if (isSortableDragging) return;
           e.stopPropagation();
           onSubTaskClick?.(subTask);
         }}
@@ -602,3 +577,27 @@ export const KanbanCard = React.memo(function KanbanCard({
   );
 });
 
+/**
+ * The card as it sits in a column: a thin wrapper that owns the drag hook, so
+ * the copy rendered in the DragOverlay (a plain KanbanCard) never registers a
+ * draggable. dnd-kit registers even disabled draggables by id, so a second
+ * hook in the overlay overwrote this card's node and the overlay measured
+ * itself — the card jumped away from the cursor when grabbed.
+ *
+ * useDraggable rather than useSortable: cards change column, they are never
+ * reordered within one, and useSortable re-rendered every card on every
+ * pointer move while dragging (SortableContext reads the public dnd context,
+ * which changes with each collision pass).
+ */
+export const DraggableKanbanCard = React.memo(function DraggableKanbanCard(props: KanbanCardProps) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: props.subTask.id,
+    disabled: props.isMobile,
+  });
+
+  return (
+    <div ref={setNodeRef} {...(props.isMobile ? {} : attributes)} {...(props.isMobile ? {} : listeners)}>
+      <KanbanCard {...props} />
+    </div>
+  );
+});

@@ -639,7 +639,8 @@ export class TasksService {
     projectId?: string,
     userId?: string,
     // false = a plain MEMBER sees only their own tasks (kanban, dashboard);
-    // other views keep full project visibility for members.
+    // other views keep full project visibility for members. Either way, the
+    // project's "See all tasks" permission (task:view_all) grants the full view.
     membersSeeAll = true,
   ) {
     const { fetchUserPermissions, fetchWorkspacePermissions } =
@@ -658,11 +659,11 @@ export class TasksService {
         projectId,
         userId,
       );
+      // PM / Coordinator / Lead have task:view_all by default, so this matches
+      // the old role check until someone changes the box in project settings.
       const hasFullAccess =
         permissions.isWorkspaceAdmin ||
-        permissions.isProjectManager ||
-        permissions.isProjectCoordinator ||
-        permissions.isProjectLead ||
+        canProject(permissions.projectPermissions, "task:view_all") ||
         (membersSeeAll && permissions.isMember);
 
       return {
@@ -685,12 +686,14 @@ export class TasksService {
           ...(wsPerms.viewerProjectIds || []),
         ];
 
-      // Full access for viewing tasks/subtasks includes all projects where user is a member, lead, or manager
+      // Full access: projects where "See all tasks" is on (by default every
+      // project the user leads, manages or coordinates), plus member projects
+      // in views where members see everything.
       const fullAccessProjectIds = [
-        ...(wsPerms.leadProjectIds ?? []),
-        ...(wsPerms.managedProjectIds ?? []),
-        ...(wsPerms.coordinatorProjectIds ?? []),
-        ...(membersSeeAll ? wsPerms.memberProjectIds ?? [] : []),
+        ...new Set<string>([
+          ...(wsPerms.viewAllProjectIds ?? []),
+          ...(membersSeeAll ? wsPerms.memberProjectIds ?? [] : []),
+        ]),
       ];
 
       const restrictedProjectIds = authorizedProjectIds.filter(
@@ -3486,11 +3489,11 @@ export class TasksService {
   private static async _getTaskByIdInternal(
     taskId: string,
     userId: string,
-    isMember: boolean,
+    restrictToOwn: boolean,
   ) {
-    const task = await TaskRepository.findTaskWithDetails(taskId, userId, isMember);
+    const task = await TaskRepository.findTaskWithDetails(taskId, userId, restrictToOwn);
     if (!task) return null;
-    if (isMember) {
+    if (restrictToOwn) {
       if (task.parentTaskId) {
         if (task.assignee?.workspaceMember?.userId !== userId) return null;
       } else {
@@ -3508,7 +3511,10 @@ export class TasksService {
     const { fetchUserPermissions } = await import("../../../permissions");
     const permissions = await fetchUserPermissions(workspaceId, projectId, userId);
     if (!permissions.workspaceMemberId) return null;
-    return TasksService._getTaskByIdInternal(taskId, userId, permissions.isMember);
+    // A plain member opens only their own tasks, unless "See all tasks" is on.
+    const restrictToOwn =
+      permissions.isMember && !canProject(permissions.projectPermissions, "task:view_all");
+    return TasksService._getTaskByIdInternal(taskId, userId, restrictToOwn);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
