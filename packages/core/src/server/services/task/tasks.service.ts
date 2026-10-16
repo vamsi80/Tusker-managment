@@ -21,6 +21,7 @@ import {
   buildAssigneeFilter,
 } from "../../../lib/tasks/query-builder";
 import { TaskRepository } from "./task.repository";
+import { PointsService } from "../points/points.service";
 import { TaskMapper } from "./task.mapper";
 import { TaskEvents } from "./task.events";
 
@@ -1968,6 +1969,26 @@ export class TasksService {
    * Update a subtask status with permission validation and audit logging.
    * Centralized in the service layer for consistency between Hono and Server Actions.
    */
+  /**
+   * The completedAt stamp and reward points for a write that moves a task into
+   * COMPLETED. Holidays and the assignee's workspace member are looked up here,
+   * before the repository opens its transaction, so the transaction only writes.
+   */
+  private static async completionWrite(params: {
+    workspaceId: string;
+    taskId: string;
+    taskName: string;
+    assigneeId: string | null;
+    dueDate: Date | null;
+    wasCompleted: boolean;
+    isNowCompleted: boolean;
+  }) {
+    if (params.wasCompleted || !params.isNowCompleted) return undefined;
+    const at = new Date();
+    const award = await PointsService.computeAward({ ...params, completedAt: at });
+    return { at, award };
+  }
+
   static async updateSubTaskStatus({
     subTaskId,
     newStatus,
@@ -1999,6 +2020,7 @@ export class TasksService {
       updatedAt: true,
       projectId: true,
       workspaceId: true,
+      dueDate: true,
     })) as any;
 
     if (!subTask) {
@@ -2122,10 +2144,22 @@ export class TasksService {
       ...(attachmentFiles.length ? { files: attachmentFiles } : {}),
     };
 
+    const wasCompleted = subTask.status === "COMPLETED";
+    const isNowCompleted = newStatus === "COMPLETED";
+    const completion = await TasksService.completionWrite({
+      workspaceId,
+      taskId: subTaskId,
+      taskName: subTask.name,
+      assigneeId: subTask.assigneeId,
+      dueDate: subTask.dueDate,
+      wasCompleted,
+      isNowCompleted,
+    });
+
     const result = await TaskRepository.updateStatus(
       subTaskId, newStatus, subTaskId,
       { subTaskId, authorId: userId, workspaceId, text: activityText, attachment: attachmentJson },
-      subTask.parentTaskId, subTask.status === "COMPLETED", newStatus === "COMPLETED"
+      subTask.parentTaskId, wasCompleted, isNowCompleted, completion
     );
 
     const project = await TaskRepository.findProjectId(subTaskId);
@@ -2198,6 +2232,7 @@ export class TasksService {
       workspaceId: true,
       name: true,
       status: true,
+      dueDate: true,
     })) as any;
 
     if (!task) throw AppError.NotFound("Task not found");
@@ -2382,8 +2417,19 @@ export class TasksService {
     const wasCompleted = task.status === "COMPLETED";
     const isNowCompleted = "status" in updateData ? updateData.status === "COMPLETED" : wasCompleted;
 
+    // Scored against the values this same write leaves behind.
+    const completion = await TasksService.completionWrite({
+      workspaceId,
+      taskId,
+      taskName: updateData.name ?? task.name,
+      assigneeId: "assigneeId" in updateData ? updateData.assigneeId : task.assigneeId,
+      dueDate: "dueDate" in updateData ? updateData.dueDate : task.dueDate,
+      wasCompleted,
+      isNowCompleted,
+    });
+
     const updated = await TaskRepository.updateTaskAndParentCount(
-      taskId, updateData, task.parentTaskId, wasCompleted, isNowCompleted
+      taskId, updateData, task.parentTaskId, wasCompleted, isNowCompleted, completion
     );
 
     if (data.tagIds && data.tagIds.length > 0) {

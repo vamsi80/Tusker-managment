@@ -129,6 +129,9 @@ model Workspace {
   nextVendorNumber       Int                        @default(1)
   nextMaterialNumber     Int                        @default(1)
   permissionOverrides    Json?
+  /// Where the reward points balance restarts: WEEKLY | MONTHLY | QUARTERLY | YEARLY | NEVER.
+  /// Plain text, not an enum — see the search_path note on PointsEntry.
+  pointsResetPeriod      String                     @default("MONTHLY")
   clints                 Clints[]
   projects               Project[]
   tags                   Tag[]
@@ -152,6 +155,7 @@ model Workspace {
   departments            Department[]
   shiftSchedules         ShiftSchedule[]
   meetings               Meeting[]
+  pointsEntries          PointsEntry[]
 }
 
 /// A set of check-in/check-out times shared by every department that points at it.
@@ -232,6 +236,8 @@ model WorkspaceMember {
   quotesReviewed              VendorQuote[]         @relation("QuoteReviewer")
   addedMaterialItems          ProjectMaterialItem[]
   purchaseOrdersCreated       PurchaseOrder[]        @relation("POCreator")
+  pointsEntries               PointsEntry[]          @relation("PointsRecipient")
+  pointsAwarded               PointsEntry[]          @relation("PointsAwarder")
 
   @@unique([userId, workspaceId])
   @@unique([workspaceId, employeeId])
@@ -368,6 +374,9 @@ model Task {
   subtaskCount          Int                   @default(0)
   workspaceId           String
   position              Int                   @default(0)
+  /// When the task last entered COMPLETED; cleared on reopen. Stamped in the same
+  /// transaction as the status change and its PointsEntry, so they cannot disagree.
+  completedAt           DateTime?
   activities            Activity[]
   assignee              ProjectMember?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
   createdBy             ProjectMember         @relation("TaskCreator", fields: [createdById], references: [id])
@@ -382,6 +391,7 @@ model Task {
   Task_TaskDependency_B Task[]                @relation("TaskDependency")
   tags                  Tag[]                 @relation("TaskTags")
   materialItems         ProjectMaterialItem[]
+  pointsEntries         PointsEntry[]
 
   @@index([projectId, status, isParent, createdAt(sort: Desc)])
   @@index([workspaceId, status, isParent])
@@ -701,6 +711,41 @@ model UserConversations {
   @@id([A, B], map: "_UserConversations_AB_pkey")
   @@index([B], map: "_UserConversations_B_index")
   @@map("_UserConversations")
+}
+
+/// Append-only reward ledger. Balance = SUM(points) over a window. Rows are
+/// never deleted, and the only edit is stamping reversedAt: re-opening a
+/// completed task writes a compensating TASK_REVERSAL row, so close/reopen
+/// cannot farm points and "why did my points drop" is answerable from the data.
+/// NOTE: a partial unique index ("taskId" WHERE kind = 'TASK_COMPLETION' AND
+/// "reversedAt" IS NULL) exists in migration 20261016110000_reward_points.
+/// Prisma cannot express it — never `prisma db push` this model or it is
+/// silently dropped.
+model PointsEntry {
+  id                String           @id @default(uuid())
+  workspaceId       String
+  workspaceMemberId String
+  points            Int
+  /// TASK_COMPLETION | TASK_REVERSAL | MANUAL. Text, not an enum: this database
+  /// connects with search_path = boq, public, where CREATE TYPE misfiles.
+  kind              String
+  reason            String
+  /// SET NULL: tidying a task away must not delete points already earned.
+  taskId            String?
+  reversedAt        DateTime?
+  reversesEntryId   String?
+  /// Null for automatic awards. SET NULL so a departing awarder keeps their awards.
+  awardedById       String?
+  occurredAt        DateTime         @default(now())
+  createdAt         DateTime         @default(now())
+  workspace         Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceMember   WorkspaceMember  @relation("PointsRecipient", fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  awardedBy         WorkspaceMember? @relation("PointsAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
+  task              Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, occurredAt(sort: Desc)])
+  @@index([workspaceMemberId, occurredAt(sort: Desc)])
+  @@index([taskId])
 }
 
 model MemberTodo {

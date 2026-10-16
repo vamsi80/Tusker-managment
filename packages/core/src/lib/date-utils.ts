@@ -190,3 +190,68 @@ export function calendarDayKey(value: string | Date): string {
     }
     return toDateOnlyString(d);
 }
+
+/* ------------------------------------------------------------------------- *
+ * Working days (reward points)
+ * ------------------------------------------------------------------------- */
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/**
+ * Signed working days between two IST calendar days. Positive = `to` is later.
+ * A working day is anything but a Sunday or a workspace public holiday —
+ * Saturday counts, matching attendance, where Sunday is the only weekly off.
+ *
+ * Half-open on the earlier end, so the same day is 0 and the next working day
+ * is 1: due Fri / done Thu = +1, due Mon / done Sat = +1 (Sunday skipped),
+ * due Fri / done Mon = −2.
+ *
+ * Either argument may be a `@db.Date` value or a real instant; both go through
+ * toDateOnly, which reads an instant on the IST clock. That matters: dueDate is
+ * stored as IST midnight (18:30Z the day before), and a task completed at 02:00
+ * IST is 20:30Z on the previous UTC day.
+ *
+ * Holidays are passed in as "yyyy-MM-dd" keys, never queried here, so a bulk
+ * caller loads them once.
+ */
+export function signedWorkingDays(from: Date, to: Date, holidayKeys: ReadonlySet<string> = new Set()): number {
+    const a = toDateOnly(from);
+    const b = toDateOnly(to);
+    if (!a || !b || a.getTime() === b.getTime()) return 0;
+
+    const [start, end, sign] = a < b ? [a, b, 1] : [b, a, -1];
+    let count = 0;
+    for (let d = addDateOnlyDays(start, 1); d <= end; d = addDateOnlyDays(d, 1)) {
+        if (d.getUTCDay() !== 0 && !holidayKeys.has(calendarDayKey(d))) count++;
+    }
+    return sign * count;
+}
+
+export const POINTS_RESET_PERIODS = ["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "NEVER"] as const;
+export type PointsResetPeriod = (typeof POINTS_RESET_PERIODS)[number];
+
+/**
+ * The instant the current points period began on the IST calendar — Monday,
+ * the 1st of the month, the quarter (Jan/Apr/Jul/Oct) or the year — or null
+ * for NEVER (all time). Unknown values fall back to MONTHLY.
+ */
+export function pointsPeriodStart(period: string | null | undefined, now: Date = new Date()): Date | null {
+    if (period === "NEVER") return null;
+
+    const today = getISTDateOnly(now);
+    const year = today.getUTCFullYear();
+    const month = today.getUTCMonth() + 1;
+
+    let start: Date;
+    if (period === "WEEKLY") {
+        start = addDateOnlyDays(today, -((today.getUTCDay() + 6) % 7));
+    } else if (period === "QUARTERLY") {
+        start = dateOnlyFromParts(year, Math.floor((month - 1) / 3) * 3 + 1, 1);
+    } else if (period === "YEARLY") {
+        start = dateOnlyFromParts(year, 1, 1);
+    } else {
+        start = dateOnlyFromParts(year, month, 1);
+    }
+    // IST midnight of that day, as an instant.
+    return new Date(start.getTime() - IST_OFFSET_MS);
+}

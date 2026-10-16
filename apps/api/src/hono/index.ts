@@ -15,6 +15,7 @@ import auth from "./routes/auth";
 import comments from "./routes/comments";
 import reports from "./routes/reports";
 import memberTodos from "./routes/member-todos";
+import points from "./routes/points";
 import conversations from "./routes/conversations";
 import presence from "./routes/presence";
 import procurementVendors from "./routes/procurement-vendors";
@@ -204,6 +205,9 @@ app.route("/reports", reports);
 
 // Member Todos API
 app.route("/member-todos", memberTodos);
+
+// Reward Points API
+app.route("/points", points);
 
 // Conversations API
 app.route("/conversations", conversations);

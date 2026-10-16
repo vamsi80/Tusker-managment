@@ -4,8 +4,11 @@ import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { getAttendanceSettings } from "@/data/attendance/get-attendance-settings";
 import { getWorkspaceShiftSchedules } from "@/data/department/get-departments";
 import { AttendanceSettings } from "../../settings/_components/attendance-settings";
-import { ShieldAlert, Clock, Calendar } from "lucide-react";
+import { ShieldAlert, Clock, Calendar, Trophy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import db from "@tusker/db";
+import type { PointsResetPeriod } from "@tusker/core/lib/date-utils";
+import { PointsSettings } from "./_components/points-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +17,11 @@ interface TeamSettingsPageProps {
 }
 
 async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
-    const [permissions, attendanceSettings, schedules] = await Promise.all([
+    const [permissions, attendanceSettings, schedules, workspace] = await Promise.all([
         getWorkspacePermissions(workspaceId),
         getAttendanceSettings(workspaceId),
         getWorkspaceShiftSchedules(workspaceId),
+        db.workspace.findUnique({ where: { id: workspaceId }, select: { pointsResetPeriod: true } }),
     ]);
 
     // Strict blockage for Managers and regular Members
@@ -50,6 +54,10 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                         <Calendar className="size-4" />
                         Leaves
                     </TabsTrigger>
+                    <TabsTrigger value="points" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm px-6 h-full gap-2 transition-all">
+                        <Trophy className="size-4" />
+                        Points
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="attendance" className="mt-0 focus-visible:outline-none">
@@ -75,6 +83,13 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                             </div>
                         </div>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="points" className="mt-0 focus-visible:outline-none">
+                    <PointsSettings
+                        workspaceId={workspaceId}
+                        initialPeriod={(workspace?.pointsResetPeriod ?? "MONTHLY") as PointsResetPeriod}
+                    />
                 </TabsContent>
             </Tabs>
         </div>

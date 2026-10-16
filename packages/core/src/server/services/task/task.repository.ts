@@ -1,17 +1,89 @@
 
 import prisma from "@tusker/db";
 import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
-import { WorkspaceRole, ProjectRole } from "@tusker/db";
+import { WorkspaceRole, ProjectRole, type Prisma } from "@tusker/db";
+import { POINTS_KIND, type CompletionAward } from "../points/points.service";
 import {
   getTaskSelect,
   buildOrderBy,
 } from "../../../lib/tasks/query-builder";
 
 /**
+ * Passed by the service when a write may change completed-ness: the instant to
+ * stamp as completedAt, and the points award it computed beforehand (null when
+ * nothing is scored). Ignored when the write does not change completed-ness.
+ */
+export interface CompletionWrite {
+  at: Date;
+  award: CompletionAward | null;
+}
+
+/**
  * TaskRepository — all raw Prisma queries for the task domain.
  * No business logic. No permission checks. No event firing.
  */
 export class TaskRepository {
+  /**
+   * The one completion choke point. Both status writers (updateStatus and
+   * updateTaskAndParentCount) call this inside their transaction, so the parent
+   * counter, completedAt and the points ledger commit or roll back together with
+   * the status itself — and a hook added to only one path cannot silently stop
+   * scoring the other.
+   *
+   * Returns the completedAt stamp to merge into the task's own update.
+   */
+  private static completedAtStamp(wasCompleted: boolean, isNowCompleted: boolean, completion?: CompletionWrite) {
+    if (wasCompleted === isNowCompleted) return {};
+    return { completedAt: isNowCompleted ? completion?.at ?? new Date() : null };
+  }
+
+  private static async applyCompletionChange(
+    tx: Prisma.TransactionClient,
+    task: { id: string; name: string },
+    parentTaskId: string | null,
+    wasCompleted: boolean,
+    isNowCompleted: boolean,
+    completion?: CompletionWrite
+  ) {
+    if (wasCompleted === isNowCompleted) return;
+
+    if (parentTaskId) {
+      await tx.task.update({
+        where: { id: parentTaskId },
+        data: { completedSubtaskCount: isNowCompleted ? { increment: 1 } : { decrement: 1 } },
+      });
+    }
+
+    if (isNowCompleted) {
+      if (completion?.award) {
+        await tx.pointsEntry.create({ data: { ...completion.award, kind: POINTS_KIND.COMPLETION } });
+      }
+      return;
+    }
+
+    // Reopened: cancel the open award with a compensating row and stamp the
+    // original. Re-completing later scores fresh against the then-current date.
+    const open = await tx.pointsEntry.findFirst({
+      where: { taskId: task.id, kind: POINTS_KIND.COMPLETION, reversedAt: null },
+    });
+    if (!open) return;
+
+    const now = new Date();
+    await tx.pointsEntry.update({ where: { id: open.id }, data: { reversedAt: now } });
+    await tx.pointsEntry.create({
+      data: {
+        workspaceId: open.workspaceId,
+        workspaceMemberId: open.workspaceMemberId,
+        points: -open.points,
+        kind: POINTS_KIND.REVERSAL,
+        reason: `Reopened "${task.name}"`,
+        taskId: task.id,
+        reversesEntryId: open.id,
+        occurredAt: now,
+      },
+    });
+  }
+
   // ─── Single Record ────────────────────────────────────────────────────────
 
   static async findById(taskId: string, selectOverride?: any) {
@@ -136,26 +208,15 @@ export class TaskRepository {
     data: any,
     parentTaskId: string | null,
     wasCompleted: boolean,
-    isNowCompleted: boolean
+    isNowCompleted: boolean,
+    completion?: CompletionWrite
   ) {
     return prisma.$transaction(async (tx) => {
       const task = await tx.task.update({
         where: { id: taskId },
-        data,
+        data: { ...data, ...this.completedAtStamp(wasCompleted, isNowCompleted, completion) },
       });
-      if (parentTaskId) {
-        if (!wasCompleted && isNowCompleted) {
-          await tx.task.update({
-            where: { id: parentTaskId },
-            data: { completedSubtaskCount: { increment: 1 } },
-          });
-        } else if (wasCompleted && !isNowCompleted) {
-          await tx.task.update({
-            where: { id: parentTaskId },
-            data: { completedSubtaskCount: { decrement: 1 } },
-          });
-        }
-      }
+      await this.applyCompletionChange(tx, task, parentTaskId, wasCompleted, isNowCompleted, completion);
       return task;
     });
   }
@@ -239,12 +300,13 @@ export class TaskRepository {
     activityData: any,
     parentTaskId: string | null,
     wasCompleted: boolean,
-    isNowCompleted: boolean
+    isNowCompleted: boolean,
+    completion?: CompletionWrite
   ) {
     return prisma.$transaction(async (tx) => {
       const task = await tx.task.update({
         where: { id: taskId },
-        data: { status: newStatus },
+        data: { status: newStatus, ...this.completedAtStamp(wasCompleted, isNowCompleted, completion) },
       });
 
       await tx.activity.create({
@@ -257,19 +319,7 @@ export class TaskRepository {
         },
       });
 
-      if (parentTaskId) {
-        if (!wasCompleted && isNowCompleted) {
-          await tx.task.update({
-            where: { id: parentTaskId },
-            data: { completedSubtaskCount: { increment: 1 } },
-          });
-        } else if (wasCompleted && !isNowCompleted) {
-          await tx.task.update({
-            where: { id: parentTaskId },
-            data: { completedSubtaskCount: { decrement: 1 } },
-          });
-        }
-      }
+      await this.applyCompletionChange(tx, task, parentTaskId, wasCompleted, isNowCompleted, completion);
 
       return task;
     });

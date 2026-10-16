@@ -20,7 +20,7 @@ import { recordActivity } from "../../lib/audit";
 import { fetchWorkspacePermissions } from "../../permissions";
 import { ProjectService } from "./project";
 import { getWorkspaceAuthorities } from "../../lib/involved-users";
-import { getISTDateOnly } from "../../lib/date-utils";
+import { getISTDateOnly, POINTS_RESET_PERIODS } from "../../lib/date-utils";
 import { broadcastTeamUpdate } from "../../lib/realtime";
 import type { WorkspaceMemberRow } from "../../types/workspace";
 
@@ -2017,6 +2017,7 @@ export class WorkspaceService {
             shiftEndTime: workspace.shiftEndTime,
             sickLeaveLimit: workspace.sickLeaveLimit,
             casualLeaveAccrualDays: workspace.casualLeaveAccrualDays,
+            pointsResetPeriod: workspace.pointsResetPeriod,
             isAdmin: member.workspaceRole === "ADMIN" || member.workspaceRole === "OWNER",
         };
     }
@@ -2037,11 +2038,18 @@ export class WorkspaceService {
             "shiftEndTime",
             "sickLeaveLimit",
             "casualLeaveAccrualDays",
+            "pointsResetPeriod",
         ];
 
         const updateData: any = {};
         for (const f of allowedFields) {
             if (data?.[f] !== undefined) updateData[f] = data[f];
+        }
+        if (
+            updateData.pointsResetPeriod !== undefined &&
+            !(POINTS_RESET_PERIODS as readonly string[]).includes(updateData.pointsResetPeriod)
+        ) {
+            throw AppError.ValidationError(`Points reset period must be one of ${POINTS_RESET_PERIODS.join(", ")}.`);
         }
 
         const updatedWorkspace = await prisma.workspace.update({

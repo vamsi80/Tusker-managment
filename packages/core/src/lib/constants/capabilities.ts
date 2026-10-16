@@ -22,6 +22,7 @@ export const CAPABILITIES = [
     { id: "task:status", label: "Change task status", group: "Tasks" },
     { id: "procurement:view", label: "See Procurement tab", group: "Procurement" },
     { id: "vendors:view", label: "See Suppliers / Contractors", group: "Procurement" },
+    { id: "points:award", label: "Award or deduct points", group: "Points" },
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number]["id"];
@@ -55,15 +56,18 @@ const all = (value: boolean): CapabilityMap =>
  *    so they start open and the project matrix keeps doing its job underneath.
  *  - Procurement/Suppliers pages shipped with no view guard at all, so they
  *    start open too. These are the rows most worth tightening first.
+ *  - `points:award` is new and starts closed below OWNER/ADMIN/MANAGER. It has
+ *    to be listed per role: the defaults are all(true) minus exceptions, so
+ *    leaving a role out would let every viewer award themselves points.
  */
 export const DEFAULT_CAPABILITIES: Record<WorkspaceRole, CapabilityMap> = {
     OWNER: all(true),
     ADMIN: all(true),
     MANAGER: all(true),
-    PROCUREMENT: { ...all(true), "project:create": false },
-    ACCOUNTS: { ...all(true), "project:create": false },
-    MEMBER: { ...all(true), "project:create": false },
-    VIEWER: { ...all(true), "project:create": false },
+    PROCUREMENT: { ...all(true), "project:create": false, "points:award": false },
+    ACCOUNTS: { ...all(true), "project:create": false, "points:award": false },
+    MEMBER: { ...all(true), "project:create": false, "points:award": false },
+    VIEWER: { ...all(true), "project:create": false, "points:award": false },
 };
 
 /** Narrow unknown JSON from the DB to a capability delta, dropping junk keys. */

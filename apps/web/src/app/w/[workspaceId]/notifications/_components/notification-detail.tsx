@@ -75,9 +75,12 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
   // with it only ever 404s, so send the reader to the indent instead.
   const indentId = matchedNotif?.entityType === "Indent" ? matchedNotif.entityId : null;
 
+  const isPoints = matchedNotif?.entityType === "PointsEntry";
+
   useEffect(() => {
     if (indentId) router.replace(`/w/${workspaceId}/procurement/indents/${indentId}`);
-  }, [indentId, router, workspaceId]);
+    else if (isPoints) router.replace(`/w/${workspaceId}/team/points`);
+  }, [indentId, isPoints, router, workspaceId]);
 
   // A leave, broadcast or attendance notification carries no task at all, so
   // asking the task API for one with the notification's own id only ever 404s

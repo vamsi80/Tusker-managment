@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Users, Clock, Settings2, Calendar, RefreshCw } from "lucide-react";
+import { Users, Clock, Settings2, Calendar, RefreshCw, Trophy } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LeaveRequestDialog } from "./leave-request-dialog";
@@ -38,6 +38,12 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
             href: `${baseUrl}/leaves`,
             icon: Calendar,
             activeMatch: (path: string) => path === `${baseUrl}/leaves`
+        },
+        {
+            name: "Points",
+            href: `${baseUrl}/points`,
+            icon: Trophy,
+            activeMatch: (path: string) => path === `${baseUrl}/points`
         },
         ...(isAdmin ? [{
             name: "Settings",

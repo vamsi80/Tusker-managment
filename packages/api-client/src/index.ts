@@ -6,9 +6,10 @@ import { commentsClient } from "./comments";
 import { reportsClient } from "./reports";
 import { procurementClient } from "./procurement";
 import { meetingsClient } from "./meetings";
+import { pointsClient } from "./points";
 import { type ApiResponse } from "./types";
 
-export { tasksClient, workspacesClient, projectsClient, commentsClient, reportsClient, procurementClient, meetingsClient, type ApiResponse };
+export { tasksClient, workspacesClient, projectsClient, commentsClient, reportsClient, procurementClient, meetingsClient, pointsClient, type ApiResponse };
 export { apiFetch, ApiError, configureApiClient } from "./fetch-wrapper";
 
 export const apiClient = {
@@ -20,4 +21,5 @@ export const apiClient = {
     reports: reportsClient,
     procurement: procurementClient,
     meetings: meetingsClient,
+    points: pointsClient,
 };

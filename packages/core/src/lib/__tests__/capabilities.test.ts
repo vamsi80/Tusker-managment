@@ -13,6 +13,15 @@ describe("capability resolution", () => {
         expect(resolveCapabilities("MEMBER")["project:create"]).toBe(false);
     });
 
+    it("only owners, admins and managers can award points by default", () => {
+        for (const role of ["OWNER", "ADMIN", "MANAGER"] as const) {
+            expect(resolveCapabilities(role)["points:award"]).toBe(true);
+        }
+        for (const role of ["PROCUREMENT", "ACCOUNTS", "MEMBER", "VIEWER"] as const) {
+            expect(resolveCapabilities(role)["points:award"]).toBe(false);
+        }
+    });
+
     it("applies the workspace role override over the default", () => {
         const caps = resolveCapabilities("MEMBER", { MEMBER: { "task:edit": false } });
         expect(caps["task:edit"]).toBe(false);

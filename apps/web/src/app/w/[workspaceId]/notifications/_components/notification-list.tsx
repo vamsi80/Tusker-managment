@@ -63,6 +63,12 @@ export function NotificationList() {
       router.push(`/w/${workspaceId}/procurement/indents/${notif.entityId}`);
       return;
     }
+    // A points award or deduction has no task either: its reason lives on the
+    // Team -> Points ledger.
+    if (notif.entityType === "PointsEntry") {
+      router.push(`/w/${workspaceId}/team/points`);
+      return;
+    }
     // Navigate to detail page
     router.push(`/w/${workspaceId}/notifications/${targetId}`);
   };
