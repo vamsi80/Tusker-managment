@@ -1,0 +1,50 @@
+{
+  "name": "@tusker/desktop",
+  "productName": "Tusker Widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tusker desktop widget: clock in/out, today's tasks, next meeting, notifications.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.thewhitetusker.widget",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "icon.png"
+    ],
+    "win": {
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Tusker-Widget-Setup.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "vamsi80",
+      "repo": "Tusker-managment",
+      "tagNamePrefix": "desktop-v",
+      "releaseType": "release"
+    }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

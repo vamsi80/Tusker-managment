@@ -1,0 +1,41 @@
+name: Desktop widget release
+
+# Bump "version" in apps/desktop/package.json, then push a matching tag:
+#   git tag desktop-v0.2.0 && git push origin desktop-v0.2.0
+# The installer lands on GitHub Releases; installed widgets update themselves.
+on:
+  push:
+    tags: ["desktop-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check tag matches package version
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          [ "desktop-v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != desktop-v$version"; exit 1; }
+
+      # The desktop app is outside the pnpm workspace (see pnpm-workspace.yaml).
+      - run: pnpm install --ignore-workspace --frozen-lockfile
+
+      - run: pnpm exec electron-builder --win nsis --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

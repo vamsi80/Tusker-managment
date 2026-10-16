@@ -4,3 +4,6 @@ packages:
   # The Expo app keeps its own install: its React Native dependency graph
   # pulls a second @types/react, which breaks type resolution in apps/web.
   - "!apps/mobile"
+  # The desktop widget keeps its own install too, so `pnpm install` at the
+  # root doesn't download the ~100 MB Electron binary for everyone.
+  - "!apps/desktop"
