@@ -5,7 +5,7 @@ import { GanttTask } from "./types";
 import { ProjectOption } from "../shared/types";
 import { ProjectMembersType } from "@tusker/core/types/project";
 import { GanttRowSkeleton } from "./gantt-row-skeleton";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { SortableSubtaskList } from "./sortable-subtask-list";
 import {
@@ -14,7 +14,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, getAggregateStatus, formatDate } from "./utils";
+import { computeTaskDates, calculateBarPosition, formatDateRange, getDaysBetween, formatDate, statusCountsOf, parentProgress, aggregateStatusFromCounts } from "./utils";
+import { CreateSubTaskForm } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/create-subTask-form";
 import { getStatusColors } from "@tusker/core/lib/colors/status-colors";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@tusker/core/lib/colors/delay-colors";
@@ -53,6 +54,10 @@ interface TaskRowProps {
     onLoadMoreSubtasks?: (taskId: string) => void;
     onInitialLoadSubtasks?: (taskId: string) => void;
     isExpandAllMode?: boolean;
+    /** Show "+ Add subtask" when the task is opened. */
+    canAddSubtask?: boolean;
+    /** Called with the created subtask (API row) so the chart can show it. */
+    onSubtaskCreated?: (subtask: any) => void;
 }
 
 export function TaskRow({
@@ -78,7 +83,9 @@ export function TaskRow({
     isLoading = false,
     onLoadMoreSubtasks,
     onInitialLoadSubtasks,
-    isExpandAllMode = false
+    isExpandAllMode = false,
+    canAddSubtask = false,
+    onSubtaskCreated,
 }: TaskRowProps) {
 
     const [visibleSubtaskCount, setVisibleSubtaskCount] = useState(SUBTASKS_PER_PAGE);
@@ -90,10 +97,14 @@ export function TaskRow({
         return calculateBarPosition(start, end, timelineStart, totalDays);
     }, [start, end, timelineStart, totalDays]);
 
-    const aggregateStatus = useMemo(() => {
-        if (!task.subtasks || task.subtasks.length === 0) return task.status;
-        return getAggregateStatus(task.subtasks);
-    }, [task.subtasks, task.status]);
+    // Progress and bar colour come from subtask status counts: live from the
+    // loaded subtasks when all are loaded, otherwise the API's (filtered) counts.
+    const statusCounts = useMemo(
+        () => statusCountsOf(task),
+        [task.subtasks, task.hasMoreSubtasks, task.subtaskStatusCounts]
+    );
+    const progress = parentProgress(statusCounts);
+    const aggregateStatus = aggregateStatusFromCounts(statusCounts);
 
     const currentProject = projectMap.get(task.projectId || projectId || "");
     const resolvedProjectColor = task.projectColor || currentProject?.color;
@@ -106,8 +117,8 @@ export function TaskRow({
         end
     );
 
-    const delayStyles = getDelayColors(remainingDays, task.status);
-    const delayText = getDelayText(remainingDays, task.status);
+    const delayStyles = getDelayColors(remainingDays, aggregateStatus);
+    const delayText = getDelayText(remainingDays, aggregateStatus);
     const statusColors = getStatusColors(aggregateStatus);
 
     const isDelayed = useMemo(() => {
@@ -137,6 +148,8 @@ export function TaskRow({
     }, [isDelayed, isSettled, end, totalDays]);
 
     const hasSubtasks = (task.subtasks && task.subtasks.length > 0) || (task.subtaskCount !== undefined && task.subtaskCount > 0);
+    // A task can be opened when it has subtasks, or when you can add the first one.
+    const canExpand = hasSubtasks || canAddSubtask;
     const isLoaded = task.subtasks !== undefined;
     const needsInitialLoad = isExpanded && hasSubtasks && !isLoaded;
 
@@ -237,7 +250,7 @@ export function TaskRow({
                             className={cn(
                                 "p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700",
                                 "transition-colors duration-150",
-                                !hasSubtasks && !isLoading && "invisible"
+                                !canExpand && !isLoading && "invisible"
                             )}
                             disabled={isLoading}
                             aria-expanded={isExpanded}
@@ -251,9 +264,20 @@ export function TaskRow({
                                 <ChevronRight className="size-4 text-muted-foreground" />
                             )}
                         </button>
-                        <span className="font-semibold text-sm text-foreground truncate">
+                        {/* The name opens the task too, not just the chevron. */}
+                        <button
+                            type="button"
+                            onClick={canExpand ? onToggle : undefined}
+                            disabled={!canExpand || isLoading}
+                            aria-expanded={canExpand ? isExpanded : undefined}
+                            title={task.name}
+                            className={cn(
+                                "font-semibold text-sm text-foreground truncate text-left rounded focus-visible:outline-2 focus-visible:outline-primary",
+                                canExpand ? "cursor-pointer hover:text-primary" : "cursor-default"
+                            )}
+                        >
                             {task.name}
-                        </span>
+                        </button>
                         {hasSubtasks && (
                             <span className="text-xs text-muted-foreground ml-auto bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">
                                 {(task.subtasks && task.subtasks.length > 0) ? task.subtasks.length : task.subtaskCount}
@@ -272,14 +296,24 @@ export function TaskRow({
                             <div className="w-[var(--col-progress)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 flex items-center justify-center">
                                 <span className={cn(
                                     "text-xs font-medium px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800",
-                                    task.progress === 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                                    progress === 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
                                 )}>
-                                    {task.progress}%
+                                    {progress}%
                                 </span>
                             </div>
                             <div className="w-[var(--col-status)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-days)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
-                            <div className="w-[var(--col-dates)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-dates)] shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-deadline)] shrink-0 h-full px-2 flex items-center gap-1.5 min-w-0">
+                                {remainingDays !== null && (
+                                    <>
+                                        <span className={cn("size-2 rounded-full shrink-0", delayStyles.dotColor)} />
+                                        <span className={cn("text-[11px] truncate", delayStyles.color)} title={end ? `Due ${formatDate(end)}` : undefined}>
+                                            {delayText}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
                         </>
                     )}
                 </div>
@@ -321,7 +355,7 @@ export function TaskRow({
                                         {/* Progress Overlay */}
                                         <div
                                             className="absolute h-full rounded-full bg-black/20 dark:bg-white/20 top-0 left-0 transition-all duration-300"
-                                            style={{ width: `${task.progress}%` }}
+                                            style={{ width: `${progress}%` }}
                                         />
                                     </div>
                                 </TooltipTrigger>
@@ -357,10 +391,10 @@ export function TaskRow({
                                             <div className="flex-1 h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-blue-500 rounded-full"
-                                                    style={{ width: `${task.progress}%` }}
+                                                    style={{ width: `${progress}%` }}
                                                 />
                                             </div>
-                                            <span className="text-[10px] font-bold">{task.progress}%</span>
+                                            <span className="text-[10px] font-bold">{progress}%</span>
                                         </div>
                                     </div>
                                 </TooltipContent>
@@ -393,7 +427,7 @@ export function TaskRow({
             </div>
 
             {/* Subtask Rows - Sortable */}
-            {isExpanded && hasSubtasks && (
+            {isExpanded && canExpand && (
                 <div className="flex flex-col">
                     {isLoaded && (
                         <SortableSubtaskList
@@ -421,6 +455,33 @@ export function TaskRow({
                             ref={subtaskLoaderRef}
                             className="bg-neutral-50/10 dark:bg-neutral-800/5 h-8"
                         />
+                    )}
+
+                    {canAddSubtask && workspaceId && members && !needsInitialLoad && (
+                        <div
+                            className="grid border-b border-neutral-200 dark:border-neutral-700"
+                            style={{ gridTemplateColumns: 'var(--gantt-sidebar-width) var(--gantt-total-width)' }}
+                        >
+                            <div className="sticky left-0 z-20 w-[var(--gantt-sidebar-width)] bg-white dark:bg-neutral-900 px-3 py-1 pl-10 border-r border-neutral-200 dark:border-neutral-700">
+                                <CreateSubTaskForm
+                                    members={members}
+                                    workspaceId={workspaceId}
+                                    projectId={task.projectId || projectId}
+                                    parentTaskId={task.id}
+                                    onSubTaskCreated={onSubtaskCreated}
+                                    customTrigger={
+                                        <button
+                                            type="button"
+                                            className="flex items-center gap-1.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                                        >
+                                            <Plus className="size-3.5" />
+                                            Add subtask
+                                        </button>
+                                    }
+                                />
+                            </div>
+                            <div />
+                        </div>
                     )}
                 </div>
             )}

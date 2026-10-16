@@ -5,6 +5,7 @@ import { useState, useMemo, useTransition, useEffect, useRef, useCallback } from
 import { GanttTask } from "@/components/task/gantt/types";
 import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
+import { appendSubtask, applySubtaskPatch, removeSubtask } from "@/components/task/gantt/utils";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import {
   ProjectOption,
@@ -83,6 +84,23 @@ export function WorkspaceGanttClient({
 
   const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
   const [localTaskDataMap, setLocalTaskDataMap] = useState<Record<string, any>>(subtaskDataMap);
+
+  /** A new subtask — created here or reported by realtime — shown under its parent once. */
+  const addCreatedSubtask = useCallback((raw: any) => {
+    setLocalTaskDataMap(prev => ({ ...prev, [raw.id]: raw }));
+    setTasks(prev => appendSubtask(prev, raw));
+  }, []);
+
+  // Same per-project rule the List view uses for adding subtasks.
+  const canAddSubtask = useCallback((task: GanttTask) => {
+    if (permissions?.isWorkspaceAdmin) return true;
+    const pid = task.projectId;
+    return !!pid && [
+      permissions?.leadProjectIds,
+      permissions?.managedProjectIds,
+      permissions?.coordinatorProjectIds,
+    ].some((ids) => ids?.includes(pid));
+  }, [permissions]);
   const [loadingSubtasks, setLoadingSubtasks] = useState<Set<string>>(new Set());
   const [loadingProjects, setLoadingProjects] = useState<Set<string>>(new Set());
   const fetchingIdsRef = useRef<Set<string>>(new Set());
@@ -452,56 +470,22 @@ export function WorkspaceGanttClient({
       }
 
       if (action === "SUBTASK_CREATED" && record.parentTaskId) {
-        const newSubtask = transformToGanttSubtasks([record]);
-        setTasks((prev) =>
-          prev.map((t) => {
-            if (t.id !== record.parentTaskId) return t;
-            const updatedSubtasks = t.subtasks
-              ? t.subtasks.some((s) => s.id === record.id)
-                ? t.subtasks
-                : [...t.subtasks, ...newSubtask]
-              : t.subtasks; // Don't inject if subtasks not yet loaded (undefined)
-            return {
-              ...t,
-              subtasks: updatedSubtasks,
-              subtaskCount: (t.subtaskCount || 0) + 1,
-            };
-          }),
-        );
+        addCreatedSubtask(record);
       }
 
       if (action === "SUBTASK_DELETED" && record.parentTaskId) {
-        setTasks((prev) =>
-          prev.map((t) => {
-            if (t.id !== record.parentTaskId) return t;
-            return {
-              ...t,
-              subtasks: t.subtasks?.filter((s) => s.id !== record.id),
-              subtaskCount: Math.max(0, (t.subtaskCount || 0) - 1),
-            };
-          }),
-        );
+        setTasks((prev) => removeSubtask(prev, record));
       }
 
       if (action === "SUBTASK_UPDATED" && record.parentTaskId) {
-        const updatedSubtask = transformToGanttSubtasks([record]);
-        setTasks((prev) =>
-          prev.map((t) => {
-            if (t.id !== record.parentTaskId) return t;
-            return {
-              ...t,
-              subtasks: t.subtasks?.map((s) =>
-                s.id === record.id ? { ...s, ...updatedSubtask[0] } : s,
-              ),
-            };
-          }),
-        );
+        const [updatedSubtask] = transformToGanttSubtasks([record]);
+        setTasks((prev) => applySubtaskPatch(prev, record.id, updatedSubtask));
       }
     };
 
     window.addEventListener("realtime-sync-refresh", handleRealtimeSync);
     return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
-  }, [workspaceId]);
+  }, [workspaceId, addCreatedSubtask]);
 
   return (
     <div className="space-y-4">
@@ -547,20 +531,9 @@ export function WorkspaceGanttClient({
           }}
           groupByProject={true}
           onSubtaskClick={handleSubtaskClick}
-          onSubTaskUpdate={(subTaskId, data) => {
-            setTasks(prev =>
-              prev.map(t =>
-                t.id === subTaskId
-                  ? { ...t, ...data }
-                  : {
-                    ...t,
-                    subtasks: t.subtasks?.map(s =>
-                      s.id === subTaskId ? { ...s, ...data } : s
-                    )
-                  }
-              )
-            );
-          }}
+          onSubTaskUpdate={(subTaskId, data) => setTasks(prev => applySubtaskPatch(prev, subTaskId, data))}
+          canAddSubtask={canAddSubtask}
+          onSubtaskCreated={addCreatedSubtask}
           projectCounts={projectCounts}
           members={members}
           currentUser={currentUser}

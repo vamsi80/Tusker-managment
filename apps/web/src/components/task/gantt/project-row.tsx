@@ -141,9 +141,17 @@ export function ProjectRow({
                             className="size-4 shrink-0 transition-colors"
                             style={{ color: color || 'currentColor' }}
                         />
-                        <span className="font-semibold text-sm text-foreground truncate" title={name}>
+                        {/* The name opens the project too, not just the chevron. */}
+                        <button
+                            type="button"
+                            onClick={onToggle}
+                            disabled={isLoading}
+                            aria-expanded={isExpanded}
+                            title={name}
+                            className="font-semibold text-sm text-foreground truncate text-left rounded cursor-pointer hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                        >
                             {name}
-                        </span>
+                        </button>
                     </div>
 
                     {/* 2-5. Empty Detail Columns for Project (Visual Alignment) */}
@@ -152,7 +160,8 @@ export function ProjectRow({
                             <div className="w-[var(--col-assignee)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-status)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                             <div className="w-[var(--col-days)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
-                            <div className="w-[var(--col-dates)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-dates)] shrink-0 border-r border-neutral-200 dark:border-neutral-800 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
+                            <div className="w-[var(--col-deadline)] shrink-0 h-full px-2 bg-neutral-50/10 dark:bg-neutral-800/5" />
                         </>
                     )}
                 </div>

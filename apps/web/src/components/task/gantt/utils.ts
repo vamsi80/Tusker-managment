@@ -1,12 +1,13 @@
-import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, } from "./types";
+import { GanttTask, GanttSubtask, ComputedTaskDates, TimelineGranularity, type SubtaskStatusCounts } from "./types";
 import { parse } from "date-fns";
+import { transformToGanttSubtasks } from "./transform-tasks";
 import { APP_DATE_FORMAT, formatIST } from "@/lib/utils";
 
 /**
  * Status color mapping for Gantt bars
  */
 export const GANTT_STATUS_COLORS: Record<string, string> = {
-    'TO_DO': '#D1D5DB',
+    'TO_DO': '#94A3B8',
     'IN_PROGRESS': '#3B82F6',
     'CANCELLED': '#EF4444',
     'REVIEW': '#8B5CF6',
@@ -21,24 +22,149 @@ export function getStatusColor(status: string, defaultColor?: string): string {
     return GANTT_STATUS_COLORS[status] || defaultColor || GANTT_STATUS_COLORS['TO_DO'];
 }
 
-/**
- * Determine aggregate status of a task based on its subtasks
- */
-export function getAggregateStatus(subtasks: GanttSubtask[]): string {
-    if (!subtasks || subtasks.length === 0) return 'TO_DO';
+/* ------------------------------------------------------------------------- *
+ * Status counts, progress and aggregate status
+ *
+ * Parent rows arrive without their subtasks, carrying per-status counts from
+ * the API instead (filtered the same way an expansion would be). Everything a
+ * parent row shows — progress and bar colour — is derived from counts, so a
+ * collapsed row and an expanded one agree.
+ * ------------------------------------------------------------------------- */
 
-    const statuses = subtasks.map(st => st.status);
-
-    if (statuses.every(s => s === 'COMPLETED')) return 'COMPLETED';
-    if (statuses.some(s => s === 'IN_PROGRESS' || s === 'REVIEW')) return 'IN_PROGRESS';
-    if (statuses.some(s => s === 'COMPLETED') && statuses.some(s => s === 'TO_DO')) return 'IN_PROGRESS';
-    if (statuses.every(s => s === 'CANCELLED')) return 'CANCELLED';
-    if (statuses.every(s => s === 'HOLD')) return 'HOLD';
-
-    return statuses[0] || 'TO_DO';
+export function countStatuses(subtasks: Pick<GanttSubtask, "status">[]): SubtaskStatusCounts {
+    const counts: SubtaskStatusCounts = {};
+    for (const s of subtasks) {
+        const status = s.status || "TO_DO";
+        counts[status] = (counts[status] ?? 0) + 1;
+    }
+    return counts;
 }
 
+/**
+ * The counts behind a parent row: live from its loaded subtasks when all of
+ * them are loaded, otherwise the API's counts (kept current by applySubtaskPatch).
+ */
+export function statusCountsOf(task: Pick<GanttTask, "subtasks" | "hasMoreSubtasks" | "subtaskStatusCounts">): SubtaskStatusCounts {
+    if (task.subtasks && !task.hasMoreSubtasks) return countStatuses(task.subtasks);
+    return task.subtaskStatusCounts ?? (task.subtasks ? countStatuses(task.subtasks) : {});
+}
 
+/** Share of subtasks completed, as a whole percent. Cancelled work is not counted as remaining. */
+export function parentProgress(counts: SubtaskStatusCounts): number {
+    const total = Object.values(counts).reduce<number>((sum, n) => sum + (n ?? 0), 0) - (counts.CANCELLED ?? 0);
+    return total > 0 ? Math.round(((counts.COMPLETED ?? 0) / total) * 100) : 0;
+}
+
+/** The status a parent's bar takes from its subtasks. */
+export function aggregateStatusFromCounts(counts: SubtaskStatusCounts): string {
+    const entries = Object.entries(counts).filter(([, n]) => (n ?? 0) > 0) as [string, number][];
+    const total = entries.reduce((sum, [, n]) => sum + n, 0);
+    if (total === 0) return 'TO_DO';
+    const n = (status: string) => counts[status] ?? 0;
+
+    if (n('COMPLETED') === total) return 'COMPLETED';
+    if (n('IN_PROGRESS') > 0 || n('REVIEW') > 0) return 'IN_PROGRESS';
+    if (n('COMPLETED') > 0 && n('TO_DO') > 0) return 'IN_PROGRESS';
+    if (n('CANCELLED') === total) return 'CANCELLED';
+    if (n('HOLD') === total) return 'HOLD';
+    return entries.sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/** Determine aggregate status of a task based on its subtasks. */
+export function getAggregateStatus(subtasks: GanttSubtask[]): string {
+    return aggregateStatusFromCounts(countStatuses(subtasks || []));
+}
+
+/**
+ * A subtask's progress estimate from its status: Completed 100, Review 80, In
+ * Progress up to 60 by how much of its date range has passed, otherwise 0.
+ * Derived at render time so a status change shows immediately.
+ */
+export function subtaskProgress(subtask: Pick<GanttSubtask, "status" | "start" | "end">, today: Date = new Date()): number {
+    switch (subtask.status) {
+        case 'COMPLETED': return 100;
+        case 'REVIEW': return 80;
+        case 'IN_PROGRESS': {
+            const start = parseGanttDate(subtask.start);
+            const end = parseGanttDate(subtask.end);
+            if (!start || !end) return 10;
+            const total = end.getTime() - start.getTime();
+            if (total <= 0) return 60;
+            const midnight = new Date(today);
+            midnight.setHours(0, 0, 0, 0);
+            const elapsed = midnight.getTime() - start.getTime();
+            return Math.min(60, Math.round(Math.max(0, (elapsed / total) * 60)));
+        }
+        default: return 0;
+    }
+}
+
+/**
+ * Merge a change into a subtask (or a parent row) in Gantt state. A status
+ * change also moves one count between statuses, so a parent's progress and
+ * colour stay right even when not all of its subtasks are loaded.
+ */
+export function applySubtaskPatch(tasks: GanttTask[], id: string, data: Partial<any>): GanttTask[] {
+    return tasks.map((task) => {
+        if (task.id === id) return { ...task, ...data };
+
+        const existing = task.subtasks?.find((s) => s.id === id);
+        if (!existing) return task;
+
+        let counts = task.subtaskStatusCounts;
+        const from = existing.status || "TO_DO";
+        const to = data.status;
+        if (counts && to && to !== from) {
+            counts = { ...counts, [from]: Math.max(0, (counts[from] ?? 0) - 1), [to]: (counts[to] ?? 0) + 1 };
+        }
+        return {
+            ...task,
+            subtaskStatusCounts: counts,
+            subtasks: task.subtasks!.map((s) => (s.id === id ? { ...s, ...data } : s)),
+        };
+    });
+}
+
+/** Remove a deleted subtask from its parent, taking it out of the counts too. */
+export function removeSubtask(tasks: GanttTask[], record: { id: string; parentTaskId?: string | null; status?: string | null }): GanttTask[] {
+    return tasks.map((task) => {
+        if (task.id !== record.parentTaskId) return task;
+        const status = task.subtasks?.find((s) => s.id === record.id)?.status ?? record.status ?? null;
+        const counts = task.subtaskStatusCounts;
+        return {
+            ...task,
+            subtasks: task.subtasks?.filter((s) => s.id !== record.id),
+            subtaskCount: Math.max(0, (task.subtaskCount || 0) - 1),
+            subtaskStatusCounts: counts && status
+                ? { ...counts, [status]: Math.max(0, (counts[status] ?? 0) - 1) }
+                : counts,
+        };
+    });
+}
+
+/**
+ * Add a newly created subtask (raw API row) under its parent. Idempotent: the
+ * creator's own realtime echo of the same subtask is ignored, so counts only
+ * move once.
+ */
+export function appendSubtask(tasks: GanttTask[], raw: any): GanttTask[] {
+    if (!raw?.id || !raw.parentTaskId) return tasks;
+    return tasks.map((task) => {
+        if (task.id !== raw.parentTaskId) return task;
+        if (task.subtasks?.some((s) => s.id === raw.id)) return task;
+
+        const [subtask] = transformToGanttSubtasks([raw]);
+        const status = subtask.status || "TO_DO";
+        return {
+            ...task,
+            subtasks: task.subtasks ? [...task.subtasks, subtask] : task.subtasks,
+            subtaskCount: (task.subtaskCount || 0) + 1,
+            subtaskStatusCounts: task.subtaskStatusCounts
+                ? { ...task.subtaskStatusCounts, [status]: (task.subtaskStatusCounts[status] ?? 0) + 1 }
+                : task.subtaskStatusCounts,
+        };
+    });
+}
 
 /**
  * Get current date (midnight) for today comparisons

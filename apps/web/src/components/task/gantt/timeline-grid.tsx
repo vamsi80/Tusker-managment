@@ -271,8 +271,11 @@ export function TimelineHeader({
                                     <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-days)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center justify-center text-center">
                                         Days
                                     </span>
-                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-dates)] px-2 h-full flex items-center">
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-dates)] px-2 border-r border-neutral-200 dark:border-neutral-700 h-full flex items-center">
                                         Dates
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[var(--col-deadline)] px-2 h-full flex items-center">
+                                        Deadline
                                     </span>
                                 </>
                             )}

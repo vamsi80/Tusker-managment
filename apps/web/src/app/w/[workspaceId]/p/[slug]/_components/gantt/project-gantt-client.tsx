@@ -9,6 +9,8 @@ import { GanttChart } from "@/components/task/gantt/gantt-chart";
 import { GlobalFilterToolbar } from "@/components/task/shared/global-filter-toolbar";
 import { TaskFilters } from "@/components/task/shared/types";
 import { transformToGanttTasks, transformToGanttSubtasks } from "@/components/task/gantt/transform-tasks";
+import { appendSubtask, applySubtaskPatch, removeSubtask } from "@/components/task/gantt/utils";
+import { useOptionalProjectLayout } from "../project-layout-context";
 import { ProjectMembersType } from "@tusker/core/types/project";
 import { useFilterStore } from "@/lib/store/filter-store";
 import { useProjectTags } from "@/hooks/use-project-tags";
@@ -41,6 +43,8 @@ export function ProjectGanttClient({
     const { data: layoutData } = useWorkspaceLayout();
     const permissions = layoutData.permissions;
     const projects = layoutData.projects || [];
+    // The project's "Create task" permission decides who sees "+ Add subtask".
+    const canCreateSubTask = !!useOptionalProjectLayout()?.projectPermissions?.canCreateSubTask;
     const tags = useProjectTags(workspaceId, projectId);
 
     const [tasks, setTasks] = useState<GanttTask[]>(initialTasks);
@@ -53,6 +57,12 @@ export function ProjectGanttClient({
     const { filters, setFilters, searchQuery, setSearchQuery, clearFilters } = useFilterStore();
     const [isPending, startTransition] = useTransition();
     const lastFiltersActiveRef = useRef(false);
+
+    /** A new subtask — created here or reported by realtime — shown under its parent once. */
+    const addCreatedSubtask = useCallback((raw: any) => {
+        setLocalTaskDataMap(prev => ({ ...prev, [raw.id]: raw }));
+        setTasks(prev => appendSubtask(prev, raw));
+    }, []);
 
     const onFilteredResults = useCallback((newRawTasks: any[], meta: any) => {
         const newGanttTasks = transformToGanttTasks(newRawTasks);
@@ -179,58 +189,23 @@ export function ProjectGanttClient({
             }
 
             if (action === "SUBTASK_CREATED" && record.parentTaskId) {
-                setLocalTaskDataMap(prev => ({ ...prev, [record.id]: record }));
-                const newSubtask = transformToGanttSubtasks([record]);
-                setTasks((prev) =>
-                    prev.map((t) => {
-                        if (t.id !== record.parentTaskId) return t;
-                        const updatedSubtasks = t.subtasks
-                            ? t.subtasks.some((s) => s.id === record.id)
-                                ? t.subtasks
-                                : [...t.subtasks, ...newSubtask]
-                            : t.subtasks;
-                        return {
-                            ...t,
-                            subtasks: updatedSubtasks,
-                            subtaskCount: (t.subtaskCount || 0) + 1,
-                        };
-                    }),
-                );
+                addCreatedSubtask(record);
             }
 
             if (action === "SUBTASK_DELETED" && record.parentTaskId) {
-                setTasks((prev) =>
-                    prev.map((t) => {
-                        if (t.id !== record.parentTaskId) return t;
-                        return {
-                            ...t,
-                            subtasks: t.subtasks?.filter((s) => s.id !== record.id),
-                            subtaskCount: Math.max(0, (t.subtaskCount || 0) - 1),
-                        };
-                    }),
-                );
+                setTasks((prev) => removeSubtask(prev, record));
             }
 
             if (action === "SUBTASK_UPDATED" && record.parentTaskId) {
                 setLocalTaskDataMap(prev => ({ ...prev, [record.id]: { ...prev[record.id], ...record } }));
-                const updatedSubtask = transformToGanttSubtasks([record]);
-                setTasks((prev) =>
-                    prev.map((t) => {
-                        if (t.id !== record.parentTaskId) return t;
-                        return {
-                            ...t,
-                            subtasks: t.subtasks?.map((s) =>
-                                s.id === record.id ? { ...s, ...updatedSubtask[0] } : s,
-                            ),
-                        };
-                    }),
-                );
+                const [updatedSubtask] = transformToGanttSubtasks([record]);
+                setTasks((prev) => applySubtaskPatch(prev, record.id, updatedSubtask));
             }
         };
 
         window.addEventListener("realtime-sync-refresh", handleRealtimeSync);
         return () => window.removeEventListener("realtime-sync-refresh", handleRealtimeSync);
-    }, [workspaceId, projectId]);
+    }, [workspaceId, projectId, addCreatedSubtask]);
 
 
     // 🔑 Force GanttChart to reset its internal expansion state when filters change
@@ -413,28 +388,7 @@ export function ProjectGanttClient({
 
     // Surgical update for subtasks (e.g. assignee change)
     const handleSubTaskUpdate = (subTaskId: string, updatedData: Partial<any>) => {
-        setTasks(prevTasks => {
-            return prevTasks.map(task => {
-                // If the updated task is a parent task
-                if (task.id === subTaskId) {
-                    return { ...task, ...updatedData };
-                }
-
-                // If it's a subtask within a parent task
-                if (task.subtasks) {
-                    const hasSubtask = task.subtasks.find(s => s.id === subTaskId);
-                    if (hasSubtask) {
-                        return {
-                            ...task,
-                            subtasks: task.subtasks.map(s =>
-                                s.id === subTaskId ? { ...s, ...updatedData } : s
-                            )
-                        };
-                    }
-                }
-                return task;
-            });
-        });
+        setTasks(prevTasks => applySubtaskPatch(prevTasks, subTaskId, updatedData));
     };
 
     const ganttTasks = tasks;
@@ -489,6 +443,8 @@ export function ProjectGanttClient({
                     loadingSubtasks={loadingSubtasks}
                     isLoading={isFilteredLoading || isPending}
                     hasMore={filtersActive ? filterPagination.hasMore : false}
+                    canAddSubtask={() => canCreateSubTask}
+                    onSubtaskCreated={addCreatedSubtask}
                 />
             </div>
         </div>

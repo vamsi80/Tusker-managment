@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition, useMemo } from "react";
 import { AlertCircle, GripHorizontal } from "lucide-react";
-import { parseDate, formatDate, getDaysBetween, formatDateForAPI } from "./utils";
+import { parseDate, formatDate, getDaysBetween, formatDateForAPI, subtaskProgress } from "./utils";
 import { cn } from "@/lib/utils";
 import { useRemainingDays } from "@/hooks/use-due-date";
 import { getDelayColors, getDelayText } from "@tusker/core/lib/colors/delay-colors";
@@ -103,6 +103,7 @@ export function DraggableSubtaskBar({
     const leftPercent = livePosition ? livePosition.left : (startOffset / totalDays) * 100;
     const widthPercent = livePosition ? livePosition.width : (duration / totalDays) * 100;
 
+    const progress = subtaskProgress(optimisticSubtask);
     const isCompleted = optimisticSubtask.status === 'COMPLETED';
     const isCancelled = optimisticSubtask.status === 'CANCELLED';
     const isHold = optimisticSubtask.status === 'HOLD';
@@ -439,8 +440,8 @@ export function DraggableSubtaskBar({
                             <div
                                 className="absolute inset-y-0 left-0 bg-black/15 dark:bg-white/15 rounded-l-md transition-all duration-300 pointer-events-none"
                                 style={{
-                                    width: `${subtask.progress}%`,
-                                    borderRadius: subtask.progress === 100 ? 'inherit' : undefined
+                                    width: `${progress}%`,
+                                    borderRadius: progress === 100 ? 'inherit' : undefined
                                 }}
                             />
 
@@ -504,12 +505,12 @@ export function DraggableSubtaskBar({
                             <div className="space-y-1">
                                 <div className="flex items-center justify-between text-xs">
                                     <span className="text-muted-foreground font-medium">Progress</span>
-                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{subtask.progress}%</span>
+                                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{progress}%</span>
                                 </div>
                                 <div className="w-full h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                                        style={{ width: `${subtask.progress}%` }}
+                                        style={{ width: `${progress}%` }}
                                     />
                                 </div>
                             </div>

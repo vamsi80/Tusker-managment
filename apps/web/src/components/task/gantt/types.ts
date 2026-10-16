@@ -10,6 +10,9 @@
 
 export type TimelineGranularity = "days" | "weeks" | "months";
 
+/** Subtask count per status, e.g. { TO_DO: 3, COMPLETED: 2 }. */
+export type SubtaskStatusCounts = Partial<Record<string, number>>;
+
 export interface TimelineConfig {
   start: Date;
   end: Date;
@@ -43,7 +46,6 @@ export interface GanttSubtask {
   position: number;
   updatedAt?: string; // dd MMM yyyy format
   dependsOnIds?: string[];
-  progress: number;
 }
 
 // ============================================================================
@@ -66,8 +68,9 @@ export interface GanttTask {
   createdById: string | null;
   parentTaskId: string | null;
   updatedAt?: string;
-  progress: number;
   subtaskCount?: number;
+  /** Per-status subtask counts from the API, matching any active filters. */
+  subtaskStatusCounts?: SubtaskStatusCounts;
   hasMoreSubtasks?: boolean;
   subtaskCursor?: any;
   tags?: { id: string; name: string }[];

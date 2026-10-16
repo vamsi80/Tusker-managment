@@ -43,6 +43,10 @@ interface GanttChartProps {
         managedProjectIds?: string[];
         coordinatorProjectIds?: string[];
     };
+    /** Whether "+ Add subtask" shows on this task when it's opened. */
+    canAddSubtask?: (task: GanttTask) => boolean;
+    /** Called with a subtask created from the chart (API row). */
+    onSubtaskCreated?: (subtask: any) => void;
 }
 
 const ITEMS_PER_PAGE = 50;
@@ -67,7 +71,9 @@ export function GanttChart({
     loadingSubtasks,
     loadingProjects,
     isLoading,
-    permissions
+    permissions,
+    canAddSubtask,
+    onSubtaskCreated,
 }: GanttChartProps & { groupByProject?: boolean }) {
     const [granularity, setGranularity] = useState<TimelineGranularity>('days');
     const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -365,13 +371,14 @@ export function GanttChart({
     return (
         <div className={cn(
             "flex flex-col transition-all duration-300 ease-in-out",
-            showDetails ? "[--gantt-sidebar-width:660px]" : "[--gantt-sidebar-width:230px]",
+            showDetails ? "[--gantt-sidebar-width:770px]" : "[--gantt-sidebar-width:230px]",
             "[--col-name:230px]",
             showDetails ? "[--col-assignee:90px]" : "[--col-assignee:0px]",
             showDetails ? "[--col-progress:60px]" : "[--col-progress:0px]",
             showDetails ? "[--col-status:80px]" : "[--col-status:0px]",
             showDetails ? "[--col-days:40px]" : "[--col-days:0px]",
             showDetails ? "[--col-dates:160px]" : "[--col-dates:0px]",
+            showDetails ? "[--col-deadline:110px]" : "[--col-deadline:0px]",
             className
         )}>
             <div
@@ -468,6 +475,8 @@ export function GanttChart({
                                             onLoadMoreSubtasks={onRequestMoreSubtasks}
                                             onInitialLoadSubtasks={onRequestSubtasks}
                                             isExpandAllMode={isExpandAllMode}
+                                    canAddSubtask={canAddSubtask?.(task) ?? false}
+                                    onSubtaskCreated={onSubtaskCreated}
                                             isLoading={loadingSubtasks?.has(task.id)}
                                         />
                                     ))}
@@ -496,6 +505,8 @@ export function GanttChart({
                                     onLoadMoreSubtasks={onRequestMoreSubtasks}
                                     onInitialLoadSubtasks={onRequestSubtasks}
                                     isExpandAllMode={isExpandAllMode}
+                                    canAddSubtask={canAddSubtask?.(task) ?? false}
+                                    onSubtaskCreated={onSubtaskCreated}
                                 />
                             ))}
 
@@ -534,6 +545,8 @@ export function GanttChart({
                                     onLoadMoreSubtasks={onRequestMoreSubtasks}
                                     onInitialLoadSubtasks={onRequestSubtasks}
                                     isExpandAllMode={isExpandAllMode}
+                                    canAddSubtask={canAddSubtask?.(task) ?? false}
+                                    onSubtaskCreated={onSubtaskCreated}
                                 />
                             ))}
 

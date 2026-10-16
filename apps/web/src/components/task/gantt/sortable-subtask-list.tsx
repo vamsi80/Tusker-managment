@@ -11,7 +11,9 @@ import { DraggableSubtaskBar } from "./draggable-subtask-bar";
 import { cn, APP_DATE_FORMAT } from "@/lib/utils";
 import { InlineDateRangePicker } from "./inline-date-range-picker";
 import { InlineDaysPicker } from "./inline-days-picker";
-import { ganttDateToISO } from "./utils";
+import { ganttDateToISO, parseGanttDate, subtaskProgress } from "./utils";
+import { useRemainingDays } from "@/hooks/use-due-date";
+import { getDelayColors, getDelayText } from "@tusker/core/lib/colors/delay-colors";
 import { InlineAssigneePicker } from "../shared/inline-assignee-picker";
 import { ProjectMembersType } from "@tusker/core/types/project";
 import { useSortable } from "@dnd-kit/sortable";
@@ -67,6 +69,11 @@ function SortableSubtaskRow({
 }: SortableSubtaskRowProps) {
     const isHighlighted = subtask.id === highlightedSubtaskId;
     const statusColors = getStatusColors(subtask.status);
+    const progress = subtaskProgress(subtask);
+    const dueDate = parseGanttDate(subtask.end);
+    const { remainingDays } = useRemainingDays(parseGanttDate(subtask.start), subtask.days, dueDate);
+    const delayStyles = getDelayColors(remainingDays, subtask.status);
+    const delayText = getDelayText(remainingDays, subtask.status);
     const [showDepPicker, setShowDepPicker] = useState(false);
     const [isActivityOpen, setIsActivityOpen] = useState(false);
     const [pendingStatus, setPendingStatus] = useState<string | null>(null);
@@ -324,9 +331,9 @@ function SortableSubtaskRow({
                         <div className="w-[var(--col-progress)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full justify-center">
                             <span className={cn(
                                 "text-[10px] font-medium px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800",
-                                subtask.progress === 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                                progress === 100 ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
                             )}>
-                                {subtask.progress}%
+                                {progress}%
                             </span>
                         </div>
 
@@ -382,7 +389,7 @@ function SortableSubtaskRow({
                             />
                         </div>
 
-                        <div className="w-[var(--col-dates)] flex items-center px-2 shrink-0 h-full">
+                        <div className="w-[var(--col-dates)] flex items-center px-2 shrink-0 border-r border-neutral-200 dark:border-neutral-700 h-full">
                             <InlineDateRangePicker
                                 start={subtask.start}
                                 end={subtask.end}
@@ -391,6 +398,21 @@ function SortableSubtaskRow({
                                     patchAndUpdate({ startDate: startStr, dueDate: endStr, days })
                                 }
                             />
+                        </div>
+
+                        {/* Deadline: days left / overdue, same as the List view. */}
+                        <div className="w-[var(--col-deadline)] flex items-center gap-1.5 px-2 shrink-0 h-full min-w-0">
+                            {remainingDays !== null && (
+                                <>
+                                    <span className={cn("size-2 rounded-full shrink-0", delayStyles.dotColor)} />
+                                    <span
+                                        className={cn("text-[11px] truncate", delayStyles.color)}
+                                        title={dueDate ? `Due ${format(dueDate, APP_DATE_FORMAT)}` : undefined}
+                                    >
+                                        {delayText}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </>
                 )}

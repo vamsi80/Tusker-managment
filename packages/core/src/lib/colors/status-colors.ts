@@ -15,8 +15,10 @@ export const STATUS_COLORS: Record<TaskStatus, StatusColors> = {
         color: "text-slate-600 dark:text-white",
         bgColor: "bg-[#D1D5DB]/20",
         borderColor: "border-[#D1D5DB]/50",
-        barClass: "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
-        hex: "#D1D5DB",
+        // Gantt-only. Slate rather than the badge grey: #D1D5DB vanished
+        // against the warm page background, so 0% bars looked colourless.
+        barClass: "bg-[#94A3B8] hover:bg-[#94A3B8]/80 focus:ring-[#94A3B8]",
+        hex: "#94A3B8",
     },
     IN_PROGRESS: {
         color: "text-[#3B82F6]",
@@ -64,8 +66,8 @@ export function getStatusColors(status: string | null | undefined): StatusColors
             color: "text-muted-foreground",
             bgColor: "bg-muted",
             borderColor: "border-muted",
-            barClass: "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
-            hex: "#D1D5DB",
+            barClass: "bg-[#94A3B8] hover:bg-[#94A3B8]/80 focus:ring-[#94A3B8]",
+            hex: "#94A3B8",
         };
     }
 
@@ -73,8 +75,8 @@ export function getStatusColors(status: string | null | undefined): StatusColors
         color: "text-muted-foreground",
         bgColor: "bg-muted",
         borderColor: "border-muted",
-        barClass: "bg-[#D1D5DB] hover:bg-[#D1D5DB]/80 focus:ring-[#D1D5DB]",
-        hex: "#D1D5DB",
+        barClass: "bg-[#94A3B8] hover:bg-[#94A3B8]/80 focus:ring-[#94A3B8]",
+        hex: "#94A3B8",
     };
 }
 

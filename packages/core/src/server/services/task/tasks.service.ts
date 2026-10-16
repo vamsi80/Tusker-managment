@@ -455,10 +455,67 @@ export class TasksService {
     );
 
     this.stripParentMetadata(result);
+    if (opts.view_mode === "gantt") {
+      await this.attachSubtaskStatusCounts(result.tasks, opts, userId, isWorkspaceAdmin, restrictedProjectIds);
+    }
     console.log(
       `[TasksService] Final Result: ${result.tasks.length} roots, ${result.totalCount} total`,
     );
     return result;
+  }
+
+  /**
+   * Gantt parent rows arrive without their subtasks, so the client cannot
+   * compute progress or the bar's status colour from them. Attach per-status
+   * subtask counts instead, built with the same where-clause the expansion
+   * endpoint uses — so with filters on, a parent's progress counts exactly the
+   * subtasks the user would see when expanding it.
+   */
+  private static async attachSubtaskStatusCounts(
+    rows: any[],
+    opts: any,
+    userId: string,
+    isAdmin: boolean,
+    restrictedProjectIds: string[],
+  ) {
+    const parents = rows.filter((t) => !t.parentTaskId && t.id);
+    if (parents.length === 0) return;
+
+    const list = (v: unknown): string[] | undefined => {
+      const arr = (Array.isArray(v) ? v : v === undefined ? [] : [v]).filter((x) => x !== null && x !== "");
+      return arr.length > 0 ? (arr as string[]) : undefined;
+    };
+    const filters = {
+      status: list(opts.status),
+      assigneeId: list(opts.assigneeId),
+      tagId: list(opts.tagId),
+      search: opts.search?.trim() || undefined,
+      dueAfter: opts.dueAfter ? new Date(opts.dueAfter) : undefined,
+      dueBefore: opts.dueBefore ? new Date(opts.dueBefore) : undefined,
+      userId,
+      isAdmin,
+    };
+
+    // Members restricted to their own tasks count only those; one query per scope.
+    const isRestricted = (t: any) => !isAdmin && restrictedProjectIds.includes(t.projectId);
+    const counts = new Map<string, Record<string, number>>();
+    for (const restricted of [false, true]) {
+      const parentIds = parents.filter((t) => isRestricted(t) === restricted).map((t) => t.id);
+      if (parentIds.length === 0) continue;
+      const groups = await prisma.task.groupBy({
+        by: ["parentTaskId", "status"],
+        where: buildSubtaskExpansionWhere(undefined, { ...filters, parentIds, isRestrictedMember: restricted }),
+        _count: { _all: true },
+      });
+      for (const g of groups) {
+        if (!g.parentTaskId) continue;
+        const byStatus = counts.get(g.parentTaskId) ?? {};
+        byStatus[g.status ?? "TO_DO"] = (byStatus[g.status ?? "TO_DO"] ?? 0) + g._count._all;
+        counts.set(g.parentTaskId, byStatus);
+      }
+    }
+
+    for (const t of parents) t.subtaskStatusCounts = counts.get(t.id) ?? {};
   }
 
   /** @deprecated Use TaskMapper.toLegacyMetadata directly */

@@ -41,6 +41,13 @@ interface iAppProps {
     onDialogOpenChange?: (open: boolean) => void;
 }
 
+// Stable defaults: effects below depend on these props, and a fresh `[]` on
+// every render made `setLocalTags` loop forever (React error #185) whenever a
+// caller left `tags` out.
+const NO_TAGS: { id: string; name: string }[] = [];
+const NO_PARENT_TASKS: { id: string; name: string; projectId: string }[] = [];
+const NO_PROJECTS: { id: string; name: string }[] = [];
+
 export const CreateSubTaskForm = ({
     members,
     workspaceId,
@@ -48,9 +55,9 @@ export const CreateSubTaskForm = ({
     parentTaskId,
     onSubTaskCreated,
     level = "project",
-    tags = [],
-    parentTasks = [],
-    projects = [],
+    tags = NO_TAGS,
+    parentTasks = NO_PARENT_TASKS,
+    projects = NO_PROJECTS,
     customTrigger,
     dialogOpen,
     onDialogOpenChange,

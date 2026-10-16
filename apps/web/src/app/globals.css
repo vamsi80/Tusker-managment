@@ -3,6 +3,12 @@
 
 @plugin "@tailwindcss/typography";
 
+/* Tailwind only scans this app by default. The shared status and deadline
+   colour maps (bar fills, badge backgrounds, deadline dots) live in
+   @tusker/core, so without this their classes were never generated — Gantt
+   bars had no fill and showed only the progress overlay, so 0% looked blank. */
+@source "../../../../packages/core/src/lib/colors";
+
 @custom-variant dark (&:is(.dark *));
 
 /* Values from the "Trava Web UI" Figma file. Text, amber and status colours
