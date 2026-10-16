@@ -13,7 +13,7 @@ export function ConversationShell({ sidebar, children }: ConversationShellProps)
   const { conversationId } = useParams();
 
   return (
-    <div className="flex h-[calc(100vh-140px)] w-full overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-140px)] w-full overflow-hidden">
       {/* Sidebar Panel */}
       <div
         className={cn(
@@ -27,7 +27,7 @@ export function ConversationShell({ sidebar, children }: ConversationShellProps)
       {/* Main Chat Panel */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-w-0 bg-background relative",
+          "flex-1 flex flex-col min-w-0 relative",
           conversationId ? "flex" : "hidden lg:flex"
         )}
       >

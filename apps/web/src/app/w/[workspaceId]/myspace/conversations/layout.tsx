@@ -12,7 +12,7 @@ function ConversationsLayoutContent({ children }: { children: React.ReactNode })
   } = useConversations();
   
   return (
-    <div className="h-full bg-background">
+    <div className="h-full">
       <ConversationShell
         sidebar={
           <ConversationList 

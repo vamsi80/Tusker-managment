@@ -194,8 +194,8 @@ export function ChatPanel({
   };
 
   return (
-    <div className="relative flex h-full flex-col bg-background">
-      <div className="z-10 flex min-h-12 items-center justify-between border-b bg-background/80 px-2 py-1 backdrop-blur-md">
+    <div className="relative flex h-full flex-col">
+      <div className="z-10 flex min-h-12 items-center justify-between border-b px-2 py-1">
         {isSelecting ? (
           <div className="flex w-full items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -383,7 +383,7 @@ export function ChatPanel({
         </div>
       </div>
 
-      <div className="border-t bg-background/80 p-4 backdrop-blur-md">
+      <div className="border-t p-4">
         {editingMessageId && (
           <div className="mx-auto mb-2 flex max-w-4xl items-center justify-between rounded-lg border-l-2 border-primary bg-muted/40 px-3 py-2">
             <div>
