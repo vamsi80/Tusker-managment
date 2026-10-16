@@ -406,15 +406,17 @@ export const CreateSubTaskForm = ({
                         />
 
                         {/* Date and Duration */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Same height and top-aligned. Days only needs a narrow column, so the two dates get room to show in full. */}
+                        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] gap-4 items-start">
                             <FormField
                                 control={form.control}
                                 name="startDate"
                                 render={({ field }) => (
-                                    <FormItem >
+                                    <FormItem className="min-w-0">
                                         <FormLabel>Start Date</FormLabel>
                                         <FormControl>
                                             <DateTimePicker
+                                                className="h-10 min-w-0"
                                                 value={field.value}
                                                 onChange={(value) => {
                                                     field.onChange(value);
@@ -431,7 +433,7 @@ export const CreateSubTaskForm = ({
                                 control={form.control}
                                 name="days"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="min-w-0">
                                         <FormLabel>Days</FormLabel>
                                         <FormControl>
                                             <Input
@@ -454,10 +456,11 @@ export const CreateSubTaskForm = ({
                                 control={form.control}
                                 name="dueDate"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="min-w-0">
                                         <FormLabel>Due Date</FormLabel>
                                         <FormControl>
                                             <DateTimePicker
+                                                className="h-10 min-w-0"
                                                 value={field.value}
                                                 onChange={(value) => {
                                                     field.onChange(value);
