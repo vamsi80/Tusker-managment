@@ -21,22 +21,72 @@ import type { CapabilityMap } from "./capabilities";
  */
 
 export const PROJECT_PERMISSIONS = [
-    /**
-     * Every task in the project, not just the ones assigned to you — on the
-     * board, the dashboard, task details and the workspace-wide Tasks views.
-     * Plain members always see every task in List and Gantt regardless; this
-     * extends that to everywhere else.
-     */
-    { id: "task:view_all", label: "See all tasks", group: "Tasks" },
-    { id: "task:create", label: "Create task", group: "Tasks" },
-    { id: "task:edit", label: "Edit task", group: "Tasks" },
-    { id: "task:status", label: "Change status", group: "Tasks" },
-    { id: "task:assign", label: "Change assignee", group: "Tasks" },
-    { id: "status:completed", label: "Set Completed", group: "Status" },
-    { id: "status:hold", label: "Set On Hold", group: "Status" },
-    { id: "status:cancelled", label: "Set Cancelled", group: "Status" },
-    { id: "bulk:upload", label: "Bulk upload", group: "Other" },
-    { id: "indent:raise", label: "Raise indent", group: "Other" },
+    {
+        id: "task:view_all",
+        label: "See all tasks",
+        group: "Visibility",
+        description:
+            "See every task in this project on the board, the dashboard and in task details. When off, those show only tasks assigned to them. Members always see every task in List and Gantt.",
+    },
+    {
+        id: "task:create",
+        label: "Create task",
+        group: "Tasks",
+        description: "Add new tasks and subtasks to this project.",
+    },
+    {
+        id: "task:edit",
+        label: "Edit task",
+        group: "Tasks",
+        description:
+            "Change a task's name, description, dates, tags and reviewer. People can't edit a task assigned to themselves (owners and admins can, apart from its dates), and a Lead can only edit tasks they created.",
+    },
+    {
+        id: "task:status",
+        label: "Change status",
+        group: "Tasks",
+        description:
+            "Move tasks between To Do, In Progress and Review. Unless they are a PM or Coordinator, only on tasks they created or are assigned to.",
+    },
+    {
+        id: "task:assign",
+        label: "Change assignee",
+        group: "Tasks",
+        description: "Choose or change who a task is assigned to.",
+    },
+    {
+        id: "status:completed",
+        label: "Set Completed",
+        group: "Approvals",
+        description:
+            "Approve work: mark tasks Completed and move tasks out of Review. Unless they are a PM or Coordinator, only on tasks they created, and never on a task assigned to themselves.",
+    },
+    {
+        id: "status:hold",
+        label: "Set On Hold",
+        group: "Approvals",
+        description:
+            "Pause a task by putting it On Hold. Unless they are a PM or Coordinator, only on tasks they created, and never on a task assigned to themselves.",
+    },
+    {
+        id: "status:cancelled",
+        label: "Set Cancelled",
+        group: "Approvals",
+        description:
+            "Cancel a task that is no longer needed. Unless they are a PM or Coordinator, only on tasks they created, and never on a task assigned to themselves.",
+    },
+    {
+        id: "bulk:upload",
+        label: "Bulk upload",
+        group: "Other",
+        description: "Import many tasks at once from a spreadsheet.",
+    },
+    {
+        id: "indent:raise",
+        label: "Raise indent",
+        group: "Other",
+        description: "Request materials for this project by raising an indent in Procurement.",
+    },
 ] as const;
 
 export type ProjectPermissionId = (typeof PROJECT_PERMISSIONS)[number]["id"];

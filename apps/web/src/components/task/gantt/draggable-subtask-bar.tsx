@@ -14,6 +14,9 @@ import { GanttSubtask } from "./types";
 import { apiClient } from "@tusker/api-client";
 import { getStatusColors } from "@tusker/core/lib/colors/status-colors";
 
+/** Calendar days a task spans, both ends included: the bar's width and the Days column. */
+const inclusiveDays = (start: Date, end: Date) => getDaysBetween(start, end) + 1;
+
 interface DraggableSubtaskBarProps {
     subtask: GanttSubtask;
     timelineStart: Date;
@@ -94,7 +97,7 @@ export function DraggableSubtaskBar({
     normalizedTimelineStart.setHours(0, 0, 0, 0);
 
     const startOffset = startDate ? getDaysBetween(normalizedTimelineStart, normalizedStartDate) : 0;
-    const duration = (startDate && endDate) ? (getDaysBetween(normalizedStartDate, normalizedEndDate) + 1) : 1;
+    const duration = (startDate && endDate) ? inclusiveDays(normalizedStartDate, normalizedEndDate) : 1;
 
     // Use live position if dragging, otherwise calculate from dates
     const leftPercent = livePosition ? livePosition.left : (startOffset / totalDays) * 100;
@@ -286,6 +289,41 @@ export function DraggableSubtaskBar({
             const rawDays = deltaX / pixelsPerDay;
             const daysDelta = Math.round(rawDays);
 
+            /**
+             * Saves new dates. Sends the day count to the row too, so the Days
+             * column moves with the bar instead of waiting for a reload (the
+             * server recalculates `days` itself; the row only knew start/end).
+             */
+            const saveDates = (startDay: Date, endDay: Date, messages: { loading: string; success: string }) => {
+                const start = formatDateForAPI(startDay, 'start');
+                const end = formatDateForAPI(endDay, 'end');
+                const update = { start, end, days: inclusiveDays(startDay, endDay) };
+
+                setOptimisticSubtask(prev => ({ ...prev, ...update }));
+                onUpdate?.(subtask.id, update);
+
+                setIsPendingUpdate(true);
+                const toastId = toast.loading(messages.loading);
+                startTransition(async () => {
+                    const result = await apiClient.tasks.patchTaskFields(
+                        subtask.id,
+                        workspaceId!,
+                        projectId!,
+                        { startDate: start, dueDate: end }
+                    );
+
+                    if (result.status !== "success") {
+                        toast.error(result.message, { id: toastId });
+                        setOptimisticSubtask(subtask);
+                        onUpdate?.(subtask.id, { start: subtask.start, end: subtask.end, days: subtask.days });
+                        setIsPendingUpdate(false);
+                        setLivePosition(null);
+                    } else {
+                        toast.success(messages.success, { id: toastId });
+                    }
+                });
+            };
+
             if (isDragging && daysDelta !== 0) {
                 const dragBaseDate = dragStart.date;
                 if (!dragBaseDate || !endDate) return;
@@ -296,40 +334,7 @@ export function DraggableSubtaskBar({
                 const newEndDate = new Date(endDate);
                 newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
-                const startStr = formatDateForAPI(newStartDate, 'start');
-                const endStr = formatDateForAPI(newEndDate, 'end');
-
-                setOptimisticSubtask(prev => ({
-                    ...prev,
-                    start: startStr,
-                    end: endStr
-                }));
-
-                // Inform parent about the update for sidebar sync
-                onUpdate?.(subtask.id, {
-                    start: startStr,
-                    end: endStr
-                });
-
-                setIsPendingUpdate(true);
-                const toastId = toast.loading("Updating task dates...");
-                startTransition(async () => {
-                    const result = await apiClient.tasks.patchTaskFields(
-                        subtask.id,
-                        workspaceId!,
-                        projectId!,
-                        { startDate: startStr, dueDate: endStr }
-                    );
-
-                    if (result.status !== "success") {
-                        toast.error(result.message, { id: toastId });
-                        setOptimisticSubtask(subtask);
-                        setIsPendingUpdate(false);
-                        setLivePosition(null);
-                    } else {
-                        toast.success("Task dates updated", { id: toastId });
-                    }
-                });
+                saveDates(newStartDate, newEndDate, { loading: "Updating task dates...", success: "Task dates updated" });
             } else if (isResizing && daysDelta !== 0) {
                 if (resizeEdge === 'right') {
                     if (!startDate || !dragStart.date) return;
@@ -337,39 +342,8 @@ export function DraggableSubtaskBar({
                     const newEndDate = new Date(dragStart.date);
                     newEndDate.setDate(newEndDate.getDate() + daysDelta);
 
-                    const endStr = formatDateForAPI(newEndDate, 'end');
-                    const startStr = formatDateForAPI(startDate, 'start');
-
                     if (newEndDate > startDate) {
-                        setOptimisticSubtask(prev => ({
-                            ...prev,
-                            end: endStr
-                        }));
-
-                        // Inform parent for sidebar sync
-                        onUpdate?.(subtask.id, {
-                            end: endStr
-                        });
-
-                        setIsPendingUpdate(true);
-                        const toastId = toast.loading("Updating task duration...");
-                        startTransition(async () => {
-                            const result = await apiClient.tasks.patchTaskFields(
-                                subtask.id,
-                                workspaceId!,
-                                projectId!,
-                                { startDate: startStr, dueDate: endStr }
-                            );
-
-                            if (result.status !== "success") {
-                                toast.error(result.message, { id: toastId });
-                                setOptimisticSubtask(subtask);
-                                setIsPendingUpdate(false);
-                                setLivePosition(null);
-                            } else {
-                                toast.success("Task duration updated", { id: toastId });
-                            }
-                        });
+                        saveDates(startDate, newEndDate, { loading: "Updating task duration...", success: "Task duration updated" });
                     }
                 } else if (resizeEdge === 'left') {
                     if (!endDate || !dragStart.date) return;
@@ -377,39 +351,8 @@ export function DraggableSubtaskBar({
                     const newStartDate = new Date(dragStart.date);
                     newStartDate.setDate(newStartDate.getDate() + daysDelta);
 
-                    const startStr = formatDateForAPI(newStartDate, 'start');
-                    const endStr = formatDateForAPI(endDate, 'end');
-
                     if (newStartDate < endDate) {
-                        setOptimisticSubtask(prev => ({
-                            ...prev,
-                            start: startStr
-                        }));
-
-                        // Inform parent for sidebar sync
-                        onUpdate?.(subtask.id, {
-                            start: startStr
-                        });
-
-                        setIsPendingUpdate(true);
-                        const toastId = toast.loading("Updating task start date...");
-                        startTransition(async () => {
-                            const result = await apiClient.tasks.patchTaskFields(
-                                subtask.id,
-                                workspaceId!,
-                                projectId!,
-                                { startDate: startStr, dueDate: endStr }
-                            );
-
-                            if (result.status !== "success") {
-                                toast.error(result.message, { id: toastId });
-                                setOptimisticSubtask(subtask);
-                                setIsPendingUpdate(false);
-                                setLivePosition(null);
-                            } else {
-                                toast.success("Task start date updated", { id: toastId });
-                            }
-                        });
+                        saveDates(newStartDate, endDate, { loading: "Updating task start date...", success: "Task start date updated" });
                     }
                 }
             } else {

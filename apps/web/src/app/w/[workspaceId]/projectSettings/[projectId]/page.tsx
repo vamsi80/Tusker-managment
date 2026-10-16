@@ -3,12 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Loader2, Lock, RotateCcw, Save, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, Info, Loader2, Lock, RotateCcw, Save, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { projectsClient } from "@tusker/api-client/projects";
@@ -24,6 +25,14 @@ import {
 import { getProjectRoleDisplayName } from "@tusker/core/lib/constants/project-access";
 import { getColorFromString } from "@tusker/core/lib/colors/project-colors";
 import type { ProjectRole } from "@tusker/db";
+
+/** Consecutive permissions sharing a group, for the grouped header row. */
+const PERMISSION_GROUPS = PROJECT_PERMISSIONS.reduce<{ group: string; count: number }[]>((groups, p) => {
+    const last = groups[groups.length - 1];
+    if (last?.group === p.group) last.count++;
+    else groups.push({ group: p.group, count: 1 });
+    return groups;
+}, []);
 
 interface MemberRow {
     projectMemberId: string;
@@ -210,8 +219,8 @@ export default function ProjectSettingsPage() {
                                 Member Permission Matrix
                             </CardTitle>
                             <CardDescription className="text-xs mt-1">
-                                Tick a box to grant an action on this project, untick to revoke. Workspace-level
-                                restrictions still take precedence.
+                                Choose what each person can do in this project. Hover a column name to see exactly
+                                what it allows.
                             </CardDescription>
                         </div>
                         <div className="relative w-full sm:w-64">
@@ -224,21 +233,69 @@ export default function ProjectSettingsPage() {
                             />
                         </div>
                     </div>
+                    <div className="mt-3 grid gap-x-6 gap-y-1.5 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground sm:grid-cols-2">
+                        <p>
+                            <span className="font-medium text-foreground">Ticked</span> means allowed in this project.
+                            Each person starts with their role&apos;s defaults: Project Manager, Coordinator and Lead have
+                            everything; a Member can change the status of their own tasks; a Viewer can only look.
+                        </p>
+                        <p>
+                            <span className="font-medium text-foreground">A ringed box</span> has been changed from the
+                            role default. Use <RotateCcw className="inline size-3 align-[-2px]" /> at the end of a row to
+                            put that person back to their role&apos;s defaults.
+                        </p>
+                        <p>
+                            <Lock className="inline size-3 align-[-2px]" />{" "}
+                            <span className="font-medium text-foreground">Workspace owners and admins</span> can always do
+                            everything, so their rows can&apos;t be changed. Anything turned off for someone&apos;s role in
+                            workspace Settings → Permissions stays off here too, even if ticked.
+                        </p>
+                        <p>
+                            <span className="font-medium text-foreground">Always true, whatever is ticked:</span> nobody can
+                            complete, hold or cancel a task assigned to themselves, nobody can change the dates of a task
+                            assigned to themselves, and only PMs, owners and admins can reopen a completed task.
+                        </p>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-0">
+                    <TooltipProvider delayDuration={150}>
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[760px] border-collapse text-sm">
                             <thead className="bg-muted/40 border-y">
-                                <tr>
-                                    <th className="py-2.5 px-4 text-left font-medium text-xs text-muted-foreground uppercase tracking-wider w-[240px]">
+                                <tr className="border-b border-border/60">
+                                    <th rowSpan={2} className="py-2.5 px-4 text-left font-medium text-xs text-muted-foreground uppercase tracking-wider w-[240px] align-bottom">
                                         Member
                                     </th>
-                                    {PROJECT_PERMISSIONS.map((p) => (
-                                        <th key={p.id} className="px-2 py-2.5 text-center font-medium text-xs text-muted-foreground">
-                                            <span className="block">{p.label}</span>
+                                    {PERMISSION_GROUPS.map(({ group, count }) => (
+                                        <th
+                                            key={group}
+                                            colSpan={count}
+                                            className="px-2 pt-2 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80 border-l border-border/60"
+                                        >
+                                            {group}
                                         </th>
                                     ))}
-                                    <th className="w-10 px-2" />
+                                    <th rowSpan={2} className="w-10 px-2" />
+                                </tr>
+                                <tr>
+                                    {PROJECT_PERMISSIONS.map((p) => (
+                                        <th key={p.id} className="px-2 py-2 text-center font-medium text-xs text-muted-foreground align-top">
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex items-center gap-1 rounded hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary"
+                                                    >
+                                                        {p.label}
+                                                        <Info className="size-3 shrink-0 opacity-60" aria-hidden />
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom" className="max-w-64 text-xs leading-relaxed">
+                                                    {p.description}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/60">
@@ -279,9 +336,17 @@ export default function ProjectSettingsPage() {
                                             </td>
                                             {PROJECT_PERMISSIONS.map((p) => {
                                                 const overridden = member.overrides[p.id] !== undefined;
+                                                const allowed = member.locked || effective[p.id];
+                                                const roleName = getProjectRoleDisplayName(member.projectRole);
+                                                const state = member.locked
+                                                    ? "always allowed for workspace owners and admins"
+                                                    : `${allowed ? "allowed" : "not allowed"} (${overridden ? `changed from the ${roleName} default` : `${roleName} default`})`;
                                                 return (
                                                     <td key={p.id} className="px-2 py-3 text-center">
-                                                        <span className="inline-flex items-center justify-center">
+                                                        <span
+                                                            className="inline-flex items-center justify-center"
+                                                            title={`${p.label} for ${member.name}: ${state}`}
+                                                        >
                                                             <Checkbox
                                                                 checked={member.locked || effective[p.id]}
                                                                 disabled={member.locked || isPending}
@@ -315,16 +380,19 @@ export default function ProjectSettingsPage() {
                             </tbody>
                         </table>
                     </div>
+                    </TooltipProvider>
                 </CardContent>
             </Card>
 
             {/* Project Defaults Card */}
             <Card>
                 <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-semibold">Project Defaults</CardTitle>
-                    <CardDescription className="text-xs">
-                        Applies to status transitions requiring justification on this project. With both disabled, either
-                        a comment or an attachment satisfies the requirement.
+                    <CardTitle className="text-lg font-semibold">Status Change Evidence</CardTitle>
+                    <CardDescription className="text-xs leading-relaxed">
+                        Some status changes ask the person to explain themselves: sending a task to Review, putting it
+                        On Hold or Cancelling it, reopening a Completed, On Hold or Cancelled task, and moving a task back
+                        from Review or In Progress. Choose what they must provide for those changes in this project. With
+                        both boxes off, either a comment or an attachment is enough.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -341,7 +409,7 @@ export default function ProjectSettingsPage() {
                             <div className="space-y-0.5">
                                 <span className="text-sm font-medium text-foreground block">Always require comment</span>
                                 <span className="text-xs text-muted-foreground block">
-                                    Members must enter a comment when updating task status.
+                                    A written comment is required for those status changes, even if a file is attached.
                                 </span>
                             </div>
                         </label>
@@ -358,7 +426,8 @@ export default function ProjectSettingsPage() {
                             <div className="space-y-0.5">
                                 <span className="text-sm font-medium text-foreground block">Always require attachment</span>
                                 <span className="text-xs text-muted-foreground block">
-                                    Members must upload an attachment when updating task status.
+                                    A file (photo, document or link) is required for those status changes, even if a
+                                    comment is written.
                                 </span>
                             </div>
                         </label>
