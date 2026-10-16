@@ -51,7 +51,8 @@ export class AttendanceRepository {
         });
     }
 
-    static async getWorkspaceRecords(where: any, skip: number, take: number) {
+    /** `take` undefined returns every matching row. */
+    static async getWorkspaceRecords(where: any, skip: number, take?: number) {
         return await prisma.attendance.findMany({
             where,
             include: {

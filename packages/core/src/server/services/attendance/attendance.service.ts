@@ -481,12 +481,14 @@ export class AttendanceService {
                     };
                 }
 
-                const [records, totalCount] = await Promise.all([
-                    AttendanceRepository.getWorkspaceRecords(where, skip, pageSize),
-                    AttendanceRepository.countRecords(where)
-                ]);
-
                 if (statusFilters.length === 0 || statusFilters.includes(AttendanceStatus.ON_LEAVE)) {
+                    // Leave days are synthesised below, not stored, so the page can
+                    // only be cut after merging them in. Paging the stored rows first
+                    // put the newest 10 check-ins on page 1 followed by every leave
+                    // day in the range, and repeated those leaves on every page.
+                    // ponytail: loads the whole range to page it; fine for a month
+                    // view, store leave days as attendance rows if ranges grow long.
+                    const records = await AttendanceRepository.getWorkspaceRecords(where, 0);
                     const approvedLeaves = await (prisma as any).leave_request.findMany({
                         where: {
                             workspaceId,
@@ -539,10 +541,16 @@ export class AttendanceService {
                         }
                     }
 
+                    // Stable sort: within a day, stored rows keep the repository's
+                    // check-in order and leave rows follow them.
                     const combined = [...records, ...syntheticRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                    return { data: combined, totalCount: totalCount + syntheticRecords.length };
+                    return { data: combined.slice(skip, skip + pageSize), totalCount: combined.length };
                 }
 
+                const [records, totalCount] = await Promise.all([
+                    AttendanceRepository.getWorkspaceRecords(where, skip, pageSize),
+                    AttendanceRepository.countRecords(where)
+                ]);
                 return { data: records, totalCount };
             },
             [`attendance-${workspaceId}-${actorId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${filters?.departmentId}-${filters?.search}-${page}-${pageSize}`],
