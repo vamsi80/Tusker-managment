@@ -2375,8 +2375,15 @@ export class TasksService {
       };
     }
 
+    // Completed-ness after this write: an edit that leaves status alone (rename,
+    // tags, description) keeps the task's current status. Reading data.status
+    // alone made every such edit to a completed subtask look like a reopen and
+    // decrement the parent's completedSubtaskCount.
+    const wasCompleted = task.status === "COMPLETED";
+    const isNowCompleted = "status" in updateData ? updateData.status === "COMPLETED" : wasCompleted;
+
     const updated = await TaskRepository.updateTaskAndParentCount(
-      taskId, updateData, task.parentTaskId, task.status === "COMPLETED", data.status === "COMPLETED"
+      taskId, updateData, task.parentTaskId, wasCompleted, isNowCompleted
     );
 
     if (data.tagIds && data.tagIds.length > 0) {
