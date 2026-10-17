@@ -4,6 +4,9 @@ import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
 import { sendNotification } from "../../../lib/notifications";
 import {
     calendarDayKey,
+    getISTDateOnly,
+    IST_OFFSET_MS,
+    isWorkingDay,
     pointsPeriodStart,
     signedWorkingDays,
     toDateOnly,
@@ -14,14 +17,16 @@ import { fetchWorkspacePermissions } from "../../../permissions";
  * Reward points (spec: 5.md at the repo root).
  *
  * An append-only ledger in PointsEntry: a balance is SUM(points) over the
- * workspace's reset period. Completion awards are written by TaskRepository
- * inside the status-change transaction, from a payload this service computes
- * beforehand, so the repository stays free of business logic and I/O.
+ * workspace's reset period. Early-completion awards are written by
+ * TaskRepository inside the status-change transaction, from a payload this
+ * service computes beforehand, so the repository stays free of business logic
+ * and I/O. Lateness is charged daily by accrueOverdue, not at completion.
  */
 
 export const POINTS_KIND = {
     COMPLETION: "TASK_COMPLETION",
     REVERSAL: "TASK_REVERSAL",
+    OVERDUE: "TASK_OVERDUE",
     MANUAL: "MANUAL",
 } as const;
 
@@ -51,9 +56,10 @@ export class PointsService {
     }
 
     /**
-     * The award for completing a task at `completedAt`, or null when nothing is
-     * scored: no due date, no assignee, or finished on the due day. The assignee
-     * at the moment of completion earns it.
+     * The award for completing a task early at `completedAt`, or null when
+     * nothing is scored: no due date, no assignee, or finished on or after the
+     * due day — lateness was already charged day by day by accrueOverdue. The
+     * assignee at the moment of completion earns it.
      */
     static async computeAward(params: {
         workspaceId: string;
@@ -68,7 +74,7 @@ export class PointsService {
 
         const holidays = await this.holidayKeys(workspaceId, dueDate, completedAt);
         const points = signedWorkingDays(completedAt, dueDate, holidays);
-        if (points === 0) return null;
+        if (points <= 0) return null;
 
         const assignee = await prisma.projectMember.findUnique({
             where: { id: assigneeId },
@@ -82,8 +88,50 @@ export class PointsService {
             points,
             taskId,
             occurredAt: completedAt,
-            reason: `Completed "${taskName}" ${plural(Math.abs(points), "working day")} ${points > 0 ? "early" : "late"}`,
+            reason: `Completed "${taskName}" ${plural(points, "working day")} early`,
         };
+    }
+
+    /**
+     * The daily late charge: −1 to the assignee of every task still open past
+     * its due date, on each working day. REVIEW is not open — that wait is on
+     * the reviewer — and neither are COMPLETED or CANCELLED. Run once a day
+     * just after midnight IST; a re-run the same day inserts nothing (partial
+     * unique index on taskId + occurredAt, migration 20261017090000).
+     */
+    static async accrueOverdue(now: Date = new Date()) {
+        const today = getISTDateOnly(now);
+        const dayStart = new Date(today.getTime() - IST_OFFSET_MS); // IST midnight, as an instant
+        if (!isWorkingDay(today)) return 0;
+
+        const [tasks, holidays] = await Promise.all([
+            prisma.task.findMany({
+                where: {
+                    status: { in: ["TO_DO", "IN_PROGRESS", "HOLD"] },
+                    dueDate: { lt: dayStart },
+                    assignee: { workspaceMember: ACTIVE_MEMBER },
+                },
+                select: { id: true, name: true, workspaceId: true, assignee: { select: { workspaceMemberId: true } } },
+            }),
+            prisma.public_holiday.findMany({ where: { date: today }, select: { workspaceId: true } }),
+        ]);
+        const offToday = new Set(holidays.map((h) => h.workspaceId));
+
+        const { count } = await prisma.pointsEntry.createMany({
+            data: tasks
+                .filter((t) => !offToday.has(t.workspaceId))
+                .map((t) => ({
+                    workspaceId: t.workspaceId,
+                    workspaceMemberId: t.assignee!.workspaceMemberId,
+                    points: -1,
+                    kind: POINTS_KIND.OVERDUE,
+                    reason: `"${t.name}" is past its due date`,
+                    taskId: t.id,
+                    occurredAt: dayStart,
+                })),
+            skipDuplicates: true,
+        });
+        return count;
     }
 
     /**

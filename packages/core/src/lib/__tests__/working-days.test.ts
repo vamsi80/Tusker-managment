@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pointsPeriodStart, signedWorkingDays } from "../date-utils";
+import { getISTDateOnly, isWorkingDay, pointsPeriodStart, signedWorkingDays } from "../date-utils";
 
 // October 2026: Thu 15, Fri 16, Sat 17, Sun 18, Mon 19.
 /** An instant on the IST clock, e.g. ist("2026-10-16", "14:00"). */
@@ -47,6 +47,23 @@ describe("signedWorkingDays", () => {
         const mon = new Date(Date.UTC(2026, 9, 19));
         expect(signedWorkingDays(fri, mon)).toBe(2);
         expect(signedWorkingDays(mon, fri)).toBe(-2);
+    });
+});
+
+describe("isWorkingDay (the daily overdue charge)", () => {
+    const day = (s: string) => getISTDateOnly(ist(s, "00:05")); // when the cron runs
+
+    it("Saturday is a working day, Sunday is not", () => {
+        expect(isWorkingDay(day("2026-10-17"))).toBe(true);
+        expect(isWorkingDay(day("2026-10-18"))).toBe(false);
+    });
+
+    it("a workspace public holiday is not", () => {
+        expect(isWorkingDay(day("2026-10-19"), new Set(["2026-10-19"]))).toBe(false);
+    });
+
+    it("00:05 IST belongs to that IST day, not the previous UTC day", () => {
+        expect(day("2026-10-19").toISOString()).toBe("2026-10-19T00:00:00.000Z");
     });
 });
 

@@ -718,15 +718,17 @@ model UserConversations {
 /// completed task writes a compensating TASK_REVERSAL row, so close/reopen
 /// cannot farm points and "why did my points drop" is answerable from the data.
 /// NOTE: a partial unique index ("taskId" WHERE kind = 'TASK_COMPLETION' AND
-/// "reversedAt" IS NULL) exists in migration 20261016110000_reward_points.
-/// Prisma cannot express it — never `prisma db push` this model or it is
+/// "reversedAt" IS NULL) exists in migration 20261016110000_reward_points, and
+/// a second ("taskId", "occurredAt" WHERE kind = 'TASK_OVERDUE') — one daily
+/// late charge per task — in 20261017090000_points_overdue_daily.
+/// Prisma cannot express them — never `prisma db push` this model or they are
 /// silently dropped.
 model PointsEntry {
   id                String           @id @default(uuid())
   workspaceId       String
   workspaceMemberId String
   points            Int
-  /// TASK_COMPLETION | TASK_REVERSAL | MANUAL. Text, not an enum: this database
+  /// TASK_COMPLETION | TASK_REVERSAL | TASK_OVERDUE | MANUAL. Text, not an enum: this database
   /// connects with search_path = boq, public, where CREATE TYPE misfiles.
   kind              String
   reason            String

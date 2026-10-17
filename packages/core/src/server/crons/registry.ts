@@ -1,5 +1,6 @@
 import prisma from "@tusker/db";
 import { AttendanceService } from "../services/attendance/attendance.service";
+import { PointsService } from "../services/points/points.service";
 
 export type CronJobHandler = () => Promise<{ success: boolean; message: string; data?: any }>;
 
@@ -37,6 +38,15 @@ export const CRON_JOBS: Record<string, CronJobHandler> = {
             message: `Reconciliation completed. Total marked: ${totalMarked}`,
             data: { totalMarked, results }
         };
+    },
+
+    /**
+     * Reward points: −1 per open overdue task per working day (not while in
+     * REVIEW). Schedule daily just after midnight IST; same-day re-runs are no-ops.
+     */
+    accrueOverduePoints: async () => {
+        const count = await PointsService.accrueOverdue();
+        return { success: true, message: `Overdue charges written: ${count}`, data: { count } };
     },
 
     /**

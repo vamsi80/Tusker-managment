@@ -195,7 +195,15 @@ export function calendarDayKey(value: string | Date): string {
  * Working days (reward points)
  * ------------------------------------------------------------------------- */
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+export const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/**
+ * Anything but a Sunday or a workspace public holiday. `day` is a calendar day
+ * at midnight UTC (toDateOnly / getISTDateOnly), holidays are "yyyy-MM-dd" keys.
+ */
+export function isWorkingDay(day: Date, holidayKeys: ReadonlySet<string> = new Set()): boolean {
+    return day.getUTCDay() !== 0 && !holidayKeys.has(calendarDayKey(day));
+}
 
 /**
  * Signed working days between two IST calendar days. Positive = `to` is later.
@@ -222,7 +230,7 @@ export function signedWorkingDays(from: Date, to: Date, holidayKeys: ReadonlySet
     const [start, end, sign] = a < b ? [a, b, 1] : [b, a, -1];
     let count = 0;
     for (let d = addDateOnlyDays(start, 1); d <= end; d = addDateOnlyDays(d, 1)) {
-        if (d.getUTCDay() !== 0 && !holidayKeys.has(calendarDayKey(d))) count++;
+        if (isWorkingDay(d, holidayKeys)) count++;
     }
     return sign * count;
 }
