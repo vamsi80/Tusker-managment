@@ -3,5 +3,11 @@
     "regions": [
         "bom1"
     ],
-    "buildCommand": "pnpm --filter @tusker/db exec prisma generate && pnpm build"
+    "buildCommand": "pnpm --filter @tusker/db exec prisma generate && pnpm build",
+    "crons": [
+        {
+            "path": "/api/v1/cron/accrue-overdue-points",
+            "schedule": "0 19 * * *"
+        }
+    ]
 }

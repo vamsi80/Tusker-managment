@@ -54,6 +54,19 @@ cron.get("/auto-absence", async (c) => {
 });
 
 /**
+ * Daily reward-points late charge. GET so Vercel Cron can call it
+ * (apps/web/vercel.json sends Authorization: Bearer $CRON_SECRET).
+ */
+cron.get("/accrue-overdue-points", async (c) => {
+    if (!verifyCronSecret(c)) {
+        return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const result = await CRON_JOBS.accrueOverduePoints();
+    return c.json(result);
+});
+
+/**
  * Keep-Warm Job
  */
 cron.get("/keep-warm", async (c) => {
