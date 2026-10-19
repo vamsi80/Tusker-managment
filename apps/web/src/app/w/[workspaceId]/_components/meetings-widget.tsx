@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, MapPin, Video } from "lucide-react";
+import { CalendarDays, MapPin, Plus, Video } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { apiClient } from "@tusker/api-client";
 import type { MeetingUI } from "@tusker/api-client/meetings";
 import { useMeetingStore } from "@/lib/store/meeting-store";
@@ -34,7 +35,7 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
   const [meetings, setMeetings] = useState<MeetingUI[] | null>(null);
   const [tab, setTab] = useState<"upcoming" | "previous">("upcoming");
   const router = useSafeNavigation();
-  const { setSelectedDate } = useMeetingStore();
+  const { setSelectedDate, openScheduleModal } = useMeetingStore();
 
   /**
    * Open the calendar on the meeting's own day. The store is global, so setting
@@ -43,6 +44,15 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
    */
   const openInCalendar = (m: MeetingUI) => {
     setSelectedDate(new Date(m.startTime));
+    router.push(`/w/${workspaceId}/calendar`);
+  };
+
+  // The schedule dialog is mounted on the calendar page; the store is global, so
+  // opening it first means it is already up when the page lands.
+  const scheduleInCalendar = () => {
+    const today = new Date();
+    setSelectedDate(today);
+    openScheduleModal({ date: today });
     router.push(`/w/${workspaceId}/calendar`);
   };
 
@@ -155,8 +165,14 @@ export function MeetingsWidget({ workspaceId }: { workspaceId: string }) {
           <EmptyState
             icon={CalendarDays}
             title={tab === "upcoming" ? "No upcoming meetings" : "No previous meetings"}
-            description={tab === "upcoming" ? "Enjoy your free time!" : undefined}
-          />
+            description={tab === "upcoming" ? "Nothing on the calendar for the next 30 days." : undefined}
+          >
+            {tab === "upcoming" && (
+              <Button size="sm" onClick={scheduleInCalendar} className="rounded-xl font-semibold gap-1.5">
+                <Plus className="size-4" /> Schedule meeting
+              </Button>
+            )}
+          </EmptyState>
         ) : (
           <div className="divide-y divide-border">{shown.map(renderMeeting)}</div>
         )}

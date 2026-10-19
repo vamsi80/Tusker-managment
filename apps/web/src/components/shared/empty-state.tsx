@@ -7,11 +7,14 @@ export function EmptyState({
     title,
     description,
     className,
+    children,
 }: {
     icon: LucideIcon;
     title: string;
     description?: string;
     className?: string;
+    /** Optional call to action under the text. */
+    children?: React.ReactNode;
 }) {
     return (
         <div className={cn("flex flex-col items-center justify-center gap-3 py-10 text-center", className)}>
@@ -22,6 +25,7 @@ export function EmptyState({
                 <p className="font-semibold">{title}</p>
                 {description && <p className="text-sm text-muted-foreground">{description}</p>}
             </div>
+            {children}
         </div>
     );
 }
