@@ -550,7 +550,7 @@ export class TaskRepository {
 
   static async findProjectMembersWithUsers(projectId: string) {
     return prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, workspaceMember: ACTIVE_MEMBER },
       include: {
         workspaceMember: {
           include: {

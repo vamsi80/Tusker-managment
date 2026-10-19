@@ -1155,7 +1155,28 @@ export class WorkspaceService {
           }),
         });
 
-        // 5. Deactivate. Nothing above this line deleted anything.
+        // 5. Clear them off whatever the handover didn't cover (cancelled and
+        //    status-less tasks) and off any project they managed. Completed
+        //    tasks keep their name: that is who did the work. Their project
+        //    rows stay, hidden by ACTIVE_MEMBER, because those completed tasks
+        //    and authorship still point at them.
+        const notCompleted = {
+          OR: [{ status: null }, { status: { not: "COMPLETED" as TaskStatus } }],
+        };
+        await tx.task.updateMany({
+          where: { assignee: { workspaceMemberId: memberId }, ...notCompleted },
+          data: { assigneeId: null },
+        });
+        await tx.task.updateMany({
+          where: { reviewer: { workspaceMemberId: memberId }, ...notCompleted },
+          data: { reviewerId: null },
+        });
+        await tx.project.updateMany({
+          where: { projectManagerId: memberId },
+          data: { projectManagerId: null },
+        });
+
+        // 6. Deactivate. Nothing above this line deleted anything.
         await tx.workspaceMember.update({
           where: { id: memberId },
           data: { deactivatedAt: new Date() },
@@ -1238,8 +1259,9 @@ export class WorkspaceService {
   }
 
   /**
-   * Undo a deactivation. Project memberships and task assignments are not
-   * restored — they were handed to other people and are theirs now.
+   * Undo a deactivation. Task assignments and project-manager slots are not
+   * restored — they were handed to other people or cleared. Project
+   * memberships do come back: the rows were only hidden while deactivated.
    */
   static async reactivateMember(
     workspaceId: string,

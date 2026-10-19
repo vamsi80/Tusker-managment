@@ -397,8 +397,10 @@ export class ProjectService {
 
       // Sync project members if memberAccess is provided
       if (values.memberAccess) {
+        // Removed members are hidden from the form, so they are never in
+        // memberAccess; diffing against them would try to delete their rows.
         const existingMembers = await tx.projectMember.findMany({
-          where: { projectId: values.projectId, projectRole: { not: "PROJECT_MANAGER" } },
+          where: { projectId: values.projectId, projectRole: { not: "PROJECT_MANAGER" }, workspaceMember: ACTIVE_MEMBER },
           select: { workspaceMemberId: true }
         });
         const existingMemberIds = existingMembers.map(m => m.workspaceMemberId);
@@ -704,7 +706,7 @@ export class ProjectService {
         select: { id: true, name: true, slug: true, color: true, settings: true },
       }),
       prisma.projectMember.findMany({
-        where: { projectId },
+        where: { projectId, workspaceMember: ACTIVE_MEMBER },
         select: {
           id: true,
           projectRole: true,
@@ -826,7 +828,7 @@ export class ProjectService {
     if (!project) return [];
 
     const admins = await prisma.workspaceMember.findMany({
-      where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] } },
+      where: { workspaceId: project.workspaceId, workspaceRole: { in: ["OWNER", "ADMIN"] }, ...ACTIVE_MEMBER },
       include: { user: true }
     });
 
@@ -849,7 +851,7 @@ export class ProjectService {
 
   static async getWorkspaceProjectAssignments(workspaceId: string) {
     const members = await prisma.projectMember.findMany({
-      where: { project: { workspaceId } },
+      where: { project: { workspaceId }, workspaceMember: ACTIVE_MEMBER },
       include: { workspaceMember: { include: { user: { select: { surname: true } } } } }
     });
 
@@ -1018,7 +1020,7 @@ export class ProjectService {
       // 2. Project members: full list for PM/Lead, or just self for MEMBER
       prisma.projectMember.findMany({
         where: hasFullAccess
-          ? { projectId: project.id }
+          ? { projectId: project.id, workspaceMember: ACTIVE_MEMBER }
           : { projectId: project.id, workspaceMemberId: currentWorkspaceMemberId ?? "__none__" },
         select: {
           id: true,

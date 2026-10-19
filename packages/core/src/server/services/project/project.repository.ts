@@ -57,6 +57,7 @@ export class ProjectRepository {
           include: { user: true }
         },
         projectMembers: {
+          where: { workspaceMember: ACTIVE_MEMBER },
           include: {
             workspaceMember: {
               include: { user: true }
@@ -121,7 +122,7 @@ export class ProjectRepository {
 
   static async getProjectMembers(projectId: string) {
     return prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, workspaceMember: ACTIVE_MEMBER },
       select: {
         id: true,
         projectRole: true,
@@ -157,7 +158,7 @@ export class ProjectRepository {
 
   static async getProjectMembersByWorkspace(workspaceId: string) {
     return prisma.projectMember.findMany({
-      where: { project: { workspaceId } },
+      where: { project: { workspaceId }, workspaceMember: ACTIVE_MEMBER },
       select: {
         id: true,
         projectId: true,
