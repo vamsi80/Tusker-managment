@@ -98,6 +98,7 @@ export function ActivityDialog({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ comment?: string; attachmentLink?: string }>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const commentRef = useRef<HTMLTextAreaElement>(null);
 
     const canUpload = !!(workspaceId && projectId && taskId);
     const isUploading = uploads.some((u) => !u.key && !u.error);
@@ -163,6 +164,8 @@ export function ActivityDialog({
 
     const hasAttachment = !!attachmentLink.trim() || uploadedFiles.length > 0;
 
+    const canSubmit = !isSubmitting && !isUploading && !!comment.trim() && (!requireAttachment || hasAttachment);
+
     const handleSubmit = async () => {
         if (requireAttachment && !hasAttachment) {
             setErrors({ attachmentLink: "This project requires an attachment for this transition." });
@@ -212,7 +215,14 @@ export function ActivityDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent
+                className="sm:max-w-[500px]"
+                onOpenAutoFocus={(e) => {
+                    // Land in the note so the user can type straight away.
+                    e.preventDefault();
+                    commentRef.current?.focus();
+                }}
+            >
                 <DialogHeader>
                     <DialogTitle>Add Activity</DialogTitle>
                     <DialogDescription>
@@ -225,9 +235,15 @@ export function ActivityDialog({
                         <Label htmlFor="comment">Activity Note</Label>
                         <Textarea
                             id="comment"
-                            placeholder="Add your activity note here..."
+                            ref={commentRef}
+                            placeholder="Add your activity note here... (Enter to submit, Shift+Enter for a new line)"
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+                                e.preventDefault();
+                                if (canSubmit) handleSubmit();
+                            }}
                             rows={4}
                             className={`resize-none ${errors.comment ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                         />
@@ -345,12 +361,7 @@ export function ActivityDialog({
                     <Button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={
-                            isSubmitting ||
-                            isUploading ||
-                            !comment.trim() ||
-                            (requireAttachment && !hasAttachment)
-                        }
+                        disabled={!canSubmit}
                     >
                         {isSubmitting ? "Submitting..." : isUploading ? "Uploading..." : "Submit"}
                     </Button>
