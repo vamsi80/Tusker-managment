@@ -168,7 +168,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="flex flex-1 items-center p-1 rounded-full bg-muted text-sm">
           {(["delayed", "today", "week"] as Range[]).map((r) => (
             <button
@@ -194,7 +194,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
             type="button"
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
             title={sortDir === "asc" ? "Oldest overdue first" : "Most recently overdue first"}
-            className="flex items-center gap-1 px-2.5 py-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            className="ml-auto shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-full bg-muted text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             {sortDir === "asc" ? (
               <ArrowUpNarrowWide className="size-3.5" />
