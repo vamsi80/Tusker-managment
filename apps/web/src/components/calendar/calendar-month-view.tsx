@@ -192,7 +192,9 @@ export function CalendarMonthView() {
       </div>
 
       {/* Days grid */}
-      <div className="grid flex-1 min-h-0 grid-cols-7 auto-rows-fr gap-2 overflow-y-auto">
+      {/* From lg the page is viewport-high, so rows share the height instead of
+          a fixed 105px each; the floor only scrolls the grid on very short windows. */}
+      <div className="grid flex-1 min-h-0 grid-cols-7 auto-rows-fr lg:auto-rows-[minmax(72px,1fr)] gap-2 overflow-y-auto">
         {days.map((dayItem, idx) => {
           const entry = itemsByDate.get(dayItem.dateKey);
           const dayMeetings = entry?.meetings || [];
@@ -210,7 +212,7 @@ export function CalendarMonthView() {
           return (
             <div
               key={idx}
-              className={`min-h-[105px] p-2 flex flex-col group relative rounded-xl transition-colors ${
+              className={`min-h-[105px] lg:min-h-0 p-2 flex flex-col group relative rounded-xl transition-colors ${
                 dayItem.isToday
                   ? "bg-accent ring-2 ring-primary"
                   : dayItem.isCurrentMonth
