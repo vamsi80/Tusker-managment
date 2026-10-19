@@ -21,7 +21,8 @@ export class AttendanceEvents {
         return Array.from(targetUserIds);
     }
 
-    static async emitAttendanceUpdate(workspaceId: string, type: "CHECK_IN" | "CHECK_OUT", action: string, attendance: any, networkLocation?: string) {
+    /** `notify: false` still syncs open screens but skips the toast, notification and push. */
+    static async emitAttendanceUpdate(workspaceId: string, type: "CHECK_IN" | "CHECK_OUT", action: string, attendance: any, networkLocation?: string, notify = true) {
         // Clear cache
         await invalidateWorkspaceAttendance(workspaceId);
 
@@ -36,6 +37,8 @@ export class AttendanceEvents {
             payload: { ...attendance, networkLocation },
             targetUserIds
         });
+
+        if (!notify) return;
 
         // Record Audit Activity
         // Never throw here: the attendance row is already committed by this point,
