@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Award, Loader2, Trophy } from "lucide-react";
+import { Award, Loader2, Search, Trophy } from "lucide-react";
 import { apiClient } from "@tusker/api-client";
 import type { PointsLedgerEntry, PointsSummary } from "@tusker/api-client/points";
 import { toast } from "@/lib/toast";
@@ -40,6 +40,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
     const [cursor, setCursor] = useState<string | null>(null);
     const [memberId, setMemberId] = useState<string | undefined>();
     const [loadingMore, setLoadingMore] = useState(false);
+    const [query, setQuery] = useState("");
 
     const loadSummary = useCallback(() => {
         apiClient.points.getSummary(workspaceId).then(setSummary).catch((e) => toast.error(e.message));
@@ -80,6 +81,11 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
 
     const selected = summary.members.find((m) => m.memberId === memberId);
     const awardable = summary.members.filter((m) => m.memberId !== summary.selfMemberId);
+    // Rank is taken before filtering, so a search keeps each person's real place.
+    const q = query.trim().toLowerCase();
+    const ranked = summary.members
+        .map((m, i) => ({ ...m, rank: i + 1 }))
+        .filter((m) => !q || m.name.toLowerCase().includes(q) || m.designation?.toLowerCase().includes(q));
 
     return (
         <div className="flex flex-col gap-4">
@@ -102,11 +108,26 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
                         <Trophy className="size-4" /> Leaderboard
                     </h3>
+                    {summary.members.length > 0 && (
+                        <div className="relative mb-3">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search names"
+                                aria-label="Search names"
+                                className="pl-9"
+                            />
+                        </div>
+                    )}
                     {summary.members.length === 0 ? (
                         <p className="py-8 text-center text-sm text-muted-foreground">No one to show yet.</p>
+                    ) : ranked.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">No one matches “{query.trim()}”.</p>
                     ) : (
-                        <ul className="flex flex-col gap-1.5">
-                            {summary.members.map((m, i) => (
+                        <ul className="-mr-2 flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2">
+                            {ranked.map((m) => (
                                 <li key={m.memberId}>
                                     <button
                                         type="button"
@@ -117,7 +138,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                                             memberId === m.memberId ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/60",
                                         )}
                                     >
-                                        <span className="w-5 text-center text-xs font-semibold text-muted-foreground">{i + 1}</span>
+                                        <span className="w-5 text-center text-xs font-semibold text-muted-foreground">{m.rank}</span>
                                         <Avatar className="size-8">
                                             <AvatarImage src={m.image || ""} alt="" />
                                             <AvatarFallback>{m.name.charAt(0).toUpperCase()}</AvatarFallback>
