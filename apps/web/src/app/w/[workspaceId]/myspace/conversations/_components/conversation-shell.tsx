@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useRef } from "react";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 
 interface ConversationShellProps {
   sidebar: ReactNode;
@@ -11,9 +12,13 @@ interface ConversationShellProps {
 
 export function ConversationShell({ sidebar, children }: ConversationShellProps) {
   const { conversationId } = useParams();
+  // Ends where the screen does, same bottom gap as every page; the calc class
+  // is only the first-paint fallback.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useFillViewport(shellRef, { property: "height" });
 
   return (
-    <div className="flex h-[calc(100vh-140px)] w-full overflow-hidden">
+    <div ref={shellRef} className="flex h-[calc(100vh-140px)] w-full overflow-hidden">
       {/* Sidebar Panel */}
       <div
         className={cn(

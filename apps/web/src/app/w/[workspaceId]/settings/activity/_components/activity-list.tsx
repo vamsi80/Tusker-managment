@@ -108,6 +108,7 @@ export function ActivityList({ logs, workspaceId }: { logs: any[]; workspaceId: 
 
     return (
         <DataTable 
+            fillViewport
             columns={columns as any} 
             data={logs} 
             searchKey="action" 

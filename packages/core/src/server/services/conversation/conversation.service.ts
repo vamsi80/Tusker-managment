@@ -113,66 +113,59 @@ export class ConversationService {
   }
 
   /**
-   * Find or create a 1-on-1 conversation
+   * Find or create a 1-on-1 conversation. userIds[0] is the caller: the result
+   * also carries `otherUser`, the same shape getUserConversations rows have, so
+   * the web list can show a new chat by name straight away. UserConversations
+   * stays for the mobile client, which reads it.
    */
   static async getOrCreateDirectConversation(userIds: string[], workspaceId: string) {
     if (userIds.length !== 2) throw new Error("Direct conversation requires exactly 2 users");
 
-    const existing = await prisma.conversation.findFirst({
-      where: {
-        workspaceId,
-        type: "direct",
-        AND: userIds.map(id => ({
-          UserConversations: { some: { A: id } }
-        }))
-      },
-      select: {
-        id: true,
-        lastMessageAt: true,
-        type: true,
-        UserConversations: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                surname: true,
-                lastActiveAt: true,
-              }
+    const select = {
+      id: true,
+      lastMessageAt: true,
+      type: true,
+      UserConversations: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              image: true,
+              lastActiveAt: true,
             }
           }
         }
       }
-    });
+    } as const;
 
-    if (existing) return existing;
-
-    return prisma.conversation.create({
-      data: {
-        workspaceId,
-        type: "direct",
-        UserConversations: {
-          create: userIds.map(id => ({
-            A: id
+    const conversation =
+      (await prisma.conversation.findFirst({
+        where: {
+          workspaceId,
+          type: "direct",
+          AND: userIds.map(id => ({
+            UserConversations: { some: { A: id } }
           }))
-        }
-      },
-      select: {
-        id: true,
-        lastMessageAt: true,
-        type: true,
-        UserConversations: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                surname: true,
-                lastActiveAt: true,
-              }
-            }
+        },
+        select,
+      })) ??
+      (await prisma.conversation.create({
+        data: {
+          workspaceId,
+          type: "direct",
+          UserConversations: {
+            create: userIds.map(id => ({
+              A: id
+            }))
           }
-        }
-      }
-    });
+        },
+        select,
+      }));
+
+    const otherUser = conversation.UserConversations.find((uc) => uc.user.id !== userIds[0])?.user ?? null;
+    return { ...conversation, otherUser };
   }
 
   /**

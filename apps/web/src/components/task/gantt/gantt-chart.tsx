@@ -2,6 +2,7 @@
 
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { TaskRow } from "./task-row";
 import { Calendar } from "lucide-react";
 import { ProjectRow } from "./project-row";
@@ -82,6 +83,9 @@ export function GanttChart({
     const [showDetails, setShowDetails] = useState(true);
     const [highlightedSubtaskId, setHighlightedSubtaskId] = useState<string | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    // The chart ends where the screen does (the vh classes are only the
+    // first-paint fallback), so the bottom gap is the same as on other pages.
+    useFillViewport(scrollContainerRef);
 
     const onToggleSubtaskHighlight = useCallback((id: string) => {
         setHighlightedSubtaskId(prev => (prev === id ? null : id));

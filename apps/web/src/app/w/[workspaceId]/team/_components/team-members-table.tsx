@@ -112,6 +112,8 @@ export function TeamMembers({ data, isAdmin, workspaceId, pagination, department
                 onRowClick={handleViewMember}
                 showPagination={true}
                 showColumnToggle={true}
+                // Only the rows scroll; headings, toolbar and pagination stay on screen.
+                fillViewport
                 manualPagination={!!pagination}
                 manualFiltering={true}
                 rowCount={pagination?.totalCount}

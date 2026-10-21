@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Plus, PackageSearch, Calendar, User, AlignLeft, Send } from "lucide-react";
 import { useSafeNavigation } from "@/hooks/use-safe-navigation";
 import { useParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { Label } from "@/components/ui/label";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
@@ -106,6 +107,10 @@ export function ProjectProcurementClient({
   userRole,
   memberId,
 }: ProjectProcurementClientProps) {
+  // Ends where the screen does, so the indent list and line items (flex-1)
+  // scroll on their own and the bottom gap matches every page.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useFillViewport(shellRef, { property: "height" });
   const router = useSafeNavigation();
   const { slug } = useParams();
   const [isSubmitting, startTransition] = useTransition();
@@ -238,7 +243,7 @@ export function ProjectProcurementClient({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background">
+    <div ref={shellRef} className="flex-1 flex flex-col min-h-0 bg-background">
       {/* Header Bar */}
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
         <div>

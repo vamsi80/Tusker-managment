@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { Award, Loader2, Search, Trophy } from "lucide-react";
 import { apiClient } from "@tusker/api-client";
 import type { PointsLedgerEntry, PointsSummary } from "@tusker/api-client/points";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,12 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
     const [memberId, setMemberId] = useState<string | undefined>();
     const [loadingMore, setLoadingMore] = useState(false);
     const [query, setQuery] = useState("");
+
+    // Side by side (lg), both columns fill the screen and each list scrolls on its
+    // own, so the page doesn't. Stacked on smaller screens, each list is 60vh.
+    // Waits for summary: before it loads, the grid isn't rendered.
+    const gridRef = useRef<HTMLDivElement>(null);
+    useFillViewport(gridRef, { enabled: !!summary, property: "height", minWidth: 1024 });
 
     const loadSummary = useCallback(() => {
         apiClient.points.getSummary(workspaceId).then(setSummary).catch((e) => toast.error(e.message));
@@ -102,9 +109,9 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                 )}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div ref={gridRef} className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 {/* Leaderboard */}
-                <section className="rounded-2xl bg-white/60 p-4 dark:bg-card/60">
+                <section className="flex flex-col rounded-2xl bg-white/60 p-4 dark:bg-card/60">
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
                         <Trophy className="size-4" /> Leaderboard
                     </h3>
@@ -126,7 +133,9 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                     ) : ranked.length === 0 ? (
                         <p className="py-8 text-center text-sm text-muted-foreground">No one matches “{query.trim()}”.</p>
                     ) : (
-                        <ul className="-mr-2 flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2">
+                        // Fills the box (sized by gridRef). contain:size keeps the list's
+                        // own length from stretching the box.
+                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
                             {ranked.map((m) => (
                                 <li key={m.memberId}>
                                     <button
@@ -159,7 +168,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                 </section>
 
                 {/* Ledger */}
-                <section className="rounded-2xl bg-white/60 p-4 dark:bg-card/60">
+                <section className="flex flex-col rounded-2xl bg-white/60 p-4 dark:bg-card/60">
                     <div className="mb-3 flex items-center justify-between gap-2">
                         <h3 className="text-sm font-bold uppercase tracking-wide">
                             History{selected ? ` · ${selected.name}` : ""}
@@ -178,7 +187,9 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                     ) : entries.length === 0 ? (
                         <p className="py-8 text-center text-sm text-muted-foreground">No points yet this period.</p>
                     ) : (
-                        <ul className="flex flex-col gap-1.5">
+                        // Same as the leaderboard list: fills the box and scrolls on its own;
+                        // "Load more" stays pinned below it.
+                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
                             {entries.map((e) => (
                                 <li key={e.id} className="flex items-start gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-2.5">
                                     <span className={cn("w-10 shrink-0 font-heading text-base font-bold tabular-nums", tone(e.points))}>

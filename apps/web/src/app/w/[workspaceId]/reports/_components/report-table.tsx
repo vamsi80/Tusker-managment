@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { formatIST } from "@/lib/utils";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
@@ -27,6 +28,10 @@ interface Props {
 }
 
 export function ReportsTable({ initialData, workspaceId, initialDate, initialUserIds = [], isAdmin, currentUserId }: Props) {
+    // Ends where the screen does, same bottom gap as every page; the calc class
+    // is only the first-paint fallback.
+    const shellRef = useRef<HTMLDivElement>(null);
+    useFillViewport(shellRef, { property: "height" });
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -471,7 +476,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
     ], [expandedDates, expandedReports, toggleAll]);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-210px)] min-h-[500px] gap-4">
+        <div ref={shellRef} className="flex flex-col h-[calc(100vh-210px)] min-h-[500px] gap-4">
             {/* Top Toolbar */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <div className="relative flex-1 max-w-sm">

@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { useWorkspaceLayout } from "../_components/workspace-layout-context";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { CalendarDashboard } from "@/components/calendar/calendar-dashboard";
 import { UpcomingMeetingAlert } from "@/components/calendar/upcoming-meeting-alert";
 import { TodayAgendaWidget } from "@/components/calendar/today-agenda-widget";
@@ -14,11 +16,14 @@ export default function CalendarPage() {
   const { openScheduleModal } = useMeetingStore();
 
   // The shell grows with its content, so flex-1 alone never capped this page and
-  // the whole document scrolled. 9rem = site header (77px) + shell padding (56px)
-  // with a little slack. Below lg the agenda stacks under the calendar, so the
+  // the whole document scrolled. useFillViewport sizes it to end where the
+  // screen does, the same bottom gap as every page; the lg:h calc is only the
+  // first-paint fallback. Below lg the agenda stacks under the calendar, so the
   // page scrolls there by design.
+  const pageRef = useRef<HTMLDivElement>(null);
+  useFillViewport(pageRef, { property: "height", minWidth: 1024 });
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-5 overflow-hidden lg:h-[calc(100svh-9rem)] animate-in fade-in duration-300">
+    <div ref={pageRef} className="flex flex-1 min-h-0 flex-col gap-5 overflow-hidden lg:h-[calc(100svh-9rem)] animate-in fade-in duration-300">
       <PageHeader
         className="shrink-0"
         title="Schedule & Meetings"

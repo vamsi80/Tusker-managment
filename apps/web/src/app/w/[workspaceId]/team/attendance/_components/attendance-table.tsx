@@ -908,7 +908,8 @@ export function AttendanceTable({
             rowCount={totalCount}
             manualPagination={true}
             manualFiltering={true}
-            containerClassName="max-h-[calc(100vh-340px)]"
+            // Only the rows scroll; headings, toolbar and pagination stay on screen.
+            fillViewport
             isCustomRow={(row: any) => row.status === "ABSENT" && new Date(row.date).getDay() === 0}
             renderCustomRow={(row: any, columnsLength) => {
                 const user = row.WorkspaceMember?.user;
