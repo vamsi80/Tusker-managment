@@ -355,6 +355,11 @@ export async function recordActivity(options: RecordActivityOptions) {
                 .map(r => ({
                   to: r.pushToken!,
                   sound: "default",
+                  // DMs, like a chat app: the app's "Messages" channel pops up on
+                  // screen, and the "direct_message" category gives the Reply /
+                  // Mark as read buttons (registered in the app's
+                  // NotificationService). Builds without them still show the push.
+                  ...(isDmAction ? { channelId: "messages", categoryId: "direct_message", priority: "high" as const } : {}),
                   // WhatsApp style: sender name as title, message text as body
                   title: isLeaveAction
                     ? LEAVE_TITLES[action as LeaveAction]

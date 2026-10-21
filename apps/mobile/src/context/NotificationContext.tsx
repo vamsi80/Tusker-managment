@@ -7,13 +7,19 @@ import React, {
 } from "react";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { NotificationService } from "../services/NotificationService";
+import {
+  NotificationService,
+  DM_ACTION_MARK_READ,
+  DM_ACTION_REPLY,
+} from "../services/NotificationService";
 import {
   registerPushToken,
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
   getTaskById,
+  sendDirectMessage,
+  markConversationRead,
 } from "../services/api";
 import { navigationRef } from "../navigation/navigationRef";
 import { useWorkspace } from "./WorkspaceContext";
@@ -47,6 +53,9 @@ const NotificationContext = createContext<NotificationContextType | undefined>(
 );
 
 const NOTIFICATIONS_STORAGE_KEY = "@tusker_notifications_history";
+
+/** Push button presses already handled this session ("pushId:action"). */
+const handledPushActions = new Set<string>();
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -308,6 +317,37 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       ) {
         const targetConversationId = (data.conversationId ||
           data.entityId) as string;
+
+        // Reply / Mark as read buttons on the push (NotificationService
+        // registers them). The last response is cleared once handled, or the
+        // cold-start check below would replay it and send a reply twice.
+        const action = response.actionIdentifier;
+        if (action === DM_ACTION_REPLY || action === DM_ACTION_MARK_READ) {
+          Notifications.clearLastNotificationResponse();
+          const pushId = response.notification.request.identifier;
+          // On a cold start the same press can arrive twice (listener + last
+          // response): handle it once.
+          if (handledPushActions.has(`${pushId}:${action}`)) return;
+          handledPushActions.add(`${pushId}:${action}`);
+          const text = response.userText?.trim();
+          let failedText: string | null = null;
+          if (action === DM_ACTION_REPLY && text) {
+            if (!(await sendDirectMessage(targetConversationId, text))) failedText = text;
+          }
+          // Replying also means you've read it.
+          if (data.workspaceId) {
+            await markConversationRead(data.workspaceId as string, targetConversationId);
+          }
+          await Notifications.dismissNotificationAsync(pushId).catch(() => {});
+          refresh();
+          if (failedText) {
+            // Never lose a typed reply silently: say so, with the text.
+            Alert.alert("Message not sent", `"${failedText}"\n\nOpen the chat and send it again.`);
+          }
+          if (action === DM_ACTION_MARK_READ) return;
+          // Reply opened the app: land in the chat, showing the reply.
+        }
+
         const senderName =
           (data.senderName as string) ||
           (title && title !== "DM MESSAGE" ? title : "Chat");
