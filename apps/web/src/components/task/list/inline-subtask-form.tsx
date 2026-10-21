@@ -330,7 +330,9 @@ export function InlineSubTaskForm({
 
     // One cell per header column, in header order, so every field sits under
     // its heading. The table is table-fixed: widths come from the header, so
-    // cells set none and each control fills its column (w-full).
+    // cells set none and each control fills its column (w-full). Text inside
+    // the boxes is centred like the columns, except Name and Description.
+    // Selects use mx-auto on the value, so the chevron stays at the right edge.
     return (
         <TableRow
             key={mode === "edit" ? `edit-${subTask?.id}` : "create-subtask-form"}
@@ -408,7 +410,7 @@ export function InlineSubTaskForm({
                 <TableCell className="px-2">
                     <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Assignee" className="truncate" />
+                            <SelectValue placeholder="Assignee" className="mx-auto truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {availableMembers
@@ -430,7 +432,7 @@ export function InlineSubTaskForm({
                 <TableCell className="px-2">
                     <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Reviewer" className="truncate" />
+                            <SelectValue placeholder="Reviewer" className="mx-auto truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {(reviewers || []).map((rev) => (
@@ -450,7 +452,7 @@ export function InlineSubTaskForm({
                 <TableCell className="px-2">
                     <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
-                            <SelectValue className="truncate" />
+                            <SelectValue className="mx-auto truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {STATUS_OPTIONS.map((option) => {
@@ -489,6 +491,7 @@ export function InlineSubTaskForm({
                         value={startDate}
                         onChange={handleStartDateChange}
                         disabled={pending}
+                        className="justify-center"
                     />
                 </TableCell>
             )}
@@ -500,6 +503,7 @@ export function InlineSubTaskForm({
                         value={dueDate}
                         onChange={handleDueDateChange}
                         disabled={pending}
+                        className="justify-center"
                     />
                 </TableCell>
             )}
@@ -519,7 +523,7 @@ export function InlineSubTaskForm({
                             }
                         }}
                         disabled={pending}
-                        className="h-8 w-full border-primary/30"
+                        className="h-8 w-full border-primary/30 text-center"
                         placeholder="Days"
                         aria-label="Days"
                     />
@@ -534,7 +538,8 @@ export function InlineSubTaskForm({
                         selected={tagIds}
                         onChange={setTagIds}
                         placeholder="Tags..."
-                        className="w-full"
+                        // Centre the chips/placeholder before the chevron, like the selects.
+                        className="w-full [&_[role=combobox]>div]:mx-auto"
                         workspaceId={workspaceId}
                         projectId={projectId}
                         onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}

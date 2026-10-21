@@ -30,7 +30,9 @@ export function TaskTableHeader({
 
   return (
     <thead>
-      <tr className="sticky top-0 z-10 bg-surface-solid">
+      {/* Headings after Task Name are centred, like the values under them
+          (subtask-row, sorted-task-row). data-align="left" opts a column out. */}
+      <tr className="sticky top-0 z-10 bg-surface-solid [&>th:nth-child(n+3):not([data-align=left])]:text-center [&>th:nth-child(n+3):not([data-align=left])>button]:justify-center">
         <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[50px] sticky left-0 z-0 bg-surface-solid">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -58,7 +60,7 @@ export function TaskTableHeader({
           className="w-[80px] sm:w-[120px] md:w-[220px] sticky left-[50px] z-30 bg-surface-solid"
         />
         {columnVisibility.description && (
-          <th className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[150px] sm:w-[200px] bg-surface-solid">
+          <th data-align="left" className="text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap w-[150px] sm:w-[200px] bg-surface-solid">
             Description
           </th>
         )}

@@ -42,7 +42,9 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
 
     return (
         <TableRow
-            className="hover:bg-muted/50 cursor-pointer transition-colors"
+            // Every column after Task Name is centred under its heading, as in
+            // subtask-row; data-align="left" (Description) opts a column out.
+            className="hover:bg-muted/50 cursor-pointer transition-colors [&>td:nth-child(n+3):not([data-align=left])]:text-center [&>td:nth-child(n+3):not([data-align=left])>*]:mx-auto [&>td:nth-child(n+3):not([data-align=left])>div]:justify-center"
             onClick={onClick}
         >
             {/* Empty cell for expand/collapse column */}
@@ -84,7 +86,7 @@ export const SortedTaskRow = React.memo(function SortedTaskRow({ task, columnVis
 
             {/* Description */}
             {columnVisibility.description && (
-                <TableCell className="w-[150px] sm:w-[200px]">
+                <TableCell data-align="left" className="w-[150px] sm:w-[200px]">
                     <div className="text-sm text-muted-foreground truncate max-w-[180px]">
                         {task.description || "-"}
                     </div>
