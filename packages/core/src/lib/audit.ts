@@ -246,8 +246,15 @@ export async function recordActivity(options: RecordActivityOptions) {
         actionLabel = `requested a password reset for ${targetName}`;
       }
 
+      const isDmAction = (action as any) === "DM_MESSAGE";
+      const dmContent = (typeof newData?.content === "string" ? newData.content : "") || "";
+      const notifMetadata = isDmAction
+        ? { ...(metadata || {}), conversationId: entityId, senderId: userId, senderName: userName, content: dmContent }
+        : (metadata || {});
+
       // Leave copy is written whole rather than as `${userName} ${actionLabel}`,
       // because the subject is not always the actor.
+      // DM notifications show the message content directly, like WhatsApp.
       const message = isLeaveAction
         ? leaveNotificationBody({
             action: action as LeaveAction,
@@ -256,17 +263,20 @@ export async function recordActivity(options: RecordActivityOptions) {
             leave: newData || oldData || {},
             viewerIsSubject: false,
           })
-        : `${userName} ${actionLabel}`;
+        : isDmAction
+          ? (dmContent || `${userName} sent you a message`)
+          : `${userName} ${actionLabel}`;
       const eventPayload = {
         userId,
         userName,
         action,
         entityType,
         entityId,
-        metadata,
+        metadata: notifMetadata,
         newData,
         oldData,
         message,
+        ...(isDmAction ? { conversationId: entityId, senderId: userId, senderName: userName } : {}),
       };
 
       // 🚀 TARGETING LOGIC: Fallback to Workspace Authorities if targetUserIds is missing
@@ -296,20 +306,25 @@ export async function recordActivity(options: RecordActivityOptions) {
                   leave: newData || oldData || {},
                   viewerIsSubject: tid === (options.subjectUserId ?? userId),
                 })
-              : message;
+              : isDmAction
+                ? (dmContent || "New message")
+                : message;
 
           const notifications = finalTargetUserIds.map(tid => ({
             id: randomUUID(),
             userId: tid,
             workspaceId,
-            // Other actions keep the raw enum title: mobile still matches on
-            // `title === "CHECKED IN"` in NotificationContext.tsx.
-            title: isLeaveAction ? LEAVE_TITLES[action as LeaveAction] : action.replace(/_/g, " "),
+            // DM notifications show sender's name as title, just like WhatsApp
+            title: isLeaveAction
+              ? LEAVE_TITLES[action as LeaveAction]
+              : isDmAction
+                ? userName
+                : action.replace(/_/g, " "),
             body: bodyFor(tid),
             type: action,
             entityId,
             entityType,
-            metadata: metadata || {},
+            metadata: notifMetadata,
             updatedAt: new Date()
           }));
 
@@ -331,8 +346,8 @@ export async function recordActivity(options: RecordActivityOptions) {
                 select: { id: true, pushToken: true },
               });
 
-              const dmExtra = (action as any) === "DM_MESSAGE"
-                ? { type: "direct_message", conversationId: entityId, senderId: userId, senderName: userName }
+              const dmExtra = isDmAction
+                ? { type: "direct_message", conversationId: entityId, senderId: userId, senderName: userName, content: dmContent }
                 : {};
 
               const messages: ExpoPushMessage[] = recipients
@@ -340,7 +355,12 @@ export async function recordActivity(options: RecordActivityOptions) {
                 .map(r => ({
                   to: r.pushToken!,
                   sound: "default",
-                  title: isLeaveAction ? LEAVE_TITLES[action as LeaveAction] : action.replace(/_/g, " "),
+                  // WhatsApp style: sender name as title, message text as body
+                  title: isLeaveAction
+                    ? LEAVE_TITLES[action as LeaveAction]
+                    : isDmAction
+                      ? userName
+                      : action.replace(/_/g, " "),
                   body: isLeaveAction
                     ? leaveNotificationBody({
                         action: action as LeaveAction,
@@ -349,8 +369,10 @@ export async function recordActivity(options: RecordActivityOptions) {
                         leave: newData || oldData || {},
                         viewerIsSubject: r.id === (options.subjectUserId ?? userId),
                       })
-                    : message,
-                  data: { action, entityType, entityId, workspaceId, newData, metadata, ...dmExtra },
+                    : isDmAction
+                      ? (dmContent || "New message")
+                      : message,
+                  data: { action, entityType, entityId, workspaceId, newData, metadata: notifMetadata, ...dmExtra },
                 }));
 
               for (const chunk of expo.chunkPushNotifications(messages)) {

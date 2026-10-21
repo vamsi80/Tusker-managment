@@ -57,6 +57,12 @@ export function NotificationList() {
     if (notif.isNew !== false) {
       markRead(targetId);
     }
+    // Direct message notification opens the messages conversation page
+    const conversationId = notif.conversationId || notif.entityId || (notif.type === "DM_MESSAGE" ? notif.taskId : null);
+    if ((notif.type === "DM_MESSAGE" || notif.entityType === "CONVERSATION") && conversationId) {
+      router.push(`/w/${workspaceId}/myspace/conversations/${conversationId}`);
+      return;
+    }
     // An indent approval is not a task: the detail pane can only render task
     // comments, so open the indent itself.
     if (notif.entityType === "Indent" && notif.entityId) {

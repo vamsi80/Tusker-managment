@@ -177,11 +177,14 @@ export default function NotificationScreen({ navigation }: Props) {
             Alert.alert(title, detail, [
                 { text: "OK", style: "cancel" }
             ]);
-        } else if ((item.data?.type === "direct_message" || item.data?.action === "DM_MESSAGE") && (item.data?.conversationId || item.data?.entityId)) {
+        } else if (
+            (item.data?.type === "direct_message" || item.data?.action === "DM_MESSAGE" || item.data?.entityType === "CONVERSATION") &&
+            (item.data?.conversationId || item.data?.entityId)
+        ) {
             navigation.navigate("DirectChat", {
                 conversationId: item.data?.conversationId || item.data?.entityId,
                 otherUserId: item.data?.senderId,
-                otherUserName: item.data?.senderName || "Chat"
+                otherUserName: item.data?.senderName || (item.title !== "DM MESSAGE" ? item.title : "Chat")
             });
         } else if (
             item.data?.entityType === "LEAVE_REQUEST" ||
@@ -213,6 +216,7 @@ export default function NotificationScreen({ navigation }: Props) {
 
     const renderNotification = (item: NotificationItem) => {
         const isUnread = !item.isRead;
+        const isDm = item.data?.type === "direct_message" || item.data?.action === "DM_MESSAGE" || item.data?.entityType === "CONVERSATION";
         
         return (
             <PressableScale
@@ -230,15 +234,23 @@ export default function NotificationScreen({ navigation }: Props) {
                 onPress={() => handlePress(item)}
                 accessibilityLabel={`${isUnread ? "Unread. " : ""}${item.title}`}
             >
-                {/* Minimalist dot indicator wrapper */}
+                {/* Indicator: chat bubble icon for DMs, dot for others */}
                 <View style={[
                     styles.indicatorWrapper, 
-                    { backgroundColor: isUnread ? "rgba(251, 191, 36, 0.12)" : "rgba(255, 255, 255, 0.05)" }
+                    {
+                        backgroundColor: isDm
+                            ? "rgba(37, 211, 102, 0.12)"
+                            : (isUnread ? "rgba(251, 191, 36, 0.12)" : "rgba(255, 255, 255, 0.05)")
+                    }
                 ]}>
-                    <View style={[
-                        styles.indicatorDot, 
-                        { backgroundColor: isUnread ? "#fbbf24" : "#555555" }
-                    ]} />
+                    {isDm ? (
+                        <Ionicons name="chatbubble-ellipses" size={13} color="#25D366" />
+                    ) : (
+                        <View style={[
+                            styles.indicatorDot, 
+                            { backgroundColor: isUnread ? "#fbbf24" : "#555555" }
+                        ]} />
+                    )}
                 </View>
 
                 <View style={styles.notifContent}>

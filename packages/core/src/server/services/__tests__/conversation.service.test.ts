@@ -170,4 +170,51 @@ describe("ConversationService message controls", () => {
       }),
     }));
   });
+
+  it("sends a message and notifies the recipient with WhatsApp-style DM payload", async () => {
+    const auditModule = await import("../../../lib/audit");
+    const recordSpy = vi.spyOn(auditModule, "recordActivity").mockResolvedValue({} as any);
+
+    const fakeMessage = {
+      id: "msg-1",
+      content: "Hello Vamsi",
+      senderId: "viewer-1",
+      conversationId: "conversation-1",
+      user: { id: "viewer-1", name: "Alice", surname: "Smith" },
+    };
+
+    (prisma.$transaction as any).mockImplementation(async (callback: any) => {
+      const tx = {
+        direct_message: { create: vi.fn().mockResolvedValue(fakeMessage) },
+        conversation: { update: vi.fn().mockResolvedValue({}) },
+        userConversations: {
+          findFirst: vi.fn().mockResolvedValue({
+            user: { id: "vamsi-id", lastActiveAt: new Date() },
+          }),
+        },
+      };
+      return callback(tx);
+    });
+
+    const sent = await ConversationService.sendMessage(
+      "conversation-1",
+      "viewer-1",
+      "Hello Vamsi",
+      "workspace-1",
+    );
+
+    expect(sent.content).toBe("Hello Vamsi");
+    expect(recordSpy).toHaveBeenCalledWith(expect.objectContaining({
+      userId: "viewer-1",
+      userName: "Smith",
+      action: "DM_MESSAGE",
+      entityType: "CONVERSATION",
+      entityId: "conversation-1",
+      newData: expect.objectContaining({
+        content: "Hello Vamsi",
+        conversationId: "conversation-1",
+      }),
+      targetUserIds: ["vamsi-id"],
+    }));
+  });
 });

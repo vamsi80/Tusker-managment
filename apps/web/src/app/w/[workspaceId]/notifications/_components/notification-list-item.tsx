@@ -15,7 +15,7 @@ interface NotificationListItemProps {
 export function NotificationListItem({ notif, isRead, isActive, onClick }: NotificationListItemProps) {
   const latestComment = notif.latestComment || {};
   const commenterUser = latestComment.user || {};
-  const commenterName = commenterUser.surname || "Someone";
+  const commenterName = notif.senderName || commenterUser.surname || commenterUser.name || "Someone";
   const commentText = latestComment.content || "";
   const createdAt = latestComment.createdAt ? new Date(latestComment.createdAt) : new Date();
 

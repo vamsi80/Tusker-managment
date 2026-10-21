@@ -114,21 +114,34 @@ export class CommentMapper {
           isNew: !dn.isRead
         });
       } else {
-        // DM_MESSAGE
+        // DM_MESSAGE: format like WhatsApp with sender's name and message preview
+        let metaObj: any = {};
+        if (dn.metadata) {
+          try {
+            metaObj = typeof dn.metadata === "string" ? JSON.parse(dn.metadata) : dn.metadata;
+          } catch (_) {}
+        }
+        const senderName = metaObj.senderName || (dn.title !== "DM MESSAGE" ? dn.title : "Direct Message");
+        const senderImage = metaObj.senderImage || null;
+        const messageContent = metaObj.content || dn.body || "";
+
         groupedMap.set(id, {
           id: dn.id,
           taskId: dn.entityId, // Using entityId as taskId for compatibility
           taskName: "Direct Message",
           projectName: "Messages",
           type: "DM_MESSAGE",
+          entityType: "CONVERSATION",
+          entityId: dn.entityId,
           conversationId: dn.entityId,
+          senderName,
           latestComment: {
-            content: dn.body,
+            content: messageContent,
             createdAt: dn.createdAt,
             user: {
-              name: dn.user?.surname || dn.user?.name || "System",
-              surname: dn.user?.surname || "",
-              image: dn.user?.image || null
+              name: senderName,
+              surname: senderName,
+              image: senderImage
             }
           },
           count: 1,

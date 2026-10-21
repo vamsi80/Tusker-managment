@@ -299,13 +299,11 @@ export class ConversationService {
       return { message, recipient: other?.user };
     });
 
-    // 2. Notify an offline recipient, after the commit. This used to run inside
+    // 2. Notify recipient, after the commit. This used to run inside
     // the transaction: a slow Pusher or notification write held it open past
     // its timeout and failed the send. The message is saved by now, so a
     // notification failure is logged, never thrown at the sender.
-    const isOffline = recipient && (!recipient.lastActiveAt ||
-      Date.now() - new Date(recipient.lastActiveAt).getTime() > 120000);
-    if (recipient && isOffline) {
+    if (recipient) {
       await recordActivity({
         userId: senderId,
         // Nickname, else full name, else email: never a bare "Member".
@@ -314,7 +312,10 @@ export class ConversationService {
         action: "DM_MESSAGE" as any,
         entityType: "CONVERSATION",
         entityId: conversationId,
-        newData: { content: content.substring(0, 100) },
+        newData: {
+          content: content.length > 500 ? `${content.substring(0, 497)}...` : content,
+          conversationId,
+        },
         targetUserIds: [recipient.id],
         broadcastEvent: "conversation_update"
       }).catch((err) => console.error("[DM_NOTIFY_ERROR]", err));
