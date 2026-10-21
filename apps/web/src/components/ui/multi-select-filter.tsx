@@ -53,6 +53,8 @@ export function MultiSelectFilter({
   disabled = false,
 }: MultiSelectFilterProps) {
   const [open, setOpen] = React.useState(false);
+  // Cleared after each pick, so the next name can be typed straight away.
+  const [search, setSearch] = React.useState("");
   const selectedSet = React.useMemo(() => new Set(selected), [selected]);
   const selectedOptions = React.useMemo(
     () => options.filter((option) => selectedSet.has(option.value)),
@@ -60,6 +62,7 @@ export function MultiSelectFilter({
   );
 
   const toggle = (value: string) => {
+    setSearch("");
     onChange(
       selectedSet.has(value)
         ? selected.filter((item) => item !== value)
@@ -68,7 +71,13 @@ export function MultiSelectFilter({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -100,7 +109,7 @@ export function MultiSelectFilter({
         className={cn("w-[var(--radix-popover-trigger-width)] min-w-[220px] p-0", contentClassName)}
       >
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>

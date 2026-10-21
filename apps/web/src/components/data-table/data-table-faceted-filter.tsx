@@ -40,9 +40,11 @@ export function DataTableFacetedFilter<TData, TValue>({
 }: DataTableFacetedFilterProps<TData, TValue>) {
     const facets = column?.getFacetedUniqueValues()
     const selectedValues = new Set(column?.getFilterValue() as string[])
+    // Cleared after each pick, so the next name can be typed straight away.
+    const [search, setSearch] = React.useState("")
 
     return (
-        <Popover>
+        <Popover onOpenChange={(open) => !open && setSearch("")}>
             <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 border-dashed">
                     <PlusCircle className="mr-2 size-4" />
@@ -84,7 +86,7 @@ export function DataTableFacetedFilter<TData, TValue>({
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0" align="start">
                 <Command>
-                    <CommandInput placeholder={title} />
+                    <CommandInput placeholder={title} value={search} onValueChange={setSearch} />
                     <CommandList>
                         <CommandEmpty>No results found.</CommandEmpty>
                         <CommandGroup>
@@ -94,6 +96,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                                     <CommandItem
                                         key={option.value}
                                         onSelect={() => {
+                                            setSearch("")
                                             if (isSelected) {
                                                 selectedValues.delete(option.value)
                                             } else {
