@@ -338,7 +338,9 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
 
             return (
               <SidebarMenuItem key={proj.id}>
-                <SidebarMenuButton asChild isActive={isActive} disabled={router.isNavigating} className="h-auto min-h-10">
+                {/* Hover shows the same glass lens as the active item. The transparent
+                    border reserves glass's 1px border, so hovering doesn't shift the row. */}
+                <SidebarMenuButton asChild isActive={isActive} disabled={router.isNavigating} className="h-auto min-h-10 border border-transparent hover:bg-transparent hover:glass">
                   <Link
                     href={href}
                     prefetch={false}
@@ -353,8 +355,8 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                 {mounted && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      {/* Centred: these items are taller than the default the action's
-                          top-1.5 offset assumes (min-h-10, names can wrap to 2 lines). */}
+                      {/* Centred on the row: these items are taller than the default the
+                          action's top-1.5 offset assumes (min-h-10, names can wrap to 2 lines). */}
                       <SidebarMenuAction className="top-1/2 -translate-y-1/2 peer-data-[size=default]/menu-button:top-1/2">
                         <MoreHorizontal className="size-4" />
                         <span className="sr-only">More options</span>
