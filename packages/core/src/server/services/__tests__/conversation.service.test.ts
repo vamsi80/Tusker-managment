@@ -63,10 +63,10 @@ describe("ConversationService message controls", () => {
 
     expect(prisma.direct_message.updateMany).toHaveBeenNthCalledWith(1, expect.objectContaining({
       where: expect.objectContaining({ deliveredAt: null, isDeleted: false }),
-      data: { deliveredAt: expect.any(Date) },
+      data: expect.objectContaining({ deliveredAt: expect.any(Date), updatedAt: expect.any(Date) }),
     }));
     expect(prisma.direct_message.updateMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      data: { isRead: true, readAt: expect.any(Date) },
+      data: expect.objectContaining({ isRead: true, readAt: expect.any(Date), updatedAt: expect.any(Date) }),
     }));
   });
 
@@ -119,5 +119,55 @@ describe("ConversationService message controls", () => {
       "viewer-1",
       "everyone",
     )).rejects.toThrow("Delete for everyone is only available for messages you sent");
+  });
+
+  it("stamps updatedAt when deleting for everyone so real-time sync receives the update", async () => {
+    (prisma.direct_message.findMany as any).mockResolvedValue([
+      { id: "message-1", senderId: "viewer-1" },
+    ]);
+    (prisma.direct_message.findFirst as any).mockResolvedValue(null);
+
+    await ConversationService.deleteMessages(
+      "conversation-1",
+      ["message-1"],
+      "viewer-1",
+      "everyone",
+    );
+
+    expect(prisma.direct_message.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ["message-1"] }, conversationId: "conversation-1" },
+      data: expect.objectContaining({
+        content: "",
+        isDeleted: true,
+        updatedAt: expect.any(Date),
+        deletedAt: expect.any(Date),
+      }),
+    }));
+  });
+
+  it("resolves otherUser and stamps deliveredAt/updatedAt in getConversationMessages", async () => {
+    (prisma.conversation.findFirst as any).mockResolvedValue({
+      id: "conversation-1",
+      workspaceId: "workspace-1",
+      createdAt: new Date("2026-09-08T10:00:00Z"),
+      UserConversations: [
+        { user: { id: "viewer-1", name: "Alice", surname: "Smith" } },
+        { user: { id: "partner-2", name: "Bob", surname: "Jones" } },
+      ],
+    });
+    (prisma.direct_message.findMany as any).mockResolvedValue([]);
+
+    const result = await ConversationService.getConversationMessages(
+      "conversation-1",
+      "viewer-1",
+    );
+
+    expect(result.otherUser).toEqual(expect.objectContaining({ id: "partner-2", name: "Bob" }));
+    expect(prisma.direct_message.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        deliveredAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      }),
+    }));
   });
 });

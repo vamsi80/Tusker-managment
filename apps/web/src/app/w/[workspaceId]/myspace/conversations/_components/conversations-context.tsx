@@ -77,9 +77,33 @@ export function ConversationsProvider({ children }: { children: ReactNode }) {
       ));
     });
 
-    // 2. Conversation Updates (New messages, list reordering)
+    // 2. Conversation Updates (New messages, list reordering, read receipts)
     const unsubscribeConversation = pubsub.subscribe(EVENTS.CONVERSATION_UPDATE, (data: any) => {
-      console.log(`💬 [Conversations] List update triggered by:`, data.conversationId);
+      // Chat events arrive on the user's own channel, which isn't per-workspace.
+      if (data?.workspaceId && data.workspaceId !== workspaceId) return;
+
+      if (data?.conversationId && data?.message) {
+        setConversations(prev => {
+          const exists = prev.some(c => c.id === data.conversationId);
+          if (exists) {
+            return prev.map(c =>
+              c.id === data.conversationId
+                ? { ...c, lastMessageAt: data.message.createdAt, lastMessage: data.message }
+                : c
+            );
+          }
+          return prev;
+        });
+      } else if (data?.action === "messages_read" && data?.conversationId) {
+        setConversations(prev =>
+          prev.map(c =>
+            c.id === data.conversationId && c.lastMessage
+              ? { ...c, lastMessage: { ...c.lastMessage, isRead: true } }
+              : c
+          )
+        );
+      }
+
       fetchConversations(); // Re-fetch list to get latest order and previews
     });
 

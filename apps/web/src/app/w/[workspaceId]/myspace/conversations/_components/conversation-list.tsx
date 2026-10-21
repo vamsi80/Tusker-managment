@@ -11,6 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getUserDisplayInitial, getUserDisplayName } from "@tusker/core/lib/user-display-name";
+import { toast } from "@/lib/toast";
 
 interface ConversationListProps {
   conversations: any[];
@@ -77,7 +78,12 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
     });
   }, [conversations, members, search, session?.user?.id]);
 
+  // One start at a time: a double click used to create two chats with the same person.
+  const [startingUserId, setStartingUserId] = useState<string | null>(null);
+
   const handleStartChat = async (userId: string) => {
+    if (startingUserId) return;
+    setStartingUserId(userId);
     try {
       const res = await fetch(`/api/v1/conversations/${workspaceId}`, {
         method: "POST",
@@ -85,17 +91,18 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
         body: JSON.stringify({ recipientId: userId })
       });
       const data = await res.json();
-      if (data.success) {
-        setConversations(prev => {
-          const exists = prev.some(c => c.id === data.data.id);
-          if (exists) return prev;
-          return [data.data, ...prev];
-        });
-        setSearch("");
-        router.push(`/w/${workspaceId}/myspace/conversations/${data.data.id}`);
-      }
-    } catch (error) {
-      console.error("Failed to start chat", error);
+      if (!res.ok || !data.success) throw new Error(data.error || data.message || "Couldn't start the chat");
+      setConversations(prev => {
+        const exists = prev.some(c => c.id === data.data.id);
+        if (exists) return prev;
+        return [data.data, ...prev];
+      });
+      setSearch("");
+      router.push(`/w/${workspaceId}/myspace/conversations/${data.data.id}`);
+    } catch (error: any) {
+      toast.error(error?.message || "Couldn't start the chat");
+    } finally {
+      setStartingUserId(null);
     }
   };
 
@@ -135,6 +142,22 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                 const isActive = item.type === "conversation"
                   ? conversationId === item.id
                   : conversations.find(c => c.id === conversationId)?.otherUser?.id === item.id;
+                const isOnline = otherUser?.lastActiveAt && !isNaN(new Date(otherUser.lastActiveAt).getTime()) &&
+                  Date.now() - new Date(otherUser.lastActiveAt).getTime() < 120000;
+                const isUnread = Boolean(
+                  item.lastMessage &&
+                  item.lastMessage.senderId !== session?.user?.id &&
+                  !item.lastMessage.isRead
+                );
+
+                const timeText = item.lastMessageAt ? (() => {
+                  try {
+                    const d = new Date(item.lastMessageAt);
+                    return isNaN(d.getTime()) ? "" : formatDistanceToNow(d, { addSuffix: false }).replace('about ', '');
+                  } catch {
+                    return "";
+                  }
+                })() : "";
 
                 const content = (
                   <div className="flex items-center gap-3 p-2.5 rounded-2xl transition-all active:scale-[0.98] group relative w-full text-left">
@@ -148,28 +171,36 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                           {getUserDisplayInitial(otherUser)}
                         </AvatarFallback>
                       </Avatar>
-                      {otherUser?.lastActiveAt && (new Date().getTime() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
+                      {isOnline && (
                         <div className="absolute bottom-0.5 right-0.5 size-2.5 bg-emerald-500 rounded-full border-2 border-background" />
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-sm font-semibold truncate">
+                        <span className={cn(
+                          "text-sm truncate",
+                          isUnread && !isActive ? "font-bold text-foreground" : "font-semibold"
+                        )}>
                           {getUserDisplayName(otherUser)}
                         </span>
-                        {item.lastMessageAt && (
-                          <span className={cn(
-                            "text-[9px] whitespace-nowrap opacity-60",
-                            isActive ? "text-primary-foreground/70" : "text-muted-foreground"
-                          )}>
-                            {formatDistanceToNow(new Date(item.lastMessageAt), { addSuffix: false }).replace('about ', '')}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {timeText && (
+                            <span className={cn(
+                              "text-[9px] whitespace-nowrap opacity-60",
+                              isActive ? "text-primary-foreground/70" : isUnread ? "font-semibold text-primary" : "text-muted-foreground"
+                            )}>
+                              {timeText}
+                            </span>
+                          )}
+                          {isUnread && !isActive && (
+                            <span className="size-2 rounded-full bg-primary shrink-0" aria-label="Unread message" />
+                          )}
+                        </div>
                       </div>
                       <p className={cn(
                         "text-[11px] truncate",
-                        isActive ? "text-primary-foreground/80" : "text-muted-foreground"
+                        isActive ? "text-primary-foreground/80" : isUnread ? "font-medium text-foreground" : "text-muted-foreground"
                       )}>
                         {item.lastMessage?.content || "Start chatting..."}
                       </p>
@@ -197,8 +228,11 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                   <button
                     key={item.id}
                     onClick={() => handleStartChat(item.id)}
+                    disabled={!!startingUserId}
+                    aria-busy={startingUserId === item.id}
                     className={cn(
-                      "block rounded-2xl transition-all w-full",
+                      "block rounded-2xl transition-all w-full disabled:cursor-wait",
+                      startingUserId === item.id && "animate-pulse",
                       isActive ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "hover:bg-muted/60"
                     )}
                   >

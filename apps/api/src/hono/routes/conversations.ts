@@ -5,7 +5,37 @@ import { ConversationService } from "@tusker/core/server/services/conversation/c
 import { HonoVariables } from "../types";
 
 import { pusherServer } from "@tusker/core/lib/pusher";
+import { ACTIVE_MEMBER } from "@tusker/core/lib/constants/member-status";
 import prisma from "@tusker/db";
+
+/**
+ * Live chat updates go only to the people in the chat, on their own `user-*`
+ * channels (web and mobile both listen there). They used to go to the
+ * workspace-wide `team-*` channel, so every member's browser refetched its chat
+ * list and every member's phone buzzed for every message, and the payload
+ * carried a preview of the private text. No content is sent: clients refetch.
+ */
+async function notifyParticipants(
+  conversationId: string,
+  workspaceId: string,
+  event: "conversation_update" | "typing",
+  data: Record<string, unknown> = {},
+  { only, except }: { only?: string; except?: string } = {},
+) {
+  if (!pusherServer) return;
+  try {
+    const ids = only ? [only] : (await ConversationService.participantIds(conversationId)).filter((id) => id !== except);
+    if (ids.length === 0) return;
+    await pusherServer.trigger(ids.map((id) => `user-${id}`), event, {
+      conversationId,
+      workspaceId,
+      timestamp: new Date().toISOString(),
+      ...data,
+    });
+  } catch (err) {
+    console.error("[PUSHER_NOTIFY_ERROR]", err);
+  }
+}
 
 const app = new Hono<{ Variables: HonoVariables }>()
   .get("/:workspaceId", async (c) => {
@@ -22,8 +52,8 @@ const app = new Hono<{ Variables: HonoVariables }>()
     if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
     // ponytail: verify caller belongs to workspace before releasing employee directory
-    const membership = await prisma.workspaceMember.findUnique({
-      where: { userId_workspaceId: { userId: user.id, workspaceId } },
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { userId: user.id, workspaceId, ...ACTIVE_MEMBER },
       select: { id: true },
     });
     if (!membership) {
@@ -52,10 +82,10 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const since = c.req.query("since");
     const limit = parseInt(c.req.query("limit") || "50");
 
-    const { messages, hasMore, nextCursor } = await ConversationService.getConversationMessages(conversationId, user.id, limit, cursor, since);
+    const { messages, hasMore, nextCursor, otherUser } = await ConversationService.getConversationMessages(conversationId, user.id, limit, cursor, since);
     // `data` stays a plain array (web reads `data.data` directly); hasMore/
     // nextCursor ride alongside it for the mobile client's scroll-up paging.
-    return c.json({ success: true, data: messages, hasMore, nextCursor });
+    return c.json({ success: true, data: messages, hasMore, nextCursor, otherUser });
   })
   .post("/:workspaceId/:conversationId/messages", zValidator("json", z.object({
     content: z.string().trim().min(1).max(8000)
@@ -66,16 +96,11 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
     const { content } = c.req.valid("json");
     const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
-
-    // Trigger Pusher event to refresh conversation lists for all participants
-    if (pusherServer) {
-      await pusherServer.trigger(`team-${workspaceId}`, "conversation_update", {
-        conversationId,
-        senderId: user.id,
-        content: content.substring(0, 50), // Send a preview
-        timestamp: new Date()
-      });
-    }
+    await notifyParticipants(conversationId, workspaceId, "conversation_update", {
+      action: "new_message",
+      message,
+      senderId: user.id,
+    });
 
     return c.json({ success: true, data: message });
   })
@@ -85,14 +110,10 @@ const app = new Hono<{ Variables: HonoVariables }>()
     if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
     await ConversationService.markAsRead(conversationId, user.id);
-    if (pusherServer) {
-      await pusherServer.trigger(`team-${workspaceId}`, "conversation_update", {
-        action: "messages_read",
-        conversationId,
-        readerId: user.id,
-        timestamp: new Date(),
-      });
-    }
+    await notifyParticipants(conversationId, workspaceId, "conversation_update", {
+      action: "messages_read",
+      readerId: user.id,
+    });
     return c.json({ success: true });
   })
   .patch("/:workspaceId/:conversationId/messages/:messageId", zValidator("json", z.object({
@@ -104,14 +125,12 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
     const { content } = c.req.valid("json");
     const message = await ConversationService.editMessage(conversationId, messageId, user.id, content);
-    if (pusherServer) {
-      await pusherServer.trigger(`team-${workspaceId}`, "conversation_update", {
-        action: "message_edited",
-        conversationId,
-        messageId,
-        timestamp: new Date(),
-      });
-    }
+    await notifyParticipants(conversationId, workspaceId, "conversation_update", {
+      action: "message_edited",
+      messageId,
+      message,
+      senderId: user.id,
+    });
     return c.json({ success: true, data: message });
   })
   .post("/:workspaceId/:conversationId/messages/delete", zValidator("json", z.object({
@@ -124,16 +143,14 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
     const { messageIds, scope } = c.req.valid("json");
     const result = await ConversationService.deleteMessages(conversationId, messageIds, user.id, scope);
-    if (pusherServer) {
-      await pusherServer.trigger(`team-${workspaceId}`, "conversation_update", {
-        action: "messages_deleted",
-        conversationId,
-        messageIds,
-        scope,
-        actorId: user.id,
-        timestamp: new Date(),
-      });
-    }
+    // "Delete for me" is nobody else's business: only the actor's other tabs hear it.
+    await notifyParticipants(
+      conversationId,
+      workspaceId,
+      "conversation_update",
+      { action: "messages_deleted", messageIds, scope, actorId: user.id },
+      scope === "me" ? { only: user.id } : {},
+    );
     return c.json({ success: true, data: result });
   })
   .post("/:workspaceId/:conversationId/messages/forward", zValidator("json", z.object({
@@ -146,17 +163,27 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
     const { messageIds, targetConversationIds } = c.req.valid("json");
     const result = await ConversationService.forwardMessages(conversationId, messageIds, targetConversationIds, user.id);
-    if (pusherServer) {
-      await Promise.all(result.targetConversationIds.map((targetConversationId) =>
-        pusherServer!.trigger(`team-${workspaceId}`, "conversation_update", {
-          action: "messages_forwarded",
-          conversationId: targetConversationId,
-          senderId: user.id,
-          timestamp: new Date(),
-        })
-      ));
-    }
+    await Promise.all(result.targetConversationIds.map((targetConversationId) =>
+      notifyParticipants(targetConversationId, workspaceId, "conversation_update", {
+        action: "messages_forwarded",
+        senderId: user.id,
+      })
+    ));
     return c.json({ success: true, data: result });
+  })
+  .post("/:workspaceId/:conversationId/typing", async (c) => {
+    const { workspaceId, conversationId } = c.req.param();
+    const user = c.get("user");
+    if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
+
+    const body = await c.req.json().catch(() => ({}));
+    if (pusherServer) {
+      await notifyParticipants(conversationId, workspaceId, "typing", {
+        userId: user.id,
+        isTyping: body.isTyping !== false,
+      }, { except: user.id });
+    }
+    return c.json({ success: true });
   });
 
 /**
@@ -212,8 +239,8 @@ app.get("/:conversationId/messages", async (c) => {
   const since = c.req.query("since");
   const limit = parseInt(c.req.query("limit") || "50");
 
-  const { messages, hasMore, nextCursor } = await ConversationService.getConversationMessages(conversationId, user.id, limit, cursor, since);
-  return c.json({ success: true, data: messages, messages, hasMore, nextCursor });
+  const { messages, hasMore, nextCursor, otherUser } = await ConversationService.getConversationMessages(conversationId, user.id, limit, cursor, since);
+  return c.json({ success: true, data: messages, messages, hasMore, nextCursor, otherUser });
 });
 
 app.post("/:conversationId/messages", async (c) => {
@@ -221,22 +248,18 @@ app.post("/:conversationId/messages", async (c) => {
   if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
   const { conversationId } = c.req.param();
-  const { content } = await c.req.json();
-  if (!content) return c.json({ success: false, error: "content is required" }, 400);
+  // Type and length are checked in sendMessage, shared with the web route.
+  const { content } = await c.req.json().catch(() => ({ content: undefined }));
 
   const workspaceId = await conversationWorkspace(conversationId);
   if (!workspaceId) return c.json({ success: false, error: "Conversation not found" }, 404);
 
   const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
-
-  if (pusherServer) {
-    await pusherServer.trigger(`team-${workspaceId}`, "conversation_update", {
-      conversationId,
-      senderId: user.id,
-      content: String(content).substring(0, 50),
-      timestamp: new Date(),
-    });
-  }
+  await notifyParticipants(conversationId, workspaceId, "conversation_update", {
+    action: "new_message",
+    message,
+    senderId: user.id,
+  });
 
   return c.json({ success: true, data: message, message });
 });
@@ -249,14 +272,14 @@ app.post("/:conversationId/typing", async (c) => {
   const body = await c.req.json().catch(() => ({}));
 
   // Presence only — nothing is persisted, so a missing Pusher config is not an error.
+  // Only the other person hears it; the typist doesn't need their own echo.
   if (pusherServer) {
     const workspaceId = await conversationWorkspace(conversationId);
     if (workspaceId) {
-      await pusherServer.trigger(`team-${workspaceId}`, "typing", {
-        conversationId,
+      await notifyParticipants(conversationId, workspaceId, "typing", {
         userId: user.id,
         isTyping: body.isTyping !== false,
-      });
+      }, { except: user.id });
     }
   }
 

@@ -63,6 +63,7 @@ export default function DirectChatScreen({ route, navigation }: Props) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isOtherTyping, setIsOtherTyping] = useState(false);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const otherTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastTypingSentRef = useRef<number>(0);
     const [isKeyboardVisible, setKeyboardVisible] = useState(false);
     const [hasOlderMessages, setHasOlderMessages] = useState(false);
@@ -202,12 +203,14 @@ export default function DirectChatScreen({ route, navigation }: Props) {
     };
 
     // Realtime: every conversation event (new message, edit, delete, forward,
-    // read receipt) is broadcast on the shared `team-{workspaceId}` channel as
-    // `conversation_update` — there is no per-conversation channel server-side.
+    // read receipt) and typing is sent as `conversation_update` / `typing` on
+    // each participant's own `user-{userId}` channel. It used to go to the
+    // workspace-wide team channel, which pushed every chat to every member.
     // A 10s poll is kept as a fallback, mirroring the web client's own belt-
     // and-suspenders 5s interval.
     useEffect(() => {
-        if (!conversationId || !workspaceId) return;
+        if (!conversationId || !workspaceId || !currentUser?.id) return;
+        const userChannel = `user-${currentUser.id}`;
 
         const pusherKey = process.env.EXPO_PUBLIC_PUSHER_KEY;
         const pusherCluster = process.env.EXPO_PUBLIC_PUSHER_CLUSTER;
@@ -218,16 +221,56 @@ export default function DirectChatScreen({ route, navigation }: Props) {
         let pusher: PusherClient | null = null;
         if (pusherKey && pusherCluster) {
             pusher = new PusherClient(pusherKey, { cluster: pusherCluster });
-            const channel = pusher.subscribe(`team-${workspaceId}`);
+            const channel = pusher.subscribe(userChannel);
 
             channel.bind("conversation_update", (data: any) => {
                 if (data?.conversationId !== conversationId) return;
+
+                if (data?.action === "new_message" && data?.message) {
+                    mergeLatest([data.message]);
+                    if (data.message.senderId !== currentUser?.id && workspaceId) {
+                        markConversationRead(workspaceId, conversationId).catch(() => {});
+                    }
+                    return;
+                }
+
+                if (data?.action === "message_edited" && data?.message) {
+                    mergeLatest([data.message]);
+                    return;
+                }
+
+                if (data?.action === "messages_deleted" && Array.isArray(data?.messageIds)) {
+                    const ids: string[] = data.messageIds;
+                    if (data.scope === "me") {
+                        setMessages((prev) => prev.filter((m) => !ids.includes(m.id)));
+                    } else {
+                        setMessages((prev) =>
+                            prev.map((m) => (ids.includes(m.id) ? { ...m, content: "", isDeleted: true } : m))
+                        );
+                    }
+                    return;
+                }
+
+                if (data?.action === "messages_read") {
+                    const nowIso = new Date().toISOString();
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.senderId === currentUser?.id ? { ...m, isRead: true, readAt: m.readAt || nowIso } : m
+                        )
+                    );
+                    return;
+                }
+
                 refreshMessages();
             });
 
             channel.bind("typing", (data: { conversationId: string; userId: string; isTyping: boolean }) => {
                 if (data.conversationId !== conversationId || data.userId === currentUser?.id) return;
                 setIsOtherTyping(data.isTyping);
+                if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current);
+                if (data.isTyping) {
+                    otherTypingTimeoutRef.current = setTimeout(() => setIsOtherTyping(false), 4000);
+                }
             });
         }
 
@@ -235,8 +278,9 @@ export default function DirectChatScreen({ route, navigation }: Props) {
 
         return () => {
             clearInterval(poll);
+            if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current);
             if (pusher) {
-                pusher.unsubscribe(`team-${workspaceId}`);
+                pusher.unsubscribe(userChannel);
                 pusher.disconnect();
             }
         };

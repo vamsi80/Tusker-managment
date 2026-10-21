@@ -169,6 +169,7 @@ export default function TeamListScreen({ navigation }: Props) {
                 ]}
                 onPress={() => {
                     navigation.navigate("DirectChat", {
+                        conversationId: item.id,
                         otherUserId: otherParticipant.id,
                         otherUserName: otherParticipant.surname || otherParticipant.name,
                         otherUserRole: otherRole || "Member"

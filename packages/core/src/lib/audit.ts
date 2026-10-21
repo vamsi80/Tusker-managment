@@ -332,7 +332,7 @@ export async function recordActivity(options: RecordActivityOptions) {
               });
 
               const dmExtra = (action as any) === "DM_MESSAGE"
-                ? { conversationId: entityId, senderId: userId, senderName: userName }
+                ? { type: "direct_message", conversationId: entityId, senderId: userId, senderName: userName }
                 : {};
 
               const messages: ExpoPushMessage[] = recipients

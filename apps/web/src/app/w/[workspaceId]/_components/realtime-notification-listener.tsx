@@ -132,9 +132,32 @@ export function RealtimeNotificationListener() {
       handleSurgicalSync(data);
     });
 
+    const unsubscribeConversation = pubsub.subscribe(EVENTS.CONVERSATION_UPDATE, (data: any) => {
+      if (data?.action === "new_message" && data?.message) {
+        const isFromOther = data.message.senderId !== session?.user?.id;
+        const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+        const isInThisChat = currentPath.includes(`/myspace/conversations/${data.conversationId}`);
+
+        if (isFromOther && !isInThisChat) {
+          const senderName = data.message.user?.surname || data.message.user?.name || "Direct Message";
+          toast.info(`Message from ${senderName}`, {
+            description: data.message.content?.length > 70
+              ? `${data.message.content.substring(0, 70)}...`
+              : data.message.content,
+            action: {
+              label: "Reply",
+              onClick: () => router.push(`/w/${workspaceId}/myspace/conversations/${data.conversationId}`),
+            },
+            duration: 6000,
+          });
+        }
+      }
+    });
+
     return () => {
       unsubscribeActivity();
       unsubscribeTeam();
+      unsubscribeConversation();
       if (refreshTimeout) clearTimeout(refreshTimeout);
     };
   }, [

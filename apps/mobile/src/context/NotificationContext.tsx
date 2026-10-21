@@ -316,11 +316,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 ]);
             } else if (
                 (data?.type === "direct_message" || actionType === "direct_message" || actionType === "DM_MESSAGE")
-                && data?.conversationId
+                && (data?.conversationId || data?.entityId)
             ) {
                 if (navigationRef.isReady()) {
                     navigationRef.navigate("DirectChat", {
-                        conversationId: data.conversationId as string,
+                        conversationId: (data.conversationId || data.entityId) as string,
                         otherUserId: data.senderId as string,
                         otherUserName: (data.senderName as string) || "Chat"
                     });

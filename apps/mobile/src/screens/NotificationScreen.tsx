@@ -177,11 +177,11 @@ export default function NotificationScreen({ navigation }: Props) {
             Alert.alert(title, detail, [
                 { text: "OK", style: "cancel" }
             ]);
-        } else if (item.data?.type === "direct_message" && item.data?.conversationId) {
+        } else if ((item.data?.type === "direct_message" || item.data?.action === "DM_MESSAGE") && (item.data?.conversationId || item.data?.entityId)) {
             navigation.navigate("DirectChat", {
-                conversationId: item.data.conversationId,
-                otherUserId: item.data.senderId,
-                otherUserName: item.data.senderName || "Chat"
+                conversationId: item.data?.conversationId || item.data?.entityId,
+                otherUserId: item.data?.senderId,
+                otherUserName: item.data?.senderName || "Chat"
             });
         } else if (
             item.data?.entityType === "LEAVE_REQUEST" ||
