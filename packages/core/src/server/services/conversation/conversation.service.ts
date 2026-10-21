@@ -96,16 +96,19 @@ export class ConversationService {
       }
     });
 
-    // Map to remove current user and flatten structure
-    return conversations.map(conv => {
+    // Map to remove current user and flatten structure. A chat whose other
+    // person's account was deleted has no one left to show or message (it
+    // listed as a nameless "Member"), so it is left out.
+    return conversations.flatMap(conv => {
       const otherUser = conv.UserConversations.find((uc: any) => uc.user.id !== userId)?.user;
-      return {
+      if (!otherUser) return [];
+      return [{
         id: conv.id,
         lastMessageAt: conv.lastMessageAt,
         type: conv.type,
         otherUser,
         lastMessage: conv.direct_message[0] || null
-      };
+      }];
     });
   }
 
