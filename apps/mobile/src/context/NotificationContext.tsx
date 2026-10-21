@@ -11,6 +11,8 @@ import {
   NotificationService,
   DM_ACTION_MARK_READ,
   DM_ACTION_REPLY,
+  DM_READ_TYPE,
+  dismissConversationNotifications,
 } from "../services/NotificationService";
 import {
   registerPushToken,
@@ -277,6 +279,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     const foregroundSubscription =
       Notifications.addNotificationReceivedListener((response) => {
         const { title, body, data } = response.request.content;
+
+        // A chat was read somewhere (web or app): clear its notifications,
+        // quietly. In the background, BACKGROUND_PUSH_TASK does the same.
+        if ((data as any)?.type === DM_READ_TYPE && typeof (data as any)?.conversationId === "string") {
+          dismissConversationNotifications((data as any).conversationId).catch(() => {});
+          refresh();
+          return;
+        }
 
         // Trigger refresh to get full data from server
         refresh();

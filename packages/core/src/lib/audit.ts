@@ -2,7 +2,11 @@ import prisma from "@tusker/db";
 import { pusherServer } from "./pusher";
 import { randomUUID } from "crypto";
 import { Expo, ExpoPushMessage } from "expo-server-sdk";
-import { LEAVE_TITLES, leaveNotificationBody, type LeaveAction } from "./notification-copy";
+import {
+  LEAVE_TITLES,
+  leaveNotificationBody,
+  type LeaveAction,
+} from "./notification-copy";
 
 const expo = new Expo();
 
@@ -51,6 +55,12 @@ interface RecordActivityOptions {
    */
   subjectUserId?: string;
   subjectName?: string;
+  /**
+   * Record and notify in-app, but send no phone push: the caller pushes
+   * itself. DMs do, after a delay and only if still unread
+   * (ConversationService.pushIfUnread).
+   */
+  skipPush?: boolean;
 }
 
 // ─── In-Memory Audit Buffer ───────────────────────────────
@@ -133,7 +143,7 @@ export async function recordActivity(options: RecordActivityOptions) {
     oldData,
     newData,
     ipAddress,
-    userAgent
+    userAgent,
   } = options;
 
   try {
@@ -168,7 +178,9 @@ export async function recordActivity(options: RecordActivityOptions) {
     // 3. BROADCAST via Pusher IMMEDIATELY (no DB round-trip needed)
     if (workspaceId) {
       if (!providedName) {
-        throw new Error("Audit Log Error: User name/nickname is missing for this activity.");
+        throw new Error(
+          "Audit Log Error: User name/nickname is missing for this activity.",
+        );
       }
       const userName = providedName;
       let actionLabel = action.replace(/_/g, " ").toLowerCase();
@@ -179,13 +191,16 @@ export async function recordActivity(options: RecordActivityOptions) {
         try {
           const task = await prisma.task.findUnique({
             where: { id: entityId },
-            select: { name: true }
+            select: { name: true },
           });
           if (task) {
             taskName = task.name;
           }
         } catch (err) {
-          console.error("[AUDIT] Failed to fetch task name for activity message:", err);
+          console.error(
+            "[AUDIT] Failed to fetch task name for activity message:",
+            err,
+          );
         }
       }
 
@@ -194,33 +209,68 @@ export async function recordActivity(options: RecordActivityOptions) {
         return s
           .toLowerCase()
           .replace(/_/g, " ")
-          .replace(/\b\w/g, c => c.toUpperCase());
+          .replace(/\b\w/g, (c) => c.toUpperCase());
       };
 
       if (action === "MEMBER_INVITED") actionLabel = "invited a new member";
       if (action === "MEMBER_REMOVED") actionLabel = "removed a member";
       if (action === "MEMBER_UPDATED") actionLabel = "updated a member's role";
-      if (action === "WORKSPACE_UPDATED") actionLabel = "updated workspace info";
-      if (action === "TASK_CREATED") actionLabel = `created a new task "${newData?.name || taskName || ''}"`;
-      if (action === "SUBTASK_CREATED") actionLabel = `created a subtask "${newData?.name || taskName || ''}"`;
-      if (action === "TASK_DELETED") actionLabel = `deleted the task "${oldData?.name || ''}"`;
-      if (action === "SUBTASK_DELETED") actionLabel = `deleted the subtask "${oldData?.name || ''}"`;
-      
+      if (action === "WORKSPACE_UPDATED")
+        actionLabel = "updated workspace info";
+      if (action === "TASK_CREATED")
+        actionLabel = `created a new task "${newData?.name || taskName || ""}"`;
+      if (action === "SUBTASK_CREATED")
+        actionLabel = `created a subtask "${newData?.name || taskName || ""}"`;
+      if (action === "TASK_DELETED")
+        actionLabel = `deleted the task "${oldData?.name || ""}"`;
+      if (action === "SUBTASK_DELETED")
+        actionLabel = `deleted the subtask "${oldData?.name || ""}"`;
+
       if (action === "SUBTASK_UPDATED" || action === "TASK_UPDATED") {
-        const delta = oldData && newData ? calculateDelta(oldData, newData) : null;
+        const delta =
+          oldData && newData ? calculateDelta(oldData, newData) : null;
         if (delta?.status) {
           const fromLabel = formatStatus(delta.status.from);
           const toLabel = formatStatus(delta.status.to);
-          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          const namePart = taskName
+            ? `"${taskName}"`
+            : entityType === "SUBTASK"
+              ? "subtask"
+              : "task";
           actionLabel = `updated status of ${namePart} from ${fromLabel} to ${toLabel}`;
         } else if (delta?.startDate || delta?.dueDate) {
-          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
-          const fmt = (d: any) => d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-          const startStr = newData?.startDate !== undefined ? fmt(newData.startDate) : (oldData?.startDate ? fmt(oldData.startDate) : "—");
-          const dueStr = newData?.dueDate !== undefined ? fmt(newData.dueDate) : (oldData?.dueDate ? fmt(oldData.dueDate) : "—");
+          const namePart = taskName
+            ? `"${taskName}"`
+            : entityType === "SUBTASK"
+              ? "subtask"
+              : "task";
+          const fmt = (d: any) =>
+            d
+              ? new Date(d).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "—";
+          const startStr =
+            newData?.startDate !== undefined
+              ? fmt(newData.startDate)
+              : oldData?.startDate
+                ? fmt(oldData.startDate)
+                : "—";
+          const dueStr =
+            newData?.dueDate !== undefined
+              ? fmt(newData.dueDate)
+              : oldData?.dueDate
+                ? fmt(oldData.dueDate)
+                : "—";
           actionLabel = `updated dates for ${namePart}: start ${startStr}, due ${dueStr}`;
         } else if (delta?.assigneeId) {
-          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          const namePart = taskName
+            ? `"${taskName}"`
+            : entityType === "SUBTASK"
+              ? "subtask"
+              : "task";
           const newName = newData?.assigneeName || "someone";
           actionLabel = `reassigned ${namePart} to ${newName}`;
         } else if (delta?.name) {
@@ -228,11 +278,19 @@ export async function recordActivity(options: RecordActivityOptions) {
           const newName = newData?.name || "";
           actionLabel = `renamed "${oldName}" to "${newName}"`;
         } else if (delta?.reviewerId) {
-          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          const namePart = taskName
+            ? `"${taskName}"`
+            : entityType === "SUBTASK"
+              ? "subtask"
+              : "task";
           const newName = newData?.reviewerName || "someone";
           actionLabel = `updated reviewer of ${namePart} to ${newName}`;
         } else {
-          const namePart = taskName ? `"${taskName}"` : (entityType === "SUBTASK" ? "subtask" : "task");
+          const namePart = taskName
+            ? `"${taskName}"`
+            : entityType === "SUBTASK"
+              ? "subtask"
+              : "task";
           actionLabel = `updated the ${entityType === "SUBTASK" ? "subtask" : "task"} ${namePart}`;
         }
       }
@@ -242,15 +300,25 @@ export async function recordActivity(options: RecordActivityOptions) {
       if (action === "COMMENT_CREATED") actionLabel = "added a comment";
       if ((action as any) === "DM_MESSAGE") actionLabel = "sent you a message";
       if (action === "REQUESTED_PASSWORD_RESET") {
-        const targetName = newData?.payload?.memberName || metadata?.payload?.memberName || "a member";
+        const targetName =
+          newData?.payload?.memberName ||
+          metadata?.payload?.memberName ||
+          "a member";
         actionLabel = `requested a password reset for ${targetName}`;
       }
 
       const isDmAction = (action as any) === "DM_MESSAGE";
-      const dmContent = (typeof newData?.content === "string" ? newData.content : "") || "";
+      const dmContent =
+        (typeof newData?.content === "string" ? newData.content : "") || "";
       const notifMetadata = isDmAction
-        ? { ...(metadata || {}), conversationId: entityId, senderId: userId, senderName: userName, content: dmContent }
-        : (metadata || {});
+        ? {
+            ...(metadata || {}),
+            conversationId: entityId,
+            senderId: userId,
+            senderName: userName,
+            content: dmContent,
+          }
+        : metadata || {};
 
       // Leave copy is written whole rather than as `${userName} ${actionLabel}`,
       // because the subject is not always the actor.
@@ -264,7 +332,7 @@ export async function recordActivity(options: RecordActivityOptions) {
             viewerIsSubject: false,
           })
         : isDmAction
-          ? (dmContent || `${userName} sent you a message`)
+          ? dmContent || `${userName} sent you a message`
           : `${userName} ${actionLabel}`;
       const eventPayload = {
         userId,
@@ -276,23 +344,32 @@ export async function recordActivity(options: RecordActivityOptions) {
         newData,
         oldData,
         message,
-        ...(isDmAction ? { conversationId: entityId, senderId: userId, senderName: userName } : {}),
+        ...(isDmAction
+          ? { conversationId: entityId, senderId: userId, senderName: userName }
+          : {}),
       };
 
       // 🚀 TARGETING LOGIC: Fallback to Workspace Authorities if targetUserIds is missing
       const { getWorkspaceAuthorities } = await import("./involved-users");
-      const finalTargetUserIds = options.targetUserIds && options.targetUserIds.length > 0
-        ? options.targetUserIds
-        : await getWorkspaceAuthorities(workspaceId);
+      const finalTargetUserIds =
+        options.targetUserIds && options.targetUserIds.length > 0
+          ? options.targetUserIds
+          : await getWorkspaceAuthorities(workspaceId);
 
       // 3a. Targeted Activity Log (Individual Channels)
       if (pusherServer) {
         // Broadcast to all involved users (including sender so they can see activity in Notification Center/History)
-        const activityChannels = finalTargetUserIds.map(tid => `user-${tid}`);
+        const activityChannels = finalTargetUserIds.map((tid) => `user-${tid}`);
 
         if (activityChannels.length > 0) {
-          await pusherServer.trigger(activityChannels, "activity_log", eventPayload)
-            .catch((err: any) => console.error("[PUSHER_TRIGGER_ERROR] targeted activity_log:", err));
+          await pusherServer
+            .trigger(activityChannels, "activity_log", eventPayload)
+            .catch((err: any) =>
+              console.error(
+                "[PUSHER_TRIGGER_ERROR] targeted activity_log:",
+                err,
+              ),
+            );
         }
 
         // 3c. Persistent Notifications (DB storage for later retrieval)
@@ -307,10 +384,10 @@ export async function recordActivity(options: RecordActivityOptions) {
                   viewerIsSubject: tid === (options.subjectUserId ?? userId),
                 })
               : isDmAction
-                ? (dmContent || "New message")
+                ? dmContent || "New message"
                 : message;
 
-          const notifications = finalTargetUserIds.map(tid => ({
+          const notifications = finalTargetUserIds.map((tid) => ({
             id: randomUUID(),
             userId: tid,
             workspaceId,
@@ -325,19 +402,24 @@ export async function recordActivity(options: RecordActivityOptions) {
             entityId,
             entityType,
             metadata: notifMetadata,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           }));
 
           // Non-blocking background save
-          (prisma.notification as any).createMany({ data: notifications })
-            .catch((err: any) => console.error("[AUDIT] Notification storage error:", err));
+          (prisma.notification as any)
+            .createMany({ data: notifications })
+            .catch((err: any) =>
+              console.error("[AUDIT] Notification storage error:", err),
+            );
         }
 
         // 3d. Push notifications (mobile, works even when the app is closed).
         // `finalTargetUserIds` deliberately includes the actor for the in-app
         // notification center — a push buzz for your own action would be
         // wrong, so exclude them here.
-        const pushTargetIds = finalTargetUserIds.filter(tid => tid !== userId);
+        const pushTargetIds = options.skipPush
+          ? []
+          : finalTargetUserIds.filter((tid) => tid !== userId);
         if (pushTargetIds.length > 0) {
           (async () => {
             try {
@@ -347,19 +429,32 @@ export async function recordActivity(options: RecordActivityOptions) {
               });
 
               const dmExtra = isDmAction
-                ? { type: "direct_message", conversationId: entityId, senderId: userId, senderName: userName, content: dmContent }
+                ? {
+                    type: "direct_message",
+                    conversationId: entityId,
+                    senderId: userId,
+                    senderName: userName,
+                    content: dmContent,
+                  }
                 : {};
 
               const messages: ExpoPushMessage[] = recipients
-                .filter(r => r.pushToken && Expo.isExpoPushToken(r.pushToken))
-                .map(r => ({
+                .filter((r) => r.pushToken && Expo.isExpoPushToken(r.pushToken))
+                .map((r) => ({
                   to: r.pushToken!,
                   sound: "default",
-                  // DMs, like a chat app: the app's "Messages" channel pops up on
-                  // screen, and the "direct_message" category gives the Reply /
-                  // Mark as read buttons (registered in the app's
-                  // NotificationService). Builds without them still show the push.
-                  ...(isDmAction ? { channelId: "messages", categoryId: "direct_message", priority: "high" as const } : {}),
+                  // DMs, like a chat app: the "direct_message" category gives the
+                  // Reply / Mark as read buttons (registered in the app's
+                  // NotificationService); builds without it still show the push.
+                  // No channelId: Android drops a push whose channel doesn't
+                  // exist on the phone, and the app's "default" channel is
+                  // already max importance, so it pops up anyway.
+                  ...(isDmAction
+                    ? {
+                        categoryId: "direct_message",
+                        priority: "high" as const,
+                      }
+                    : {}),
                   // WhatsApp style: sender name as title, message text as body
                   title: isLeaveAction
                     ? LEAVE_TITLES[action as LeaveAction]
@@ -372,32 +467,57 @@ export async function recordActivity(options: RecordActivityOptions) {
                         actorName: userName,
                         subjectName: leaveSubjectName,
                         leave: newData || oldData || {},
-                        viewerIsSubject: r.id === (options.subjectUserId ?? userId),
+                        viewerIsSubject:
+                          r.id === (options.subjectUserId ?? userId),
                       })
                     : isDmAction
-                      ? (dmContent || "New message")
+                      ? dmContent || "New message"
                       : message,
-                  data: { action, entityType, entityId, workspaceId, newData, metadata: notifMetadata, ...dmExtra },
+                  data: {
+                    action,
+                    entityType,
+                    entityId,
+                    workspaceId,
+                    newData,
+                    metadata: notifMetadata,
+                    ...dmExtra,
+                  },
                 }));
 
               for (const chunk of expo.chunkPushNotifications(messages)) {
-                await expo.sendPushNotificationsAsync(chunk).catch((err: any) =>
-                  console.error("[AUDIT] Expo push send error:", err)
-                );
+                await expo
+                  .sendPushNotificationsAsync(chunk)
+                  .catch((err: any) =>
+                    console.error("[AUDIT] Expo push send error:", err),
+                  );
               }
             } catch (err) {
-              console.error("[AUDIT] Push notification lookup/send error:", err);
+              console.error(
+                "[AUDIT] Push notification lookup/send error:",
+                err,
+              );
             }
           })();
         }
 
         // 3e. Targeted UI update events (e.g., "team_update")
         if (options.broadcastEvent) {
-          let normalizedType = action.replace("MEMBER_", "").replace("TASK_", "").replace("SUBTASK_", "").replace("LEAVE_", "");
+          let normalizedType = action
+            .replace("MEMBER_", "")
+            .replace("TASK_", "")
+            .replace("SUBTASK_", "")
+            .replace("LEAVE_", "");
           if (normalizedType === "INVITED") normalizedType = "INVITE";
           if (normalizedType === "REMOVED") normalizedType = "DELETE";
-          if (normalizedType === "CREATED" || normalizedType === "REQUESTED") normalizedType = "CREATE";
-          if (normalizedType === "UPDATED" || normalizedType === "APPROVED" || normalizedType === "REJECTED" || normalizedType === "STATUS_CHANGED") normalizedType = "UPDATE";
+          if (normalizedType === "CREATED" || normalizedType === "REQUESTED")
+            normalizedType = "CREATE";
+          if (
+            normalizedType === "UPDATED" ||
+            normalizedType === "APPROVED" ||
+            normalizedType === "REJECTED" ||
+            normalizedType === "STATUS_CHANGED"
+          )
+            normalizedType = "UPDATE";
 
           const payload = newData || metadata || {};
           if (entityId && !payload.id) {
@@ -405,23 +525,32 @@ export async function recordActivity(options: RecordActivityOptions) {
           }
 
           // Always target individual users for surgical sync
-          const syncChannels = finalTargetUserIds.map(tid => `user-${tid}`);
+          const syncChannels = finalTargetUserIds.map((tid) => `user-${tid}`);
 
           if (syncChannels.length > 0) {
-            await pusherServer.trigger(syncChannels, options.broadcastEvent, {
-              workspaceId,
-              userId,
-              action,
-              entityType,
-              entityId,
-              type: normalizedType,
-              message,
-              payload,
-            }).catch((err: any) => console.error(`[PUSHER_TRIGGER_ERROR] ${options.broadcastEvent}:`, err));
+            await pusherServer
+              .trigger(syncChannels, options.broadcastEvent, {
+                workspaceId,
+                userId,
+                action,
+                entityType,
+                entityId,
+                type: normalizedType,
+                message,
+                payload,
+              })
+              .catch((err: any) =>
+                console.error(
+                  `[PUSHER_TRIGGER_ERROR] ${options.broadcastEvent}:`,
+                  err,
+                ),
+              );
           }
         }
       } else {
-        console.warn("[AUDIT] Pusher not configured, skipping real-time broadcast.");
+        console.warn(
+          "[AUDIT] Pusher not configured, skipping real-time broadcast.",
+        );
       }
     }
   } catch (error) {
@@ -436,11 +565,11 @@ function calculateDelta(oldObj: any, newObj: any) {
   const delta: any = {};
 
   // We only care about keys present in the new set (the update payload)
-  Object.keys(newObj).forEach(key => {
+  Object.keys(newObj).forEach((key) => {
     if (JSON.stringify(oldObj[key]) !== JSON.stringify(newObj[key])) {
       delta[key] = {
         from: oldObj[key],
-        to: newObj[key]
+        to: newObj[key],
       };
     }
   });

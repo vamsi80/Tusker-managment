@@ -8,6 +8,7 @@ import type { PointsLedgerEntry, PointsSummary } from "@tusker/api-client/points
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useFillViewport } from "@/hooks/use-fill-viewport";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,8 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
     const [memberId, setMemberId] = useState<string | undefined>();
     const [loadingMore, setLoadingMore] = useState(false);
     const [query, setQuery] = useState("");
+    // The same right-side task panel the calendar opens, from a history line.
+    const { openSubTaskSheet } = useSubTaskSheetActions();
 
     // Side by side (lg), both columns fill the screen and each list scrolls on its
     // own, so the page doesn't. Stacked on smaller screens, each list is 60vh.
@@ -191,7 +194,29 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                         // "Load more" stays pinned below it.
                         <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
                             {entries.map((e) => (
-                                <li key={e.id} className="flex items-start gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-2.5">
+                                <li
+                                    key={e.id}
+                                    // A line about a task opens that task in the right-side panel;
+                                    // manual awards and lines whose task was deleted have none.
+                                    {...(e.task
+                                        ? {
+                                              role: "button",
+                                              tabIndex: 0,
+                                              "aria-label": `Open ${e.task.name}`,
+                                              onClick: () => openSubTaskSheet({ id: e.task!.id, taskSlug: e.task!.taskSlug }),
+                                              onKeyDown: (ev: React.KeyboardEvent) => {
+                                                  if (ev.key === "Enter" || ev.key === " ") {
+                                                      ev.preventDefault();
+                                                      openSubTaskSheet({ id: e.task!.id, taskSlug: e.task!.taskSlug });
+                                                  }
+                                              },
+                                          }
+                                        : {})}
+                                    className={cn(
+                                        "flex items-start gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-2.5",
+                                        e.task && "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                    )}
+                                >
                                     <span className={cn("w-10 shrink-0 font-heading text-base font-bold tabular-nums", tone(e.points))}>
                                         {signed(e.points)}
                                     </span>

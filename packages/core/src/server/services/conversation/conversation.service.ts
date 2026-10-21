@@ -2,10 +2,23 @@ import prisma from "@tusker/db";
 import { AppError } from "../../../lib/errors/app-error";
 import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
 import { getUserDisplayName } from "../../../lib/user-display-name";
+import { sendPushNotification, sendSilentPush } from "../../../lib/push-notifications";
 
 const EDIT_WINDOW_MS = 10 * 60 * 1000;
 const MAX_MESSAGE_LENGTH = 8000;
 const MAX_PAGE_SIZE = 100;
+/**
+ * How long a DM waits before buzzing the recipient's phone. Someone reading
+ * the chat (web or app) marks it read within a second or two over realtime,
+ * or one 5s poll without it, so the phone stays quiet, like WhatsApp Web.
+ */
+const DM_PUSH_DELAY_MS = 6_000;
+
+/** Runs a task after the response; the route passes Hono's waitUntil. */
+export type Defer = (task: Promise<unknown>) => void;
+const fireAndForget: Defer = (task) => {
+  task.catch((err) => console.error("[DM_BACKGROUND_ERROR]", err));
+};
 
 /** Trimmed message text, or a 400. Both send routes (web and mobile) land here. */
 function cleanContent(content: unknown): string {
@@ -269,7 +282,13 @@ export class ConversationService {
   /**
    * Send a message
    */
-  static async sendMessage(conversationId: string, senderId: string, rawContent: unknown, workspaceId: string) {
+  static async sendMessage(
+    conversationId: string,
+    senderId: string,
+    rawContent: unknown,
+    workspaceId: string,
+    defer: Defer = fireAndForget,
+  ) {
     const { recordActivity } = await import("../../../lib/audit");
     const content = cleanContent(rawContent);
     await this.requireParticipant(conversationId, senderId, workspaceId);
@@ -304,10 +323,11 @@ export class ConversationService {
     // its timeout and failed the send. The message is saved by now, so a
     // notification failure is logged, never thrown at the sender.
     if (recipient) {
+      const senderName = getUserDisplayName(message.user, "Someone");
       await recordActivity({
         userId: senderId,
         // Nickname, else full name, else email: never a bare "Member".
-        userName: getUserDisplayName(message.user, "Someone"),
+        userName: senderName,
         workspaceId,
         action: "DM_MESSAGE" as any,
         entityType: "CONVERSATION",
@@ -317,17 +337,71 @@ export class ConversationService {
           conversationId,
         },
         targetUserIds: [recipient.id],
-        broadcastEvent: "conversation_update"
+        broadcastEvent: "conversation_update",
+        // The phone push waits to see if the message gets read first.
+        skipPush: true,
       }).catch((err) => console.error("[DM_NOTIFY_ERROR]", err));
+
+      defer(this.pushIfUnread({
+        messageId: message.id,
+        recipientId: recipient.id,
+        senderId,
+        senderName,
+        content,
+        conversationId,
+        workspaceId,
+      }));
     }
 
     return message;
   }
 
   /**
+   * The phone push for a DM, sent DM_PUSH_DELAY_MS after the message and only
+   * if it's still unread: read on the web (or in the app) in the meantime
+   * means the phone never buzzes. WhatsApp style: sender as title, text as body.
+   */
+  static async pushIfUnread(dm: {
+    messageId: string;
+    recipientId: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    conversationId: string;
+    workspaceId: string;
+  }) {
+    await new Promise((resolve) => setTimeout(resolve, DM_PUSH_DELAY_MS));
+    const message = await prisma.direct_message.findUnique({
+      where: { id: dm.messageId },
+      select: { isRead: true, isDeleted: true },
+    });
+    if (!message || message.isRead || message.isDeleted) return;
+
+    const body = dm.content.length > 180 ? `${dm.content.slice(0, 177)}...` : dm.content;
+    await sendPushNotification([dm.recipientId], dm.senderName, body, {
+      // The app's DM branch reads these (NotificationContext).
+      type: "direct_message",
+      action: "DM_MESSAGE",
+      entityType: "CONVERSATION",
+      entityId: dm.conversationId,
+      conversationId: dm.conversationId,
+      senderId: dm.senderId,
+      senderName: dm.senderName,
+      workspaceId: dm.workspaceId,
+      messageId: dm.messageId,
+    }, {
+      // The category adds Reply / Mark as read. No channelId: Android drops a
+      // push whose channel doesn't exist on the phone, and the app's "default"
+      // channel is already max importance, so it pops up anyway.
+      categoryId: "direct_message",
+      priority: "high",
+    });
+  }
+
+  /**
    * Mark messages as read
    */
-  static async markAsRead(conversationId: string, userId: string) {
+  static async markAsRead(conversationId: string, userId: string, defer: Defer = fireAndForget) {
     await this.requireParticipant(conversationId, userId);
     const now = new Date();
     await prisma.direct_message.updateMany({
@@ -339,7 +413,7 @@ export class ConversationService {
       },
       data: { deliveredAt: now, updatedAt: now },
     });
-    return prisma.direct_message.updateMany({
+    const result = await prisma.direct_message.updateMany({
       where: {
         conversationId,
         senderId: { not: userId },
@@ -352,6 +426,20 @@ export class ConversationService {
         updatedAt: now,
       }
     });
+
+    // Read here (web or app) = read everywhere, like WhatsApp: this chat's
+    // notification-center entries are marked read, and a silent push clears
+    // its notifications from the reader's phone.
+    if ((result?.count ?? 0) > 0) {
+      defer(Promise.all([
+        prisma.notification.updateMany({
+          where: { userId, type: "DM_MESSAGE", entityId: conversationId, isRead: false },
+          data: { isRead: true },
+        }),
+        sendSilentPush([userId], { type: "dm_read", conversationId }),
+      ]));
+    }
+    return result;
   }
 
   static async editMessage(conversationId: string, messageId: string, userId: string, content: string) {

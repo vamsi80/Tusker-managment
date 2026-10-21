@@ -22,7 +22,7 @@ export interface PointsSummary {
 export interface PointsLedgerEntry {
     id: string;
     points: number;
-    kind: "TASK_COMPLETION" | "TASK_REVERSAL" | "MANUAL";
+    kind: "TASK_COMPLETION" | "TASK_OVERDUE" | "TASK_REVERSAL" | "MANUAL";
     reason: string;
     occurredAt: string;
     reversedAt: string | null;

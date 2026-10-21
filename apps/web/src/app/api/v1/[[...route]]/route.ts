@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import app from "api";
 
 /**
@@ -13,10 +14,19 @@ import app from "api";
 // Reports (exceljs/jspdf) and the AI routes outrun the default limit.
 export const maxDuration = 60;
 
+// Hono's c.executionCtx.waitUntil, backed by Next's after(): a route can finish
+// work after its response (the DM push that waits to see if it's read) without
+// the function being frozen mid-way.
+const executionCtx = {
+  waitUntil: (promise: Promise<unknown>) => after(promise),
+  passThroughOnException: () => {},
+  props: {},
+};
+
 // This is all hono/vercel's handle() does. Calling app.fetch directly keeps
 // `hono` out of this app's manifest, where it would only ever be a dependency
 // on that one helper - apps/api already owns it.
-const handler = (request: Request) => app.fetch(request);
+const handler = (request: Request) => app.fetch(request, undefined, executionCtx);
 
 export const GET = handler;
 export const POST = handler;

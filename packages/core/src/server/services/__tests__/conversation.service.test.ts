@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../lib/push-notifications", () => ({
+  sendPushNotification: vi.fn(async () => {}),
+  sendSilentPush: vi.fn(async () => {}),
+}));
+
 const { ConversationService } = await import("../conversation/conversation.service");
 const prisma = (await import("@tusker/db")).default;
+const push = await import("../../../lib/push-notifications");
 
 const participant = {
   id: "conversation-1",
@@ -205,6 +211,8 @@ describe("ConversationService message controls", () => {
 
     expect(sent.content).toBe("Hello Vamsi");
     expect(recordSpy).toHaveBeenCalledWith(expect.objectContaining({
+      // The phone push is sent separately, only if still unread (pushIfUnread).
+      skipPush: true,
       userId: "viewer-1",
       userName: "Smith",
       action: "DM_MESSAGE",
@@ -216,5 +224,83 @@ describe("ConversationService message controls", () => {
       }),
       targetUserIds: ["vamsi-id"],
     }));
+  });
+});
+
+describe("DM phone notifications follow what was read elsewhere", () => {
+  const dm = {
+    messageId: "msg-1",
+    recipientId: "vamsi-id",
+    senderId: "viewer-1",
+    senderName: "Alice",
+    content: "Are you on site?",
+    conversationId: "conversation-1",
+    workspaceId: "workspace-1",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (prisma.conversation.findFirst as any).mockResolvedValue(participant);
+    (prisma as any).notification = { updateMany: vi.fn(async () => ({ count: 1 })) };
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  /** Runs pushIfUnread through its delay. */
+  const runPush = async () => {
+    const done = ConversationService.pushIfUnread(dm);
+    await vi.advanceTimersByTimeAsync(6_000);
+    await done;
+  };
+
+  it("pushes WhatsApp-style if the message is still unread after the delay", async () => {
+    (prisma.direct_message.findUnique as any).mockResolvedValue({ isRead: false, isDeleted: false });
+    await runPush();
+    expect(push.sendPushNotification).toHaveBeenCalledWith(
+      ["vamsi-id"],
+      "Alice",
+      "Are you on site?",
+      expect.objectContaining({ type: "direct_message", conversationId: "conversation-1", workspaceId: "workspace-1" }),
+      expect.objectContaining({ categoryId: "direct_message" }),
+    );
+    // Android drops a push naming a channel the phone doesn't have, so DMs
+    // must not name one (older installs only have "default").
+    const extra = (push.sendPushNotification as any).mock.calls[0][4];
+    expect(extra).not.toHaveProperty("channelId");
+  });
+
+  it("stays quiet when it was read in the meantime, e.g. on the web", async () => {
+    (prisma.direct_message.findUnique as any).mockResolvedValue({ isRead: true, isDeleted: false });
+    await runPush();
+    expect(push.sendPushNotification).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet for a message deleted before the push", async () => {
+    (prisma.direct_message.findUnique as any).mockResolvedValue({ isRead: false, isDeleted: true });
+    await runPush();
+    expect(push.sendPushNotification).not.toHaveBeenCalled();
+  });
+
+  it("reading a chat marks its notifications read and clears them from the phone", async () => {
+    (prisma.direct_message.updateMany as any)
+      .mockResolvedValueOnce({ count: 0 }) // delivered stamps
+      .mockResolvedValueOnce({ count: 2 }); // newly read
+    const tasks: Promise<unknown>[] = [];
+    await ConversationService.markAsRead("conversation-1", "viewer-1", (task) => tasks.push(task));
+    await Promise.all(tasks);
+
+    expect((prisma as any).notification.updateMany).toHaveBeenCalledWith({
+      where: { userId: "viewer-1", type: "DM_MESSAGE", entityId: "conversation-1", isRead: false },
+      data: { isRead: true },
+    });
+    expect(push.sendSilentPush).toHaveBeenCalledWith(["viewer-1"], { type: "dm_read", conversationId: "conversation-1" });
+  });
+
+  it("opening an already-read chat sends nothing", async () => {
+    const tasks: Promise<unknown>[] = [];
+    await ConversationService.markAsRead("conversation-1", "viewer-1", (task) => tasks.push(task));
+    expect(tasks).toHaveLength(0);
+    expect(push.sendSilentPush).not.toHaveBeenCalled();
   });
 });

@@ -1,12 +1,27 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { zValidator } from "../validator";
-import { ConversationService } from "@tusker/core/server/services/conversation/conversation.service";
+import { ConversationService, type Defer } from "@tusker/core/server/services/conversation/conversation.service";
 import { HonoVariables } from "../types";
 
 import { pusherServer } from "@tusker/core/lib/pusher";
 import { ACTIVE_MEMBER } from "@tusker/core/lib/constants/member-status";
 import prisma from "@tusker/db";
+
+/**
+ * Work that finishes after the response (the delayed DM push, the read sync).
+ * On Vercel the Next route passes next/server's after() in as Hono's
+ * waitUntil, so the function stays up for it. The standalone Node server has
+ * no ExecutionContext: the process outlives the request, so it just runs.
+ */
+const deferFor = (c: Context): Defer => (task) => {
+  const guarded = task.catch((err) => console.error("[DM_BACKGROUND_ERROR]", err));
+  try {
+    c.executionCtx.waitUntil(guarded);
+  } catch {
+    // no ExecutionContext (Node server): runs on its own
+  }
+};
 
 /**
  * Live chat updates go only to the people in the chat, on their own `user-*`
@@ -95,7 +110,7 @@ const app = new Hono<{ Variables: HonoVariables }>()
     if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
     const { content } = c.req.valid("json");
-    const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
+    const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId, deferFor(c));
     await notifyParticipants(conversationId, workspaceId, "conversation_update", {
       action: "new_message",
       message,
@@ -109,7 +124,7 @@ const app = new Hono<{ Variables: HonoVariables }>()
     const user = c.get("user");
     if (!user) return c.json({ success: false, error: "Unauthorized" }, 401);
 
-    await ConversationService.markAsRead(conversationId, user.id);
+    await ConversationService.markAsRead(conversationId, user.id, deferFor(c));
     await notifyParticipants(conversationId, workspaceId, "conversation_update", {
       action: "messages_read",
       readerId: user.id,
@@ -254,7 +269,7 @@ app.post("/:conversationId/messages", async (c) => {
   const workspaceId = await conversationWorkspace(conversationId);
   if (!workspaceId) return c.json({ success: false, error: "Conversation not found" }, 404);
 
-  const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId);
+  const message = await ConversationService.sendMessage(conversationId, user.id, content, workspaceId, deferFor(c));
   await notifyParticipants(conversationId, workspaceId, "conversation_update", {
     action: "new_message",
     message,

@@ -14,9 +14,11 @@ const expo = new Expo();
  */
 export async function sendPushNotification(
     userIds: string[],
-    title: string,
-    body: string,
-    data: any = {}
+    title: string | undefined,
+    body: string | undefined,
+    data: any = {},
+    // e.g. channelId / categoryId / priority, or _contentAvailable for a silent push
+    extra: Partial<Omit<ExpoPushMessage, "to" | "title" | "body" | "data">> = {}
 ) {
     try {
         // 1. Fetch push tokens for the target users
@@ -48,10 +50,10 @@ export async function sendPushNotification(
 
             messages.push({
                 to: pushToken,
-                sound: "default",
-                title,
-                body,
+                // A silent push (no title/body) makes no sound either.
+                ...(title || body ? { sound: "default" as const, title, body } : {}),
                 data,
+                ...extra,
             });
         }
 
@@ -74,4 +76,16 @@ export async function sendPushNotification(
     } catch (error) {
         console.error("[PUSH_ERROR]", error);
     }
+}
+
+/**
+ * A data-only push the user never sees: the app's background task acts on it
+ * (e.g. "dm_read" clears a chat's notifications). Shows nothing on builds
+ * without that task.
+ */
+export function sendSilentPush(userIds: string[], data: Record<string, unknown>) {
+    return sendPushNotification(userIds, undefined, undefined, data, {
+        _contentAvailable: true, // wakes the iOS app in the background
+        priority: "high", // Android delivers data-only messages promptly
+    });
 }
