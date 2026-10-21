@@ -3,6 +3,7 @@ import { AppError } from "../../../lib/errors/app-error";
 import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
 import { sendNotification } from "../../../lib/notifications";
 import {
+    addDateOnlyDays,
     calendarDayKey,
     getISTDateOnly,
     IST_OFFSET_MS,
@@ -41,6 +42,7 @@ export interface CompletionAward {
 }
 
 const MAX_MANUAL_POINTS = 1000; // fat-finger guard, not a business cap
+const MAX_CATCH_UP_DAYS = 7; // how far back accrueOverdue fills days the cron missed
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -96,39 +98,63 @@ export class PointsService {
      * The daily late charge: −1 to the assignee of every task still open past
      * its due date, on each working day. REVIEW is not open — that wait is on
      * the reviewer — and neither are COMPLETED or CANCELLED. Run once a day
-     * just after midnight IST; a re-run the same day inserts nothing (partial
-     * unique index on taskId + occurredAt, migration 20261017090000).
+     * just after midnight IST.
+     *
+     * Catches up: every working day since the last charge is charged, so a
+     * missed or failed cron run leaves no gap. A re-run the same day inserts
+     * nothing (partial unique index on taskId + occurredAt, migration
+     * 20261017090000).
      */
     static async accrueOverdue(now: Date = new Date()) {
         const today = getISTDateOnly(now);
-        const dayStart = new Date(today.getTime() - IST_OFFSET_MS); // IST midnight, as an instant
-        if (!isWorkingDay(today)) return 0;
+        const last = await prisma.pointsEntry.findFirst({
+            where: { kind: POINTS_KIND.OVERDUE },
+            orderBy: { occurredAt: "desc" },
+            select: { occurredAt: true },
+        });
+        // ponytail: missed days are charged from today's statuses (there is no
+        // status history), so the catch-up is capped; a long outage should be
+        // fixed, not billed in one hit.
+        const floor = addDateOnlyDays(today, -MAX_CATCH_UP_DAYS);
+        const next = last ? addDateOnlyDays(getISTDateOnly(last.occurredAt), 1) : today;
+        const days: Date[] = [];
+        for (let d = next < floor ? floor : next; d <= today; d = addDateOnlyDays(d, 1)) {
+            if (isWorkingDay(d)) days.push(d);
+        }
+        if (days.length === 0) return 0;
 
+        const startOf = (day: Date) => new Date(day.getTime() - IST_OFFSET_MS); // IST midnight, as an instant
         const [tasks, holidays] = await Promise.all([
             prisma.task.findMany({
                 where: {
                     status: { in: ["TO_DO", "IN_PROGRESS", "HOLD"] },
-                    dueDate: { lt: dayStart },
+                    dueDate: { lt: startOf(today) },
                     assignee: { workspaceMember: ACTIVE_MEMBER },
                 },
-                select: { id: true, name: true, workspaceId: true, assignee: { select: { workspaceMemberId: true } } },
+                select: { id: true, name: true, workspaceId: true, dueDate: true, assignee: { select: { workspaceMemberId: true } } },
             }),
-            prisma.public_holiday.findMany({ where: { date: today }, select: { workspaceId: true } }),
+            prisma.public_holiday.findMany({
+                where: { date: { gte: days[0], lte: today } },
+                select: { workspaceId: true, date: true },
+            }),
         ]);
-        const offToday = new Set(holidays.map((h) => h.workspaceId));
+        const off = new Set(holidays.map((h) => `${h.workspaceId} ${calendarDayKey(h.date)}`));
 
         const { count } = await prisma.pointsEntry.createMany({
-            data: tasks
-                .filter((t) => !offToday.has(t.workspaceId))
-                .map((t) => ({
-                    workspaceId: t.workspaceId,
-                    workspaceMemberId: t.assignee!.workspaceMemberId,
-                    points: -1,
-                    kind: POINTS_KIND.OVERDUE,
-                    reason: `"${t.name}" is past its due date`,
-                    taskId: t.id,
-                    occurredAt: dayStart,
-                })),
+            data: days.flatMap((day) => {
+                const dayStart = startOf(day);
+                return tasks
+                    .filter((t) => t.dueDate! < dayStart && !off.has(`${t.workspaceId} ${calendarDayKey(day)}`))
+                    .map((t) => ({
+                        workspaceId: t.workspaceId,
+                        workspaceMemberId: t.assignee!.workspaceMemberId,
+                        points: -1,
+                        kind: POINTS_KIND.OVERDUE,
+                        reason: `"${t.name}" is past its due date`,
+                        taskId: t.id,
+                        occurredAt: dayStart,
+                    }));
+            }),
             skipDuplicates: true,
         });
         return count;
