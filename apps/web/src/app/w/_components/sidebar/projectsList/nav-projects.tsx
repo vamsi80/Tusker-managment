@@ -338,9 +338,7 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
 
             return (
               <SidebarMenuItem key={proj.id}>
-                {/* Hover shows the same glass lens as the active item. The transparent
-                    border reserves glass's 1px border, so hovering doesn't shift the row. */}
-                <SidebarMenuButton asChild isActive={isActive} disabled={router.isNavigating} className="h-auto min-h-10 border border-transparent hover:bg-transparent hover:glass">
+                <SidebarMenuButton asChild variant="glass" isActive={isActive} disabled={router.isNavigating} className="h-auto min-h-10">
                   <Link
                     href={href}
                     prefetch={false}

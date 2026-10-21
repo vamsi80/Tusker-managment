@@ -487,6 +487,9 @@ const sidebarMenuButtonVariants = cva(
     variants: {
       variant: {
         default: "hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+        // Hover shows the same glass lens as the active item instead of grey.
+        // The transparent border reserves glass's 1px border so rows don't shift.
+        glass: "border border-transparent hover:bg-transparent hover:glass hover:text-sidebar-accent-foreground",
         outline:
           "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
       },
