@@ -108,7 +108,7 @@ function TaskTable(props: TaskTableProps) {
     .length;
   const visibleColumnsCount = 2 + visiblePropsCount + 1; // Chevron + Name + Props + Actions
 
-  // Grouping logic for workspace view â€” skip if in subtask-first mode (filters active),
+  // Grouping logic for workspace view — skip if in subtask-first mode (filters active),
   // because subtasks need to be rendered flat with parent-label headers, not in ProjectTaskGroup
   const groupedTasks = useMemo(() => {
     if (props.level !== "workspace") return null;

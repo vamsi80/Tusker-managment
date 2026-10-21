@@ -83,7 +83,7 @@ export function InlineTaskForm({
         });
 
         toast.promise(taskCreateCall, {
-            loading: `Creating "${taskName.trim()}"â€¦`,
+            loading: `Creating "${taskName.trim()}"…`,
             success: (res: any) => {
                 if (res.status !== "success") {
                     throw new Error(res.message || "Failed to create task");

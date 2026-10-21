@@ -411,7 +411,7 @@ export function TimelineGrid({ startDate, endDate, granularity, tasks, children,
                 <div style={{ width: (columns.length - visibleEndIndex) * columnWidth }} className="shrink-0" />
             </div>
 
-            {/* Today Indicator â€” clipped to timeline area only and lowered z-index to z-20 */}
+            {/* Today Indicator — clipped to timeline area only and lowered z-index to z-20 */}
             <div
                 className="absolute top-0 bottom-0 pointer-events-none overflow-hidden z-20"
                 style={{

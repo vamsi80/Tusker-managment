@@ -353,7 +353,9 @@ export function NavProjects({ workspaceId, isAdmin, canCreateProject, userRole, 
                 {mounted && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <SidebarMenuAction>
+                      {/* Centred: these items are taller than the default the action's
+                          top-1.5 offset assumes (min-h-10, names can wrap to 2 lines). */}
+                      <SidebarMenuAction className="top-1/2 -translate-y-1/2 peer-data-[size=default]/menu-button:top-1/2">
                         <MoreHorizontal className="size-4" />
                         <span className="sr-only">More options</span>
                       </SidebarMenuAction>

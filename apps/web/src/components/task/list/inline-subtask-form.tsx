@@ -248,7 +248,7 @@ export function InlineSubTaskForm({
             const apiCall = apiClient.tasks.createSubTask(validData);
 
             toast.promise(apiCall, {
-                loading: `Creating "${validData.name}"â€¦`,
+                loading: `Creating "${validData.name}"…`,
                 success: (result: any) => {
                     const res = result as ApiResponse;
                     if (res.status !== "success") {
@@ -319,257 +319,259 @@ export function InlineSubTaskForm({
         };
     };
 
+    // Drag handle + name + visible data columns + actions, matching the header.
+    const colCount = 2 + Object.entries(columnVisibility)
+        .filter(([key, visible]) => key !== 'project' && visible)
+        .length + 1;
+
     if (pending) {
-        const visiblePropsCount = Object.entries(columnVisibility)
-            .filter(([key, visible]) => key !== 'project' && visible)
-            .length;
-        const colCount = 2 + visiblePropsCount + 1;
         return <SingleTableSkeleton visibleColumnsCount={colCount} />;
     }
 
+    // The table is table-fixed and its data columns are sized for display
+    // (100px for assignee), too narrow for inputs. So the form spans the whole
+    // row and lays the fields out at readable widths instead.
+    // ponytail: fields wrap to the table's width, not the visible area; if the
+    // table ever scrolls sideways, pin this container with sticky left-0.
     return (
         <TableRow
             key={mode === "edit" ? `edit-${subTask?.id}` : "create-subtask-form"}
             className={cn(
                 mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
-                "h-10 transition-colors"
+                "transition-colors"
             )}
         >
-            {/* Drag Handle - Empty with hierarchy gap */}
-            <TableCell className="w-[50px] pl-4 sm:pl-4">
-                <div className="flex items-center">
-                    <div className="w-8 shrink-0" />
-                </div>
-            </TableCell>
+            <TableCell colSpan={colCount} className="px-4 py-2">
+                <div className="flex flex-wrap items-start gap-2">
+                    {/* SubTask Name Input */}
+                    <div className="flex w-56 flex-col">
+                        <Input
+                            placeholder="SubTask name..."
+                            value={subTaskName}
+                            onChange={(e) => setSubTaskName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSubmit(e);
+                                }
+                                if (e.key === "Escape") {
+                                    onCancel();
+                                }
+                            }}
+                            autoFocus
+                            disabled={pending}
+                            className="h-8 border-primary/50 focus-visible:ring-primary"
+                        />
+                        {subTaskName.trim().length > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
+                                Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
+                            </p>
+                        )}
+                    </div>
 
-            {/* SubTask Name Input */}
-            <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] px-2">
-                <div className="flex flex-col">
-                    <Input
-                        placeholder="SubTask name..."
-                        value={subTaskName}
-                        onChange={(e) => setSubTaskName(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                            if (e.key === "Escape") {
-                                onCancel();
-                            }
-                        }}
-                        autoFocus
-                        disabled={pending}
-                        className="h-8 border-primary/50 focus-visible:ring-primary"
-                    />
-                    {subTaskName.trim().length > 0 && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                            Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
-                        </p>
-                    )}
-                </div>
-            </TableCell>
-
-            {/* Description - Popover with Textarea */}
-            {columnVisibility.description && (
-                <TableCell className="w-[200px] px-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className="h-8 w-full justify-start text-left font-normal"
-                                disabled={pending}
-                            >
-                                <span className={cn(
-                                    "truncate block",
-                                    description ? "text-foreground" : "text-muted-foreground"
-                                )}>
-                                    {description || "Add description..."}
-                                </span>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80" align="start">
-                            <div className="space-y-2">
-                                <h4 className="font-medium text-sm">Description</h4>
-                                <Textarea
-                                    placeholder="Enter description..."
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    disabled={pending}
-                                    className="min-h-[100px] resize-none"
-                                    autoFocus
-                                />
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                </TableCell>
-            )}
-
-            {/* Assignee */}
-            {columnVisibility.assignee && (
-                <TableCell className="w-[100px] max-w-[100px] px-2">
-                    <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
-                        <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Select assignee..." className="truncate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {availableMembers
-                                .filter(m => m.projectRole !== "VIEWER")
-                                .map((member) => (
-                                    <SelectItem key={member.userId} value={member.userId}>
-                                        <span className="truncate block">
-                                            {member.user.surname || member.user.name} ({getRoleShortcut(member.projectRole || member.workspaceRole || '')})
+                    {/* Description - Popover with Textarea */}
+                    {columnVisibility.description && (
+                        <div className="w-56">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="h-8 w-full justify-start text-left font-normal"
+                                        disabled={pending}
+                                    >
+                                        <span className={cn(
+                                            "truncate block",
+                                            description ? "text-foreground" : "text-muted-foreground"
+                                        )}>
+                                            {description || "Add description..."}
                                         </span>
-                                    </SelectItem>
-                                ))}
-                        </SelectContent>
-                    </Select>
-                </TableCell>
-            )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80" align="start">
+                                    <div className="space-y-2">
+                                        <h4 className="font-medium text-sm">Description</h4>
+                                        <Textarea
+                                            placeholder="Enter description..."
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            disabled={pending}
+                                            className="min-h-[100px] resize-none"
+                                            autoFocus
+                                        />
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    )}
 
-            {/* Reviewer */}
-            {columnVisibility.reviewer && (
-                <TableCell className="w-[100px] max-w-[100px] px-2">
-                    <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
-                        <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Select reviewer..." className="truncate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {(reviewers || []).map((rev) => (
-                                <SelectItem key={rev.id} value={rev.id}>
-                                    <span className="truncate block">
-                                        {rev.surname} ({getRoleShortcut(rev.role)})
-                                    </span>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </TableCell>
-            )}
+                    {/* Assignee */}
+                    {columnVisibility.assignee && (
+                        <div className="w-40">
+                            <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
+                                <SelectTrigger className="h-8 w-full">
+                                    <SelectValue placeholder="Select assignee..." className="truncate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableMembers
+                                        .filter(m => m.projectRole !== "VIEWER")
+                                        .map((member) => (
+                                            <SelectItem key={member.userId} value={member.userId}>
+                                                <span className="truncate block">
+                                                    {member.user.surname || member.user.name} ({getRoleShortcut(member.projectRole || member.workspaceRole || '')})
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
-            {/* Status */}
-            {columnVisibility.status && (
-                <TableCell className="w-[120px] max-w-[120px] px-2">
-                    <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
-                        <SelectTrigger className="h-8 w-full">
-                            <SelectValue className="truncate" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {STATUS_OPTIONS.map((option) => {
-                                const statusColors = getStatusColors(option.value);
-                                const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
-                                const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
+                    {/* Reviewer */}
+                    {columnVisibility.reviewer && (
+                        <div className="w-40">
+                            <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
+                                <SelectTrigger className="h-8 w-full">
+                                    <SelectValue placeholder="Select reviewer..." className="truncate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(reviewers || []).map((rev) => (
+                                        <SelectItem key={rev.id} value={rev.id}>
+                                            <span className="truncate block">
+                                                {rev.surname} ({getRoleShortcut(rev.role)})
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
-                                return (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        <div className="flex items-center gap-2">
-                                            {hex ? (
-                                                <div
-                                                    className="size-2 rounded-full border border-black/5 dark:border-white/10"
-                                                    style={{ backgroundColor: hex }}
-                                                />
-                                            ) : (
-                                                <div className={cn(
-                                                    "size-2 rounded-full",
-                                                    statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
-                                                )} />
-                                            )}
-                                            {option.label}
-                                        </div>
-                                    </SelectItem>
-                                );
-                            })}
-                        </SelectContent>
-                    </Select>
-                </TableCell>
-            )}
+                    {/* Status */}
+                    {columnVisibility.status && (
+                        <div className="w-40">
+                            <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
+                                <SelectTrigger className="h-8 w-full">
+                                    <SelectValue className="truncate" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {STATUS_OPTIONS.map((option) => {
+                                        const statusColors = getStatusColors(option.value);
+                                        const hexMatch = statusColors?.bgColor?.match(/#([A-Fa-f0-9]{6})/);
+                                        const hex = hexMatch ? `#${hexMatch[1]}` : undefined;
 
-            {/* Start Date */}
-            {columnVisibility.startDate && (
-                <TableCell className="w-[120px] px-2">
-                    <DateTimePicker
-                        value={startDate}
-                        onChange={handleStartDateChange}
-                        disabled={pending}
-                    />
-                </TableCell>
-            )}
+                                        return (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                <div className="flex items-center gap-2">
+                                                    {hex ? (
+                                                        <div
+                                                            className="size-2 rounded-full border border-black/5 dark:border-white/10"
+                                                            style={{ backgroundColor: hex }}
+                                                        />
+                                                    ) : (
+                                                        <div className={cn(
+                                                            "size-2 rounded-full",
+                                                            statusColors?.color?.replace("text-", "bg-") || "bg-slate-400"
+                                                        )} />
+                                                    )}
+                                                    {option.label}
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
-            {/* Deadline */}
-            {columnVisibility.dueDate && (
-                <TableCell className="w-[120px] px-2">
-                    <DateTimePicker
-                        value={dueDate}
-                        onChange={handleDueDateChange}
-                        disabled={pending}
-                    />
-                </TableCell>
-            )}
+                    {/* Start Date */}
+                    {columnVisibility.startDate && (
+                        <div className="w-44">
+                            <DateTimePicker
+                                value={startDate}
+                                onChange={handleStartDateChange}
+                                disabled={pending}
+                            />
+                        </div>
+                    )}
 
-            {/* Days Column (Replaces Progress for better UX) */}
-            {columnVisibility.progress && (
-                <TableCell className="w-[80px] px-2">
-                    <Input
-                        type="number"
-                        min={1}
-                        max={365}
-                        value={days}
-                        onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            if (!isNaN(val)) {
-                                handleDaysChange(Math.max(1, Math.min(365, val)));
-                            }
-                        }}
-                        disabled={pending}
-                        className="h-8 border-primary/30"
-                        placeholder="Days"
-                    />
-                </TableCell>
-            )}
+                    {/* Deadline */}
+                    {columnVisibility.dueDate && (
+                        <div className="w-44">
+                            <DateTimePicker
+                                value={dueDate}
+                                onChange={handleDueDateChange}
+                                disabled={pending}
+                            />
+                        </div>
+                    )}
 
-            {columnVisibility.tag && (
-                <TableCell className="w-[160px] min-w-[160px] max-w-[160px] px-2">
-                    <MultiSelectTags
-                        options={localTags}
-                        selected={tagIds}
-                        onChange={setTagIds}
-                        placeholder="Tags..."
-                        className="w-full"
-                        workspaceId={workspaceId}
-                        projectId={projectId}
-                        onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
-                    />
-                </TableCell>
-            )}
+                    {/* Days Column (Replaces Progress for better UX) */}
+                    {columnVisibility.progress && (
+                        <div className="w-20">
+                            <Input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={days}
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val)) {
+                                        handleDaysChange(Math.max(1, Math.min(365, val)));
+                                    }
+                                }}
+                                disabled={pending}
+                                className="h-8 border-primary/30"
+                                placeholder="Days"
+                                aria-label="Days"
+                            />
+                        </div>
+                    )}
 
-            <TableCell className="w-[80px] min-w-[80px] max-w-[80px] px-2">
-                <div className="flex items-center justify-center gap-0.5">
-                    {subTaskName.trim().length >= 3 && (
+                    {columnVisibility.tag && (
+                        <div className="w-48">
+                            <MultiSelectTags
+                                options={localTags}
+                                selected={tagIds}
+                                onChange={setTagIds}
+                                placeholder="Tags..."
+                                className="w-full"
+                                workspaceId={workspaceId}
+                                projectId={projectId}
+                                onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
+                            />
+                        </div>
+                    )}
+
+                    <div className="ml-auto flex h-8 items-center gap-0.5">
+                        {subTaskName.trim().length > 0 && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7 hover:bg-green-100 hover:text-green-600"
+                                onClick={handleSubmit}
+                                disabled={pending}
+                                title="Save (Enter)"
+                                aria-label="Save"
+                            >
+                                {pending ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                    <Check className="size-4" />
+                                )}
+                            </Button>
+                        )}
                         <Button
                             size="icon"
                             variant="ghost"
-                            className="size-6 hover:bg-green-100 hover:text-green-600"
-                            onClick={handleSubmit}
+                            className="size-7 hover:bg-red-100 hover:text-red-600"
+                            onClick={onCancel}
                             disabled={pending}
-                            title="Save (Enter)"
+                            title="Cancel (Esc)"
+                            aria-label="Cancel"
                         >
-                            {pending ? (
-                                <Loader2 className="size-3 animate-spin" />
-                            ) : (
-                                <Check className="size-3.5" />
-                            )}
+                            <X className="size-4" />
                         </Button>
-                    )}
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-6 hover:bg-red-100 hover:text-red-600"
-                        onClick={onCancel}
-                        disabled={pending}
-                        title="Cancel (Esc)"
-                    >
-                        <X className="size-3.5" />
-                    </Button>
+                    </div>
                 </div>
             </TableCell>
         </TableRow>

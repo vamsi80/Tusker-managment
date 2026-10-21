@@ -7,7 +7,7 @@ import { ColumnVisibility } from "../shared/column-visibility";
 import { TaskWithSubTasks } from "@/components/task/shared/types";
 import type { UserPermissionsType } from "@/data/user/get-user-permissions";
 import { useRef, useEffect, useState, memo, cloneElement } from "react";
-import { ChevronDown, ChevronRight, MoreHorizontal, CornerDownRight } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreVertical, CornerDownRight } from "lucide-react";
 import { EditTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/edit-task-form";
 import { DeleteTaskDialog } from "@/app/w/[workspaceId]/p/[slug]/_components/forms/delete-task-form";
 import {
@@ -165,7 +165,7 @@ export const TaskRow = memo(function TaskRow({
                 <TableCell>
                     <Skeleton className="size-8" />
                 </TableCell>
-                <TableCell className="font-medium" colSpan={totalColSpan}>
+                <TableCell className="font-medium" colSpan={totalColSpan - 3}>
                     <Skeleton className="h-5 w-[200px]" />
                 </TableCell>
                 <TableCell>
@@ -212,7 +212,10 @@ export const TaskRow = memo(function TaskRow({
                     )}
                 </TableCell>
 
-                <TableCell className="px-2" colSpan={totalColSpan}>
+                {/* The expand cell above takes the first column; this spans the rest.
+                    Spanning one too many adds an unsized column that table-fixed hands
+                    all the leftover width, so this row overshoots the header. */}
+                <TableCell className="px-2" colSpan={totalColSpan - 1}>
                     <div className="flex items-center gap-2 min-w-0">
                         {!isSubtask && !isSubtaskRow ? (
                             <button
@@ -247,8 +250,8 @@ export const TaskRow = memo(function TaskRow({
                             {canEditTask() && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="size-6">
-                                            <MoreHorizontal className="size-3" />
+                                        <Button variant="ghost" size="icon" className="size-6" aria-label="Task actions">
+                                            <MoreVertical className="size-4" strokeWidth={3} />
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">

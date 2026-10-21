@@ -103,7 +103,7 @@ export const ResetPasswordForm = () => {
             <Label htmlFor="password">New Password</Label>
             <PasswordInput
               id="password"
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -113,7 +113,7 @@ export const ResetPasswordForm = () => {
             <Label htmlFor="confirmPassword">Confirm Password</Label>
             <PasswordInput
               id="confirmPassword"
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required

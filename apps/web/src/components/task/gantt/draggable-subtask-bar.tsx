@@ -493,7 +493,7 @@ export function DraggableSubtaskBar({
                                     )}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    {startDate ? formatDate(startDate) : 'N/A'} â€” {endDate ? formatDate(endDate) : 'N/A'} ({duration} days)
+                                    {startDate ? formatDate(startDate) : 'N/A'} — {endDate ? formatDate(endDate) : 'N/A'} ({duration} days)
                                 </p>
                                 {isDelayed && !isSettled && (
                                     <p className="text-[10px] font-bold text-red-600 dark:text-red-400 mt-0.5 animate-pulse">

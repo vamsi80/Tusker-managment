@@ -54,7 +54,7 @@ export const ManageProjectMembersDialog = ({
     const [pending, startTransition] = useTransition();
     const [selectedMembersToAdd, setSelectedMembersToAdd] = useState<string[]>([]);
     const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
-    // Local members state â€” seeded from props, updated immediately on action success
+    // Local members state — seeded from props, updated immediately on action success
     const [members, setMembers] = useState<ProjectMember[]>(initialMembers);
     const router = useRouter();
 
@@ -93,7 +93,7 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Members added successfully!");
-                // Optimistic update â€” add newly selected members immediately
+                // Optimistic update — add newly selected members immediately
                 const newEntries: ProjectMember[] = selectedMembersToAdd
                     .map((userId) => {
                         const wm = workspaceMembers.find((m) => m.userId === userId);
@@ -129,7 +129,7 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Member removed successfully!");
-                // Optimistic update â€” remove immediately from local list
+                // Optimistic update — remove immediately from local list
                 setMembers((prev) => prev.filter((m) => m.userId !== memberUserId));
                 router.refresh();
             } else {
@@ -152,7 +152,7 @@ export const ManageProjectMembersDialog = ({
 
             if (result.success) {
                 toast.success(result.message || "Role updated successfully!");
-                // Optimistic update â€” update role immediately and demote existing target roles
+                // Optimistic update — update role immediately and demote existing target roles
                 setMembers((prev) =>
                     prev.map((m) => {
                         if (m.userId === memberUserId) {
@@ -214,7 +214,7 @@ export const ManageProjectMembersDialog = ({
 
                                     <PopoverContent className="p-0 w-64">
                                         <Command>
-                                            <CommandInput placeholder="Search membersâ€¦" />
+                                            <CommandInput placeholder="Search members…" />
                                             <CommandEmpty>No members found.</CommandEmpty>
                                             <CommandGroup className="max-h-64 overflow-auto">
                                                 {availableMembers.map((member) => {
@@ -404,7 +404,7 @@ export const ManageProjectMembersDialog = ({
                 </DialogContent>
             </Dialog>
 
-            {/* Remove Member Confirmation â€” only mounted when needed to avoid Radix ID hydration shift */}
+            {/* Remove Member Confirmation — only mounted when needed to avoid Radix ID hydration shift */}
             {memberToRemove && (
                 <AlertDialog open={true} onOpenChange={(open) => { if (!open) setMemberToRemove(null); }}>
                     <AlertDialogContent>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CornerDownRight, GripVertical, Calendar, MoreHorizontal } from "lucide-react";
+import { CornerDownRight, GripVertical, Calendar, MoreVertical } from "lucide-react";
 import type { SubTaskType } from "@tusker/core/types/task";
 import type { ProjectMembersType } from "@tusker/core/types/project";
 import { Badge } from "@/components/ui/badge";
@@ -455,8 +455,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                     {canEditSubTask() && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="size-6">
-                                    <MoreHorizontal className="size-2" />
+                                <Button variant="ghost" size="icon" className="size-6" aria-label="Subtask actions">
+                                    <MoreVertical className="size-4" strokeWidth={3} />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">

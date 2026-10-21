@@ -118,7 +118,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                         <div className="relative">
                                             <Input
                                                 type={showPassword ? "text" : "password"}
-                                                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                                                placeholder="••••••••"
                                                 {...field}
                                                 disabled={isPending}
                                                 className="pr-10"
@@ -157,7 +157,7 @@ export function AcceptInvitationForm({ token, email, initialName = "" }: AcceptI
                                         <div className="relative">
                                             <Input
                                                 type={showPassword ? "text" : "password"}
-                                                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                                                placeholder="••••••••"
                                                 {...field}
                                                 disabled={isPending}
                                                 className="pr-10"
