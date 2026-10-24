@@ -194,7 +194,7 @@ export function CalendarMonthView() {
       {/* Days grid */}
       {/* From lg the page is viewport-high, so rows share the height instead of
           a fixed 105px each; the floor only scrolls the grid on very short windows. */}
-      <div className="grid flex-1 min-h-0 grid-cols-7 auto-rows-fr lg:auto-rows-[minmax(72px,1fr)] gap-2 overflow-y-auto">
+      <div className="grid flex-1 min-h-0 grid-cols-7 auto-rows-fr lg:auto-rows-[minmax(72px,1fr)] gap-2 overflow-y-auto p-0.5">
         {days.map((dayItem, idx) => {
           const entry = itemsByDate.get(dayItem.dateKey);
           const dayMeetings = entry?.meetings || [];

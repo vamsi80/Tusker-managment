@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils"
 function Popover({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+  // modal by default: non-modal popovers portaled out of a modal Dialog get wheel/touch scroll
+  // blocked by the dialog's scroll lock, which breaks long lists when the viewport is short (e.g. 125% scale).
+  return <PopoverPrimitive.Root data-slot="popover" modal {...props} />
 }
 
 function PopoverTrigger({
