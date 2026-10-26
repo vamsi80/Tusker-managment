@@ -81,13 +81,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         { ...target, isNew: false },
         ...prev
       ]);
-      setUnreadCount(prev => {
-        const nextCount = Math.max(0, prev - 1);
-        window.dispatchEvent(new CustomEvent("notification-count-update"));
-        return nextCount;
-      });
+      setUnreadCount(prev => Math.max(0, prev - 1));
     }
     await apiClient.comments.markAsRead(taskId);
+    // Only after the write lands, or the bell refetches the stale count.
+    window.dispatchEvent(new CustomEvent("notification-count-update"));
   }, [unreadNotifications]);
 
   const markAllRead = useCallback(async () => {
@@ -100,7 +98,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     ]);
     setUnreadNotifications([]);
     setUnreadCount(0);
-    window.dispatchEvent(new CustomEvent("notification-count-update"));
 
     try {
       await apiClient.comments.markAllAsRead(workspaceId as string);
@@ -108,6 +105,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       toast.error("Failed to mark all as read");
     }
+    window.dispatchEvent(new CustomEvent("notification-count-update"));
   }, [unreadNotifications, workspaceId]);
 
   // Real-time subscription via Pusher

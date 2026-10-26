@@ -205,7 +205,9 @@ export class CommentService {
     if (!perms.isWorkspaceAdmin) {
       const privilegedProjectIds = [
         ...(perms.leadProjectIds || []),
-        ...(perms.managedProjectIds || [])
+        ...(perms.managedProjectIds || []),
+        // Keep in sync with WorkspaceService.getUnreadNotificationsCount
+        ...(perms.coordinatorProjectIds || [])
       ];
 
       where.task = {

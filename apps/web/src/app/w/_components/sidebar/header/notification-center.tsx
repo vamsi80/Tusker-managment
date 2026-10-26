@@ -49,7 +49,9 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
             if (data.notification === true || ["COMMENT_CREATED", "TASK_CREATED", "SUBTASK_CREATED"].includes(data.action)) {
                 // Pulse and update if NOT the current user
                 if (data.userId !== session?.user?.id) {
-                    setPeopleCount(prev => prev + 1);
+                    // Refetch rather than +1: the event fires for every task in the
+                    // workspace, not only ones that land in this user's list.
+                    fetchCount();
                     setIsPulsing(true);
                     setTimeout(() => setIsPulsing(false), 2000);
                 }

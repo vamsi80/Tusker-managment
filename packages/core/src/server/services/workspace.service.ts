@@ -1712,6 +1712,7 @@ export class WorkspaceService {
     const where: any = {
       task: { workspaceId },
       userId: { not: userId },
+      isDeleted: false,
       readBy: { none: { userId } }
     };
 
