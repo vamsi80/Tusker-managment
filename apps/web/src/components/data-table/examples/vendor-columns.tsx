@@ -55,7 +55,7 @@ export function createVendorColumns(
             header: "Contact Person",
             cell: ({ row }) => {
                 const vendor = row.original;
-                if (!vendor.contactPerson) return <span className="text-muted-foreground">â€”</span>;
+                if (!vendor.contactPerson) return <span className="text-muted-foreground">—</span>;
 
                 return (
                     <div className="flex flex-col gap-1">
@@ -88,7 +88,7 @@ export function createVendorColumns(
             header: "Rating",
             cell: ({ row }) => {
                 const rating = row.getValue("rating") as number | null;
-                if (!rating) return <span className="text-muted-foreground">â€”</span>;
+                if (!rating) return <span className="text-muted-foreground">—</span>;
 
                 return (
                     <div className="flex items-center gap-1">
@@ -111,7 +111,7 @@ export function createVendorColumns(
             header: "Location",
             cell: ({ row }) => {
                 const address = row.getValue("address") as string | null;
-                if (!address) return <span className="text-muted-foreground">â€”</span>;
+                if (!address) return <span className="text-muted-foreground">—</span>;
 
                 return (
                     <div className="flex items-start gap-2 max-w-xs">

@@ -25,7 +25,7 @@ export function TodayAgendaWidget() {
   todayMeetings.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-4 rounded-2xl bg-white text-card-foreground shadow-xs dark:bg-card">
+    <div className="flex h-full min-h-0 flex-col text-card-foreground">
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">

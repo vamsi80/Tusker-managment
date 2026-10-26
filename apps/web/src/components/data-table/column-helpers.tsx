@@ -121,7 +121,7 @@ export function createDateColumn<T>(
         header: ({ column }) => createSortableHeader(column, header),
         cell: ({ row }) => {
             const date = row.getValue(accessorKey) as Date | string;
-            if (!date) return <span className="text-muted-foreground">â€”</span>;
+            if (!date) return <span className="text-muted-foreground">—</span>;
 
             const dateObj = typeof date === "string" ? new Date(date) : date;
 
@@ -155,7 +155,7 @@ export function createTextColumn<T>(
         header: ({ column }) => createSortableHeader(column, header),
         cell: ({ row }) => {
             const value = row.getValue(accessorKey) as string;
-            if (!value) return <span className="text-muted-foreground">â€”</span>;
+            if (!value) return <span className="text-muted-foreground">—</span>;
 
             const displayValue = options?.truncate && value.length > options.truncate
                 ? `${value.substring(0, options.truncate)}...`
@@ -188,7 +188,7 @@ export function createNumberColumn<T>(
         cell: ({ row }) => {
             const value = row.getValue(accessorKey) as number;
             if (value === null || value === undefined) {
-                return <span className="text-muted-foreground">â€”</span>;
+                return <span className="text-muted-foreground">—</span>;
             }
 
             const formatted = options?.decimals !== undefined

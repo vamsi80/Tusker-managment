@@ -44,7 +44,7 @@ export function SortedTaskList({
         setLocalTasks(sortedTasks);
     }, [sortedTasks]);
 
-    // IntersectionObserver lives here â€” guaranteed DOM access to sentinel
+    // IntersectionObserver lives here — guaranteed DOM access to sentinel
     useEffect(() => {
         const sentinel = sentinelRef.current;
         if (!sentinel || !hasMore) return;
@@ -81,7 +81,7 @@ export function SortedTaskList({
                 />
             ))}
 
-            {/* Sentinel â€” always mounted so the observer can re-attach */}
+            {/* Sentinel — always mounted so the observer can re-attach */}
             <TableRow
                 className="hover:bg-transparent border-0"
                 ref={sentinelRef}

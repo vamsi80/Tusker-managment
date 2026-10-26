@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import type { SubTasksByStatusResponse, KanbanSubTaskType } from "@tusker/core/types/task";
 import type { ProjectMembersType } from "@tusker/core/types/project";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { toast } from "@/lib/toast";
 import { KanbanCard } from "./kanban-card";
@@ -1006,6 +1007,11 @@ export function KanbanBoard({
   // KanbanColumn and the cards, so grabbing a card (drag start/end re-render the
   // board) re-rendered the whole board. The ref always points at the latest
   // closures, so behaviour is unchanged.
+  // The columns end where the screen does (the vh classes are only the
+  // first-paint fallback), so the bottom gap is the same as on other pages.
+  const boardRef = useRef<HTMLDivElement>(null);
+  useFillViewport(boardRef, { property: "height" });
+
   const handlersRef = useRef({ handleSubTaskClick, handleManualStatusChange, handleLoadMore });
   handlersRef.current = { handleSubTaskClick, handleManualStatusChange, handleLoadMore };
   const onSubTaskClick = useCallback(
@@ -1066,6 +1072,7 @@ export function KanbanBoard({
             </div>
           )}
           <div
+            ref={boardRef}
             className={cn(
               "flex gap-4 overflow-x-auto pb-2",
               level === "workspace" ? "h-[70vh] mt-0" : "h-[65vh]",

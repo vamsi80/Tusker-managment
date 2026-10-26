@@ -68,6 +68,24 @@ function LocationLink({ lat, lng, address, otherLocation }: { lat: number | null
     );
 }
 
+const formatDuration = (ms: number) =>
+    `${String(Math.floor(ms / 3_600_000)).padStart(2, "0")}h:${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}m`;
+
+/** Matches the server's AUTO_CHECKOUT_HOURS: past this an open check-in is a forgotten one, not a live shift. */
+const LIVE_SHIFT_MAX_MS = 20 * 3_600_000;
+
+/** Time since check-in for someone still checked in, ticking up while the page is open. */
+function ElapsedSince({ since }: { since: Date }) {
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 30_000);
+        return () => clearInterval(id);
+    }, []);
+    const ms = now - since.getTime();
+    if (ms < 0 || ms >= LIVE_SHIFT_MAX_MS) return <>--h:--m</>;
+    return <span className="tabular-nums text-foreground/80" title="Still checked in">{formatDuration(ms)}</span>;
+}
+
 export function AttendanceTable({
     workspaceId,
     isWorkspaceAdmin,
@@ -338,9 +356,7 @@ export function AttendanceTable({
                 if (!dIn || !isValidDate(dIn)) return <div className="text-xs text-muted-foreground italic">—</div>;
                 const hasOut = !!dOut && isValidDate(dOut);
                 const diffMs = hasOut ? dOut!.getTime() - dIn.getTime() : NaN;
-                const duration = diffMs >= 0
-                    ? `${String(Math.floor(diffMs / 3_600_000)).padStart(2, "0")}h:${String(Math.floor((diffMs % 3_600_000) / 60_000)).padStart(2, "0")}m`
-                    : "--h:--m";
+                const duration = !hasOut ? <ElapsedSince since={dIn} /> : diffMs >= 0 ? formatDuration(diffMs) : "--h:--m";
                 const isNextDay = hasOut && (dOut!.getDate() !== dIn.getDate() || dOut!.getMonth() !== dIn.getMonth());
 
                 return (
@@ -892,7 +908,8 @@ export function AttendanceTable({
             rowCount={totalCount}
             manualPagination={true}
             manualFiltering={true}
-            containerClassName="max-h-[calc(100vh-340px)]"
+            // Only the rows scroll; headings, toolbar and pagination stay on screen.
+            fillViewport
             isCustomRow={(row: any) => row.status === "ABSENT" && new Date(row.date).getDay() === 0}
             renderCustomRow={(row: any, columnsLength) => {
                 const user = row.WorkspaceMember?.user;

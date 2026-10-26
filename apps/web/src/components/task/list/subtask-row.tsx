@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CornerDownRight, GripVertical, Calendar, MoreHorizontal } from "lucide-react";
+import { CornerDownRight, GripVertical, Calendar, MoreVertical } from "lucide-react";
 import type { SubTaskType } from "@tusker/core/types/task";
 import type { ProjectMembersType } from "@tusker/core/types/project";
 import { Badge } from "@/components/ui/badge";
@@ -255,6 +255,10 @@ export const SubTaskRow = memo(function SubTaskRow({
                 data-task-id={subTask.id}
                 className={cn(
                     "h-8 [&_td]:py-2 transition-colors",
+                    // Every column after Task Name is centred under its heading:
+                    // text, fit-width pills (mx-auto) and flex rows (justify-center).
+                    // data-align="left" (Description) opts a column out.
+                    "[&>td:nth-child(n+3):not([data-align=left])]:text-center [&>td:nth-child(n+3):not([data-align=left])>*]:mx-auto [&>td:nth-child(n+3):not([data-align=left])>div]:justify-center",
                     isDragging && "bg-blue-50/50 dark:bg-blue-900/10",
                     (!assigneeUser && subTask.status !== "COMPLETED" && subTask.status !== "CANCELLED")
                         ? "bg-red-500/10 hover:bg-red-500/20 animate-[pulse_2s_infinite] border-y border-red-500/40"
@@ -300,7 +304,7 @@ export const SubTaskRow = memo(function SubTaskRow({
                 </TableCell>
 
                 {columnVisibility.description && (
-                    <TableCell className="w-[150px] sm:w-[200px]">
+                    <TableCell data-align="left" className="w-[150px] sm:w-[200px]">
                         <span
                             className="truncate text-muted-foreground text-sm block"
                             title={(subTask as any).description}
@@ -455,8 +459,8 @@ export const SubTaskRow = memo(function SubTaskRow({
                     {canEditSubTask() && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="size-6">
-                                    <MoreHorizontal className="size-2" />
+                                <Button variant="ghost" size="icon" className="size-6" aria-label="Subtask actions">
+                                    <MoreVertical className="size-4" strokeWidth={3} />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">

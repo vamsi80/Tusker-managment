@@ -340,6 +340,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
   return (
     <div className="space-y-4">
       <DataTable
+        fillViewport
         columns={columns}
         data={rows}
         isLoading={loading}

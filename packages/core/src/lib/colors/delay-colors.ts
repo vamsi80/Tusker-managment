@@ -27,8 +27,10 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
             dotVariant: "solid",
         };
     }
-    // HOLD: the clock is paused, so never show it as delayed.
-    if (status === "CANCELLED" || status === "HOLD") {
+    // HOLD: the clock is paused, so never show it as delayed. REVIEW: the
+    // assignee's part is done and the wait is on the reviewer (points don't
+    // charge it either), so no countdown.
+    if (status === "CANCELLED" || status === "HOLD" || status === "REVIEW") {
         return {
             color: "text-muted-foreground",
             bgColor: "bg-muted/50",
@@ -71,20 +73,8 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
         };
     }
 
-    // Days left (> 0)
-    // More than 20 days left -> Green ring
-    if (remainingDays > 20) {
-        return {
-            color: "text-emerald-600 dark:text-emerald-400",
-            bgColor: "bg-emerald-500/10",
-            dotColor: "bg-emerald-500",
-            borderColor: "border-emerald-500/20",
-            dotVariant: "ring",
-        };
-    }
-
-    // More than 10 days left -> Orange solid
-    if (remainingDays > 10) {
+    // 1–3 days left -> Orange solid: due soon, not yet late
+    if (remainingDays <= 3) {
         return {
             color: "text-orange-600 dark:text-orange-400",
             bgColor: "bg-orange-500/10",
@@ -94,12 +84,12 @@ export function getDelayColors(remainingDays: number | null, status: string | nu
         };
     }
 
-    // Days left <= 10 -> Red ring
+    // More than 3 days left -> Green ring
     return {
-        color: "text-rose-600 dark:text-rose-400",
-        bgColor: "bg-rose-500/10",
-        dotColor: "bg-rose-500",
-        borderColor: "border-rose-500/20",
+        color: "text-emerald-600 dark:text-emerald-400",
+        bgColor: "bg-emerald-500/10",
+        dotColor: "bg-emerald-500",
+        borderColor: "border-emerald-500/20",
         dotVariant: "ring",
     };
 }
@@ -111,6 +101,7 @@ export function getDelayText(remainingDays: number | null, status: string | null
     if (status === "COMPLETED") return "Finished";
     if (status === "CANCELLED") return "Cancelled";
     if (status === "HOLD") return "On hold";
+    if (status === "REVIEW") return "In review";
     if (remainingDays === null) return "No deadline";
 
     if (remainingDays > 0) {

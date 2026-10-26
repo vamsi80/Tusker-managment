@@ -402,6 +402,8 @@ export function LeavesTable({
                 rowCount={totalCount}
                 manualPagination={true}
                 manualFiltering={true}
+                // Only the rows scroll; headings, toolbar and pagination stay on screen.
+                fillViewport
                 onRowClick={(row) => {
                     setSelectedLeave(row);
                     setIsDialogOpen(true);

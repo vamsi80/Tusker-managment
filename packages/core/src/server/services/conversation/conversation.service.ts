@@ -1,7 +1,34 @@
 import prisma from "@tusker/db";
 import { AppError } from "../../../lib/errors/app-error";
+import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
+import { getUserDisplayName } from "../../../lib/user-display-name";
+import { sendPushNotification, sendSilentPush } from "../../../lib/push-notifications";
 
 const EDIT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_MESSAGE_LENGTH = 8000;
+const MAX_PAGE_SIZE = 100;
+/**
+ * How long a DM waits before buzzing the recipient's phone. Someone reading
+ * the chat (web or app) marks it read within a second or two over realtime,
+ * or one 5s poll without it, so the phone stays quiet, like WhatsApp Web.
+ */
+const DM_PUSH_DELAY_MS = 6_000;
+
+/** Runs a task after the response; the route passes Hono's waitUntil. */
+export type Defer = (task: Promise<unknown>) => void;
+const fireAndForget: Defer = (task) => {
+  task.catch((err) => console.error("[DM_BACKGROUND_ERROR]", err));
+};
+
+/** Trimmed message text, or a 400. Both send routes (web and mobile) land here. */
+function cleanContent(content: unknown): string {
+  const text = typeof content === "string" ? content.trim() : "";
+  if (!text) throw AppError.ValidationError("Message cannot be empty");
+  if (text.length > MAX_MESSAGE_LENGTH) {
+    throw AppError.ValidationError(`Messages can be at most ${MAX_MESSAGE_LENGTH} characters`);
+  }
+  return text;
+}
 
 const messageSelect = {
   id: true,
@@ -21,6 +48,7 @@ const messageSelect = {
   user: {
     select: {
       id: true,
+      name: true,
       surname: true,
     },
   },
@@ -34,7 +62,24 @@ export class ConversationService {
         ...(workspaceId ? { workspaceId } : {}),
         UserConversations: { some: { A: userId } },
       },
-      select: { id: true, workspaceId: true, createdAt: true },
+      select: {
+        id: true,
+        workspaceId: true,
+        createdAt: true,
+        UserConversations: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                surname: true,
+                image: true,
+                lastActiveAt: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!conversation) throw AppError.Forbidden("You do not have access to this conversation");
@@ -91,85 +136,96 @@ export class ConversationService {
           }
         }
       },
+      // A chat that was opened but never written in has no lastMessageAt and
+      // sorts after real conversations, not above them as "just now".
       orderBy: {
-        lastMessageAt: 'desc'
+        lastMessageAt: { sort: 'desc', nulls: 'last' }
       }
     });
 
-    // Map to remove current user and flatten structure
-    return conversations.map(conv => {
+    // Map to remove current user and flatten structure. A chat whose other
+    // person's account was deleted has no one left to show or message (it
+    // listed as a nameless "Member"), so it is left out.
+    return conversations.flatMap(conv => {
       const otherUser = conv.UserConversations.find((uc: any) => uc.user.id !== userId)?.user;
-      return {
+      if (!otherUser) return [];
+      return [{
         id: conv.id,
         lastMessageAt: conv.lastMessageAt,
         type: conv.type,
         otherUser,
         lastMessage: conv.direct_message[0] || null
-      };
+      }];
     });
   }
 
   /**
-   * Find or create a 1-on-1 conversation
+   * Find or create a 1-on-1 conversation. userIds[0] is the caller: the result
+   * also carries `otherUser`, the same shape getUserConversations rows have, so
+   * the web list can show a new chat by name straight away. UserConversations
+   * stays for the mobile client, which reads it.
    */
   static async getOrCreateDirectConversation(userIds: string[], workspaceId: string) {
     if (userIds.length !== 2) throw new Error("Direct conversation requires exactly 2 users");
+    const [callerId, recipientId] = userIds;
+    // With both ids the same, "has both participants" matched any chat the
+    // caller is in and returned someone else's conversation.
+    if (!recipientId || recipientId === callerId) throw AppError.ValidationError("Choose someone else to message");
 
-    const existing = await prisma.conversation.findFirst({
-      where: {
-        workspaceId,
-        type: "direct",
-        AND: userIds.map(id => ({
-          UserConversations: { some: { A: id } }
-        }))
-      },
-      select: {
-        id: true,
-        lastMessageAt: true,
-        type: true,
-        UserConversations: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                surname: true,
-                lastActiveAt: true,
-              }
+    // Both must be active members of this workspace: no chats with removed
+    // members, people from other workspaces, or made-up ids.
+    const members = await prisma.workspaceMember.count({
+      where: { workspaceId, userId: { in: [callerId, recipientId] }, ...ACTIVE_MEMBER },
+    });
+    if (members !== 2) throw AppError.Forbidden("You can only message active members of this workspace");
+
+    const select = {
+      id: true,
+      lastMessageAt: true,
+      type: true,
+      UserConversations: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              surname: true,
+              image: true,
+              lastActiveAt: true,
             }
           }
         }
       }
-    });
+    } as const;
 
-    if (existing) return existing;
-
-    return prisma.conversation.create({
-      data: {
-        workspaceId,
-        type: "direct",
-        UserConversations: {
-          create: userIds.map(id => ({
-            A: id
+    const conversation =
+      (await prisma.conversation.findFirst({
+        where: {
+          workspaceId,
+          type: "direct",
+          AND: userIds.map(id => ({
+            UserConversations: { some: { A: id } }
           }))
-        }
-      },
-      select: {
-        id: true,
-        lastMessageAt: true,
-        type: true,
-        UserConversations: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                surname: true,
-                lastActiveAt: true,
-              }
-            }
+        },
+        select,
+      })) ??
+      (await prisma.conversation.create({
+        data: {
+          workspaceId,
+          type: "direct",
+          // Not "now": nothing has been said yet (see getUserConversations' order).
+          lastMessageAt: null,
+          UserConversations: {
+            create: userIds.map(id => ({
+              A: id
+            }))
           }
-        }
-      }
-    });
+        },
+        select,
+      }));
+
+    const otherUser = conversation.UserConversations.find((uc) => uc.user.id !== callerId)?.user ?? null;
+    return { ...conversation, otherUser, lastMessage: null };
   }
 
   /**
@@ -183,8 +239,14 @@ export class ConversationService {
    * should keep going and silently stopped after the first page.
    */
   static async getConversationMessages(conversationId: string, userId: string, limit: number = 50, cursor?: string, since?: string) {
-    await this.requireParticipant(conversationId, userId);
+    const conversation = await this.requireParticipant(conversationId, userId);
+    // Query-string input: a NaN or huge limit, or an unparseable `since`, used to
+    // reach Prisma as-is and 500.
+    limit = Math.min(Math.max(Number.isFinite(limit) ? Math.floor(limit) : 50, 1), MAX_PAGE_SIZE);
+    const sinceDate = since ? new Date(since) : null;
+    if (sinceDate && isNaN(sinceDate.getTime())) throw AppError.ValidationError("Invalid 'since' date");
 
+    const now = new Date();
     await prisma.direct_message.updateMany({
       where: {
         conversationId,
@@ -192,14 +254,14 @@ export class ConversationService {
         deliveredAt: null,
         isDeleted: false,
       },
-      data: { deliveredAt: new Date() },
+      data: { deliveredAt: now, updatedAt: now },
     });
 
     const rows = await prisma.direct_message.findMany({
       where: {
         conversationId,
         deletedFor: { none: { userId } },
-        ...(since ? { updatedAt: { gt: new Date(since) } } : {})
+        ...(sinceDate ? { updatedAt: { gt: sinceDate } } : {})
       },
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
@@ -212,22 +274,27 @@ export class ConversationService {
     const hasMore = rows.length > limit;
     const messages = hasMore ? rows.slice(0, limit) : rows;
     const nextCursor = hasMore ? messages[messages.length - 1].id : null;
+    const otherUser = conversation.UserConversations?.find((uc: any) => uc.user?.id !== userId)?.user ?? null;
 
-    return { messages, hasMore, nextCursor };
+    return { messages, hasMore, nextCursor, otherUser };
   }
 
   /**
    * Send a message
    */
-  /**
-   * Send a message
-   */
-  static async sendMessage(conversationId: string, senderId: string, content: string, workspaceId: string) {
+  static async sendMessage(
+    conversationId: string,
+    senderId: string,
+    rawContent: unknown,
+    workspaceId: string,
+    defer: Defer = fireAndForget,
+  ) {
     const { recordActivity } = await import("../../../lib/audit");
+    const content = cleanContent(rawContent);
     await this.requireParticipant(conversationId, senderId, workspaceId);
 
-    return prisma.$transaction(async (tx) => {
-      // 1. Create message
+    // 1. Save the message and bump the chat, together.
+    const { message, recipient } = await prisma.$transaction(async (tx) => {
       const message = await tx.direct_message.create({
         data: {
           conversationId,
@@ -237,7 +304,6 @@ export class ConversationService {
         select: messageSelect,
       });
 
-      // 2. Update conversation
       await tx.conversation.update({
         where: { id: conversationId },
         data: {
@@ -245,46 +311,97 @@ export class ConversationService {
         }
       });
 
-      // 3. Handle Notification if recipient is offline
-      const conversation = await tx.conversation.findUnique({
-        where: { id: conversationId },
-        include: {
-          UserConversations: {
-            where: { A: { not: senderId } },
-            include: { user: { select: { id: true, lastActiveAt: true } } }
-          }
-        }
+      const other = await tx.userConversations.findFirst({
+        where: { B: conversationId, A: { not: senderId } },
+        select: { user: { select: { id: true, lastActiveAt: true } } },
       });
+      return { message, recipient: other?.user };
+    });
 
-      const recipient = conversation?.UserConversations[0]?.user;
-      if (recipient) {
-        const isOffline = !recipient.lastActiveAt || 
-          (new Date().getTime() - new Date(recipient.lastActiveAt).getTime() > 120000);
+    // 2. Notify recipient, after the commit. This used to run inside
+    // the transaction: a slow Pusher or notification write held it open past
+    // its timeout and failed the send. The message is saved by now, so a
+    // notification failure is logged, never thrown at the sender.
+    if (recipient) {
+      const senderName = getUserDisplayName(message.user, "Someone");
+      await recordActivity({
+        userId: senderId,
+        // Nickname, else full name, else email: never a bare "Member".
+        userName: senderName,
+        workspaceId,
+        action: "DM_MESSAGE" as any,
+        entityType: "CONVERSATION",
+        entityId: conversationId,
+        newData: {
+          content: content.length > 500 ? `${content.substring(0, 497)}...` : content,
+          conversationId,
+        },
+        targetUserIds: [recipient.id],
+        broadcastEvent: "conversation_update",
+        // The phone push waits to see if the message gets read first.
+        skipPush: true,
+      }).catch((err) => console.error("[DM_NOTIFY_ERROR]", err));
 
-        if (isOffline) {
-          // Record activity which creates a persistent notification and broadcasts activity_log
-          await recordActivity({
-            userId: senderId,
-            userName: message.user.surname || "Member",
-            workspaceId,
-            action: "DM_MESSAGE" as any,
-            entityType: "CONVERSATION",
-            entityId: conversationId,
-            newData: { content: content.substring(0, 100) },
-            targetUserIds: [recipient.id],
-            broadcastEvent: "conversation_update"
-          });
-        }
-      }
+      defer(this.pushIfUnread({
+        messageId: message.id,
+        recipientId: recipient.id,
+        senderId,
+        senderName,
+        content,
+        conversationId,
+        workspaceId,
+      }));
+    }
 
-      return message;
+    return message;
+  }
+
+  /**
+   * The phone push for a DM, sent DM_PUSH_DELAY_MS after the message and only
+   * if it's still unread: read on the web (or in the app) in the meantime
+   * means the phone never buzzes. WhatsApp style: sender as title, text as body.
+   */
+  static async pushIfUnread(dm: {
+    messageId: string;
+    recipientId: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    conversationId: string;
+    workspaceId: string;
+  }) {
+    await new Promise((resolve) => setTimeout(resolve, DM_PUSH_DELAY_MS));
+    const message = await prisma.direct_message.findUnique({
+      where: { id: dm.messageId },
+      select: { isRead: true, isDeleted: true },
+    });
+    if (!message || message.isRead || message.isDeleted) return;
+
+    const body = dm.content.length > 180 ? `${dm.content.slice(0, 177)}...` : dm.content;
+    await sendPushNotification([dm.recipientId], dm.senderName, body, {
+      // The app's DM branch reads these (NotificationContext).
+      type: "direct_message",
+      action: "DM_MESSAGE",
+      entityType: "CONVERSATION",
+      entityId: dm.conversationId,
+      conversationId: dm.conversationId,
+      senderId: dm.senderId,
+      senderName: dm.senderName,
+      workspaceId: dm.workspaceId,
+      messageId: dm.messageId,
+    }, {
+      // The category adds Reply / Mark as read. No channelId: Android drops a
+      // push whose channel doesn't exist on the phone, and the app's "default"
+      // channel is already max importance, so it pops up anyway.
+      categoryId: "direct_message",
+      priority: "high",
     });
   }
 
   /**
    * Mark messages as read
    */
-  static async markAsRead(conversationId: string, userId: string) {
+  static async markAsRead(conversationId: string, userId: string, defer: Defer = fireAndForget) {
     await this.requireParticipant(conversationId, userId);
     const now = new Date();
     await prisma.direct_message.updateMany({
@@ -294,9 +411,9 @@ export class ConversationService {
         deliveredAt: null,
         isDeleted: false,
       },
-      data: { deliveredAt: now },
+      data: { deliveredAt: now, updatedAt: now },
     });
-    return prisma.direct_message.updateMany({
+    const result = await prisma.direct_message.updateMany({
       where: {
         conversationId,
         senderId: { not: userId },
@@ -306,8 +423,23 @@ export class ConversationService {
       data: {
         isRead: true,
         readAt: now,
+        updatedAt: now,
       }
     });
+
+    // Read here (web or app) = read everywhere, like WhatsApp: this chat's
+    // notification-center entries are marked read, and a silent push clears
+    // its notifications from the reader's phone.
+    if ((result?.count ?? 0) > 0) {
+      defer(Promise.all([
+        prisma.notification.updateMany({
+          where: { userId, type: "DM_MESSAGE", entityId: conversationId, isRead: false },
+          data: { isRead: true },
+        }),
+        sendSilentPush([userId], { type: "dm_read", conversationId }),
+      ]));
+    }
+    return result;
   }
 
   static async editMessage(conversationId: string, messageId: string, userId: string, content: string) {
@@ -326,7 +458,7 @@ export class ConversationService {
 
     return prisma.direct_message.update({
       where: { id: messageId },
-      data: { content: content.trim(), editedAt: new Date() },
+      data: { content: cleanContent(content), editedAt: new Date() },
       select: messageSelect,
     });
   }
@@ -337,7 +469,7 @@ export class ConversationService {
     userId: string,
     scope: "me" | "everyone",
   ) {
-    const conversation = await this.requireParticipant(conversationId, userId);
+    await this.requireParticipant(conversationId, userId);
     const uniqueIds = [...new Set(messageIds)];
     const messages = await prisma.direct_message.findMany({
       where: { id: { in: uniqueIds }, conversationId },
@@ -359,9 +491,10 @@ export class ConversationService {
     }
 
     await prisma.$transaction(async (tx) => {
+      const now = new Date();
       await tx.direct_message.updateMany({
         where: { id: { in: uniqueIds }, conversationId },
-        data: { content: "", isDeleted: true, deletedAt: new Date() },
+        data: { content: "", isDeleted: true, deletedAt: now, updatedAt: now },
       });
 
       const latestVisible = await tx.direct_message.findFirst({
@@ -371,7 +504,8 @@ export class ConversationService {
       });
       await tx.conversation.update({
         where: { id: conversationId },
-        data: { lastMessageAt: latestVisible?.createdAt ?? conversation.createdAt },
+        // Nothing left to show: no time, like a chat never written in.
+        data: { lastMessageAt: latestVisible?.createdAt ?? null },
       });
     });
 
@@ -440,18 +574,31 @@ export class ConversationService {
     return prisma.workspaceMember.findMany({
       where: {
         workspaceId,
-        userId: { not: currentUserId }
+        userId: { not: currentUserId },
+        // Removed members can't be messaged (getOrCreateDirectConversation refuses).
+        ...ACTIVE_MEMBER,
       },
       include: {
         user: {
           select: {
             id: true,
+            name: true,
             surname: true,
             email: true,
+            image: true,
             lastActiveAt: true,
           }
         }
       }
     });
+  }
+
+  /** Who is in a conversation: live updates go to these people only. */
+  static async participantIds(conversationId: string) {
+    const rows = await prisma.userConversations.findMany({
+      where: { B: conversationId },
+      select: { A: true },
+    });
+    return rows.map((row) => row.A);
   }
 }

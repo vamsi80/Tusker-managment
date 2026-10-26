@@ -59,6 +59,9 @@ function buildDepartmentWhere(departmentId?: string | string[]) {
     return { OR: clauses };
 }
 
+/** An open check-in is closed this many hours after it started. */
+const AUTO_CHECKOUT_HOURS = 20;
+
 export class AttendanceService {
     /**
      * Get the WorkspaceMember ID for a specific user in a workspace.
@@ -79,21 +82,23 @@ export class AttendanceService {
     }
 
     /**
-     * Lazy evaluation for auto check-out after 15 hours.
+     * Lazy evaluation for auto check-out after AUTO_CHECKOUT_HOURS.
      */
     private static async handleAutoCheckOut(record: any, now: Date) {
         if (!record || record.checkOut || !record.checkIn) return record;
 
         const hoursSinceCheckIn = (now.getTime() - record.checkIn.getTime()) / (1000 * 60 * 60);
-        if (hoursSinceCheckIn >= 15) {
-            const autoCheckOutTime = new Date(record.checkIn.getTime() + (15 * 60 * 60 * 1000));
+        if (hoursSinceCheckIn >= AUTO_CHECKOUT_HOURS) {
+            const autoCheckOutTime = new Date(record.checkIn.getTime() + (AUTO_CHECKOUT_HOURS * 60 * 60 * 1000));
             // ponytail: skip calculating precise overtime status for auto-checkout.
             const updated = await AttendanceRepository.update(record.id, {
                 checkOut: autoCheckOutTime,
-                checkOutNotes: (record.checkOutNotes ? record.checkOutNotes + "\n" : "") + "System: Auto-checked out after 15 hours.",
+                checkOutNotes: (record.checkOutNotes ? record.checkOutNotes + "\n" : "") + `System: Auto-checked out after ${AUTO_CHECKOUT_HOURS} hours.`,
                 updatedAt: now,
             });
-            await AttendanceEvents.emitAttendanceUpdate(record.workspaceId, "CHECK_OUT", "CHECKED_OUT", updated, "System Auto");
+            // No notification: this runs when the member next opens the app (usually right
+            // before checking in), so a "checked out" alert would land beside their check-in.
+            await AttendanceEvents.emitAttendanceUpdate(record.workspaceId, "CHECK_OUT", "CHECKED_OUT", updated, "System Auto", false);
             return updated;
         }
         return record;
@@ -126,7 +131,7 @@ export class AttendanceService {
 
         let openRecord = await AttendanceRepository.findByMemberAndDate(member.id, yesterday);
 
-        // Use yesterday's record ONLY if it is still open and recently started (< 15 hours ago)
+        // Use yesterday's record ONLY if it is still open and recently started (< AUTO_CHECKOUT_HOURS ago)
         if (openRecord && !openRecord.checkOut && openRecord.checkIn) {
             openRecord = await this.handleAutoCheckOut(openRecord, now);
             if (openRecord && !openRecord.checkOut) {

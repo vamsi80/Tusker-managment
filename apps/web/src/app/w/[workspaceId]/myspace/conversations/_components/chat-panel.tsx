@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
   CheckCheck,
   ChevronDown,
+  Clock,
   Forward,
   Loader2,
   MessageSquare,
@@ -47,9 +48,18 @@ interface ChatPanelProps {
   onEditMessage: (messageId: string, content: string) => Promise<void>;
   onDeleteMessages: (messageIds: string[], scope: "me" | "everyone") => Promise<void>;
   onForwardMessages: (messageIds: string[], targetConversationIds: string[]) => Promise<void>;
+  onTyping?: (isTyping: boolean) => void;
+  isOtherTyping?: boolean;
+  /** More history exists above what's loaded. */
+  hasOlder?: boolean;
+  /** Prepends the previous page; resolves true when it added messages. */
+  onLoadOlder?: () => Promise<boolean>;
   otherUser: any;
   currentUserId: string;
 }
+
+/** Within this distance of the bottom counts as "reading the latest". */
+const NEAR_BOTTOM_PX = 120;
 
 const EDIT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -63,6 +73,10 @@ export function ChatPanel({
   onEditMessage,
   onDeleteMessages,
   onForwardMessages,
+  onTyping,
+  isOtherTyping = false,
+  hasOlder = false,
+  onLoadOlder,
   otherUser,
   currentUserId,
 }: ChatPanelProps) {
@@ -76,7 +90,19 @@ export function ChatPanel({
   const [forwardTargets, setForwardTargets] = useState<Set<string>>(new Set());
   const [isActing, setIsActing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const otherUserName = getUserDisplayName(otherUser);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const nearBottomRef = useRef(true);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const newestIdRef = useRef<string | null>(null);
+  const oldestIdRef = useRef<string | null>(null);
+  // Set while older messages load: the scroll height before, to hold the view.
+  const olderAnchorRef = useRef<number | null>(null);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const lastTypingSentRef = useRef<number>(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Until the chat list has loaded (e.g. opened from a notification) the other
+  // person is unknown: show nothing rather than a placeholder "Member".
+  const otherUserName = otherUser ? getUserDisplayName(otherUser) : "";
   const isSelecting = selectedIds.size > 0;
 
   const selectedMessages = useMemo(
@@ -91,21 +117,88 @@ export function ChatPanel({
     (message) => message.senderId === currentUserId && !message.isDeleted
   );
 
-  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior });
-    }
-  };
+  // Scroll only when it helps. It used to snap to the bottom on every change,
+  // including the other person's read receipts every few seconds, so reading
+  // back through a chat kept getting yanked down.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
 
-  useEffect(() => {
-    scrollToBottom("auto");
-  }, [messages, conversationId]);
+    // Older page prepended (the oldest message changed): keep the same message
+    // under the reader's eyes.
+    const oldest = messages[messages.length - 1];
+    const olderArrived = oldest && oldest.id !== oldestIdRef.current;
+    oldestIdRef.current = oldest?.id ?? null;
+    if (olderAnchorRef.current !== null && olderArrived) {
+      el.scrollTop += el.scrollHeight - olderAnchorRef.current;
+      olderAnchorRef.current = null;
+      return;
+    }
+
+    const newest = messages[0]; // newest first
+    const isNewArrival = newest && newest.id !== newestIdRef.current;
+    const isFirstLoad = newestIdRef.current === null;
+    newestIdRef.current = newest?.id ?? null;
+    // A new message lands at the bottom: follow it if the reader is there, or
+    // if they sent it. Otherwise (reading history) leave the view alone.
+    if (isFirstLoad || (isNewArrival && (nearBottomRef.current || newest.senderId === currentUserId))) {
+      el.scrollTop = el.scrollHeight;
+      nearBottomRef.current = true;
+      setIsNearBottom(true);
+    }
+  }, [messages, currentUserId]);
+
+  useLayoutEffect(() => {
+    if (isOtherTyping && nearBottomRef.current && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [isOtherTyping]);
 
   useEffect(() => {
     setSelectedIds(new Set());
     setEditingMessageId(null);
     setContent("");
+    newestIdRef.current = null; // next load scrolls to the bottom again
+    oldestIdRef.current = null;
+    olderAnchorRef.current = null;
+    nearBottomRef.current = true;
+    setIsNearBottom(true);
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      onTyping?.(false);
+    };
   }, [conversationId]);
+
+  // Dynamically keep textarea height fitted to content
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [content]);
+
+  const loadOlder = async () => {
+    const el = scrollRef.current;
+    if (!onLoadOlder || !hasOlder || isLoadingOlder || !el) return;
+    setIsLoadingOlder(true);
+    try {
+      olderAnchorRef.current = el.scrollHeight;
+      // Nothing added: drop the anchor so a later new message isn't offset by it.
+      if (!(await onLoadOlder())) olderAnchorRef.current = null;
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+    nearBottomRef.current = near;
+    setIsNearBottom(near);
+    // Reaching the top pulls in the previous page.
+    if (el.scrollTop < 80) loadOlder();
+  };
 
   const clearSelection = () => setSelectedIds(new Set());
 
@@ -129,23 +222,50 @@ export function ChatPanel({
     setContent("");
   };
 
+  const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = event.target.value;
+    setContent(text);
+
+    if (onTyping && !editingMessageId) {
+      const now = Date.now();
+      if (now - lastTypingSentRef.current > 2000) {
+        onTyping(true);
+        lastTypingSentRef.current = now;
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 3000);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const nextContent = content.trim();
     if (!nextContent || isSending) return;
 
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    onTyping?.(false);
+
+    // Clear at once and keep the box enabled and focused, so the next message
+    // can be typed straight away (disabling it dropped focus after every send).
+    // On failure the text comes back, nothing is lost.
     setIsSending(true);
+    setContent("");
     try {
       if (editingMessageId) {
         await onEditMessage(editingMessageId, nextContent);
         setEditingMessageId(null);
       } else {
         await onSendMessage(nextContent);
-        setTimeout(() => scrollToBottom(), 50);
       }
-      setContent("");
+    } catch {
+      setContent((current) => current || nextContent);
     } finally {
       setIsSending(false);
+      textareaRef.current?.focus();
     }
   };
 
@@ -184,6 +304,9 @@ export function ChatPanel({
   };
 
   const deliveryIcon = (message: any) => {
+    if (message.isPending) {
+      return <Clock className="size-3.5 opacity-60 animate-pulse" aria-label="Sending" />;
+    }
     if (message.readAt || message.isRead) {
       return <CheckCheck className="size-3.5 text-sky-300" aria-label="Read" />;
     }
@@ -191,6 +314,16 @@ export function ChatPanel({
       return <CheckCheck className="size-3.5" aria-label="Delivered" />;
     }
     return <Check className="size-3.5" aria-label="Sent" />;
+  };
+
+  const formatMessageTime = (dateVal: any) => {
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return "";
+      return format(d, "h:mm a");
+    } catch {
+      return "";
+    }
   };
 
   return (
@@ -247,7 +380,11 @@ export function ChatPanel({
             </div>
 
             <div className="flex flex-col">
-              <span className="text-sm font-semibold leading-tight">{otherUserName}</span>
+              {otherUserName ? (
+                <span className="text-sm font-semibold leading-tight">{otherUserName}</span>
+              ) : (
+                <span className="h-4 w-24 animate-pulse rounded bg-muted" aria-label="Loading" />
+              )}
               {otherUser?.lastActiveAt && (Date.now() - new Date(otherUser.lastActiveAt).getTime() < 120000) && (
                 <span className="text-[10px] font-medium tracking-wide text-emerald-500">Online</span>
               )}
@@ -261,9 +398,20 @@ export function ChatPanel({
 
         <div
           ref={scrollRef}
+          onScroll={handleScroll}
           className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 flex-1 overflow-y-auto px-4 py-6"
         >
           <div className="mx-auto flex max-w-4xl flex-col gap-2">
+            {/* Scrolling to the top loads earlier messages; the button covers a
+                short chat that doesn't scroll. */}
+            {hasOlder && messages.length > 0 && (
+              <div className="flex justify-center pb-2">
+                <Button type="button" variant="ghost" size="sm" disabled={isLoadingOlder} onClick={loadOlder}>
+                  {isLoadingOlder && <Loader2 className="size-3.5 animate-spin" />}
+                  {isLoadingOlder ? "Loading earlier messages…" : "Load earlier messages"}
+                </Button>
+              </div>
+            )}
             {isLoading && messages.length === 0 ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="size-6 animate-spin text-primary/20" />
@@ -271,7 +419,7 @@ export function ChatPanel({
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
                 <MessageSquare className="mb-4 size-12" />
-                <p className="text-sm font-semibold">Wave to {otherUserName}!</p>
+                <p className="text-sm font-semibold">{otherUserName ? `Wave to ${otherUserName}!` : "Say hello!"}</p>
                 <p className="mt-1 text-xs">Start your conversation now.</p>
               </div>
             ) : (
@@ -361,7 +509,7 @@ export function ChatPanel({
                           isMe ? "text-primary-foreground" : "text-muted-foreground"
                         )}>
                           {message.editedAt && !message.isDeleted && <span>edited</span>}
-                          <span>{format(new Date(message.createdAt), "h:mm a")}</span>
+                          <span>{formatMessageTime(message.createdAt)}</span>
                           {isMe && deliveryIcon(message)}
                         </div>
                       </div>
@@ -379,9 +527,43 @@ export function ChatPanel({
                 );
               })
             )}
+
+            {isOtherTyping && (
+              <div className="flex items-center gap-2 py-1 px-1 text-xs text-muted-foreground animate-in fade-in slide-in-from-bottom-1 duration-200">
+                <div className="flex gap-1.5 items-center bg-muted/60 px-3 py-1.5 rounded-2xl border border-border/10 shadow-xs">
+                  <span className="font-medium text-foreground/80 text-[11px]">{otherUserName || "Someone"}</span>
+                  <span className="text-[11px]">is typing</span>
+                  <span className="flex gap-0.5 ml-0.5">
+                    <span className="size-1 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.3s]" />
+                    <span className="size-1 rounded-full bg-primary/70 animate-bounce [animation-delay:-0.15s]" />
+                    <span className="size-1 rounded-full bg-primary/70 animate-bounce" />
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {!isNearBottom && messages.length > 0 && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              if (scrollRef.current) {
+                scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+                setIsNearBottom(true);
+              }
+            }}
+            className="rounded-full shadow-lg border border-border/20 text-xs gap-1.5 h-8 px-3.5 bg-background/95 backdrop-blur-md hover:bg-background"
+          >
+            <ChevronDown className="size-3.5" />
+            Jump to present
+          </Button>
+        </div>
+      )}
 
       <div className="border-t p-4">
         {editingMessageId && (
@@ -400,22 +582,16 @@ export function ChatPanel({
             <textarea
               placeholder="Write something..."
               value={content}
-              onChange={(event) => setContent(event.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
                   if (content.trim() && !isSending) handleSubmit(event);
                 }
               }}
-              disabled={isSending}
               rows={1}
               className="scrollbar-none min-h-[24px] max-h-[120px] w-full resize-none overflow-y-auto border-none bg-transparent px-0 py-2.5 text-sm placeholder:text-muted-foreground/30 focus:outline-none focus:ring-0"
-              ref={(element) => {
-                if (element) {
-                  element.style.height = "auto";
-                  element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
-                }
-              }}
+              ref={textareaRef}
             />
           </div>
           <Button

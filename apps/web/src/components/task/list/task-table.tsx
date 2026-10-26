@@ -2,6 +2,7 @@
 
 import { memo, useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
@@ -39,6 +40,9 @@ function TaskTable(props: TaskTableProps) {
     return () => console.log("DEBUG [TaskTable] Unmounted");
   }, []);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  // The rows end where the screen does (the vh classes below are only the
+  // first-paint fallback), so the bottom gap is the same as on other pages.
+  useFillViewport(scrollContainerRef);
 
   // Filters come from the URL (dashboard summary cards link here with ?status=TO_DO,IN_PROGRESS)
   const statusParam = useSearchParams().get("status");
@@ -108,7 +112,7 @@ function TaskTable(props: TaskTableProps) {
     .length;
   const visibleColumnsCount = 2 + visiblePropsCount + 1; // Chevron + Name + Props + Actions
 
-  // Grouping logic for workspace view â€” skip if in subtask-first mode (filters active),
+  // Grouping logic for workspace view — skip if in subtask-first mode (filters active),
   // because subtasks need to be rendered flat with parent-label headers, not in ProjectTaskGroup
   const groupedTasks = useMemo(() => {
     if (props.level !== "workspace") return null;

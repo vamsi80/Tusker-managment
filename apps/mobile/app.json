@@ -13,7 +13,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.thewhitetusker.trava",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {

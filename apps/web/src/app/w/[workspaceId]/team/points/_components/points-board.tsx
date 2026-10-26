@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
-import { Award, Loader2, Trophy } from "lucide-react";
+import { Award, Loader2, Search, Trophy } from "lucide-react";
 import { apiClient } from "@tusker/api-client";
 import type { PointsLedgerEntry, PointsSummary } from "@tusker/api-client/points";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
+import { useSubTaskSheetActions } from "@/contexts/subtask-sheet-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,15 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
     const [cursor, setCursor] = useState<string | null>(null);
     const [memberId, setMemberId] = useState<string | undefined>();
     const [loadingMore, setLoadingMore] = useState(false);
+    const [query, setQuery] = useState("");
+    // The same right-side task panel the calendar opens, from a history line.
+    const { openSubTaskSheet } = useSubTaskSheetActions();
+
+    // Side by side (lg), both columns fill the screen and each list scrolls on its
+    // own, so the page doesn't. Stacked on smaller screens, each list is 60vh.
+    // Waits for summary: before it loads, the grid isn't rendered.
+    const gridRef = useRef<HTMLDivElement>(null);
+    useFillViewport(gridRef, { enabled: !!summary, property: "height", minWidth: 1024 });
 
     const loadSummary = useCallback(() => {
         apiClient.points.getSummary(workspaceId).then(setSummary).catch((e) => toast.error(e.message));
@@ -80,6 +91,11 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
 
     const selected = summary.members.find((m) => m.memberId === memberId);
     const awardable = summary.members.filter((m) => m.memberId !== summary.selfMemberId);
+    // Rank is taken before filtering, so a search keeps each person's real place.
+    const q = query.trim().toLowerCase();
+    const ranked = summary.members
+        .map((m, i) => ({ ...m, rank: i + 1 }))
+        .filter((m) => !q || m.name.toLowerCase().includes(q) || m.designation?.toLowerCase().includes(q));
 
     return (
         <div className="flex flex-col gap-4">
@@ -96,17 +112,34 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                 )}
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div ref={gridRef} className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 {/* Leaderboard */}
-                <section className="rounded-2xl bg-white/60 p-4 dark:bg-card/60">
+                <section className="flex flex-col rounded-2xl bg-white/60 p-4 dark:bg-card/60">
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
                         <Trophy className="size-4" /> Leaderboard
                     </h3>
+                    {summary.members.length > 0 && (
+                        <div className="relative mb-3">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search names"
+                                aria-label="Search names"
+                                className="pl-9"
+                            />
+                        </div>
+                    )}
                     {summary.members.length === 0 ? (
                         <p className="py-8 text-center text-sm text-muted-foreground">No one to show yet.</p>
+                    ) : ranked.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">No one matches “{query.trim()}”.</p>
                     ) : (
-                        <ul className="flex flex-col gap-1.5">
-                            {summary.members.map((m, i) => (
+                        // Fills the box (sized by gridRef). contain:size keeps the list's
+                        // own length from stretching the box.
+                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
+                            {ranked.map((m) => (
                                 <li key={m.memberId}>
                                     <button
                                         type="button"
@@ -117,7 +150,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                                             memberId === m.memberId ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/60",
                                         )}
                                     >
-                                        <span className="w-5 text-center text-xs font-semibold text-muted-foreground">{i + 1}</span>
+                                        <span className="w-5 text-center text-xs font-semibold text-muted-foreground">{m.rank}</span>
                                         <Avatar className="size-8">
                                             <AvatarImage src={m.image || ""} alt="" />
                                             <AvatarFallback>{m.name.charAt(0).toUpperCase()}</AvatarFallback>
@@ -138,7 +171,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                 </section>
 
                 {/* Ledger */}
-                <section className="rounded-2xl bg-white/60 p-4 dark:bg-card/60">
+                <section className="flex flex-col rounded-2xl bg-white/60 p-4 dark:bg-card/60">
                     <div className="mb-3 flex items-center justify-between gap-2">
                         <h3 className="text-sm font-bold uppercase tracking-wide">
                             History{selected ? ` · ${selected.name}` : ""}
@@ -157,9 +190,33 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                     ) : entries.length === 0 ? (
                         <p className="py-8 text-center text-sm text-muted-foreground">No points yet this period.</p>
                     ) : (
-                        <ul className="flex flex-col gap-1.5">
+                        // Same as the leaderboard list: fills the box and scrolls on its own;
+                        // "Load more" stays pinned below it.
+                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
                             {entries.map((e) => (
-                                <li key={e.id} className="flex items-start gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-2.5">
+                                <li
+                                    key={e.id}
+                                    // A line about a task opens that task in the right-side panel;
+                                    // manual awards and lines whose task was deleted have none.
+                                    {...(e.task
+                                        ? {
+                                              role: "button",
+                                              tabIndex: 0,
+                                              "aria-label": `Open ${e.task.name}`,
+                                              onClick: () => openSubTaskSheet({ id: e.task!.id, taskSlug: e.task!.taskSlug }),
+                                              onKeyDown: (ev: React.KeyboardEvent) => {
+                                                  if (ev.key === "Enter" || ev.key === " ") {
+                                                      ev.preventDefault();
+                                                      openSubTaskSheet({ id: e.task!.id, taskSlug: e.task!.taskSlug });
+                                                  }
+                                              },
+                                          }
+                                        : {})}
+                                    className={cn(
+                                        "flex items-start gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-2.5",
+                                        e.task && "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                                    )}
+                                >
                                     <span className={cn("w-10 shrink-0 font-heading text-base font-bold tabular-nums", tone(e.points))}>
                                         {signed(e.points)}
                                     </span>

@@ -84,6 +84,60 @@ export class TaskRepository {
     });
   }
 
+  /**
+   * Called by both due-date writers (updateTaskAndParentCount, updateDates)
+   * with the date the write left behind. A late charge for day D stands only
+   * while dueDate < D, the rule accrueOverdue charges by, so moving the date
+   * later cancels every open charge on or before it, and clearing the date
+   * cancels them all. Moving it earlier finds nothing to cancel.
+   */
+  private static applyDueDateChange(
+    tx: Prisma.TransactionClient,
+    task: { id: string },
+    dueDate: Date | null
+  ) {
+    return this.refundOverdue(
+      tx,
+      { taskId: task.id, ...(dueDate ? { occurredAt: { lte: dueDate } } : {}) },
+      (name) => `Due date of "${name}" moved`
+    );
+  }
+
+  /** Cancels the open late charges matching `where`, one compensating row each. */
+  private static async refundOverdue(
+    tx: Prisma.TransactionClient,
+    where: Prisma.PointsEntryWhereInput,
+    reason: (taskName: string) => string
+  ) {
+    const charges = await tx.pointsEntry.findMany({
+      where: { ...where, kind: POINTS_KIND.OVERDUE, reversedAt: null },
+      select: {
+        id: true, workspaceId: true, workspaceMemberId: true, points: true, occurredAt: true, taskId: true,
+        task: { select: { name: true } },
+      },
+    });
+    if (charges.length === 0) return;
+
+    await tx.pointsEntry.updateMany({
+      where: { id: { in: charges.map((c) => c.id) } },
+      data: { reversedAt: new Date() },
+    });
+    await tx.pointsEntry.createMany({
+      data: charges.map((c) => ({
+        workspaceId: c.workspaceId,
+        workspaceMemberId: c.workspaceMemberId,
+        points: -c.points,
+        kind: POINTS_KIND.REVERSAL,
+        reason: reason(c.task?.name ?? "task"),
+        taskId: c.taskId,
+        reversesEntryId: c.id,
+        // Same day as the charge it cancels: lands in the same points period,
+        // and sits next to it in the history.
+        occurredAt: c.occurredAt,
+      })),
+    });
+  }
+
   // ─── Single Record ────────────────────────────────────────────────────────
 
   static async findById(taskId: string, selectOverride?: any) {
@@ -217,14 +271,19 @@ export class TaskRepository {
         data: { ...data, ...this.completedAtStamp(wasCompleted, isNowCompleted, completion) },
       });
       await this.applyCompletionChange(tx, task, parentTaskId, wasCompleted, isNowCompleted, completion);
+      if ("dueDate" in data) await this.applyDueDateChange(tx, task, task.dueDate);
       return task;
     });
   }
 
   static async updateDates(taskId: string, startDate: Date | null, dueDate: Date | null, days: number | null) {
-    return prisma.task.update({
-      where: { id: taskId },
-      data: { startDate, dueDate, days },
+    return prisma.$transaction(async (tx) => {
+      const task = await tx.task.update({
+        where: { id: taskId },
+        data: { startDate, dueDate, days },
+      });
+      await this.applyDueDateChange(tx, task, task.dueDate);
+      return task;
     });
   }
 
@@ -248,6 +307,15 @@ export class TaskRepository {
     wasCompleted?: boolean;
   }) {
     return prisma.$transaction(async (tx) => {
+      // Deleting a task cancels its late charges, and its subtasks' (the delete
+      // cascades to them). Points earned by finishing early stay. Runs first:
+      // the delete unlinks ledger rows from the task (SET NULL).
+      await this.refundOverdue(
+        tx,
+        { task: { OR: [{ id: taskId }, { parentTaskId: taskId }] } },
+        (name) => `Deleted "${name}"`
+      );
+
       // 1. Delete the task
       const task = await tx.task.delete({
         where: { id: taskId },

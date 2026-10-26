@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useRef } from "react";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 
 interface NotificationsShellProps {
   sidebar: ReactNode;
@@ -11,9 +12,13 @@ interface NotificationsShellProps {
 
 export function NotificationsShell({ sidebar, children }: NotificationsShellProps) {
   const { notificationId } = useParams();
+  // Ends where the screen does, same bottom gap as every page; the calc class
+  // is only the first-paint fallback.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useFillViewport(shellRef, { property: "height" });
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height,3rem)-1.75rem)] w-full overflow-hidden bg-background">
+    <div ref={shellRef} className="flex h-[calc(100vh-var(--header-height,3rem)-1.75rem)] w-full overflow-hidden bg-background">
       {/* Sidebar Panel */}
       <div
         className={cn(

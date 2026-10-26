@@ -795,6 +795,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       </section>
 
       <DataTable
+        fillViewport
         columns={indentColumns}
         data={filteredIndents}
         isLoading={isLoading}

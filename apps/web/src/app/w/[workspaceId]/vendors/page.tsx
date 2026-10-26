@@ -290,6 +290,7 @@ export default function VendorsPage() {
       <div className="flex flex-col gap-1 rounded-3xl py-2 shadow-sm">
         <CardContent className="p-0">
           <DataTable
+            fillViewport
             columns={columns}
             data={vendors}
             isLoading={loading}

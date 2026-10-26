@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Columns, Search, Plus, X, Filter } from "luc
 import { ColumnDef, ColumnFiltersState, SortingState, VisibilityState, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, useReactTable } from "@tanstack/react-table";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useMounted } from "@/hooks/use-mounted";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import {
     Select,
     SelectContent,
@@ -60,6 +61,8 @@ interface DataTableProps<TData, TValue> {
     onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
     manualFiltering?: boolean;
     containerClassName?: string;
+    /** Rows scroll inside the table, sized to end at the bottom of the screen. */
+    fillViewport?: boolean;
     enableGlobalFilter?: boolean;
     isCustomRow?: (row: TData) => boolean;
     renderCustomRow?: (row: TData, columnsLength: number) => React.ReactNode;
@@ -94,10 +97,14 @@ export function DataTable<TData, TValue>({
     onFilterChange,
     onPaginationChange,
     containerClassName,
+    fillViewport = false,
     enableGlobalFilter = false,
     isCustomRow,
     renderCustomRow,
 }: DataTableProps<TData, TValue> & { getRowId?: (row: TData) => string }) {
+    const tableBoxRef = React.useRef<HTMLDivElement>(null);
+    // The inner scroll container uses max-h-[inherit], so capping this box caps it.
+    useFillViewport(tableBoxRef, { enabled: fillViewport });
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility ?? {});
@@ -432,7 +439,7 @@ export function DataTable<TData, TValue>({
 
 
             {/* Table */}
-            <div className={cn("overflow-hidden", containerClassName)}>
+            <div ref={tableBoxRef} className={cn("overflow-hidden", containerClassName)}>
                 <Table containerClassName="max-h-[inherit] overflow-auto">
                     <TableHeader className="sticky top-0 z-10 bg-surface-solid">
                             {table.getHeaderGroups().map((headerGroup) => (

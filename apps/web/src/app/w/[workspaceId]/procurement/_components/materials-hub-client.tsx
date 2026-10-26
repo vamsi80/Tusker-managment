@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -130,6 +131,10 @@ export function MaterialsHubClient({
   workspaceId,
   projects,
 }: MaterialsHubClientProps) {
+  // Ends where the screen does, so the table area (flex-1) scrolls on its own
+  // and the bottom gap matches every page.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useFillViewport(shellRef, { property: "height" });
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -731,7 +736,7 @@ export function MaterialsHubClient({
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 gap-4">
+    <div ref={shellRef} className="flex-1 flex flex-col min-h-0 gap-4">
       {/* Search Filters Row */}
       <div className="flex shrink-0 flex-col items-stretch gap-3 rounded-lg border border-border/50 bg-muted/20 p-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex min-w-0 items-center gap-2">

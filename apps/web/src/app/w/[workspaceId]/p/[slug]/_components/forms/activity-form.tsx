@@ -222,6 +222,17 @@ export function ActivityDialog({
                     e.preventDefault();
                     commentRef.current?.focus();
                 }}
+                onAnimationEnd={(e) => {
+                    // A Kanban drop can knock focus back to the page while the dialog is still
+                    // opening, which the focus trap does not undo. Take it back once it has settled,
+                    // unless the user has already moved to another field in here.
+                    if (e.target !== e.currentTarget || !isOpen) return;
+                    const active = document.activeElement;
+                    const el = commentRef.current;
+                    if (!el || (active !== el && active !== e.currentTarget && e.currentTarget.contains(active))) return;
+                    el.focus();
+                    el.setSelectionRange(el.value.length, el.value.length);
+                }}
             >
                 <DialogHeader>
                     <DialogTitle>Add Activity</DialogTitle>

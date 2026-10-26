@@ -248,7 +248,7 @@ export function InlineSubTaskForm({
             const apiCall = apiClient.tasks.createSubTask(validData);
 
             toast.promise(apiCall, {
-                loading: `Creating "${validData.name}"â€¦`,
+                loading: `Creating "${validData.name}"…`,
                 success: (result: any) => {
                     const res = result as ApiResponse;
                     if (res.status !== "success") {
@@ -319,60 +319,60 @@ export function InlineSubTaskForm({
         };
     };
 
+    // Drag handle + name + visible data columns + actions, matching the header.
+    const colCount = 2 + Object.entries(columnVisibility)
+        .filter(([key, visible]) => key !== 'project' && visible)
+        .length + 1;
+
     if (pending) {
-        const visiblePropsCount = Object.entries(columnVisibility)
-            .filter(([key, visible]) => key !== 'project' && visible)
-            .length;
-        const colCount = 2 + visiblePropsCount + 1;
         return <SingleTableSkeleton visibleColumnsCount={colCount} />;
     }
 
+    // One cell per header column, in header order, so every field sits under
+    // its heading. The table is table-fixed: widths come from the header, so
+    // cells set none and each control fills its column (w-full). Text inside
+    // the boxes is centred like the columns, except Name and Description.
+    // Selects use mx-auto on the value, so the chevron stays at the right edge.
     return (
         <TableRow
             key={mode === "edit" ? `edit-${subTask?.id}` : "create-subtask-form"}
             className={cn(
                 mode === "edit" ? "bg-primary/5 hover:bg-primary/10" : "bg-muted/20 hover:bg-muted/30",
-                "h-10 transition-colors"
+                "transition-colors [&>td]:py-2 [&>td]:align-top"
             )}
         >
-            {/* Drag Handle - Empty with hierarchy gap */}
-            <TableCell className="w-[50px] pl-4 sm:pl-4">
-                <div className="flex items-center">
-                    <div className="w-8 shrink-0" />
-                </div>
-            </TableCell>
+            {/* Drag handle column */}
+            <TableCell />
 
-            {/* SubTask Name Input */}
-            <TableCell className="w-[80px] sm:w-[120px] md:w-[220px] px-2">
-                <div className="flex flex-col">
-                    <Input
-                        placeholder="SubTask name..."
-                        value={subTaskName}
-                        onChange={(e) => setSubTaskName(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                            if (e.key === "Escape") {
-                                onCancel();
-                            }
-                        }}
-                        autoFocus
-                        disabled={pending}
-                        className="h-8 border-primary/50 focus-visible:ring-primary"
-                    />
-                    {subTaskName.trim().length > 0 && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5 px-1">
-                            Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
-                        </p>
-                    )}
-                </div>
+            {/* Task Name */}
+            <TableCell className="px-2">
+                <Input
+                    placeholder="SubTask name..."
+                    value={subTaskName}
+                    onChange={(e) => setSubTaskName(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit(e);
+                        }
+                        if (e.key === "Escape") {
+                            onCancel();
+                        }
+                    }}
+                    autoFocus
+                    disabled={pending}
+                    className="h-8 w-full border-primary/50 focus-visible:ring-primary"
+                />
+                {subTaskName.trim().length > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 px-1 truncate">
+                        Slug: <span className="font-mono">{slugify(subTaskName.trim(), { lower: true, strict: true })}</span>
+                    </p>
+                )}
             </TableCell>
 
             {/* Description - Popover with Textarea */}
             {columnVisibility.description && (
-                <TableCell className="w-[200px] px-2">
+                <TableCell className="px-2">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -407,10 +407,10 @@ export function InlineSubTaskForm({
 
             {/* Assignee */}
             {columnVisibility.assignee && (
-                <TableCell className="w-[100px] max-w-[100px] px-2">
+                <TableCell className="px-2">
                     <Select value={assignee} onValueChange={setAssignee} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Select assignee..." className="truncate" />
+                            <SelectValue placeholder="Assignee" className="mx-auto truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {availableMembers
@@ -429,10 +429,10 @@ export function InlineSubTaskForm({
 
             {/* Reviewer */}
             {columnVisibility.reviewer && (
-                <TableCell className="w-[100px] max-w-[100px] px-2">
+                <TableCell className="px-2">
                     <Select value={reviewer} onValueChange={setReviewer} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
-                            <SelectValue placeholder="Select reviewer..." className="truncate" />
+                            <SelectValue placeholder="Reviewer" className="mx-auto truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {(reviewers || []).map((rev) => (
@@ -449,10 +449,10 @@ export function InlineSubTaskForm({
 
             {/* Status */}
             {columnVisibility.status && (
-                <TableCell className="w-[120px] max-w-[120px] px-2">
+                <TableCell className="px-2">
                     <Select value={status} onValueChange={(value) => setStatus(value as typeof SubTaskStatus[number])} disabled={pending}>
                         <SelectTrigger className="h-8 w-full">
-                            <SelectValue className="truncate" />
+                            <SelectValue className="mx-auto truncate" />
                         </SelectTrigger>
                         <SelectContent>
                             {STATUS_OPTIONS.map((option) => {
@@ -486,29 +486,31 @@ export function InlineSubTaskForm({
 
             {/* Start Date */}
             {columnVisibility.startDate && (
-                <TableCell className="w-[120px] px-2">
+                <TableCell className="px-2">
                     <DateTimePicker
                         value={startDate}
                         onChange={handleStartDateChange}
                         disabled={pending}
+                        className="justify-center"
                     />
                 </TableCell>
             )}
 
-            {/* Deadline */}
+            {/* Due Date */}
             {columnVisibility.dueDate && (
-                <TableCell className="w-[120px] px-2">
+                <TableCell className="px-2">
                     <DateTimePicker
                         value={dueDate}
                         onChange={handleDueDateChange}
                         disabled={pending}
+                        className="justify-center"
                     />
                 </TableCell>
             )}
 
-            {/* Days Column (Replaces Progress for better UX) */}
+            {/* Deadline column: days, which drives the due date */}
             {columnVisibility.progress && (
-                <TableCell className="w-[80px] px-2">
+                <TableCell className="px-2">
                     <Input
                         type="number"
                         min={1}
@@ -521,20 +523,23 @@ export function InlineSubTaskForm({
                             }
                         }}
                         disabled={pending}
-                        className="h-8 border-primary/30"
+                        className="h-8 w-full border-primary/30 text-center"
                         placeholder="Days"
+                        aria-label="Days"
                     />
                 </TableCell>
             )}
 
+            {/* Tag */}
             {columnVisibility.tag && (
-                <TableCell className="w-[160px] min-w-[160px] max-w-[160px] px-2">
+                <TableCell className="px-2">
                     <MultiSelectTags
                         options={localTags}
                         selected={tagIds}
                         onChange={setTagIds}
                         placeholder="Tags..."
-                        className="w-full"
+                        // Centre the chips/placeholder before the chevron, like the selects.
+                        className="w-full [&_[role=combobox]>div]:mx-auto"
                         workspaceId={workspaceId}
                         projectId={projectId}
                         onTagOptionAdded={(newTag) => setLocalTags(prev => [...prev, newTag])}
@@ -542,9 +547,10 @@ export function InlineSubTaskForm({
                 </TableCell>
             )}
 
-            <TableCell className="w-[80px] min-w-[80px] max-w-[80px] px-2">
-                <div className="flex items-center justify-center gap-0.5">
-                    {subTaskName.trim().length >= 3 && (
+            {/* Actions: the header gives this column 40px, so the buttons stack. */}
+            <TableCell className="px-0.5">
+                <div className="flex flex-col items-center gap-0.5">
+                    {subTaskName.trim().length > 0 && (
                         <Button
                             size="icon"
                             variant="ghost"
@@ -552,11 +558,12 @@ export function InlineSubTaskForm({
                             onClick={handleSubmit}
                             disabled={pending}
                             title="Save (Enter)"
+                            aria-label="Save"
                         >
                             {pending ? (
-                                <Loader2 className="size-3 animate-spin" />
+                                <Loader2 className="size-3.5 animate-spin" />
                             ) : (
-                                <Check className="size-3.5" />
+                                <Check className="size-4" />
                             )}
                         </Button>
                     )}
@@ -567,8 +574,9 @@ export function InlineSubTaskForm({
                         onClick={onCancel}
                         disabled={pending}
                         title="Cancel (Esc)"
+                        aria-label="Cancel"
                     >
-                        <X className="size-3.5" />
+                        <X className="size-4" />
                     </Button>
                 </div>
             </TableCell>

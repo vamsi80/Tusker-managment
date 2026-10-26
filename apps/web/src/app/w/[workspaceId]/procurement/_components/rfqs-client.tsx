@@ -171,6 +171,7 @@ export function RfqsClient({ workspaceId }: RfqsClientProps) {
         )}
       </div>
       <DataTable
+        fillViewport
         columns={rfqColumns}
         data={lineItems}
         searchKey="materialName"

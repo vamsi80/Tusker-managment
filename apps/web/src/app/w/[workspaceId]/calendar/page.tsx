@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { useWorkspaceLayout } from "../_components/workspace-layout-context";
+import { useFillViewport } from "@/hooks/use-fill-viewport";
 import { CalendarDashboard } from "@/components/calendar/calendar-dashboard";
 import { UpcomingMeetingAlert } from "@/components/calendar/upcoming-meeting-alert";
 import { TodayAgendaWidget } from "@/components/calendar/today-agenda-widget";
@@ -14,11 +16,14 @@ export default function CalendarPage() {
   const { openScheduleModal } = useMeetingStore();
 
   // The shell grows with its content, so flex-1 alone never capped this page and
-  // the whole document scrolled. 9rem = site header (77px) + shell padding (56px)
-  // with a little slack. Below lg the agenda stacks under the calendar, so the
+  // the whole document scrolled. useFillViewport sizes it to end where the
+  // screen does, the same bottom gap as every page; the lg:h calc is only the
+  // first-paint fallback. Below lg the agenda stacks under the calendar, so the
   // page scrolls there by design.
+  const pageRef = useRef<HTMLDivElement>(null);
+  useFillViewport(pageRef, { property: "height", minWidth: 1024 });
   return (
-    <div className="flex flex-1 min-h-0 flex-col gap-6 overflow-hidden lg:h-[calc(100svh-9rem)] animate-in fade-in duration-300">
+    <div ref={pageRef} className="flex flex-1 min-h-0 flex-col gap-5 overflow-hidden lg:h-[calc(100svh-9rem)] animate-in fade-in duration-300">
       <PageHeader
         className="shrink-0"
         title="Schedule & Meetings"
@@ -30,16 +35,18 @@ export default function CalendarPage() {
         }
       />
 
-      <div className="shrink-0">
+      {/* empty:hidden — with no upcoming meeting the alert renders nothing, and the
+          empty slot would otherwise add a second gap under the header. */}
+      <div className="shrink-0 empty:hidden">
         <UpcomingMeetingAlert />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-1 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-1 gap-5 flex-1 min-h-0">
         <div className="lg:col-span-8 xl:col-span-9 flex flex-col min-h-0 surface p-4 sm:p-5">
           <CalendarDashboard workspaceId={workspaceId} />
         </div>
 
-        <div className="lg:col-span-4 xl:col-span-3 flex flex-col min-h-0 surface p-4">
+        <div className="lg:col-span-4 xl:col-span-3 flex flex-col min-h-0 surface p-4 sm:p-5">
           <TodayAgendaWidget />
         </div>
       </div>

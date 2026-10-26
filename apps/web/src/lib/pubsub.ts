@@ -89,6 +89,13 @@ class RealtimeService {
       channel.bind("user-inactive", (data: any) => {
         this.publish(EVENTS.PRESENCE_UPDATE, { ...data, status: "inactive" });
       });
+
+      // 4. Bind to direct typing events
+      if (personalChannel) {
+        personalChannel.bind("typing", (data: any) => {
+          this.publish(EVENTS.TYPING, data);
+        });
+      }
     }
   }
 
@@ -149,4 +156,5 @@ export const EVENTS = {
   PRESENCE_UPDATE: "presence_update",
   CONVERSATION_UPDATE: "conversation_update",
   MEETING_UPDATE: "meeting_update",
+  TYPING: "typing",
 } as const;

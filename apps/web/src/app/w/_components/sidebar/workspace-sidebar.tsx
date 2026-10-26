@@ -69,6 +69,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     asChild
+                    variant="glass"
                     isActive={item.id === "dashboard" ? pathname === item.url : pathname.startsWith(item.url)}
                     tooltip={item.title}
                     disabled={router.isNavigating}

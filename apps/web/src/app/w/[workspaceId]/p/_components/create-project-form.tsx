@@ -167,7 +167,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
                     </DialogTrigger>
                 )}
                 {/* Make the dialog content scrollable when form grows */}
-                <DialogContent className="max-h-[98vh] w-[min(900px,95vw)] overflow-hidden">
+                <DialogContent className="max-h-[98dvh] w-[min(900px,95vw)] overflow-hidden">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-3">
                             Create New Project
@@ -180,7 +180,7 @@ export const CreateProjectForm = ({ members, workspaceId, isAdmin, canCreateProj
 
                     {/* The scrollable area. Keeps header/footer sticky if you want:
                         - header is above already; if you want sticky footer, wrap form and footer separately. */}
-                    <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[70vh] thin-scrollbar">
+                    <div className="mt-4 overflow-y-auto px-2 py-1 max-h-[calc(98dvh-9rem)] thin-scrollbar">
                         <Form {...form}>
                             <form
                                 onSubmit={form.handleSubmit(onSubmit, (errors) => {

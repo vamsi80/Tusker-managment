@@ -77,7 +77,7 @@ interface InlineAssigneePickerProps {
  * Renders a clickable "Unassigned" badge that opens a searchable member list
  * when canEdit=true, or a plain muted span when canEdit=false.
  *
- * Uses the existing `editSubTask` server action â€” only swaps the assignee
+ * Uses the existing `editSubTask` server action — only swaps the assignee
  * while preserving all other subtask fields.
  */
 export function InlineAssigneePicker({
@@ -218,7 +218,7 @@ export function InlineAssigneePicker({
                         )}
                         {(pending || displayInfo.isAssigned) && (
                             <span className="truncate max-w-[80px] sm:max-w-[120px]">
-                                {pending ? "Savingâ€¦" : displayInfo.name}
+                                {pending ? "Saving…" : displayInfo.name}
                             </span>
                         )}
                     </button>
@@ -231,7 +231,7 @@ export function InlineAssigneePicker({
                     onClick={(e) => e.stopPropagation()}
                 >
                     <Command>
-                        <CommandInput placeholder="Search memberâ€¦" className="h-8 text-xs" />
+                        <CommandInput placeholder="Search member…" className="h-8 text-xs" />
                         <CommandList>
                             <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
                                 No members found.
