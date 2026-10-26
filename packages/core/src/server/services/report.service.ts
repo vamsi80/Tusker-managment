@@ -1,5 +1,19 @@
 import prisma from "@tusker/db";
 
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/** UTC midnight for a "yyyy-MM-dd" or "d MMM yyyy" day; today (UTC) when absent or unparseable. */
+function reportDay(value?: string): Date {
+  const iso = value?.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return new Date(Date.UTC(+iso[1], +iso[2] - 1, +iso[3]));
+  const dmy = value?.trim().match(/^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\s+(\d{4})$/);
+  const month = dmy ? MONTHS.indexOf(dmy[2].toLowerCase()) : -1;
+  if (dmy && month >= 0) return new Date(Date.UTC(+dmy[3], month, +dmy[1]));
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today;
+}
+
 export class ReportService {
   /**
    * Load paginated daily reports with filters
@@ -252,9 +266,10 @@ export class ReportService {
   }) {
     const { workspaceId, entries, date: clientDate } = data;
 
-    // Use UTC midnight for the provided client date
-    const startOfDay = clientDate ? new Date(`${clientDate}T00:00:00Z`) : new Date();
-    if (!clientDate) startOfDay.setUTCHours(0, 0, 0, 0);
+    // UTC midnight of the client's calendar day. Accepts "yyyy-MM-dd" and the web
+    // form's "d MMM yyyy" — the latter used to become `21 Oct 2026T00:00:00Z`,
+    // an Invalid Date that failed every submission.
+    const startOfDay = reportDay(clientDate);
 
     const result = await prisma.$transaction(async (tx: any) => {
       let report = await tx.dailyReport.findUnique({

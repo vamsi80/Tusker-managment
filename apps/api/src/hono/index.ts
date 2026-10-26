@@ -37,6 +37,7 @@ import { authMiddleware } from "./middleware/auth";
 import { requireCapability } from "./middleware/capability";
 import { AppError } from "@tusker/core/lib/errors/app-error";
 import meetings from "./routes/meetings";
+import workspaceAdmin from "./routes/workspace-admin";
 import { HTTPException } from "hono/http-exception";
 
 /**
@@ -217,6 +218,10 @@ app.route("/presence", presence);
 
 // Meetings & Calendar API
 app.route("/meetings", meetings);
+
+// Departments, permissions grid, activity log and attendance settings for
+// clients that cannot call the web's Server Actions (the native app).
+app.route("/workspace-admin", workspaceAdmin);
 
 // Procurement APIs
 // Settings -> Permissions gate. Mounted on the routers so a handler that resolves
