@@ -90,3 +90,4 @@ next-env.d.ts
 
 # database backups (contain live data)
 backups/
+.redesign-backup/

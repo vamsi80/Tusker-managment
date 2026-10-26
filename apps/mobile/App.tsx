@@ -1,70 +1,62 @@
-import React, { useCallback, useEffect } from 'react';
-import { View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as SplashScreen from 'expo-splash-screen';
-import {
-  useFonts,
-  PlusJakartaSans_300Light,
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-} from '@expo-google-fonts/plus-jakarta-sans';
-import { ThemeProvider } from './src/context/ThemeContext';
-import { WorkspaceProvider } from './src/context/WorkspaceContext';
-import { NotificationProvider } from './src/context/NotificationContext';
-import { ToastProvider } from './src/context/ToastContext';
-import { initHaptics } from './src/services/haptics';
-import AppNavigator from './src/navigation/AppNavigator';
-import ErrorBoundary from './src/components/ErrorBoundary';
+import "react-native-gesture-handler";
+import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { ThemeProvider, useTheme } from "./src/theme/ThemeProvider";
+import { AuthProvider } from "./src/providers/AuthProvider";
+import { WorkspaceProvider } from "./src/providers/WorkspaceProvider";
+import { PushNotifications } from "./src/providers/PushNotifications";
+import { RootNavigator } from "./src/navigation/RootNavigator";
+import { queryClient, queryPersister } from "./src/lib/query";
+import { Toaster } from "./src/lib/toast";
+import { DialogHost } from "./src/components/ui/Dialog";
 
-// Hold the splash screen until Plus Jakarta Sans is ready, so the UI never
-// flashes in the system font first.
-SplashScreen.preventAutoHideAsync().catch(() => {
-  /* already hidden — safe to ignore */
-});
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function ThemedApp() {
+    const { scheme } = useTheme();
+    return (
+        <>
+            <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+            <AuthProvider>
+                <WorkspaceProvider>
+                    <PushNotifications />
+                    <RootNavigator />
+                    <DialogHost />
+                    <Toaster />
+                </WorkspaceProvider>
+            </AuthProvider>
+        </>
+    );
+}
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({
-    PlusJakartaSans_300Light,
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    PlusJakartaSans_800ExtraBold,
-  });
+    const [fontsLoaded] = useFonts({
+        Inter_400Regular,
+        Inter_500Medium,
+        Inter_600SemiBold,
+        Inter_700Bold,
+        // drava headings: Archivo Expanded (stand-in for Aktiv Grotesk Extended). Keys match theme/tokens `fonts`.
+        "ArchivoExpanded-Regular": require("./assets/fonts/ArchivoExpanded-Regular.ttf"),
+        "ArchivoExpanded-Medium": require("./assets/fonts/ArchivoExpanded-Medium.ttf"),
+        "ArchivoExpanded-SemiBold": require("./assets/fonts/ArchivoExpanded-SemiBold.ttf"),
+        "ArchivoExpanded-Bold": require("./assets/fonts/ArchivoExpanded-Bold.ttf"),
+    });
 
-  useEffect(() => {
-    // Hydrate the persisted "haptics enabled" preference once at startup.
-    initHaptics();
-  }, []);
+    if (!fontsLoaded) return null;
 
-  const onLayoutRootView = useCallback(() => {
-    // Font failure is not fatal — fall through to the system font rather than
-    // leaving the user stuck on the splash screen.
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync().catch(() => { });
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) return null;
-
-  return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <ErrorBoundary>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <ToastProvider>
-            <WorkspaceProvider>
-              <NotificationProvider>
-                <AppNavigator />
-              </NotificationProvider>
-            </WorkspaceProvider>
-          </ToastProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-      </ErrorBoundary>
-    </View>
-  );
+    return (
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+                <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: queryPersister, maxAge: 24 * 60 * 60 * 1000 }}>
+                    <ThemeProvider>
+                        <ThemedApp />
+                    </ThemeProvider>
+                </PersistQueryClientProvider>
+            </SafeAreaProvider>
+        </GestureHandlerRootView>
+    );
 }

@@ -1,0 +1,127 @@
+/**
+ * Purchase order maths and the two buying entities — a copy of
+ * packages/core/src/lib/procurement/purchase-order.ts, so the preview the app
+ * shows is computed exactly like the figure the API saves. All money is paise.
+ */
+
+export type CompanyCode = "WT" | "PL";
+
+export type BuyerCompany = {
+    code: CompanyCode;
+    name: string;
+    brand?: string;
+    addressLines: string[];
+    phone: string;
+    email: string;
+    gstNumber: string;
+    msmeNumber?: string;
+};
+
+export const BUYER_COMPANIES: Record<CompanyCode, BuyerCompany> = {
+    WT: {
+        code: "WT",
+        name: "White Tusker Private Limited",
+        addressLines: ["#1331, 10th Main, 13th Cross,", "Eshwara Layout, Indiranagar,", "Bangalore - 560038"],
+        phone: "+91 99001 10689",
+        email: "accounts@thewhitetusker.com",
+        gstNumber: "29AAECW4792Q1Z8",
+    },
+    PL: {
+        code: "PL",
+        name: "Palm Length LLP",
+        brand: "Lattice Lane",
+        addressLines: ["#1331, 10th Main, 13th Cross,", "Eshwara Layout, Indiranagar,", "Bangalore - 560038"],
+        phone: "+91 81975 44505",
+        email: "info@latticelane.com",
+        gstNumber: "29ABBFP2006K1ZB",
+        msmeNumber: "KR-03-0133083",
+    },
+};
+
+export const buyerLabel = (code: CompanyCode) => BUYER_COMPANIES[code].brand ?? BUYER_COMPANIES[code].name;
+
+export const PO_CREATOR_EMAIL = "accounts@thewhitetusker.com";
+
+export const canCreatePurchaseOrder = (email?: string | null, workspaceRole?: string | null) =>
+    workspaceRole === "OWNER" || email?.trim().toLowerCase() === PO_CREATOR_EMAIL;
+
+export type PoItemInput = { quantity: number; rate: number; taxPercent: number };
+export type PoCharges = {
+    transportCharge?: number | null;
+    labourCharge?: number | null;
+    exciseDutyPercent?: number | null;
+    vatPercent?: number | null;
+};
+
+export function poTotals<T extends PoItemInput>(items: T[], intraState: boolean, charges: PoCharges = {}) {
+    const lines = items.map((item) => ({ ...item, amount: item.quantity * item.rate }));
+    const subtotal = lines.reduce((total, line) => total + line.amount, 0);
+
+    const pct = (value?: number | null) => (Number(value) > 0 ? Number(value) : 0);
+    const flat = (value?: number | null) => (Number(value) > 0 ? Math.round(Number(value)) : 0);
+
+    const exciseDuty = Math.round((subtotal * pct(charges.exciseDutyPercent)) / 100);
+    const vat = Math.round((subtotal * pct(charges.vatPercent)) / 100);
+    const transportCharge = flat(charges.transportCharge);
+    const labourCharge = flat(charges.labourCharge);
+
+    const chargeRows = [
+        { label: `Excise Duty @ ${pct(charges.exciseDutyPercent)}%`, value: exciseDuty },
+        { label: `VAT @ ${pct(charges.vatPercent)}%`, value: vat },
+        { label: "Transportation", value: transportCharge },
+        { label: "Labour", value: labourCharge },
+    ].filter((row) => row.value > 0);
+
+    const chargeTotal = exciseDuty + vat + transportCharge + labourCharge;
+
+    const baseByRate = new Map<number, number>();
+    for (const line of lines) {
+        if (line.taxPercent > 0) baseByRate.set(line.taxPercent, (baseByRate.get(line.taxPercent) ?? 0) + line.amount);
+    }
+
+    const taxRows = [...baseByRate.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([percent, base]) => ({
+            percent,
+            amount: Math.round((base * percent) / 100),
+            half: Math.round((base * percent) / 200),
+        }));
+
+    const cgst = intraState ? taxRows.reduce((total, row) => total + row.half, 0) : 0;
+    const igst = intraState ? 0 : taxRows.reduce((total, row) => total + row.amount, 0);
+    const exact = subtotal + chargeTotal + cgst * 2 + igst;
+    const grandTotal = Math.round(exact / 100) * 100;
+
+    return { lines, subtotal, exciseDuty, vat, transportCharge, labourCharge, chargeRows, chargeTotal, taxRows, cgst, sgst: cgst, igst, roundOff: grandTotal - exact, grandTotal };
+}
+
+export const isIntraState = (buyerGstin: string, vendorGstin?: string | null) =>
+    !vendorGstin?.trim() || vendorGstin.slice(0, 2) === buyerGstin.slice(0, 2);
+
+const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+const words = (n: number): string => {
+    if (n < 20) return ONES[n];
+    if (n < 100) return `${TENS[Math.floor(n / 10)]}${n % 10 ? ` ${ONES[n % 10]}` : ""}`;
+    const [divisor, label] =
+        n < 1_000 ? [100, "Hundred"] : n < 100_000 ? [1_000, "Thousand"] : n < 10_000_000 ? [100_000, "Lakh"] : [10_000_000, "Crore"];
+    const rest = n % (divisor as number);
+    return `${words(Math.floor(n / (divisor as number)))} ${label}${rest ? ` ${words(rest)}` : ""}`;
+};
+
+export const rupeesInWords = (paise: number) => `Rupees ${words(Math.round(paise / 100)) || "Zero"} Only`;
+
+export const PO_TERMS = [
+    "Payment terms: Credit Period - 21 days from invoice date.",
+    "Spec Non-Compliance: Any goods deviating from the approved specifications/samples will be rejected outright; Vendor must replace them at their own cost.",
+    "Quality Guarantee: Any defects or quality issues discovered after delivery or during installation must be rectified or replaced by the Vendor immediately at no extra cost to the Buyer.",
+    "Transit Damage: The Vendor is 100% liable for damages during transport; all damaged items must be replaced with new units at the Vendor's expense (including freight).",
+    "Right to Offset: The Buyer reserves the right to deduct any accrued penalties or replacement costs directly from the Vendor's pending invoices.",
+    "GST amount will be paid only after GSTR-1 is filed and the invoice reflects in GSTR-2B.",
+];
+
+export const companyAddress = (code: CompanyCode) => {
+    const buyer = BUYER_COMPANIES[code];
+    return [buyer.name, ...buyer.addressLines].join("\n");
+};

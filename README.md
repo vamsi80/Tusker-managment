@@ -182,7 +182,7 @@ An LLM with database write access and no idempotency layer is an outage waiting 
 | Monorepo | pnpm workspaces — `apps/web`, `apps/api`, `apps/mobile`, `packages/{core,db,api-client}` |
 | Web | Next.js 15 App Router, React 19, Tailwind, shadcn/ui, Zustand, TanStack Table + Virtual |
 | API | Hono 4 on Node, `@hono/zod-validator`, 31 route modules |
-| Mobile | Expo / React Native, React Navigation, Reanimated, custom Gantt and radial menu |
+| Mobile | Expo / React Native, React Navigation, TanStack Query, Reanimated, custom Gantt and Kanban |
 | Shared domain | `@tusker/core` — services, permissions, Zod schemas, notifications, Travis |
 | Database | PostgreSQL + Prisma, 49 models, 35+ committed migrations |
 | Auth | Better Auth (Google, GitHub, email), sessions shared across all three clients |
@@ -226,10 +226,9 @@ Individually: `pnpm dev:web`, `pnpm dev:api`, `pnpm db:studio`.
 ```bash
 pnpm mobile:install
 pnpm mobile          # dev client
-pnpm mobile:go       # Expo Go
 ```
 
-Point it at the API with `EXPO_PUBLIC_API_URL` in `apps/mobile/.env`.
+Point it at the API with `EXPO_PUBLIC_API_BASE` in `apps/mobile/.env`.
 
 ### Environment
 

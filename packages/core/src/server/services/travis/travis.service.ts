@@ -121,7 +121,7 @@ async function callTravisBrain(
 // ─── Fallback: direct Gemini system prompt (used when no brain URL is set) ───
 
 function buildFallbackSystemPrompt(ctx: TravisContext): string {
-    return `You are Travis, a professional assistant inside Trava, a project & team management app.
+    return `You are Travis, a professional assistant inside Drava, a project & team management app.
 
 RULES:
 - Answer ONLY from data returned by your tools. Never invent projects, tasks, people, numbers, or ids. If a tool returns nothing, say so plainly.

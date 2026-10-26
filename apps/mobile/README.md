@@ -1,54 +1,70 @@
-# Trava-App — Mobile (Expo)
+# Tusker app
 
-> Part of the [Trava-App monorepo](../../README.md). Install deps from the repo
-> root with `pnpm install`, then run `pnpm dev:mobile` (or
-> `pnpm --filter @trava/mobile start`). Copy `.env.example` to `.env` first.
+The native iOS/Android version of the Tusker website: React Native screens
+(Expo SDK 54) built from the pages in `apps/web`. They call the same `/api/v1`
+routes the website does. The app is outside the pnpm workspace, like `apps/mobile`.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
-
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run
 
 ```bash
-npm run reset-project
+pnpm app:install                 # from the repo root
+cp apps/tusker-app/.env.example apps/tusker-app/.env
+pnpm app                         # press "a" for the Android emulator, or scan the QR code with Expo Go
+pnpm app:typecheck
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+`EXPO_PUBLIC_API_BASE` is the origin that serves `/api/v1` (the Vercel deployment).
+To use a local API from the Android emulator, set it to `http://10.0.2.2:4000`.
 
-## Learn more
+If keys stop registering in Expo Go and a "New update available, downloading…"
+banner stays at the bottom, the reload has stalled. Press `r` in Metro or reopen
+the app.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Layout
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+| Folder | What's in it |
+|---|---|
+| `src/api` | One module per API area (`tasks`, `projects`, `people`, `procurement`, `comms`, …). `client.ts` adds `/api/v1`, the Bearer token and error handling. |
+| `src/providers` | `AuthProvider` (session token in SecureStore), `WorkspaceProvider` (the `/workspaces/:id/layout` payload, roles, `can()`, realtime), `PushNotifications`. |
+| `src/navigation` | Auth stack → bottom tabs (Home, Tasks, Create, Inbox, More; `TabBar.tsx`) + stack screens for every other page. `types.ts` maps each route to its web page. |
+| `src/screens/<area>` | One folder per web section: dashboard, calendar, team, tasks, messages, procurement, vendors, settings, projects, myspace, reports, notifications, profile, travis, auth. |
+| `src/components/ui` | The shadcn kit as native components (Button, Input, Sheet, Select, Tabs, Dialog, …). |
+| `src/components/<area>` | Pieces shared by an area's screens (task views, team tabs, report sheet, Travis messages, …). |
+| `src/lib` | Formatting, query client + keys, realtime (Pusher over WebSocket), toast, and business rules ported from `packages/core` (task transitions, GST/PO maths, GSTIN). |
+| `src/theme` | Tokens taken from `apps/web/src/app/globals.css`, light and dark. |
 
-## Join the community
+Cached query data is kept in AsyncStorage, so screens open instantly and
+refresh in the background.
 
-Join our community of developers creating universal apps.
+## Backend dependency
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Settings (departments, permissions, activity log) and the Team settings tab use
+the `/workspace-admin` routes in `apps/api/src/hono/routes/workspace-admin.ts`.
+Deploy the API before shipping the app.
+
+## Before the first build
+
+1. `cd apps/tusker-app && npx eas-cli init` creates the EAS project and writes
+   its id. Push notifications stay off until it exists. Expo Go can't receive
+   remote push on Android, so the app skips push setup there.
+2. Android push: in Firebase, add an Android app with package
+   `com.thewhitetusker.tusker`. Put its `google-services.json` in this folder, and
+   upload the FCM key in EAS (`eas credentials`).
+3. Replace `assets/icon.png`, `assets/adaptive-icon.png` and `assets/splash-icon.png`
+   if the artwork should change.
+
+## Build
+
+```bash
+pnpm app:build                                                     # Android .aab for the Play Store
+cd apps/tusker-app && npx eas-cli build -p android --profile apk   # installable .apk
+cd apps/tusker-app && npx eas-cli build -p ios --profile production
+```
+
+## Known limits
+
+- **Sign-in** is email/password and invitation sign-up only.
+- **Avatar upload**: the profile screen edits name, nickname and phone. There's
+  no upload route for profile photos yet.
+- **To-do reordering** happens through a long-press menu (move up, down or to
+  top), not drag and drop.
