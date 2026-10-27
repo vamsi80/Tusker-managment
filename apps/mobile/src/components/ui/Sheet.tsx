@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, KeyboardAvoidingView, Modal, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Animated, Modal, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius } from "../../theme/tokens";
 import { Text } from "./Text";
 import { Toaster } from "../../lib/toast";
+import { KeyboardInset } from "./KeyboardInset";
 
 export type SheetProps = {
     open: boolean;
@@ -64,7 +65,7 @@ export function Sheet({ open, onClose, title, description, children, footer, max
 
     return (
         <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-            <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+            <KeyboardInset style={{ flex: 1 }}>
                 <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay, opacity: backdrop }]}>
                     <Pressable style={{ flex: 1 }} onPress={onClose} />
                 </Animated.View>
@@ -77,8 +78,10 @@ export function Sheet({ open, onClose, title, description, children, footer, max
                                 backgroundColor: colors.popover,
                                 borderColor: colors.border,
                                 borderTopWidth: scheme === "dark" ? 1 : 0,
-                                maxHeight: height * maxHeight,
-                                height: fullHeight ? height * maxHeight : undefined,
+                                // A share of the space left above the keyboard, not of the
+                                // whole window, so the header never slides off the top.
+                                maxHeight: `${maxHeight * 100}%`,
+                                height: fullHeight ? `${maxHeight * 100}%` : undefined,
                                 paddingBottom: Math.max(insets.bottom, 12),
                                 transform: [{ translateY: translate }],
                             },
@@ -114,7 +117,7 @@ export function Sheet({ open, onClose, title, description, children, footer, max
                         {footer ? <View style={[styles.footer, { borderTopColor: colors.border }]}>{footer}</View> : null}
                     </Animated.View>
                 </View>
-            </KeyboardAvoidingView>
+            </KeyboardInset>
             <Toaster />
         </Modal>
     );

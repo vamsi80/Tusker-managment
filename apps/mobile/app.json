@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.thewhitetusker.trava",
-      "versionCode": 22,
+      "versionCode": 23,
       "adaptiveIcon": {
         "backgroundColor": "#393B3D",
         "foregroundImage": "./assets/adaptive-icon.png"
@@ -40,6 +40,15 @@
           "backgroundColor": "#393B3D",
           "dark": {
             "backgroundColor": "#393B3D"
+          },
+          "android": {
+            "image": "./assets/splash-icon-android.png",
+            "imageWidth": 288,
+            "backgroundColor": "#393B3D",
+            "dark": {
+              "image": "./assets/splash-icon-android.png",
+              "backgroundColor": "#393B3D"
+            }
           }
         }
       ],

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, KeyboardAvoidingView, Modal, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Modal, Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius } from "../../theme/tokens";
 import { Text } from "./Text";
 import { Toaster } from "../../lib/toast";
 import { Button } from "./Button";
 import { Input } from "./Input";
+import { KeyboardInset } from "./KeyboardInset";
 
 /**
  * Imperative confirm / prompt dialogs — the web uses window.confirm,
@@ -75,7 +76,7 @@ export function DialogHost() {
 
     return (
         <Modal visible transparent animationType="none" onRequestClose={() => close(false)} statusBarTranslucent>
-            <KeyboardAvoidingView behavior="padding" style={styles.center}>
+            <KeyboardInset style={styles.center}>
                 <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay, opacity }]}>
                     <Pressable style={{ flex: 1 }} onPress={() => close(false)} />
                 </Animated.View>
@@ -107,7 +108,7 @@ export function DialogHost() {
                         />
                     </View>
                 </Animated.View>
-            </KeyboardAvoidingView>
+            </KeyboardInset>
             <Toaster />
         </Modal>
     );
