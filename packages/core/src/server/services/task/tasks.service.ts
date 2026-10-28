@@ -4,7 +4,7 @@ import { AppError } from "../../../lib/errors/app-error";
 import { attachmentKeyPrefix } from "../../../lib/attachments";
 import { getTaskInvolvedUserIds } from "../../../lib/involved-users";
 import { resolveProjectMemberId } from "../../../lib/auth/resolve-member-chain";
-import { parseIST } from "../../../lib/date-utils";
+import { getISTDateOnly, parseIST } from "../../../lib/date-utils";
 import { logger } from "../../../lib/logger";
 import {
   getTaskSelect,
@@ -24,6 +24,7 @@ import { TaskRepository } from "./task.repository";
 import { PointsService } from "../points/points.service";
 import { TaskMapper } from "./task.mapper";
 import { TaskEvents } from "./task.events";
+import { planBulkSync, type ExistingTask } from "./bulk-sync";
 
 import { TaskStatus, CreateTaskParams, CreateSubTaskParams } from "../../../types/task";
 import {
@@ -111,13 +112,70 @@ export class TasksService {
     return flattenedTask;
   }
 
+  /** Every task in the project, in the shape bulk sync diffs against. */
+  private static async loadBulkTasks(projectId: string): Promise<ExistingTask[]> {
+    const email = { select: { workspaceMember: { select: { user: { select: { email: true } } } } } };
+    const rows = await prisma.task.findMany({
+      where: { projectId },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true, name: true, parentTaskId: true, description: true, status: true,
+        startDate: true, days: true, createdAt: true, updatedAt: true,
+        assignee: email,
+        reviewer: email,
+        tags: { select: { name: true }, orderBy: { name: "asc" } },
+      },
+    });
+    return rows.map(({ assignee, reviewer, tags, ...t }) => ({
+      ...t,
+      assigneeEmail: assignee?.workspaceMember?.user?.email ?? null,
+      reviewerEmail: reviewer?.workspaceMember?.user?.email ?? null,
+      tagNames: tags.map((tag) => tag.name),
+    }));
+  }
+
+  /**
+   * Current tasks as bulk-sheet rows: each parent followed by its subtasks.
+   * Dates are IST calendar days ("yyyy-MM-dd"); exportedAt goes back in on re-upload.
+   */
+  static async exportProjectTasks(projectId: string) {
+    const all = await this.loadBulkTasks(projectId);
+    const day = (d: Date | null) => (d ? getISTDateOnly(d).toISOString().slice(0, 10) : null);
+    const rows = [];
+    for (const p of all.filter((t) => !t.parentTaskId)) {
+      rows.push({ id: p.id, taskName: p.name, description: p.description, tags: p.tagNames });
+      for (const s of all.filter((t) => t.parentTaskId === p.id)) {
+        rows.push({
+          id: s.id,
+          taskName: p.name,
+          subtaskName: s.name,
+          description: s.description,
+          assigneeEmail: s.assigneeEmail,
+          reviewerEmail: s.reviewerEmail,
+          startDate: day(s.startDate),
+          days: s.days,
+          status: s.status,
+          tags: s.tagNames,
+        });
+      }
+    }
+    return { rows, exportedAt: new Date().toISOString() };
+  }
+
   static async bulkUploadTasksAndSubtasks({
     projectId,
     tasks,
     userId,
+    sync,
+    dryRun,
   }: {
     projectId: string;
+    /** Set for sheets produced by exportProjectTasks: enables deletes. */
+    sync?: { exportedAt: string };
+    /** Validate and count what would change, without writing. */
+    dryRun?: boolean;
     tasks: Array<{
+      id?: string;
       taskName: string;
       subtaskName?: string;
       description?: string;
@@ -220,8 +278,27 @@ export class TasksService {
       throw AppError.ValidationError(`Invalid days value found in the following rows:\n${invalidDays.join('\n')}`);
     }
 
+    const workspaceTags = await TaskRepository.findWorkspaceTags(project.workspaceId);
+    const tagMap = new Map<string, (typeof workspaceTags)[number]>(
+      workspaceTags.map(t => [t.name.toUpperCase(), t])
+    );
+
+    // Rows carrying IDs come from an exported sheet: diff them against the project.
+    // A plain template upload (no IDs, no sync) keeps the create-only behaviour.
+    const exportedAt = sync?.exportedAt ? new Date(sync.exportedAt) : undefined;
+    if (exportedAt && isNaN(exportedAt.getTime())) throw AppError.ValidationError("Invalid export timestamp in file.");
+    const plan = exportedAt || tasks.some(t => t.id)
+      ? planBulkSync({
+        rows: tasks,
+        existing: await this.loadBulkTasks(projectId),
+        knownTags: new Set(tagMap.keys()),
+        exportedAt,
+      })
+      : null;
+    if (plan?.invalid.length) throw AppError.ValidationError(plan.invalid.join('\n'));
+
     const taskGroups = new Map<string, typeof tasks>();
-    for (const task of tasks) {
+    for (const task of plan ? plan.newRows : tasks) {
       if (!task.taskName?.trim()) continue;
       const normalizedTaskName = task.taskName.trim().replace(/\s+/g, ' ');
       const existing = taskGroups.get(normalizedTaskName) || [];
@@ -235,6 +312,24 @@ export class TasksService {
         row.status?.trim() || (row.tags && row.tags.length > 0)
       );
       if (!hasValidRow) taskGroups.delete(taskName);
+    }
+
+    if (dryRun) {
+      const newGroupRows = Array.from(taskGroups.values()).flat();
+      return {
+        success: true,
+        message: "Preview",
+        data: [],
+        workspaceId: project.workspaceId,
+        summary: {
+          created: taskGroups.size + newGroupRows.filter(r => r.subtaskName).length + (plan?.attaches.length ?? 0),
+          updated: plan?.updates.length ?? 0,
+          deleted: plan?.deletes.length ?? 0,
+          unchanged: plan?.unchanged ?? 0,
+          deletedNames: plan?.deletes.map(d => d.name) ?? [],
+          errors: plan?.notes ?? [],
+        },
+      };
     }
 
     const createdItems: any[] = [];
@@ -256,11 +351,6 @@ export class TasksService {
     const allSubtaskSlugs = allSubtaskNames.length > 0
       ? await generateUniqueSlugs(allSubtaskNames, 'task', undefined, taskSlugs)
       : [];
-
-    const workspaceTags = await TaskRepository.findWorkspaceTags(project.workspaceId);
-    const tagMap = new Map<string, (typeof workspaceTags)[number]>(
-      workspaceTags.map(t => [t.name.toUpperCase(), t])
-    );
 
     const lastParentTask = await TaskRepository.findLastParentPosition(projectId);
 
@@ -394,13 +484,92 @@ export class TasksService {
       throw new Error(`Failed to upload tasks: ${err.message || 'Unknown'}`);
     }
 
+    // Sync writes go through the same single-task methods the app uses, so
+    // permissions, workflow rules, points and notifications all apply per row.
+    // ponytail: not one transaction — a failing row is reported and the rest still
+    // apply; the client's dry-run confirm is the guard in front of it.
+    const failed: string[] = [];
+    let updated = 0, deleted = 0;
+    if (plan) {
+      // An admin auto-joined above has no projectMember on the old snapshot.
+      const syncPermissions = permissions.projectMember
+        ? permissions
+        : await fetchUserPermissions(project.workspaceId, projectId, userId);
+      const emailToUserId = new Map(projectMembers
+        .filter(pm => pm.workspaceMember?.user?.email)
+        .map(pm => [pm.workspaceMember.user.email.toLowerCase(), pm.workspaceMember.user.id]));
+      const userIdFor = (email: string | null | undefined) =>
+        email === undefined ? undefined : email ? emailToUserId.get(email.trim().toLowerCase()) ?? null : null;
+      const tagIdsFor = (names: string[] | undefined) =>
+        names?.map(n => tagMap.get(n.trim().toUpperCase())?.id).filter((id): id is string => !!id);
+      const ctx = { workspaceId: project.workspaceId, projectId, userId, permissions: syncPermissions };
+
+      for (const u of plan.updates) {
+        const p = u.patch;
+        try {
+          await this.updateTask({
+            ...ctx,
+            taskId: u.id,
+            data: {
+              name: p.name,
+              description: p.description,
+              status: p.status as TaskStatus | undefined,
+              startDate: p.startDate,
+              days: p.days as number | undefined,
+              dueDate: p.dueDate,
+              assigneeUserId: userIdFor(p.assigneeEmail),
+              reviewerUserId: userIdFor(p.reviewerEmail),
+              tagIds: tagIdsFor(p.tagNames),
+            },
+          });
+          updated++;
+        } catch (err: any) {
+          failed.push(`Row ${u.rowNum} (${u.label}): ${err.message || "update failed"}`);
+        }
+      }
+
+      for (const a of plan.attaches) {
+        const r = a.row;
+        const start = parseIST(r.startDate);
+        try {
+          const sub = await this.createSubTask({
+            ...ctx,
+            parentTaskId: a.parentTaskId,
+            name: r.subtaskName!.trim(),
+            description: r.description,
+            assigneeUserId: userIdFor(r.assigneeEmail),
+            reviewerUserId: userIdFor(r.reviewerEmail),
+            tagIds: tagIdsFor(r.tags),
+            startDate: start?.toISOString(),
+            dueDate: calculateDueDate(start ?? undefined, r.days)?.toISOString(),
+            days: r.days,
+            status: (r.status?.trim().toUpperCase() || "TO_DO") as TaskStatus,
+          });
+          createdItems.push(sub.id);
+        } catch (err: any) {
+          failed.push(`Row ${a.rowNum} (${r.subtaskName}): ${err.message || "create failed"}`);
+        }
+      }
+
+      for (const d of plan.deletes) {
+        try {
+          await this.deleteTask({ ...ctx, taskId: d.id });
+          deleted++;
+        } catch (err: any) {
+          failed.push(`Delete "${d.name}": ${err.message || "delete failed"}`);
+        }
+      }
+    }
+
     const fullTasks = await TaskRepository.findFullTasksByIds(createdItems);
 
     const taskCount = fullTasks.filter(i => i.isParent).length;
     const subtaskCount = fullTasks.filter(i => !i.isParent).length;
 
-    let message = `Successfully created ${taskCount} task${taskCount !== 1 ? 's' : ''}`;
-    if (subtaskCount > 0) message += ` and ${subtaskCount} subtask${subtaskCount !== 1 ? 's' : ''}`;
+    const plural = (n: number, word: string) => `${n} ${word}${n !== 1 ? 's' : ''}`;
+    let message = `Successfully created ${plural(taskCount, 'task')}`;
+    if (subtaskCount > 0) message += ` and ${plural(subtaskCount, 'subtask')}`;
+    if (plan) message += `, updated ${updated}, deleted ${deleted}`;
 
     const result = { tasks: fullTasks.map(t => TaskMapper.toFlatMetadata(t)) };
     TaskMapper.stripParentMetadata(result);
@@ -410,6 +579,16 @@ export class TasksService {
       message,
       data: result.tasks,
       workspaceId: project.workspaceId,
+      summary: plan
+        ? {
+          created: taskCount + subtaskCount,
+          updated,
+          deleted,
+          unchanged: plan.unchanged,
+          deletedNames: [],
+          errors: [...plan.notes, ...failed],
+        }
+        : undefined,
     };
   }
 

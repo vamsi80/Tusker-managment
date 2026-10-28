@@ -10,7 +10,6 @@ import { tryCatch } from "@/hooks/try-catch";
 import { useConfetti } from "@/hooks/use-confetti";
 import { toast } from "@/lib/toast";
 import { useTaskContext } from "@/app/w/[workspaceId]/_components/shared/task-context";
-import { ApiResponse } from "@/lib/types";
 
 import { useDropzone, FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
@@ -28,6 +27,8 @@ interface BulkUploadFormProps {
 }
 
 interface ParsedTask {
+    /** Set on rows from an exported sheet; such rows update the existing task. */
+    id?: string;
     taskName: string;
     subtaskName?: string;
     description?: string;
@@ -50,6 +51,8 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     const [view, setView] = useState<"upload" | "preview">("upload");
     const [isProcessing, setIsProcessing] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedTask[]>([]);
+    // From the hidden DataLists sheet of an exported file; only then do missing rows delete.
+    const [exportedAt, setExportedAt] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
 
 
@@ -60,7 +63,23 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
     }, [open, revalidate]);
 
 
-    const downloadTemplate = async () => {
+    const memberLabel = (m: any) => m.user.surname ? `${m.user.email} (${m.user.surname})` : m.user.email;
+    const reviewerLabel = (m: any) => {
+        const role = m.projectRole ? ` [${m.projectRole.replace('_', ' ')}]` : "";
+        return m.user.surname ? `${m.user.email} (${m.user.surname}${role})` : `${m.user.email}${role}`;
+    };
+
+    const saveWorkbook = async (workbook: any, fileName: string) => {
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        link.click();
+    };
+
+    /** Template and export share one layout; the export adds row IDs and its timestamp. */
+    const buildWorkbook = async (dataRows: any[][], exportStamp?: string) => {
         const ExcelJS = await import("exceljs");
         const workbook = new ExcelJS.Workbook();
 
@@ -80,7 +99,8 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
             { header: 'Tag 1', key: 'tag1', width: 15 },
             { header: 'Tag 2', key: 'tag2', width: 15 },
             { header: 'Tag 3', key: 'tag3', width: 15 },
-            { header: 'Tag 4', key: 'tag4', width: 15 }
+            { header: 'Tag 4', key: 'tag4', width: 15 },
+            { header: 'ID (do not edit, blank for new rows)', key: 'id', width: 38 }
         ];
 
         // Style the header row (Row 1)
@@ -94,16 +114,10 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
             };
             cell.alignment = { horizontal: 'center' };
         });
+        worksheet.getCell('M1').font = { bold: true, color: { argb: 'FF9CA3AF' } };
+        worksheet.getColumn(13).font = { color: { argb: 'FF9CA3AF' } };
 
-        // Add Example Rows matching the instructions
-        const exampleRows = [
-            ["Design Homepage", "", "", "", "", "", "", "", "", ""],
-            ["Design Homepage", "Create wireframe", "Design wireframe mockup", "john@example.com", "admin@example.com", "15 Apr 2026", 3, "COMPLETED", "DESIGN", ""],
-            ["Design Homepage", "Design components", "Create reusable UI components", "jane@example.com", "", "18 Apr 2026", 4, "IN_PROGRESS", "DESIGN", ""],
-            ["Procurement", "", "", "", "", "", "", "", "", ""],
-            ["Procurement", "Get quotes", "Collect vendor quotes", "vendor@example.com", "admin@example.com", "20 Apr 2026", 2, "TO_DO", "PROCUREMENT", "URGENT", "TAG-3", "TAG-4"]
-        ];
-        worksheet.addRows(exampleRows);
+        worksheet.addRows(dataRows);
 
         // 2. Create Reference Data sheet (can be hidden)
         const refSheet = workbook.addWorksheet("DataLists");
@@ -118,7 +132,7 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
 
         // Add valid members
         const memberEmails = projectMembers.length > 0
-            ? projectMembers.map(m => m.user.surname ? `${m.user.email} (${m.user.surname})` : m.user.email)
+            ? projectMembers.map(memberLabel)
             : ["john@example.com (John)", "mike@example.com (Mike)"];
         refSheet.getColumn(3).values = ["Emails", ...memberEmails];
 
@@ -126,12 +140,12 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         const reviewerEmails = projectMembers.length > 0
             ? projectMembers
                 .filter((m: any) => m.projectRole && ["OWNER", "ADMIN", "LEAD", "PROJECT_MANAGER"].includes(m.projectRole))
-                .map((m: any) => {
-                    const role = m.projectRole ? ` [${m.projectRole.replace('_', ' ')}]` : "";
-                    return m.user.surname ? `${m.user.email} (${m.user.surname}${role})` : `${m.user.email}${role}`;
-                })
+                .map(reviewerLabel)
             : memberEmails;
         refSheet.getColumn(4).values = ["Reviewers", ...reviewerEmails];
+
+        // Read back on upload: its presence is what lets missing rows delete tasks.
+        if (exportStamp) refSheet.getColumn(5).values = ["ExportedAt", exportStamp];
 
 
         // 3. Define Names for ranges (for validation)
@@ -140,8 +154,8 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         const emailRange = `DataLists!$C$2:$C$${memberEmails.length + 1}`;
         const reviewerRange = `DataLists!$D$2:$D$${reviewerEmails.length + 1}`;
 
-        // 4. Apply Data Validation to 100 rows in main sheet
-        for (let i = 2; i <= 106; i++) {
+        // 4. Apply Data Validation to the data plus 100 spare rows
+        for (let i = 2; i <= Math.max(106, dataRows.length + 101); i++) {
             // Assignee Email (Column 4)
             worksheet.getCell(`D${i}`).dataValidation = {
                 type: 'list',
@@ -253,15 +267,50 @@ export const BulkUploadForm = ({ projectId }: BulkUploadFormProps) => {
         // Hide the reference sheet
         refSheet.state = 'hidden';
 
-        // Write to buffer and download
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `bulk_upload_template_${new Date().toISOString().split('T')[0]}.xlsx`;
-        link.click();
+        return workbook;
+    };
 
+    const downloadTemplate = async () => {
+        // Add Example Rows matching the instructions
+        const exampleRows = [
+            ["Design Homepage", "", "", "", "", "", "", "", "", ""],
+            ["Design Homepage", "Create wireframe", "Design wireframe mockup", "john@example.com", "admin@example.com", "15 Apr 2026", 3, "COMPLETED", "DESIGN", ""],
+            ["Design Homepage", "Design components", "Create reusable UI components", "jane@example.com", "", "18 Apr 2026", 4, "IN_PROGRESS", "DESIGN", ""],
+            ["Procurement", "", "", "", "", "", "", "", "", ""],
+            ["Procurement", "Get quotes", "Collect vendor quotes", "vendor@example.com", "admin@example.com", "20 Apr 2026", 2, "TO_DO", "PROCUREMENT", "URGENT", "TAG-3", "TAG-4"]
+        ];
+        await saveWorkbook(await buildWorkbook(exampleRows), "bulk_upload_template");
         toast.success("Excel template with dropdowns downloaded successfully");
+    };
+
+    const exportTasks = async () => {
+        const { data, error } = await tryCatch(apiClient.tasks.bulkExport(projectId));
+        if (error || !data) {
+            toast.error(error?.message || "Failed to export tasks");
+            return;
+        }
+        // Write emails in the same "email (Name)" form the dropdowns offer.
+        const byEmail = new Map(projectMembers.map((m: any) => [m.user.email.toLowerCase(), m]));
+        const label = (email: string | null, fn: (m: any) => string) => {
+            const m = email ? byEmail.get(email.toLowerCase()) : undefined;
+            return m ? fn(m) : email ?? "";
+        };
+        const rows = data.rows.flatMap((r: any, i: number) => {
+            const [y, mo, d] = (r.startDate ?? "").split("-").map(Number);
+            const tags = [...(r.tags ?? [])];
+            // Two blank rows before each main task; blank rows are skipped on upload.
+            const gap = !r.subtaskName && i > 0 ? [[], []] : [];
+            return [...gap, [
+                r.taskName, r.subtaskName ?? "", r.description ?? "",
+                label(r.assigneeEmail, memberLabel), label(r.reviewerEmail, reviewerLabel),
+                r.startDate ? new Date(Date.UTC(y, mo - 1, d)) : "",
+                r.days ?? "", r.status ?? "",
+                tags[0] ?? "", tags[1] ?? "", tags[2] ?? "", tags[3] ?? "",
+                r.id,
+            ]];
+        });
+        await saveWorkbook(await buildWorkbook(rows, data.exportedAt), "project_tasks");
+        toast.success(`Exported ${data.rows.length} rows. Edit and upload the file here to apply changes.`);
     };
 
     const downloadInstructions = () => {
@@ -326,6 +375,24 @@ ${memberList}
             9. Tag (OPTIONAL)
             - Valid values for this project:
 ${tagList}
+
+            10. ID (EXPORTED FILES ONLY)
+            - Filled in by "Export Current Tasks". Do not edit it.
+            - Leave it blank on rows you add; clear it on rows you copy.
+
+            EDITING EXISTING TASKS:
+            ----------------------
+            1. Click "Export Current Tasks" and open the file
+            2. Change any cell on a row to update that task
+            3. Add rows (with no ID) to create tasks; a new subtask row whose
+               Task Name matches an existing task is added under it
+            4. Delete a row to delete that task (deleting a task row deletes its subtasks)
+            5. Upload the file here; you will see what will be created, updated
+               and deleted before anything is saved
+            - Status changes follow the usual rules (Completed only from Review;
+              changes that need a comment must be made in the app)
+            - A subtask changed in the app after you exported is skipped; export again
+            - Changing the Task Name on a subtask row does not move it to another task
 
             IMPORTANT RULES:
             ---------------
@@ -402,16 +469,17 @@ ${tagList}
     };
 
     const mapValuesToTask = (values: string[]): ParsedTask => {
-        // Pad the values array to ensure we have at least 12 elements
-        while (values.length < 12) {
+        // Pad the values array to ensure we have at least 13 elements
+        while (values.length < 13) {
             values.push('');
         }
 
-        const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4] = values;
+        const [taskName, subtaskName, description, assigneeEmail, reviewerEmail, startDate, days, status, tag1, tag2, tag3, tag4, id] = values;
 
         const tags = [tag1, tag2, tag3, tag4].filter(t => t && t.trim()).map(t => t.trim());
 
         return {
+            id: id?.trim() || undefined,
             taskName: taskName.trim().replace(/\s+/g, ' '),
             subtaskName: subtaskName?.trim() || undefined,
             description: description?.trim() || undefined,
@@ -487,6 +555,38 @@ ${tagList}
             return;
         }
 
+        const payload = filteredData.map((task: ParsedTask) => ({
+            ...task,
+            reviewerEmail: task.reviewerEmail || projectMembers.find((m: any) => m.userId === selectedReviewerId)?.user.email
+        }));
+        const sync = exportedAt ? { exportedAt } : undefined;
+        const isSync = !!sync || payload.some(t => t.id);
+
+        // Edits and deletes can't be undone in bulk, so show what will happen first.
+        if (isSync) {
+            setIsProcessing(true);
+            const { data: preview, error } = await tryCatch(apiClient.tasks.bulkUpload(projectId, payload, { sync, dryRun: true }));
+            setIsProcessing(false);
+            if (error || !preview?.summary) {
+                toast.error(error?.message || "Could not check the file");
+                return;
+            }
+            const s = preview.summary;
+            if (s.created + s.updated + s.deleted === 0) {
+                toast.info(`No changes found (${s.unchanged} rows unchanged).`);
+                return;
+            }
+            const names = s.deletedNames.slice(0, 10).map(n => `  - ${n}`).join("\n");
+            const more = s.deletedNames.length > 10 ? `\n  ...and ${s.deletedNames.length - 10} more` : "";
+            const ok = window.confirm(
+                `Create ${s.created}, update ${s.updated}, DELETE ${s.deleted}, unchanged ${s.unchanged}.` +
+                (s.deleted ? `\n\nThese will be deleted:\n${names}${more}` : "") +
+                (s.errors.length ? `\n\nNotes:\n${s.errors.slice(0, 5).join("\n")}` : "") +
+                "\n\nApply these changes?"
+            );
+            if (!ok) return;
+        }
+
         console.log("📤 Uploading Tasks:", filteredData.length);
         startTransition(async () => {
             setIsAddingTask(true);
@@ -503,14 +603,8 @@ ${tagList}
             }, 400);
 
             try {
-                const { data: result, error } = await tryCatch<ApiResponse>(
-                    apiClient.tasks.bulkUpload(
-                        projectId,
-                        filteredData.map((task: ParsedTask) => ({
-                            ...task,
-                            reviewerEmail: task.reviewerEmail || projectMembers.find((m: any) => m.userId === selectedReviewerId)?.user.email
-                        })),
-                    )
+                const { data: result, error } = await tryCatch(
+                    apiClient.tasks.bulkUpload(projectId, payload, { sync })
                 );
 
                 clearInterval(progressInterval);
@@ -523,7 +617,17 @@ ${tagList}
 
                 if (result) {
                     setProgress(100);
-                    toast.success('Tasks uploaded successfully!', { id: toastId });
+                    const failures = result.summary?.errors ?? [];
+                    if (failures.length) {
+                        console.warn("Bulk sync rows not applied:", failures);
+                        toast.warning(result.message, {
+                            id: toastId,
+                            description: failures.slice(0, 5).join("\n") + (failures.length > 5 ? `\n...and ${failures.length - 5} more` : ""),
+                            duration: 20000,
+                        });
+                    } else {
+                        toast.success(result.message || 'Tasks uploaded successfully!', { id: toastId });
+                    }
                     triggerConfetti();
 
                     // Dispatch only parent tasks — subtasks load from DB on expand
@@ -546,7 +650,13 @@ ${tagList}
                         setOpen(false);
                         setParsedData([]);
                         setFileName("");
+                        setExportedAt(null);
                         setProgress(0);
+                        // Many in-place edits/deletes at once: reload rather than patch the list row by row.
+                        if (result.summary && (result.summary.updated || result.summary.deleted)) {
+                            window.location.reload();
+                            return;
+                        }
                         await revalidate();
                     }, 500);
                 } else {
@@ -571,6 +681,7 @@ ${tagList}
 
             try {
                 let parsed: ParsedTask[] = [];
+                let stamp: string | null = null;
 
                 if (file.name.endsWith('.xlsx')) {
                     const ExcelJS = (await import('exceljs')).default;
@@ -586,22 +697,31 @@ ${tagList}
                         if (rowNumber === 1) return; // Skip header
                         const rowData: string[] = [];
                         // Read all cells in the row (ExcelJS is 1-indexed)
-                        for (let i = 1; i <= 12; i++) {
+                        for (let i = 1; i <= 13; i++) {
                             const cell = row.getCell(i);
                             let value = cell.value;
                             if (value instanceof Date) {
-                                value = format(value, APP_DATE_FORMAT);
+                                // Excel dates are calendar days at UTC midnight; read them in UTC.
+                                value = format(new Date(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()), APP_DATE_FORMAT);
                             } else if (value && typeof value === 'object' && 'result' in value) {
                                 value = String(value.result);
+                            } else if (value && typeof value === 'object' && 'richText' in value) {
+                                value = value.richText.map(r => r.text).join('');
+                            } else if (value && typeof value === 'object' && 'text' in value) {
+                                // Emails Excel turned into mailto links
+                                value = String(value.text);
                             } else {
                                 value = value ? String(value) : '';
                             }
                             rowData.push(value);
                         }
-                        rows.push(rowData);
+                        // Keep sheet positions so server "Row N" errors match Excel; blank rows become holes.
+                        rows[rowNumber - 2] = rowData;
                     });
 
-                    parsed = rows.map(r => mapValuesToTask(r));
+                    parsed = Array.from(rows, r => mapValuesToTask(r ?? []));
+                    const cell = workbook.getWorksheet("DataLists")?.getCell("E2").value;
+                    stamp = typeof cell === "string" && cell ? cell : null;
                 } else {
                     const text = await file.text();
                     parsed = parseCSV(text);
@@ -613,6 +733,7 @@ ${tagList}
                 }
 
                 setParsedData(parsed);
+                setExportedAt(stamp);
                 // We stay on the upload view now as per user request
             } catch (err) {
                 console.error("Upload error:", err);
@@ -672,6 +793,7 @@ ${tagList}
             if (!v) {
                 setParsedData([]);
                 setFileName("");
+                setExportedAt(null);
                 setProgress(0);
             }
         }}>
@@ -755,6 +877,25 @@ ${tagList}
                                 Download Excel Template
                             </Button>
                         </div>
+
+                        <div className="space-y-3 border rounded-lg p-4 bg-muted/30 sm:col-span-2">
+                            <div className="flex items-center gap-2 mb-1">
+                                <FileSpreadsheet className="size-4 text-blue-600" />
+                                <h4 className="text-sm font-semibold">Edit Existing Tasks</h4>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Download this project&apos;s tasks, edit them in Excel and upload the file here. Changed rows are updated, new rows are added, and rows you delete are deleted. You confirm before anything is saved.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-8 bg-white dark:bg-gray-900 border-border/40 hover:bg-muted/60"
+                                onClick={exportTasks}
+                            >
+                                Export Current Tasks
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
@@ -808,7 +949,7 @@ ${tagList}
                                     {fileName ? fileName : (isDragActive ? "Drop the file here" : "Click or drag file to upload")}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    {fileName ? `${parsedData.length} items found` : "CSV or XLSX files supported"}
+                                    {fileName ? `${parsedData.filter(t => t.taskName).length} items found` : "CSV or XLSX files supported"}
                                 </p>
                             </div>
                         </div>

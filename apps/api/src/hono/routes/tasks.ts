@@ -469,13 +469,38 @@ tasks.on("POST", ["/subtask", "/:taskId/subtasks"], async (c) => {
 // --- 1. SPECIAL / GLOBAL ROUTES (Must be before :taskId to prevent conflicts) ---
 
 /**
+ * GET /api/v1/tasks/bulk/export?projectId=
+ * Current project tasks as bulk-sheet rows, for edit-and-reupload.
+ */
+tasks.get("/bulk/export", async (c) => {
+  const user = c.get("user");
+  const projectId = c.req.query("projectId");
+  if (!projectId) throw AppError.ValidationError("Missing projectId");
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspaceId: true },
+  });
+  if (!project) throw AppError.NotFound("Project not found");
+
+  requireCapability(
+    await fetchUserPermissions(project.workspaceId, projectId, user.id),
+    "bulk:upload",
+    "You don't have permission to bulk upload tasks.",
+  );
+
+  return c.json({ success: true, data: await TasksService.exportProjectTasks(projectId) });
+});
+
+/**
  * POST /api/v1/tasks/bulk
- * Bulk upload tasks and subtasks
+ * Bulk upload tasks and subtasks. With `sync` (an exported sheet) rows carrying
+ * IDs update, missing ones delete; `dryRun` only returns the counts.
  */
 tasks.post("/bulk", async (c) => {
   const user = c.get("user");
   const body = await c.req.json();
-  const { projectId, tasks: taskData } = body;
+  const { projectId, tasks: taskData, sync, dryRun } = body;
 
   if (!projectId || !taskData) {
     throw AppError.ValidationError("Missing projectId or tasks");
@@ -496,10 +521,12 @@ tasks.post("/bulk", async (c) => {
   const result = await TasksService.bulkUploadTasksAndSubtasks({
     projectId,
     tasks: taskData,
-    userId: user.id
+    userId: user.id,
+    sync,
+    dryRun: dryRun === true,
   });
 
-  if (result.success && result.workspaceId) {
+  if (result.success && result.workspaceId && !dryRun) {
     invalidateTaskMutation({
       projectId,
       workspaceId: result.workspaceId,
@@ -511,6 +538,7 @@ tasks.post("/bulk", async (c) => {
     success: result.success,
     message: result.message,
     data: result.data,
+    summary: result.summary,
   });
 });
 

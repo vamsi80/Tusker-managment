@@ -2,6 +2,16 @@ import { apiFetch } from "./fetch-wrapper";
 import { TaskSchemaType, SubTaskSchemaType } from "@tusker/core/lib/zodSchemas";
 import { type ApiResponse } from "./types";
 
+/** What a sync (exported sheet) upload changed, or would change on a dry run. */
+export interface BulkUploadSummary {
+  created: number;
+  updated: number;
+  deleted: number;
+  unchanged: number;
+  deletedNames: string[];
+  errors: string[];
+}
+
 /**
  * Tasks API Client
  * Replaces legacy Server Actions in @/actions/task
@@ -298,21 +308,37 @@ export const tasksClient = {
   /**
    * Bulk upload tasks and subtasks
    */
-  bulkUpload: async (projectId: string, tasks: any[]): Promise<ApiResponse> => {
+  bulkUpload: async (
+    projectId: string,
+    tasks: any[],
+    options?: { sync?: { exportedAt: string }; dryRun?: boolean },
+  ): Promise<ApiResponse & { summary?: BulkUploadSummary }> => {
     const response = await apiFetch<{
       success: boolean;
       message: string;
       data: any;
+      summary?: BulkUploadSummary;
     }>("/tasks/bulk", {
       method: "POST",
-      body: JSON.stringify({ projectId, tasks }),
+      body: JSON.stringify({ projectId, tasks, ...options }),
     });
 
     return {
       status: response.success ? "success" : "error",
       message: response.message,
       data: response.data,
+      summary: response.summary,
     };
+  },
+
+  /**
+   * Current project tasks as bulk-sheet rows, for edit-and-reupload
+   */
+  bulkExport: async (projectId: string): Promise<{ rows: any[]; exportedAt: string }> => {
+    const response = await apiFetch<{ success: boolean; data: { rows: any[]; exportedAt: string } }>(
+      `/tasks/bulk/export?projectId=${encodeURIComponent(projectId)}`,
+    );
+    return response.data;
   },
 
   /**
