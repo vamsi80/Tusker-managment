@@ -58,18 +58,22 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
     };
     const list = filter(tab === "new" ? unread : read);
 
+    // peopleCount is a server-side tally the client can't recompute, so zero it once nothing unread is left and refetch for the rest.
     const markLocal = (match: (n: NotificationGroup) => boolean) =>
-        qc.setQueryData<InfiniteData<Page>>(key, (old) =>
-            old
-                ? {
-                      ...old,
-                      pages: old.pages.map((p) => {
-                          const moved = p.unreadNotifications.filter(match).map((n) => ({ ...n, isNew: false }));
-                          return { ...p, unreadNotifications: p.unreadNotifications.filter((n) => !match(n)), readNotifications: [...moved, ...p.readNotifications] };
-                      }),
-                  }
-                : old,
-        );
+        qc.setQueryData<InfiniteData<Page>>(key, (old) => {
+            if (!old) return old;
+            const pages = old.pages.map((p) => {
+                const moved = p.unreadNotifications.filter(match).map((n) => ({ ...n, isNew: false }));
+                return { ...p, unreadNotifications: p.unreadNotifications.filter((n) => !match(n)), readNotifications: [...moved, ...p.readNotifications] };
+            });
+            const noneLeft = pages.every((p) => p.unreadNotifications.length === 0);
+            return { ...old, pages: noneLeft ? pages.map((p) => ({ ...p, peopleCount: 0 })) : pages };
+        });
+
+    const refresh = () => {
+        qc.invalidateQueries({ queryKey: key });
+        qc.invalidateQueries({ queryKey: qk.layout(workspaceId) });
+    };
 
     const markAll = async () => {
         markLocal(() => true);
@@ -79,7 +83,7 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
         } catch {
             toast.error("Failed to mark all as read");
         }
-        qc.invalidateQueries({ queryKey: qk.layout(workspaceId) });
+        refresh();
     };
 
     const open = (n: NotificationGroup) => {
@@ -88,7 +92,7 @@ export function NotificationsScreen({ embedded }: { embedded?: boolean }) {
             markLocal((x) => (x.id || x.taskId) === target);
             notificationsApi
                 .markRead(target)
-                .then(() => qc.invalidateQueries({ queryKey: qk.layout(workspaceId) }))
+                .then(refresh)
                 .catch(() => {});
         }
         const entity = String(n.entityType ?? "").toUpperCase();
