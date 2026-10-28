@@ -10,9 +10,10 @@ import { displayName } from "../../lib/format";
 import { useTheme } from "../../theme/ThemeProvider";
 import { fonts, radius } from "../../theme/tokens";
 import { Avatar, Sheet, Text, tint } from "../../components/ui";
-import { WorkspaceLogo, WorkspaceSwitcherSheet } from "../../components/layout/WorkspaceSwitcher";
+import { WorkspaceLogo, WorkspaceSwitcherSheet, useIsSystemAccount } from "../../components/layout/WorkspaceSwitcher";
 import { Ionicons } from "@expo/vector-icons";
 import { AttendanceHeroCard } from "../../components/attendance/AttendanceHeroCard";
+import { TeamRosterCard } from "../../components/attendance/TeamRosterCard";
 import { BroadcastTicker, BroadcastWidget } from "../dashboard/widgets/BroadcastWidget";
 import { MyTasksWidget, ReviewsWidget, WorkloadWidget } from "../dashboard/widgets/TaskWidgets";
 import { BirthdaysWidget, MeetingsWidget } from "../dashboard/widgets/PeopleWidgets";
@@ -31,9 +32,10 @@ export function HomeScreen() {
     const navigation = useNavigation<any>();
     const qc = useQueryClient();
     const auth = useAuth();
-    const { workspace, permissions, workspaceId, refetchLayout, layout, can } = useWorkspace();
+    const { workspace, permissions, workspaceId, refetchLayout, layout, can, isAdmin } = useWorkspace();
     const [refreshing, setRefreshing] = useState(false);
     const [switcher, setSwitcher] = useState(false);
+    const isSystem = useIsSystemAccount();
     const user = auth.status === "signedIn" ? auth.user : null;
 
     const canBroadcast = !!permissions?.isWorkspaceAdmin;
@@ -60,19 +62,20 @@ export function HomeScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-                {/* Row 1: workspace switcher chip, then Travis / bell / you. */}
+                {/* Row 1: workspace switcher chip (switching is system account only), then Travis / bell / you. */}
                 <View style={styles.headerRow}>
                     <Pressable
+                        disabled={!isSystem}
                         onPress={() => setSwitcher(true)}
                         hitSlop={6}
-                        accessibilityLabel="Switch workspace"
+                        accessibilityLabel={isSystem ? "Switch workspace" : undefined}
                         style={({ pressed }) => [styles.wsChip, { backgroundColor: pressed ? colors.secondary : colors.card, borderColor: colors.border }]}
                     >
                         <WorkspaceLogo name={workspace?.name} size={32} />
                         <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: colors.foreground, flexShrink: 1 }} numberOfLines={1}>
                             {workspace?.name ?? "Workspace"}
                         </Text>
-                        <ChevronDown size={16} color={colors.mutedForeground} />
+                        {isSystem ? <ChevronDown size={16} color={colors.mutedForeground} /> : null}
                     </Pressable>
                     <View style={{ flex: 1 }} />
                     <RoundBtn label="Ask Travis" onPress={() => navigation.navigate("Travis")}>
@@ -99,7 +102,8 @@ export function HomeScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primaryInk} colors={[colors.primary]} />}
             >
                 <BroadcastTicker />
-                <AttendanceHeroCard />
+                {/* Owners, admins and the system account get the team roster in place of their own check-in card. */}
+                {isAdmin || isSystem ? <TeamRosterCard /> : <AttendanceHeroCard />}
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }} style={{ marginHorizontal: -20 }}>
                     <View style={{ width: 10 }} />
@@ -164,7 +168,7 @@ export function HomeScreen() {
                 {canSeeWorkload ? <WorkloadWidget /> : null}
                 <BirthdaysWidget />
             </ScrollView>
-            <WorkspaceSwitcherSheet open={switcher} onClose={() => setSwitcher(false)} />
+            {isSystem ? <WorkspaceSwitcherSheet open={switcher} onClose={() => setSwitcher(false)} /> : null}
         </View>
     );
 }

@@ -28,7 +28,7 @@ import { useTheme, type ThemePreference } from "../../theme/ThemeProvider";
 import { fonts, radius } from "../../theme/tokens";
 import { Avatar, Badge, GroupedRow, Section, Tabs, Text, confirm } from "../../components/ui";
 import { Screen, ScreenBody, ScreenHeader } from "../../components/layout/Screen";
-import { WorkspaceLogo, WorkspaceSwitcherSheet } from "../../components/layout/WorkspaceSwitcher";
+import { WorkspaceLogo, WorkspaceSwitcherSheet, useIsSystemAccount } from "../../components/layout/WorkspaceSwitcher";
 import { SmileArc } from "../../components/brand/Drava";
 
 type IconType = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -43,6 +43,7 @@ export function MoreScreen() {
     const auth = useAuth();
     const { workspace, permissions, can, isAdmin } = useWorkspace();
     const [switcher, setSwitcher] = useState(false);
+    const isSystem = useIsSystemAccount();
     const user = auth.status === "signedIn" ? auth.user : null;
     const role = permissions?.workspaceRole;
     const go = (route: string, params?: object) => navigation.navigate(route, params);
@@ -77,7 +78,7 @@ export function MoreScreen() {
                     <ChevronRight size={20} color={colors.heroMuted} />
                 </Pressable>
 
-                <Pressable onPress={() => setSwitcher(true)} style={({ pressed }) => [styles.workspace, { backgroundColor: pressed ? colors.secondary : colors.card, borderColor: colors.border }]}>
+                <Pressable disabled={!isSystem} onPress={() => setSwitcher(true)} style={({ pressed }) => [styles.workspace, { backgroundColor: pressed ? colors.secondary : colors.card, borderColor: colors.border }]}>
                     <WorkspaceLogo name={workspace?.name} size={42} />
                     <View style={{ flex: 1 }}>
                         <Text variant="small" tone="muted">
@@ -88,30 +89,38 @@ export function MoreScreen() {
                         </Text>
                     </View>
                     {role ? <Badge label={role.charAt(0) + role.slice(1).toLowerCase()} color={colors.success} /> : null}
-                    <ChevronsUpDown size={18} color={colors.mutedForeground} />
+                    {isSystem ? <ChevronsUpDown size={18} color={colors.mutedForeground} /> : null}
                 </Pressable>
 
                 <Text variant="overline" tone="muted" style={{ marginTop: 8, paddingHorizontal: 4 }}>
                     Modules
                 </Text>
+                {/* Rows of three that share the width with flex, so every screen size and font scale keeps three columns. */}
                 <View style={styles.grid}>
-                    {modules
-                        .filter((m) => m.show !== false)
-                        .map((m) => {
-                            const Icon = m.icon;
-                            return (
-                                <Pressable
-                                    key={m.label}
-                                    onPress={m.onPress}
-                                    style={({ pressed }) => [styles.module, { backgroundColor: pressed ? colors.secondary : colors.card, borderColor: colors.border, transform: [{ scale: pressed ? 0.96 : 1 }] }]}
-                                >
-                                    <Icon size={22} color={colors.primaryInk} strokeWidth={1.9} />
-                                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.foreground }} numberOfLines={1}>
-                                        {m.label}
-                                    </Text>
-                                </Pressable>
-                            );
-                        })}
+                    {chunk(
+                        modules.filter((m) => m.show !== false),
+                        3,
+                    ).map((row, r) => (
+                        <View key={r} style={styles.gridRow}>
+                            {[0, 1, 2].map((c) => {
+                                const m = row[c];
+                                if (!m) return <View key={c} style={{ flex: 1 }} />;
+                                const Icon = m.icon;
+                                return (
+                                    <Pressable
+                                        key={m.label}
+                                        onPress={m.onPress}
+                                        style={({ pressed }) => [styles.module, { backgroundColor: pressed ? colors.secondary : colors.card, borderColor: colors.border, transform: [{ scale: pressed ? 0.96 : 1 }] }]}
+                                    >
+                                        <Icon size={22} color={colors.primaryInk} strokeWidth={1.9} />
+                                        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.foreground }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                                            {m.label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    ))}
                 </View>
 
                 <View style={{ height: 8 }} />
@@ -162,15 +171,18 @@ export function MoreScreen() {
                     {isAdmin ? " · Admin" : ""}
                 </Text>
             </ScreenBody>
-            <WorkspaceSwitcherSheet open={switcher} onClose={() => setSwitcher(false)} />
+            {isSystem ? <WorkspaceSwitcherSheet open={switcher} onClose={() => setSwitcher(false)} /> : null}
         </Screen>
     );
 }
 
+const chunk = <T,>(items: T[], size: number) => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size));
+
 const styles = StyleSheet.create({
     profile: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, borderRadius: radius.lg, borderBottomRightRadius: radius.smile, overflow: "hidden" },
     workspace: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: radius.lg, borderWidth: 1 },
-    grid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    module: { width: "31.8%", gap: 12, padding: 14, borderRadius: 18, borderWidth: 1 },
+    grid: { gap: 8 },
+    gridRow: { flexDirection: "row", gap: 8 },
+    module: { flex: 1, minWidth: 0, gap: 12, padding: 14, borderRadius: 18, borderWidth: 1 },
     tile: { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center" },
 });

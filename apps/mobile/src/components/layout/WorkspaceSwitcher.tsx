@@ -1,10 +1,19 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Check, Plus } from "lucide-react-native";
+import { useAuth } from "../../providers/AuthProvider";
 import { useWorkspace } from "../../providers/WorkspaceProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 import { fonts, radius } from "../../theme/tokens";
 import { Sheet, Text } from "../ui";
+
+/** Only the system account switches between or creates workspaces; everyone else stays in theirs. */
+export const SYSTEM_ACCOUNT_EMAIL = "digital@thewhitetusker.com";
+
+export function useIsSystemAccount() {
+    const auth = useAuth();
+    return auth.status === "signedIn" && auth.user.email?.trim().toLowerCase() === SYSTEM_ACCOUNT_EMAIL;
+}
 
 /** The workspace logo: its first letter in lime on a charcoal tile (muted when not the active one). */
 export function WorkspaceLogo({ name, size = 36, active = true }: { name?: string | null; size?: number; active?: boolean }) {
@@ -16,11 +25,12 @@ export function WorkspaceLogo({ name, size = 36, active = true }: { name?: strin
     );
 }
 
-/** team-switcher.tsx: every workspace you belong to, plus Create workspace. */
+/** team-switcher.tsx: every workspace you belong to, plus Create workspace (system account only). */
 export function WorkspaceSwitcherSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     const { colors } = useTheme();
     const navigation = useNavigation<any>();
     const { workspaces, workspaceId, switchWorkspace } = useWorkspace();
+    const isSystem = useIsSystemAccount();
     return (
         <Sheet open={open} onClose={onClose} title="Workspaces" description="Switch between the teams you belong to.">
             <View style={{ gap: 6 }}>
@@ -53,20 +63,22 @@ export function WorkspaceSwitcherSheet({ open, onClose }: { open: boolean; onClo
                         </Pressable>
                     );
                 })}
-                <Pressable
-                    onPress={() => {
-                        onClose();
-                        navigation.navigate("CreateWorkspace");
-                    }}
-                    style={({ pressed }) => [styles.row, { borderStyle: "dashed", borderColor: colors.border, backgroundColor: pressed ? colors.secondary : "transparent" }]}
-                >
-                    <View style={[styles.logo, { width: 38, height: 38, borderRadius: 11, backgroundColor: colors.secondary }]}>
-                        <Plus size={18} color={colors.mutedForeground} />
-                    </View>
-                    <Text variant="bodyMedium" tone="muted">
-                        Create workspace
-                    </Text>
-                </Pressable>
+                {isSystem ? (
+                    <Pressable
+                        onPress={() => {
+                            onClose();
+                            navigation.navigate("CreateWorkspace");
+                        }}
+                        style={({ pressed }) => [styles.row, { borderStyle: "dashed", borderColor: colors.border, backgroundColor: pressed ? colors.secondary : "transparent" }]}
+                    >
+                        <View style={[styles.logo, { width: 38, height: 38, borderRadius: 11, backgroundColor: colors.secondary }]}>
+                            <Plus size={18} color={colors.mutedForeground} />
+                        </View>
+                        <Text variant="bodyMedium" tone="muted">
+                            Create workspace
+                        </Text>
+                    </Pressable>
+                ) : null}
             </View>
         </Sheet>
     );
