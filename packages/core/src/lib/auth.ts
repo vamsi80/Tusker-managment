@@ -39,9 +39,11 @@ export const auth = betterAuth({
   // Lax cookies are dropped in a cross-site frame, so sign-in looped back to
   // /sign-in. Partitioned (CHIPS) keeps them working once Chrome blocks
   // third-party cookies — at the cost of a separate session inside the frame.
-  advanced: {
-    defaultCookieAttributes: { sameSite: "none", secure: true, partitioned: true },
-  },
+  // Only over https: browsers drop Secure cookies on plain http (a LAN IP, or
+  // Safari on localhost), which left local sign-in stuck on /sign-in.
+  advanced: env.BETTER_AUTH_URL?.startsWith("https://")
+    ? { defaultCookieAttributes: { sameSite: "none", secure: true, partitioned: true } }
+    : undefined,
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
