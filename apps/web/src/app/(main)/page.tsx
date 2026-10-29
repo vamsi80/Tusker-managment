@@ -8,7 +8,7 @@ export default function Home() {
     <>
       <section className="relative py-20 px-4">
         <div className="flex flex-col items-center justify-center text-center gap-6">
-          <Badge variant={"outline"}>Welcome to Tusker management</Badge>
+          <Badge variant={"outline"}>Welcome to Drava Core</Badge>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight sm:text-5xl text-balance">
             Elevate Your Project Experience
           </h1>
