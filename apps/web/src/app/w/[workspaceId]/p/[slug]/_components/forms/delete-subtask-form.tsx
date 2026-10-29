@@ -54,11 +54,6 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
 
     const handleDelete = () => {
         startTransition(async () => {
-            // Optimistically remove from UI first
-            if (onSubTaskDeleted) {
-                onSubTaskDeleted(subTask.id);
-            }
-
             const res = await tryCatch(apiClient.tasks.deleteTask(
                 subTask.id, 
                 workspaceId,
@@ -77,12 +72,15 @@ export function DeleteSubTaskForm<T extends SubTaskBase>({
 
             if (responseStatus === "success") {
                 toast.success(responseMessage);
-                reloadView();
+                // Close before removing the row: the dialog lives inside the row, and unmounting
+                // it while open leaves Radix's body scroll lock / pointer-events:none behind.
                 setOpen(false);
+                // The callback updates local state; a full view reload swaps in the skeleton
+                // and throws the scroll position back to the top.
+                if (onSubTaskDeleted) onSubTaskDeleted(subTask.id);
+                else reloadView();
             } else {
-                // If it failed on server, we might want to reload to sync UI
                 toast.error(responseMessage);
-                // TODO: Revert optimistic update on error
             }
         });
     };
