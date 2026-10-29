@@ -55,7 +55,12 @@ export default function WorkSpacePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+      {/* Columns come from the space actually available, not the viewport:
+          `lg:` ignored the sidebar, so at 150% OS scaling (about 1280px) three
+          columns squeezed each card to ~300px and text spilled out. Each card
+          now gets at least 22rem or the grid drops a column; min-w-0 lets a
+          card shrink to its track instead of overflowing it. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-6 items-stretch [&>*]:min-w-0">
         {canBroadcast && (
           <BroadcastWidget
             key={`broadcast-${workspaceId}`}

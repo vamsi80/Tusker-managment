@@ -30,12 +30,12 @@ export function WorkloadWidget({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="flex flex-col p-6 glass glass-card rounded-3xl text-card-foreground h-full">
-      <div className="flex items-center justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-5">
         <h3 className="flex items-center gap-2.5 text-base font-bold uppercase tracking-wide">
           <BarChart3 className="size-5" />
           Workload
         </h3>
-        <Link href={`/w/${workspaceId}/team`} className="text-sm text-muted-foreground hover:text-foreground">
+        <Link href={`/w/${workspaceId}/team`} className="ml-auto text-sm text-muted-foreground hover:text-foreground">
           View team
         </Link>
       </div>

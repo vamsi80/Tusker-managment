@@ -158,25 +158,25 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="flex flex-col p-6 glass glass-card rounded-3xl text-card-foreground h-full">
-      <div className="flex items-center justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-5">
         <h3 className="flex items-center gap-2.5 text-base font-bold uppercase tracking-wide">
           <FileCheck2 className="size-5" />
           {isOwner ? "All Tasks" : "My Tasks"}
         </h3>
-        <span className="text-sm text-muted-foreground text-right">
+        <span className="ml-auto text-sm text-muted-foreground text-right">
           {range === "delayed" ? "Past due" : range === "today" ? "Due today" : "Due in next 7 days"}
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex flex-1 items-center p-1 rounded-full bg-muted text-sm">
+        <div className="flex flex-1 min-w-0 items-center p-1 rounded-full bg-muted text-sm">
           {(["delayed", "today", "week"] as Range[]).map((r) => (
             <button
               key={r}
               type="button"
               onClick={() => setRange(r)}
               className={cn(
-                "flex-1 px-3 py-2 rounded-full whitespace-nowrap transition-all",
+                "flex-1 min-w-0 px-2 py-2 rounded-full truncate transition-all",
                 range === r
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
