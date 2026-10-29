@@ -100,7 +100,7 @@ export function SendRfqForm({
             Select Suppliers / Contractors
           </span>
           {selectedVendorIds.size > 0 && (
-            <span className="ml-auto text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+            <span className="ml-auto text-[10px] font-bold text-primary-ink bg-primary/10 px-1.5 py-0.5 rounded-full">
               {selectedVendorIds.size} selected
             </span>
           )}

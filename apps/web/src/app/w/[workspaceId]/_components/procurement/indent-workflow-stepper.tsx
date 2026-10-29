@@ -65,8 +65,8 @@ export function IndentWorkflowStepper({ status }: IndentWorkflowStepperProps) {
               <div
                 className={cn(
                   "size-6 rounded-full flex items-center justify-center border-2 text-[10px] font-bold transition-all duration-300 shadow-sm",
-                  isCompleted && "bg-primary border-primary text-primary-foreground",
-                  isActive && "bg-background border-primary text-primary ring-2 ring-primary/20 scale-110",
+                  isCompleted && "bg-primary border-primary-ink text-primary-foreground",
+                  isActive && "bg-background border-primary-ink text-primary-ink ring-2 ring-primary/20 scale-110",
                   isPending && "bg-background border-muted text-muted-foreground"
                 )}
               >
@@ -79,7 +79,7 @@ export function IndentWorkflowStepper({ status }: IndentWorkflowStepperProps) {
               <span
                 className={cn(
                   "text-[9px] font-bold uppercase tracking-wider mt-1.5 transition-colors whitespace-nowrap hidden sm:inline",
-                  isActive ? "text-primary font-black" : "text-muted-foreground/60"
+                  isActive ? "text-primary-ink font-black" : "text-muted-foreground/60"
                 )}
               >
                 {step.label}

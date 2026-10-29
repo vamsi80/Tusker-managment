@@ -80,7 +80,7 @@ const columns: ColumnDef<ActivityLog>[] = [
                 <div className="flex flex-col gap-1">
                     {Object.entries(metadata).map(([field, values]: [string, any]) => (
                         <div key={field} className="text-[10px] flex items-center gap-1">
-                            <span className="font-semibold text-primary">{field}:</span>
+                            <span className="font-semibold text-primary-ink">{field}:</span>
                             <span className="text-muted-foreground line-through decoration-red-500/50">{String(values.from)}</span>
                             <span>→</span>
                             <span className="text-green-600 font-medium">{String(values.to)}</span>

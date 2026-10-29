@@ -793,7 +793,7 @@ export function MaterialsHubClient({
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
                       {selectedGroup.materialId && (
-                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary-ink border border-primary-ink/20">
                           {selectedGroup.materialId}
                         </span>
                       )}
@@ -819,7 +819,7 @@ export function MaterialsHubClient({
                             <span className="text-muted-foreground/40">•</span>
                             <span className="text-muted-foreground text-[11px]">Offered by:</span>
                             <span className="font-medium text-foreground text-xs flex items-center gap-1">
-                              <Truck className="size-3 text-primary shrink-0" />
+                              <Truck className="size-3 text-primary-ink shrink-0" />
                               {vendorDisplayName(selectedGroup.vendor)}
                             </span>
                           </>
@@ -886,7 +886,7 @@ export function MaterialsHubClient({
                                   setSelectedGroupKey(null);
                                   router.push(`/w/${workspaceId}/procurement/indents/${item.indent.id}`);
                                 }}
-                                className="font-mono text-[11px] font-bold text-primary hover:underline text-left cursor-pointer"
+                                className="font-mono text-[11px] font-bold text-primary-ink hover:underline text-left cursor-pointer"
                               >
                                 {item.indent.indentId || "Draft"}
                               </button>
@@ -1010,7 +1010,7 @@ export function MaterialsHubClient({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Pencil className="size-4 text-primary" /> Edit Material
+              <Pencil className="size-4 text-primary-ink" /> Edit Material
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Modify the catalog material name or default unit of measure.
@@ -1091,13 +1091,13 @@ export function MaterialsHubClient({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Name:</span>
                     <span className="text-foreground font-semibold text-right">
-                      {selectedGroup?.materialName} <span className="text-muted-foreground">→</span> <span className="text-primary font-bold">{editMaterialName.trim()}</span>
+                      {selectedGroup?.materialName} <span className="text-muted-foreground">→</span> <span className="text-primary-ink font-bold">{editMaterialName.trim()}</span>
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Unit:</span>
                     <span className="text-foreground font-semibold text-right">
-                      {selectedGroup?.unit || "None"} <span className="text-muted-foreground">→</span> <span className="text-primary font-bold">{editMaterialUnit.trim() || "None"}</span>
+                      {selectedGroup?.unit || "None"} <span className="text-muted-foreground">→</span> <span className="text-primary-ink font-bold">{editMaterialUnit.trim() || "None"}</span>
                     </span>
                   </div>
                 </div>

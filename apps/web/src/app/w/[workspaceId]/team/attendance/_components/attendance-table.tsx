@@ -60,7 +60,7 @@ function LocationLink({ lat, lng, address, otherLocation }: { lat: number | null
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className={cn("block max-w-[160px] truncate text-sm hover:underline", otherLocation ? "text-destructive" : "text-primary")}
+            className={cn("block max-w-[160px] truncate text-sm hover:underline", otherLocation ? "text-destructive" : "text-primary-ink")}
             title={address || `Raw coordinates: ${lat}, ${lng}`}
         >
             {otherLocation ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
@@ -659,7 +659,7 @@ export function AttendanceTable({
                     {/* Header */}
                     <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
                         <div className="flex items-center gap-2">
-                            <Filter className="size-4 text-primary" />
+                            <Filter className="size-4 text-primary-ink" />
                             <h3 className="text-base font-medium text-foreground">Filters</h3>
                         </div>
                         <Button
@@ -687,7 +687,7 @@ export function AttendanceTable({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setTempFilters(prev => ({ ...prev, memberId: [] }))}
-                                                className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+                                                className="h-auto p-0 text-[10px] font-medium text-primary-ink hover:text-primary-ink/80 hover:bg-transparent"
                                             >
                                                 CLEAR
                                             </Button>
@@ -714,7 +714,7 @@ export function AttendanceTable({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setTempFilters(prev => ({ ...prev, departmentId: [] }))}
-                                                className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+                                                className="h-auto p-0 text-[10px] font-medium text-primary-ink hover:text-primary-ink/80 hover:bg-transparent"
                                             >
                                                 CLEAR
                                             </Button>
@@ -743,7 +743,7 @@ export function AttendanceTable({
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => setTempFilters(prev => ({ ...prev, status: [] }))}
-                                            className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+                                            className="h-auto p-0 text-[10px] font-medium text-primary-ink hover:text-primary-ink/80 hover:bg-transparent"
                                         >
                                             CLEAR
                                         </Button>
@@ -778,7 +778,7 @@ export function AttendanceTable({
                                                 from: undefined,
                                                 to: undefined
                                             }))}
-                                            className="h-auto p-0 text-[10px] font-medium text-primary hover:text-primary/80 hover:bg-transparent"
+                                            className="h-auto p-0 text-[10px] font-medium text-primary-ink hover:text-primary-ink/80 hover:bg-transparent"
                                         >
                                             RESET
                                         </Button>

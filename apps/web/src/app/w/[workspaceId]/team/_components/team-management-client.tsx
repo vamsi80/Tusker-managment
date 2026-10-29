@@ -192,7 +192,7 @@ export function TeamManagementClient({ workspaceId }: TeamManagementClientProps)
                         className={cn(
                             "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
                             maxOpenTasks === max
-                                ? "bg-primary text-primary-foreground border-primary"
+                                ? "bg-primary text-primary-foreground border-primary-ink"
                                 : "text-muted-foreground hover:bg-muted"
                         )}
                     >

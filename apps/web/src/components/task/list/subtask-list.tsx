@@ -219,7 +219,7 @@ export function SubTaskList({
                         />
                     ) : (
                         <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
-                            <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
+                            <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary-ink">
                                 <div className="flex items-center gap-2">
                                     <Plus className="size-4" />
                                     <span>Add SubTask</span>
@@ -304,7 +304,7 @@ export function SubTaskList({
                     />
                 ) : (
                     <TableRow className="bg-muted/30 hover:bg-muted/20 cursor-pointer" onClick={() => setShowInlineSubTaskForm(true)}>
-                        <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary">
+                        <TableCell colSpan={visibleColumnsCount} className="p-3 pl-12 text-primary-ink">
                             <div className="flex items-center gap-2">
                                 <Plus className="size-4" />
                                 <span>Add SubTask</span>

@@ -179,7 +179,7 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                                 </p>
                                                 <Link
                                                     href={`/w/${workspaceId}/team`}
-                                                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                                    className="inline-flex items-center gap-1 text-xs text-primary-ink hover:underline"
                                                 >
                                                     Manage on Team page
                                                     <ExternalLink className="size-3" />
@@ -204,7 +204,7 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                                         return (
                                                             <div
                                                                 key={member.id}
-                                                                className="flex items-center gap-2.5 rounded-lg border bg-background/80 p-2 shadow-xs hover:border-primary/30 transition-colors"
+                                                                className="flex items-center gap-2.5 rounded-lg border bg-background/80 p-2 shadow-xs hover:border-primary-ink/30 transition-colors"
                                                             >
                                                                 <Avatar className="size-7 shrink-0">
                                                                     {member.user.image && <AvatarImage src={member.user.image} alt={displayName} />}

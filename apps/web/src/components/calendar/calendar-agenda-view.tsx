@@ -143,8 +143,8 @@ export function CalendarAgendaView() {
                           {m.type.replace(/_/g, " ").toLowerCase()}
                         </Badge>
                         {m.project && (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 border-primary/20">
-                            <Briefcase className="size-2.5 text-primary" />
+                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 border-primary-ink/20">
+                            <Briefcase className="size-2.5 text-primary-ink" />
                             {m.project.name}
                           </Badge>
                         )}
@@ -166,7 +166,7 @@ export function CalendarAgendaView() {
                         )}
                       </div>
 
-                      <h4 className="text-sm sm:text-base font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                      <h4 className="text-sm sm:text-base font-bold text-foreground truncate group-hover:text-primary-ink transition-colors">
                         {m.title}
                       </h4>
 

@@ -82,7 +82,7 @@ export function TodayAgendaWidget() {
                 onClick={() => openDetailsModal(meeting)}
                 className={`p-3 rounded-xl border transition-all cursor-pointer group hover:shadow-xs ${
                   isOngoing
-                    ? "bg-primary/5 border-primary/30 ring-1 ring-primary/20"
+                    ? "bg-primary/5 border-primary-ink/30 ring-1 ring-primary/20"
                     : isPast
                     ? "opacity-60 bg-muted/20 border-border/50"
                     : "bg-card hover:bg-muted/30"
@@ -96,13 +96,13 @@ export function TodayAgendaWidget() {
                         {start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       {meeting.meetingUrl && (
-                        <span className="text-primary" title="Has video link">
+                        <span className="text-primary-ink" title="Has video link">
                           <Video className="size-3" />
                         </span>
                       )}
                     </div>
 
-                    <h4 className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1">
+                    <h4 className="text-xs font-semibold text-foreground truncate group-hover:text-primary-ink transition-colors flex items-center gap-1">
                       <OverlapIcon meeting={meeting} />
                       <span className="truncate">{meeting.title}</span>
                     </h4>

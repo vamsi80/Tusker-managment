@@ -47,9 +47,9 @@ export function SubtaskSheetNavBar({
                             key={tab.value}
                             onClick={() => onTabChange(tab.value)}
                             className={cn(
-                                "flex h-full items-center gap-2 border-b-2 px-1 text-xs font-medium transition-colors hover:text-primary whitespace-nowrap flex-shrink-0",
+                                "flex h-full items-center gap-2 border-b-2 px-1 text-xs font-medium transition-colors hover:text-primary-ink whitespace-nowrap flex-shrink-0",
                                 isActive
-                                    ? "border-primary text-primary"
+                                    ? "border-primary-ink text-primary-ink"
                                     : "border-transparent text-muted-foreground"
                             )}
                         >
@@ -59,7 +59,7 @@ export function SubtaskSheetNavBar({
                                 <span className={cn(
                                     "ml-1 rounded-full px-2 py-0.5 text-xs font-medium",
                                     isActive
-                                        ? "bg-primary/10 text-primary"
+                                        ? "bg-primary/10 text-primary-ink"
                                         : "bg-muted text-muted-foreground"
                                 )}>
                                     {tab.count}

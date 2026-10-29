@@ -38,7 +38,7 @@ export function PointsSettings({ workspaceId, initialPeriod }: { workspaceId: st
     return (
         <div className="flex max-w-xl flex-col gap-5 rounded-2xl bg-white/60 p-5 dark:bg-card/60">
             <div className="flex items-start gap-3">
-                <Trophy className="mt-0.5 size-5 text-primary" />
+                <Trophy className="mt-0.5 size-5 text-primary-ink" />
                 <div>
                     <h2 className="font-heading font-bold">Reward points</h2>
                     <p className="text-sm text-muted-foreground">

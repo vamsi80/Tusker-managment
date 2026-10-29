@@ -154,7 +154,7 @@ function CreateWorkspaceContent() {
                             <button
                                 type="button"
                                 onClick={() => router.push("/")}
-                                className="w-full text-center text-sm text-primary/70 hover:text-primary transition cursor-pointer"
+                                className="w-full text-center text-sm text-primary-ink/70 hover:text-primary-ink transition cursor-pointer"
                             >
                                 Continue with the existing workspace.
                             </button>

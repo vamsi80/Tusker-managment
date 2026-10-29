@@ -38,7 +38,7 @@ export function NotificationListItem({ notif, isRead, isActive, onClick }: Notif
         <AvatarImage src={commenterUser.image} />
         <AvatarFallback className={cn(
           "font-medium text-xs transition-colors",
-          isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary"
+          isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary-ink"
         )}>
           {commenterName[0]}
         </AvatarFallback>
@@ -72,7 +72,7 @@ export function NotificationListItem({ notif, isRead, isActive, onClick }: Notif
           {notif.count > 1 && (
             <span className={cn(
               "ml-2 text-[9px] px-1.5 py-0.5 rounded-full font-bold align-middle",
-              isActive ? "bg-primary-foreground/25 text-white" : "bg-primary/10 text-primary"
+              isActive ? "bg-primary-foreground/25 text-white" : "bg-primary/10 text-primary-ink"
             )}>
               +{notif.count - 1} more
             </span>

@@ -57,7 +57,7 @@ export default async function PurchaseOrdersPage({ params }: PageProps) {
                 <td>
                   <Link
                     href={`/w/${workspaceId}/procurement/pos/${po.id}`}
-                    className="font-medium text-primary hover:underline"
+                    className="font-medium text-primary-ink hover:underline"
                   >
                     {po.poNumber}
                   </Link>

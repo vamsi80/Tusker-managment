@@ -242,7 +242,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
           onClick={() => toggleLayer("meetings")}
           className={`text-xs px-3 py-1 rounded-full font-medium border transition-all flex items-center gap-1.5 ${
             activeLayers.meetings
-              ? "bg-primary/10 text-primary border-primary/30"
+              ? "bg-primary/10 text-primary-ink border-primary-ink/30"
               : "bg-muted/40 text-muted-foreground/60 border-transparent hover:border-border"
           }`}
         >

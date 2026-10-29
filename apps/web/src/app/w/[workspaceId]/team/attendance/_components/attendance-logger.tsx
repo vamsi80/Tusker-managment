@@ -210,10 +210,10 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
     return (
         <div className="w-full overflow-hidden bg-card border rounded-2xl shadow-xl transition-all duration-300">
             {/* Header with gradient subtle background */}
-            <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-primary/5 to-transparent border-b border-primary/10">
+            <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-primary/5 to-transparent border-b border-primary-ink/10">
                 <div className="flex items-center gap-3 mb-1">
                     <div className="p-2 bg-primary/10 rounded-xl">
-                        <MapPin className="size-5 text-primary" />
+                        <MapPin className="size-5 text-primary-ink" />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold tracking-tight">Daily Attendance</h3>
@@ -336,7 +336,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                             <div className="h-8 w-px bg-border/50" />
                                             <div className="flex flex-col items-end">
                                                 <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">Out</span>
-                                                <span className="text-sm font-bold tabular-nums text-primary">
+                                                <span className="text-sm font-bold tabular-nums text-primary-ink">
                                                     {mounted ? format(new Date(record.checkOut), "h:mm a") : "..."}
                                                 </span>
                                             </div>
@@ -349,11 +349,11 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-primary/5 border border-primary/10 text-center">
+                            <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-primary/5 border border-primary-ink/10 text-center">
                                 <div className="p-2 bg-primary/10 rounded-full mb-2">
-                                    <MapPin className="size-4 text-primary" />
+                                    <MapPin className="size-4 text-primary-ink" />
                                 </div>
-                                <p className="text-xs font-bold text-primary uppercase tracking-tighter">Day Completed</p>
+                                <p className="text-xs font-bold text-primary-ink uppercase tracking-tighter">Day Completed</p>
                                 <p className="text-[10px] text-muted-foreground font-medium mt-1">Rest well! See you tomorrow.</p>
                             </div>
                         </div>
@@ -377,7 +377,7 @@ export function AttendanceLogger({ workspaceId }: { workspaceId: string }) {
                             placeholder="Reason for off-site attendance (e.g., Client meeting, On-site visit, Home office...)"
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
-                            className="min-h-[100px] rounded-xl bg-muted/30 border-primary/10 focus:border-primary/30 transition-all resize-none"
+                            className="min-h-[100px] rounded-xl bg-muted/30 border-primary-ink/10 focus:border-primary-ink/30 transition-all resize-none"
                         />
                     </div>
                     <DialogFooter>

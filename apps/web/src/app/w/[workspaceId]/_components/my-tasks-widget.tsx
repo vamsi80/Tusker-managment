@@ -236,7 +236,7 @@ export function MyTasksWidget({ workspaceId }: { workspaceId: string }) {
                       "text-sm font-medium truncate block text-left w-full hover:underline transition-colors",
                       delayed
                         ? "text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300"
-                        : "text-foreground hover:text-primary",
+                        : "text-foreground hover:text-primary-ink",
                     )}
                   >
                     {task.name}

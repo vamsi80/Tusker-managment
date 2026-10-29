@@ -24,7 +24,7 @@ export default function ProjectNotFound({ workspaceId }: ProjectNotFoundProps) {
             <div className="relative">
                 <div className="absolute -inset-4 bg-primary/10 rounded-full blur-2xl" />
                 <div className="relative bg-background border rounded-3xl p-6 shadow-xl">
-                    <AlertCircle className="size-12 text-primary animate-pulse" />
+                    <AlertCircle className="size-12 text-primary-ink animate-pulse" />
                 </div>
             </div>
             

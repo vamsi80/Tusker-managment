@@ -26,15 +26,16 @@ const AuthLayout = ({ children }: { children:ReactNode}) => {
             alt='logo'
             width={150}
             height={32}
+            className="dark:invert"
           /> 
         </Link>
           
           {children}
 
         <div className='text-balance text-center text-xs text-muted-foreground'>
-          By clicking continue, you agree to our <span className='hover:text-primary hover:underline'>Terms of Service</span>
+          By clicking continue, you agree to our <span className='hover:text-primary-ink hover:underline'>Terms of Service</span>
           {' '}
-          and <span className='hover:text-primary hover:underline'>Privacy Policy</span>
+          and <span className='hover:text-primary-ink hover:underline'>Privacy Policy</span>
         </div>
       </div>
     </div>

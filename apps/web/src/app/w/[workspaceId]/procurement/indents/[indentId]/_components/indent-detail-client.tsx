@@ -975,7 +975,7 @@ export function IndentDetailClient({
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-3.5 flex items-center gap-3">
-              <div className="size-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+              <div className="size-8 rounded-full bg-primary/10 border border-primary-ink/20 flex items-center justify-center text-primary-ink font-bold text-xs shrink-0">
                 {getUserDisplayInitial(indent.requestedBy?.user)}
               </div>
               <div className="flex flex-col">
@@ -1048,7 +1048,7 @@ export function IndentDetailClient({
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Package className="size-4 text-primary" /> Requested Materials & Quantities
+                <Package className="size-4 text-primary-ink" /> Requested Materials & Quantities
               </CardTitle>
               <CardDescription className="text-[11px]">
                 List of materials requested in this procurement indent.

@@ -99,7 +99,7 @@ export function DueThisWeekWidget({
               </button>
             ))}
           </div>
-          <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
+          <div className="p-1.5 rounded-xl bg-primary/10 text-primary-ink">
             <Calendar className="size-4.5" />
           </div>
         </div>
@@ -129,7 +129,7 @@ export function DueThisWeekWidget({
                   <div className="flex-1 min-w-0">
                     <button
                       onClick={() => openSubTaskSheet(task)}
-                      className="text-sm font-medium leading-relaxed truncate text-foreground hover:text-primary hover:underline text-left w-full transition-colors"
+                      className="text-sm font-medium leading-relaxed truncate text-foreground hover:text-primary-ink hover:underline text-left w-full transition-colors"
                     >
                       {task.name}
                     </button>

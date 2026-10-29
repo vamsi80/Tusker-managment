@@ -495,7 +495,7 @@ export function ProcurementHubClient({
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Truck className="size-5 text-primary animate-pulse" /> Workspace Procurement Hub
+            <Truck className="size-5 text-primary-ink animate-pulse" /> Workspace Procurement Hub
           </h1>
           <p className="text-xs text-muted-foreground">
             PO Officer control desk for <strong>{workspaceName}</strong>. Manage indents, quotes, and approvals.
@@ -557,7 +557,7 @@ export function ProcurementHubClient({
                   <h3 className="text-2xl font-bold mt-1 text-foreground">{isLoadingStats ? "..." : dashboardStats.totalIndents}</h3>
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-2 border-t pt-1 flex items-center gap-1">
-                  <FileText className="size-3 text-primary" /> Workspace volume
+                  <FileText className="size-3 text-primary-ink" /> Workspace volume
                 </div>
               </div>
 
@@ -596,7 +596,7 @@ export function ProcurementHubClient({
             <div className="grid grid-cols-2 gap-6">
               <div className="p-4 border border-border bg-card rounded-lg shadow-sm">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3 flex items-center gap-1.5">
-                  <TrendingUp className="size-4 text-primary" /> Cost Overview
+                  <TrendingUp className="size-4 text-primary-ink" /> Cost Overview
                 </h4>
                 <div className="flex items-center justify-between py-2 border-b">
                   <span className="text-xs text-muted-foreground">Estimated Materials Budget</span>
@@ -614,7 +614,7 @@ export function ProcurementHubClient({
               <div className="p-4 border border-border bg-card rounded-lg shadow-sm flex flex-col justify-between">
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3 flex items-center gap-1.5">
-                    <Workflow className="size-4 text-primary" /> Active Workflow Links
+                    <Workflow className="size-4 text-primary-ink" /> Active Workflow Links
                   </h4>
                   <p className="text-xs text-muted-foreground mb-4">
                     Go directly to the active tabs to approve pending requests or comparison panels.
@@ -651,7 +651,7 @@ export function ProcurementHubClient({
             <div className="flex-1 overflow-y-auto">
               {isLoadingIndents ? (
                 <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                  <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading indents list...
+                  <Clock className="size-5 animate-spin mr-1.5 text-primary-ink" /> Loading indents list...
                 </div>
               ) : filteredIndents.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
@@ -790,7 +790,7 @@ export function ProcurementHubClient({
                         onClick={() => setSelectedItemId(item.id)}
                         className={`flex flex-col gap-1.5 p-3 border rounded-lg cursor-pointer transition-all hover:bg-muted/30 select-none ${
                           isSelected
-                            ? "border-primary bg-primary/[0.03] shadow-sm ring-1 ring-primary/20"
+                            ? "border-primary-ink bg-primary/[0.03] shadow-sm ring-1 ring-primary/20"
                             : "border-border/80 bg-card hover:border-border"
                         }`}
                       >
@@ -828,7 +828,7 @@ export function ProcurementHubClient({
                   <div className="h-[48%] border border-border/80 rounded-lg bg-card p-4 flex flex-col min-h-0 shadow-sm">
                     <div className="flex items-start justify-between border-b border-border/60 pb-3 mb-3 shrink-0">
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/[0.08] px-2 py-0.5 rounded border border-primary/20">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary-ink bg-primary/[0.08] px-2 py-0.5 rounded border border-primary-ink/20">
                           Material Details
                         </span>
                         <h2 className="text-base font-bold text-foreground mt-1.5 flex items-center gap-1.5">
@@ -930,7 +930,7 @@ export function ProcurementHubClient({
                     <div className="flex-1 overflow-y-auto">
                       {isLoadingDetails ? (
                         <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                          <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading supplier / contractor specifications...
+                          <Clock className="size-5 animate-spin mr-1.5 text-primary-ink" /> Loading supplier / contractor specifications...
                         </div>
                       ) : selectedItem.status === "PENDING" ? (
                         <div className="flex flex-col h-full justify-between">
@@ -959,7 +959,7 @@ export function ProcurementHubClient({
                                             [s.vendor.id]: e.target.checked,
                                           });
                                         }}
-                                        className="size-3.5 text-primary border-border rounded"
+                                        className="size-3.5 text-primary-ink border-border rounded"
                                       />
                                       <div className="flex flex-col">
                                         <span className="text-xs font-semibold text-foreground">{s.vendor.name}</span>
@@ -1011,7 +1011,7 @@ export function ProcurementHubClient({
                       ) : (
                         <div className="flex flex-col h-full justify-center items-center text-center p-6 bg-muted/10 border border-dashed border-border/80 rounded-lg">
                           <div className="p-3 bg-primary/5 rounded-full mb-3">
-                            <Send className="size-6 text-primary" />
+                            <Send className="size-6 text-primary-ink" />
                           </div>
                           <h4 className="text-xs font-bold text-foreground">RFQ Session Already Initiated</h4>
                           <p className="text-xs text-muted-foreground mt-1 max-w-[340px]">
@@ -1019,7 +1019,7 @@ export function ProcurementHubClient({
                           </p>
                           {selectedItem.rfqDeadline && (
                             <div className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted px-2.5 py-1 rounded border border-border/40">
-                              <Calendar className="size-3 text-primary" />
+                              <Calendar className="size-3 text-primary-ink" />
                               <span>Deadline Date: {format(new Date(selectedItem.rfqDeadline), "MMM d, yyyy")}</span>
                             </div>
                           )}

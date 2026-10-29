@@ -16,7 +16,7 @@ export default function EditProjectSelectionPage() {
     if (isLayoutLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full space-y-4">
-                <Loader2 className="size-8 animate-spin text-primary" />
+                <Loader2 className="size-8 animate-spin text-primary-ink" />
                 <p className="text-muted-foreground">Loading projects...</p>
             </div>
         );
@@ -58,7 +58,7 @@ export default function EditProjectSelectionPage() {
                                 key={proj.id} 
                                 className={`transition-all duration-200 border group ${
                                     canEdit 
-                                        ? "hover:border-primary/50 hover:shadow-md cursor-pointer" 
+                                        ? "hover:border-primary-ink/50 hover:shadow-md cursor-pointer" 
                                         : "opacity-75 border-muted bg-muted/20"
                                 }`}
                                 onClick={() => {
@@ -76,7 +76,7 @@ export default function EditProjectSelectionPage() {
                                             <Building2Icon className="size-4" />
                                         </div>
                                         <div>
-                                            <CardTitle className="text-base group-hover:text-primary transition-colors">
+                                            <CardTitle className="text-base group-hover:text-primary-ink transition-colors">
                                                 {proj.name}
                                             </CardTitle>
                                             <CardDescription className="text-xs font-mono truncate max-w-[200px]">
@@ -104,11 +104,11 @@ export default function EditProjectSelectionPage() {
                                         <div className="flex items-center justify-between mt-4 pt-4 border-t border-muted/50">
                                             {canEdit ? (
                                                 <>
-                                                    <span className="text-xs font-medium text-primary flex items-center gap-1">
+                                                    <span className="text-xs font-medium text-primary-ink flex items-center gap-1">
                                                         <Pencil className="size-3" />
                                                         Manage Project
                                                     </span>
-                                                    <ArrowRight className="size-4 text-primary transition-transform group-hover:translate-x-1" />
+                                                    <ArrowRight className="size-4 text-primary-ink transition-transform group-hover:translate-x-1" />
                                                 </>
                                             ) : (
                                                 <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 font-medium col-span-full">

@@ -89,7 +89,7 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
-        <Clock className="size-5 animate-spin mr-1.5 text-primary" /> Loading dashboard overview...
+        <Clock className="size-5 animate-spin mr-1.5 text-primary-ink" /> Loading dashboard overview...
       </div>
     );
   }
@@ -101,7 +101,7 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
       href: `/w/${workspaceId}/procurement/indents?status=ALL`,
       valueClassName: "text-foreground",
       labelClassName: "text-muted-foreground",
-      iconClassName: "text-primary",
+      iconClassName: "text-primary-ink",
       icon: FileText,
       helper: "Workspace volume",
     },
@@ -177,7 +177,7 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="shrink-0 font-mono text-[10px] font-bold text-primary">
+            <span className="shrink-0 font-mono text-[10px] font-bold text-primary-ink">
               {indent.indentId || "Draft"}
             </span>
             <span className="truncate text-xs font-semibold text-foreground">{indent.name}</span>
@@ -208,7 +208,7 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
               key={card.label}
               href={card.href}
               aria-label={`View ${card.label.toLowerCase()}`}
-              className="group flex min-h-32 flex-col justify-between rounded-lg border border-border/80 bg-card p-4 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-0"
+              className="group flex min-h-32 flex-col justify-between rounded-lg border border-border/80 bg-card p-4 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary-ink/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-0"
             >
               <div>
                 <span className={`text-[10px] font-bold uppercase ${card.labelClassName}`}>
@@ -230,10 +230,10 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
         <section className="flex h-72 min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm xl:h-auto">
           <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3">
             <div className="flex items-center gap-2">
-              <CalendarDays className="size-4 text-primary" />
+              <CalendarDays className="size-4 text-primary-ink" />
               <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">Due This Week</h2>
             </div>
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary-ink">
               {dueThisWeek.length}
             </span>
           </div>

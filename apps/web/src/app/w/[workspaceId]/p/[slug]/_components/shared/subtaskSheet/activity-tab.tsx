@@ -143,8 +143,8 @@ export function ActivityTab({ activities, isLoadingActivity, hasMore, onLoadMore
                                             return (
                                                 <div className="flex w-full flex-col gap-1.5 mt-1">
                                                     {attachmentUrl && (
-                                                        <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 px-3 py-2 rounded-md max-w-full overflow-hidden transition-all duration-200 shadow-sm w-max">
-                                                            <LinkIcon className="size-4 flex-shrink-0 text-primary" />
+                                                        <div className="flex items-center gap-2 text-sm text-primary-ink bg-primary/5 hover:bg-primary/10 border border-primary-ink/20 px-3 py-2 rounded-md max-w-full overflow-hidden transition-all duration-200 shadow-sm w-max">
+                                                            <LinkIcon className="size-4 flex-shrink-0 text-primary-ink" />
                                                             <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="truncate hover:underline font-semibold tracking-wide">
                                                                 {attachmentUrl}
                                                             </a>

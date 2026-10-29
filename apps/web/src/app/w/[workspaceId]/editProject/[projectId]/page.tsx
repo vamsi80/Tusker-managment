@@ -238,7 +238,7 @@ export default function EditProjectPage() {
     if (isLoadingProject || isLoadingMembers || isLayoutLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full space-y-4">
-                <Loader2 className="size-8 animate-spin text-primary" />
+                <Loader2 className="size-8 animate-spin text-primary-ink" />
                 <p className="text-muted-foreground">Loading project information...</p>
             </div>
         );
@@ -278,7 +278,7 @@ export default function EditProjectPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                         {/* Basic Info Section */}
                         <div className="space-y-4">
-                            <div className="flex items-center gap-3 text-primary font-semibold">
+                            <div className="flex items-center gap-3 text-primary-ink font-semibold">
                                 <Info className="size-5" />
                                 <h2 className="text-md font-medium">Basic Information</h2>
                             </div>
@@ -351,7 +351,7 @@ export default function EditProjectPage() {
 
                         {/* Team Section */}
                         <div className="space-y-6">
-                            <div className="flex items-center gap-3 text-primary font-semibold">
+                            <div className="flex items-center gap-3 text-primary-ink font-semibold">
                                 <Users className="size-5" />
                                 <h2 className="text-md font-medium">Team Assignment</h2>
                             </div>
@@ -581,7 +581,7 @@ export default function EditProjectPage() {
                     <div className="space-y-4 pt-6 border-t">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-6">
-                                <div className="flex items-center gap-3 text-primary font-semibold">
+                                <div className="flex items-center gap-3 text-primary-ink font-semibold">
                                     <Briefcase className="size-5" />
                                     <h2 className="text-md font-medium">Client Information</h2>
                                 </div>

@@ -149,7 +149,7 @@ export function QuoteCard({
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Total</span>
-          <span className="text-sm font-black text-primary">{formatINR(totalPrice)}</span>
+          <span className="text-sm font-black text-primary-ink">{formatINR(totalPrice)}</span>
         </div>
       </div>
 

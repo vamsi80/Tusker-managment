@@ -40,7 +40,7 @@ export function SuggestedVendorCard({
         "w-full text-left rounded-lg border p-3 transition-all duration-150",
         "hover:shadow-sm active:scale-[0.99]",
         isSelected
-          ? "border-primary bg-primary/5 shadow-sm"
+          ? "border-primary-ink bg-primary/5 shadow-sm"
           : "border-border/70 bg-background hover:border-border hover:bg-muted/20"
       )}
     >
@@ -50,7 +50,7 @@ export function SuggestedVendorCard({
           className={cn(
             "mt-0.5 size-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all",
             isSelected
-              ? "bg-primary border-primary"
+              ? "bg-primary border-primary-ink"
               : "border-muted-foreground/40"
           )}
         >

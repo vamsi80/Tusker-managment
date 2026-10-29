@@ -147,7 +147,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                                         aria-pressed={memberId === m.memberId}
                                         className={cn(
                                             "flex w-full items-center gap-3 rounded-full border px-3 py-2 text-left transition-colors",
-                                            memberId === m.memberId ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/60",
+                                            memberId === m.memberId ? "border-primary-ink bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/60",
                                         )}
                                     >
                                         <span className="w-5 text-center text-xs font-semibold text-muted-foreground">{m.rank}</span>

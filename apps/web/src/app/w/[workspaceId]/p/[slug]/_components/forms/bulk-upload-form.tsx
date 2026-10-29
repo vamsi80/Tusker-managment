@@ -806,7 +806,7 @@ ${tagList}
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Upload className="size-5 text-primary" />
+                        <Upload className="size-5 text-primary-ink" />
                         Bulk Task Upload
                     </DialogTitle>
                 </DialogHeader>
@@ -816,7 +816,7 @@ ${tagList}
                         <div className="absolute inset-0 bg-background/80 z-[100] flex flex-col items-center justify-center p-6 text-center rounded-lg border shadow-lg">
                             <div className="w-full max-w-xs space-y-6 bg-background p-4 rounded-lg">
                                 <div className="flex items-center justify-center">
-                                    <Loader2 className="size-8 text-primary animate-spin" />
+                                    <Loader2 className="size-8 text-primary-ink animate-spin" />
                                 </div>
                                 
                                 <div className="space-y-1">
@@ -842,7 +842,7 @@ ${tagList}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
                             <div className="flex items-center gap-2 mb-1">
-                                <FileText className="size-4 text-primary" />
+                                <FileText className="size-4 text-primary-ink" />
                                 <h4 className="text-sm font-semibold">Instructions</h4>
                             </div>
                             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -932,7 +932,7 @@ ${tagList}
                             {...getRootProps()}
                             className={cn(
                                 "border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group",
-                                isDragActive ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/50 hover:bg-muted/30",
+                                isDragActive ? "border-primary-ink bg-primary/5" : "border-border/60 hover:border-primary-ink/50 hover:bg-muted/30",
                                 isProcessing && "opacity-50 pointer-events-none"
                             )}
                         >
@@ -941,7 +941,7 @@ ${tagList}
                                 {fileName ? (
                                     <FileSpreadsheet className="size-8 text-green-600" />
                                 ) : (
-                                    <Upload className="size-8 text-primary" />
+                                    <Upload className="size-8 text-primary-ink" />
                                 )}
                             </div>
                             <div className="text-center">

@@ -82,7 +82,7 @@ export function ReviewsWidget({ workspaceId }: { workspaceId: string }) {
                   <button
                     type="button"
                     onClick={() => openSubTaskSheet(item)}
-                    className="text-sm font-medium truncate block text-left w-full text-foreground hover:text-primary hover:underline transition-colors"
+                    className="text-sm font-medium truncate block text-left w-full text-foreground hover:text-primary-ink hover:underline transition-colors"
                   >
                     {item.name}
                   </button>

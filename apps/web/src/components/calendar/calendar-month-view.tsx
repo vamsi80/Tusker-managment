@@ -238,7 +238,7 @@ export function CalendarMonthView() {
                 <button
                   type="button"
                   onClick={() => openScheduleModal({ date: dayItem.date })}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground"
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-primary/10 hover:text-primary-ink transition-all text-muted-foreground"
                   title="Schedule meeting on this day"
                 >
                   <Plus className="size-3.5" />
@@ -285,12 +285,12 @@ export function CalendarMonthView() {
                         e.stopPropagation();
                         openDetailsModal(m);
                       }}
-                      className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 cursor-pointer transition-colors truncate"
+                      className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary-ink hover:bg-primary/20 border border-primary-ink/20 cursor-pointer transition-colors truncate"
                       title={`${startTime} ${m.title}`}
                     >
                       <OverlapIcon meeting={m} className="size-2.5" />
-                      {m.meetingUrl && <Video className="size-2.5 shrink-0 text-primary" />}
-                      <span className="text-[10px] text-primary/80 shrink-0">{startTime}</span>
+                      {m.meetingUrl && <Video className="size-2.5 shrink-0 text-primary-ink" />}
+                      <span className="text-[10px] text-primary-ink/80 shrink-0">{startTime}</span>
                       <span className="truncate">{m.title}</span>
                     </div>
                   );
@@ -335,7 +335,7 @@ export function CalendarMonthView() {
                           <div
                             key={m.id}
                             onClick={() => openDetailsModal(m)}
-                            className="p-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium cursor-pointer hover:bg-primary/20 transition-colors"
+                            className="p-1.5 rounded-lg bg-primary/10 text-primary-ink text-xs font-medium cursor-pointer hover:bg-primary/20 transition-colors"
                           >
                             <p className="font-semibold truncate flex items-center gap-1">
                               <OverlapIcon meeting={m} />

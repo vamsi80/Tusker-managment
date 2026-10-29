@@ -2,14 +2,13 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { DravaLogo } from "@/components/shared/drava-logo";
 import { buttonVariants } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import ThemeToggle from "@/components/ui/theme-toggle";
 import { UserDropdown } from "./userDropdown";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { getUserDisplayName } from "@tusker/core/lib/user-display-name";
 
 interface iAppProps {
@@ -19,19 +18,8 @@ interface iAppProps {
 export function Navbar({ session: serverSession }: iAppProps) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Use client session if available, otherwise use server session
   const currentSession = session || serverSession;
-
-  // Determine logo based on theme (with hydration handling)
-  const isDark = mounted ? resolvedTheme === "dark" : false;
-  const logoSrc = isDark ? "/logo-b.png" : "/logo-w.png";
 
   // Protected click handler for Workspace link
   const handleWorkspaceClick = (e: React.MouseEvent) => {
@@ -54,27 +42,20 @@ export function Navbar({ session: serverSession }: iAppProps) {
     <header className="sticky top-0 z-50 w-full border bg-background/95 backdrop-blur-[backdrop-filter]:bg-background/60">
       <div className="container flex min-h-16 items-center mx-auto px-4 md:px-6 lg:px-8">
         <Link href="/" className="flex items-center space-x-2 mr-2 sm:mr-4">
-          <Image
-            src={logoSrc}
-            alt="Logo"
-            width={150}
-            height={50}
-            className="p-1 sm:p-2 w-[70px] sm:w-[110px] transition-opacity duration-300"
-            priority
-          />
+          <DravaLogo className="p-1 sm:p-2 text-xl sm:text-[1.6rem]" />
         </Link>
 
         {/* desktop navigation */}
         <nav className="hidden md:flex md:flex-1 md:items-center md:justify-between">
           <div className="flex items-center space-x-6">
-            <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
+            <Link href="/" className="text-sm font-medium transition-colors hover:text-primary-ink">
               Home
             </Link>
 
             <Link
               href="/w"
               onClick={handleWorkspaceClick}
-              className="text-sm font-medium transition-colors hover:text-primary cursor-pointer"
+              className="text-sm font-medium transition-colors hover:text-primary-ink cursor-pointer"
             >
               Workspace
             </Link>

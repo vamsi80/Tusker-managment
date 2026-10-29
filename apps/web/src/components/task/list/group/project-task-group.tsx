@@ -283,7 +283,7 @@ export function ProjectTaskGroup({
                         onClick={(e) => { e.stopPropagation(); setActiveInlineProjectId(projectId); }}
                     >
                         <TableCell colSpan={visibleColumnsCount} className="py-2 px-2 pl-8">
-                            <div className="flex items-center gap-2 text-primary font-medium hover:text-primary/80 transition-colors">
+                            <div className="flex items-center gap-2 text-primary-ink font-medium hover:text-primary-ink/80 transition-colors">
                                 <Plus className="size-4" />
                                 <span>Add Task</span>
                             </div>

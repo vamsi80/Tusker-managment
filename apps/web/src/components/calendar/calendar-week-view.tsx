@@ -314,7 +314,7 @@ export function CalendarWeekView() {
                         top: topPx,
                         height: heightPx,
                       }}
-                      className="absolute left-1 right-1 z-10 p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary/20 shadow-xs cursor-pointer hover:opacity-95 transition-all overflow-hidden flex flex-col justify-between"
+                      className="absolute left-1 right-1 z-10 p-1.5 rounded-lg bg-primary text-primary-foreground border border-primary-ink/20 shadow-xs cursor-pointer hover:opacity-95 transition-all overflow-hidden flex flex-col justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-center gap-1">

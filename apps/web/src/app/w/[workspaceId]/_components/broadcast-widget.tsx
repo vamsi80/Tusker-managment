@@ -261,7 +261,7 @@ export function BroadcastWidget({
                 className={cn(
                   "px-3 py-1 rounded-full border text-xs font-medium transition-colors",
                   deptIds.length === 0
-                    ? "bg-primary text-primary-foreground border-primary"
+                    ? "bg-primary text-primary-foreground border-primary-ink"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -275,7 +275,7 @@ export function BroadcastWidget({
                   className={cn(
                     "px-3 py-1 rounded-full border text-xs font-medium transition-colors",
                     deptIds.includes(d.id)
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? "bg-primary text-primary-foreground border-primary-ink"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >

@@ -41,12 +41,12 @@ export function MaterialsFilters({
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
                 {/* Search Input */}
                 <div className="relative w-full md:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-hover:text-primary-ink" />
                     <Input
                         placeholder="Search materials or tasks..."
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className="pl-9 h-9 text-xs w-full bg-background/50 border-border/80 focus:border-primary/50 focus:ring-primary/20 transition-all rounded-lg"
+                        className="pl-9 h-9 text-xs w-full bg-background/50 border-border/80 focus:border-primary-ink/50 focus:ring-primary/20 transition-all rounded-lg"
                     />
                 </div>
 

@@ -72,7 +72,7 @@ export function AbsentMembersWidget({ allMembers, absentRecords }: AbsentMembers
                   <div className="flex items-center gap-3">
                     <Avatar className="size-9">
                       <AvatarImage src={user.image || ""} alt={displayName} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
+                      <AvatarFallback className="bg-primary/10 text-primary-ink">
                         {displayName.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>

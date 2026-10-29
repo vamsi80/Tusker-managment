@@ -171,7 +171,7 @@ export default function ProjectSettingsPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-                <Loader2 className="size-8 animate-spin text-primary" />
+                <Loader2 className="size-8 animate-spin text-primary-ink" />
                 <p className="text-muted-foreground text-sm">Loading project settings...</p>
             </div>
         );
@@ -215,7 +215,7 @@ export default function ProjectSettingsPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                <SlidersHorizontal className="size-4 text-primary" />
+                                <SlidersHorizontal className="size-4 text-primary-ink" />
                                 Member Permission Matrix
                             </CardTitle>
                             <CardDescription className="text-xs mt-1">

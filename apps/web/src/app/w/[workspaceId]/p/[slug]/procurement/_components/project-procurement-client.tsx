@@ -248,7 +248,7 @@ export function ProjectProcurementClient({
       <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
         <div>
           <h1 className="text-base font-bold text-foreground flex items-center gap-1.5">
-            <AlignLeft className="size-4.5 text-primary" /> Procurement
+            <AlignLeft className="size-4.5 text-primary-ink" /> Procurement
           </h1>
           <p className="text-[11px] text-muted-foreground">
             Manage material requests, track indents, and view required materials.
@@ -297,7 +297,7 @@ export function ProjectProcurementClient({
                     key={indent.id}
                     onClick={() => setSelectedIndentId(indent.id)}
                     className={`flex flex-col gap-2 p-3 border rounded-lg cursor-pointer transition-all hover:bg-muted/30 select-none ${isSelected
-                        ? "border-primary bg-primary/[0.03] shadow-sm ring-1 ring-primary/20"
+                        ? "border-primary-ink bg-primary/[0.03] shadow-sm ring-1 ring-primary/20"
                         : "border-border/80 bg-card hover:border-border"
                       }`}
                   >
@@ -347,7 +347,7 @@ export function ProjectProcurementClient({
                 <div className="p-4 border-b border-border/60 bg-muted/10 shrink-0">
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div>
-                      <span className="font-mono text-[10px] font-bold text-primary bg-primary/[0.08] px-2 py-0.5 rounded-full border border-primary/25">
+                      <span className="font-mono text-[10px] font-bold text-primary-ink bg-primary/[0.08] px-2 py-0.5 rounded-full border border-primary-ink/25">
                         {selectedIndent.indentId || "Draft Request"}
                       </span>
                       <h3 className="text-sm font-bold text-foreground mt-2">
@@ -368,7 +368,7 @@ export function ProjectProcurementClient({
                       {getStatusBadge(selectedIndent.status)}
                       {selectedIndent.expectedDelivery && (
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded border border-border/40">
-                          <Calendar className="size-3 text-primary" />
+                          <Calendar className="size-3 text-primary-ink" />
                           <span>Delivery: {format(new Date(selectedIndent.expectedDelivery), "MMM d, yyyy")}</span>
                         </div>
                       )}

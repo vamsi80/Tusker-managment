@@ -171,7 +171,7 @@ export default function WorkspaceProjectsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Projects</h1>
-            <span className="px-2.5 py-0.5 text-xs font-bold bg-primary/10 text-primary rounded-full">
+            <span className="px-2.5 py-0.5 text-xs font-bold bg-primary/10 text-primary-ink rounded-full">
               {projects.length} Total
             </span>
           </div>
@@ -198,7 +198,7 @@ export default function WorkspaceProjectsPage() {
           className={cn(
             "px-4 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer whitespace-nowrap",
             selectedCategories.length === 0
-              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+              ? "bg-primary text-primary-foreground border-primary-ink shadow-sm"
               : "bg-card/50 text-muted-foreground/80 border-border hover:text-foreground"
           )}
         >
@@ -242,7 +242,7 @@ export default function WorkspaceProjectsPage() {
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 bg-card/45 hover:bg-card/85 focus:bg-card border border-border/80 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl text-sm font-medium outline-none transition-all placeholder:text-muted-foreground/50 shadow-sm"
+            className="w-full pl-10 pr-10 py-2 bg-card/45 hover:bg-card/85 focus:bg-card border border-border/80 focus:border-primary-ink/50 focus:ring-1 focus:ring-primary/20 rounded-xl text-sm font-medium outline-none transition-all placeholder:text-muted-foreground/50 shadow-sm"
           />
           {searchQuery && (
             <button
@@ -327,7 +327,7 @@ export default function WorkspaceProjectsPage() {
                     <Building2 className="size-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-base text-foreground tracking-tight line-clamp-1 group-hover:text-primary transition-colors">
+                    <h3 className="font-bold text-base text-foreground tracking-tight line-clamp-1 group-hover:text-primary-ink transition-colors">
                       {proj.name}
                     </h3>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground/75 font-medium mt-0.5">

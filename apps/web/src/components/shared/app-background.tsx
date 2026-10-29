@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useAppearanceStore } from "@/lib/store/appearance-store";
 
 /**
- * The workspace backdrop from the Trava design: a warm wash, soft drifting
- * glows and curved light ribbons. Drawn in code (CSS gradients + inline SVG),
+ * The workspace backdrop: a flat drava surface, faint lime glows and thin
+ * curved light ribbons (the line motif on the mobile app's shift card). Drawn in code (CSS gradients + inline SVG),
  * not shipped as an image. Colours come from the --bg-* tokens in globals.css,
  * so light and dark only differ there.
  *

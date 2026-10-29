@@ -142,9 +142,9 @@ export function MultiSelectTags({
             aria-controls="tags-listbox"
             className={cn(
               "w-full justify-between h-8 py-0 px-2 transition-all duration-200",
-              "border border-muted-foreground/20 hover:border-primary/50 hover:bg-accent/50",
+              "border border-muted-foreground/20 hover:border-primary-ink/50 hover:bg-accent/50",
               "focus-visible:ring-offset-0 focus-visible:ring-1 focus-visible:ring-primary/30",
-              open && "border-primary/50 ring-1 ring-primary/30 bg-accent/50"
+              open && "border-primary-ink/50 ring-1 ring-primary/30 bg-accent/50"
             )}
           >
             <div className="flex items-center gap-1 max-w-[140px] overflow-hidden">
@@ -154,7 +154,7 @@ export function MultiSelectTags({
                     variant="secondary"
                     className={cn(
                       "group flex items-center gap-1 pl-1.5 pr-1 py-0.5 transition-all duration-200 truncate max-w-[90px] shrink-0",
-                      "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-transparent border"
+                      "bg-primary/10 text-primary-ink hover:bg-primary hover:text-primary-foreground border-transparent border"
                     )}
                   >
                     <span className="text-[10px] font-medium truncate">{toTitleCase(selectedOptions[0].name)}</span>
@@ -193,12 +193,12 @@ export function MultiSelectTags({
           </Button>
         </PopoverTrigger>
         <PopoverContent 
-          className="p-0 shadow-2xl border border-primary/20 backdrop-blur-xl bg-background/95 overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+          className="p-0 shadow-2xl border border-primary-ink/20 backdrop-blur-xl bg-background/95 overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
           align="start"
           style={{ width: "max(var(--radix-popover-trigger-width), 250px)" }}
         >
           <Command className="bg-transparent" shouldFilter={false}>
-            <div className="flex items-center border-b border-primary/10 px-3">
+            <div className="flex items-center border-b border-primary-ink/10 px-3">
               <CommandInput 
                 placeholder="Search tags..." 
                 className="h-10 border-none focus:ring-0 text-sm"
@@ -225,7 +225,7 @@ export function MultiSelectTags({
                         className={cn(
                           "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer transition-colors text-foreground",
                           "hover:bg-primary/5 aria-selected:bg-primary/10",
-                          isSelected && "text-primary font-medium"
+                          isSelected && "text-primary-ink font-medium"
                         )}
                         onSelect={() => {
                           onChange(
@@ -236,8 +236,8 @@ export function MultiSelectTags({
                         }}
                       >
                         <div className={cn(
-                          "flex size-4 items-center justify-center rounded border border-primary/30 transition-all duration-200",
-                          isSelected ? "bg-primary border-primary" : "bg-transparent"
+                          "flex size-4 items-center justify-center rounded border border-primary-ink/30 transition-all duration-200",
+                          isSelected ? "bg-primary border-primary-ink" : "bg-transparent"
                         )}>
                           <Check
                             className={cn(
@@ -254,12 +254,12 @@ export function MultiSelectTags({
               )}
 
               {matchingWorkspaceTagsNotInProject.length > 0 && (
-                <CommandGroup heading="Existing Workspace Tags" className="p-1.5 border-t border-primary/5 text-muted-foreground">
+                <CommandGroup heading="Existing Workspace Tags" className="p-1.5 border-t border-primary-ink/5 text-muted-foreground">
                   {matchingWorkspaceTagsNotInProject.map((tag) => (
                     <CommandItem
                       key={tag.id}
                       className={cn(
-                        "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer text-primary hover:bg-primary/5 transition-colors",
+                        "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer text-primary-ink hover:bg-primary/5 transition-colors",
                         isProcessing && "opacity-50 cursor-not-allowed"
                       )}
                       disabled={isProcessing}
@@ -279,10 +279,10 @@ export function MultiSelectTags({
               )}
 
               {showCreateOption && (
-                <CommandGroup heading="New Tag" className="p-1.5 border-t border-primary/5 text-muted-foreground">
+                <CommandGroup heading="New Tag" className="p-1.5 border-t border-primary-ink/5 text-muted-foreground">
                   <CommandItem
                     className={cn(
-                      "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer text-primary hover:bg-primary/5 transition-colors",
+                      "flex items-center gap-2 px-2 py-2 rounded-md cursor-pointer text-primary-ink hover:bg-primary/5 transition-colors",
                       isProcessing && "opacity-50 cursor-not-allowed"
                     )}
                     disabled={isProcessing}

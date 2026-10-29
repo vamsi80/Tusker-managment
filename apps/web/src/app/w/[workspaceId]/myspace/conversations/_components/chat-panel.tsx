@@ -370,7 +370,7 @@ export function ChatPanel({
 
             <div className="relative">
               <Avatar className="size-10 rounded-full">
-                <AvatarFallback className="rounded-full bg-primary/10 font-semibold uppercase text-primary">
+                <AvatarFallback className="rounded-full bg-primary/10 font-semibold uppercase text-primary-ink">
                   {getUserDisplayInitial(otherUser)}
                 </AvatarFallback>
               </Avatar>
@@ -414,7 +414,7 @@ export function ChatPanel({
             )}
             {isLoading && messages.length === 0 ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="size-6 animate-spin text-primary/20" />
+                <Loader2 className="size-6 animate-spin text-primary-ink/20" />
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-30">
@@ -567,9 +567,9 @@ export function ChatPanel({
 
       <div className="border-t p-4">
         {editingMessageId && (
-          <div className="mx-auto mb-2 flex max-w-4xl items-center justify-between rounded-lg border-l-2 border-primary bg-muted/40 px-3 py-2">
+          <div className="mx-auto mb-2 flex max-w-4xl items-center justify-between rounded-lg border-l-2 border-primary-ink bg-muted/40 px-3 py-2">
             <div>
-              <p className="text-xs font-semibold text-primary">Editing message</p>
+              <p className="text-xs font-semibold text-primary-ink">Editing message</p>
               <p className="max-w-[70vw] truncate text-xs text-muted-foreground">{content}</p>
             </div>
             <Button type="button" variant="ghost" size="icon" onClick={cancelEdit} aria-label="Cancel edit">

@@ -303,13 +303,13 @@ export const KanbanCard = React.memo(function KanbanCard({
                     </TooltipTrigger>
                     <TooltipContent
                       side="left"
-                      className="text-xs p-3 space-y-3 min-w-[180px] shadow-xl border-primary/10"
+                      className="text-xs p-3 space-y-3 min-w-[180px] shadow-xl border-primary-ink/10"
                     >
                       <div className="space-y-1">
                         <p className="font-semibold text-[9px] text-accent uppercase tracking-wider">
                           Project Manager
                         </p>
-                        <p className="font-medium text-[11px] text-primary">
+                        <p className="font-medium text-[11px] text-primary-ink">
                           {firstManager?.surname || firstManager?.name || firstManager?.user?.surname || firstManager?.user?.name || "Unassigned"}
                         </p>
                       </div>
@@ -318,7 +318,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                           <p className="font-semibold text-[9px] text-accent uppercase tracking-wider">
                             Project
                           </p>
-                          <p className="font-medium text-[11px] text-primary">
+                          <p className="font-medium text-[11px] text-primary-ink">
                             {project?.name || "Unassigned Project"}
                           </p>
                         </div>
@@ -327,7 +327,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                             <p className="font-semibold text-[9px] text-accent uppercase tracking-wider">
                               Parent Task
                             </p>
-                            <p className="font-medium text-[11px] text-primary line-clamp-2">
+                            <p className="font-medium text-[11px] text-primary-ink line-clamp-2">
                               {subTask.parentTask.name}
                             </p>
                           </div>
@@ -343,7 +343,7 @@ export const KanbanCard = React.memo(function KanbanCard({
           <div className="space-y-0">
             <div className="flex items-start justify-between gap-2 z-30">
               <h5
-                className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary transition-colors line-clamp-1"
+                className="font-semibold text-[13px] leading-snug flex-1 cursor-pointer hover:text-primary-ink transition-colors line-clamp-1"
                 onClick={handleNameClick}
                 title={subTask.name}
               >
@@ -470,7 +470,7 @@ export const KanbanCard = React.memo(function KanbanCard({
                     <span className="truncate">{toTitleCase(subTask.tags[0].name)}</span>
                   </div>
                   {subTask.tags.length > 1 && (
-                    <div className="bg-primary/10 text-primary px-1 py-0.5 rounded text-[8px] font-bold border border-primary/20 shrink-0">
+                    <div className="bg-primary/10 text-primary-ink px-1 py-0.5 rounded text-[8px] font-bold border border-primary-ink/20 shrink-0">
                       +{subTask.tags.length - 1}
                     </div>
                   )}

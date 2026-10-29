@@ -257,7 +257,7 @@ export function TaskRow({
                             aria-label={isExpanded ? "Collapse" : "Expand"}
                         >
                             {isLoading ? (
-                                <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                <div className="size-4 animate-spin rounded-full border-2 border-primary-ink border-t-transparent" />
                             ) : isExpanded ? (
                                 <ChevronDown className="size-4 text-muted-foreground" />
                             ) : (
@@ -273,7 +273,7 @@ export function TaskRow({
                             title={task.name}
                             className={cn(
                                 "font-semibold text-sm text-foreground truncate text-left rounded focus-visible:outline-2 focus-visible:outline-primary",
-                                canExpand ? "cursor-pointer hover:text-primary" : "cursor-default"
+                                canExpand ? "cursor-pointer hover:text-primary-ink" : "cursor-default"
                             )}
                         >
                             {task.name}
@@ -472,7 +472,7 @@ export function TaskRow({
                                     customTrigger={
                                         <button
                                             type="button"
-                                            className="flex items-center gap-1.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                                            className="flex items-center gap-1.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:text-primary-ink focus-visible:outline-2 focus-visible:outline-primary"
                                         >
                                             <Plus className="size-3.5" />
                                             Add subtask

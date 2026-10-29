@@ -73,7 +73,7 @@ async function TeamSettingsContent({ workspaceId }: { workspaceId: string }) {
                     <div className="flex flex-col gap-6">
                         <div className="flex items-center gap-4 p-12 rounded-2xl border-2 border-dashed border-muted-foreground/10 bg-muted/5 text-center flex-col justify-center min-h-[300px]">
                             <div className="p-4 rounded-full bg-primary/10">
-                                <Calendar className="size-10 text-primary" />
+                                <Calendar className="size-10 text-primary-ink" />
                             </div>
                             <div className="space-y-2">
                                 <h2 className="text-xl font-bold">Leave Policies</h2>

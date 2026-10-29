@@ -73,7 +73,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                     {(projectName || subTask.parentTask) && (
                         <div className="mb-2.5 flex items-center gap-2 overflow-hidden">
                             {projectName && (
-                                <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
+                                <Badge variant="secondary" className="bg-primary/10 text-primary-ink border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
                                     {projectName}
                                 </Badge>
                             )}
@@ -109,7 +109,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                     {String(subTask.description).length > 150 && (
                         <button
                             onClick={() => setIsExpanded(!isExpanded)}
-                            className="text-xs font-semibold text-primary hover:underline mt-1 focus:outline-none"
+                            className="text-xs font-semibold text-primary-ink hover:underline mt-1 focus:outline-none"
                         >
                             {isExpanded ? "Show Less" : "Show More"}
                         </button>
@@ -201,7 +201,7 @@ export const SubtaskSheetHeader = memo(function SubtaskSheetHeader({
                                     <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
                                         {subTask.tags && subTask.tags.length > 0 ? (
                                             subTask.tags.slice(0, 2).map(t => (
-                                                <Badge key={t.id} variant="secondary" className="rounded-md text-[8px] font-bold bg-primary/5 text-primary border-none px-1 h-3.5">
+                                                <Badge key={t.id} variant="secondary" className="rounded-md text-[8px] font-bold bg-primary/5 text-primary-ink border-none px-1 h-3.5">
                                                     {toTitleCase(t.name)}
                                                 </Badge>
                                             ))

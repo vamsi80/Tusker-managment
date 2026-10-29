@@ -354,7 +354,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                             >
                                 {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                             </Button>
-                            <CalendarIcon className="size-3.5 text-primary shrink-0" />
+                            <CalendarIcon className="size-3.5 text-primary-ink shrink-0" />
                             <span className="font-bold text-sm text-foreground">
                                 {data.date !== "No Date" ? formatIST(new Date(`${data.date}T12:00:00`)) : "No Date"}
                             </span>
@@ -485,7 +485,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
                         placeholder="Search assignees, tasks, or logs..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-9 border-muted/40 focus:border-primary/30 transition-all text-sm"
+                        className="pl-9 h-9 border-muted/40 focus:border-primary-ink/30 transition-all text-sm"
                     />
                 </div>
 
@@ -570,7 +570,7 @@ export function ReportsTable({ initialData, workspaceId, initialDate, initialUse
 
                 {isLoadingMore ? (
                     <div className="flex justify-center p-8 border-t border-border/10 bg-muted/5">
-                        <Loader2 className="size-6 animate-spin text-primary/60" />
+                        <Loader2 className="size-6 animate-spin text-primary-ink/60" />
                     </div>
                 ) : (hasMore && data.length > 0) ? (
                     <div ref={observerRef} className="h-12 flex items-center justify-center border-t border-border/5" />

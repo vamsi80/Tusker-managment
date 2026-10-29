@@ -84,7 +84,7 @@ export function NotificationList() {
       {/* Header */}
       <div className="p-4 flex items-center justify-between border-b pb-3.5 shrink-0">
         <div className="flex items-center gap-2">
-          <Bell className="size-4.5 text-primary" />
+          <Bell className="size-4.5 text-primary-ink" />
           <h2 className="text-base font-bold tracking-tight">Notifications</h2>
         </div>
         {unreadNotifications.length > 0 && (
@@ -92,7 +92,7 @@ export function NotificationList() {
             variant="ghost"
             size="sm"
             onClick={markAllRead}
-            className="text-[11px] h-7 px-2 font-semibold text-muted-foreground hover:text-primary transition-colors"
+            className="text-[11px] h-7 px-2 font-semibold text-muted-foreground hover:text-primary-ink transition-colors"
           >
             Mark all read
           </Button>
@@ -118,18 +118,18 @@ export function NotificationList() {
           <TabsList className="w-full bg-transparent border-none p-0 h-10 gap-4">
             <TabsTrigger
               value="new"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 h-10 text-xs font-semibold gap-2"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary-ink data-[state=active]:bg-transparent px-2 h-10 text-xs font-semibold gap-2"
             >
               New
               {unreadCount > 0 && (
-                <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                <span className="bg-primary/10 text-primary-ink px-1.5 py-0.5 rounded-full text-[10px] font-bold">
                   {unreadCount}
                 </span>
               )}
             </TabsTrigger>
             <TabsTrigger
               value="history"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 h-10 text-xs font-semibold"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary-ink data-[state=active]:bg-transparent px-2 h-10 text-xs font-semibold"
             >
               History
             </TabsTrigger>
@@ -193,7 +193,7 @@ export function NotificationList() {
             <Button
               variant="ghost"
               size="sm"
-              className="w-full text-xs h-8 text-muted-foreground hover:text-primary"
+              className="w-full text-xs h-8 text-muted-foreground hover:text-primary-ink"
               onClick={() => loadNotifications(false)}
               disabled={isLoadingMore}
             >

@@ -258,7 +258,7 @@ export const LoginForm = () => {
                   <Label htmlFor="password">Password</Label>
                   <a
                     href="/forgot-password"
-                    className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                    className="text-xs text-muted-foreground hover:text-primary-ink underline-offset-4 hover:underline"
                   >
                     Forgot password?
                   </a>
@@ -343,7 +343,7 @@ export const LoginForm = () => {
                     Code sent to {phoneNumber}
                     <button
                       onClick={() => { setOtpSent(false); setPhoneOtp(""); }}
-                      className="ml-2 text-primary hover:underline font-medium"
+                      className="ml-2 text-primary-ink hover:underline font-medium"
                     >
                       Change
                     </button>
@@ -401,7 +401,7 @@ export const LoginForm = () => {
         </div> */}
         <div className="text-center text-sm">
           Don&apos;t have an account?{" "}
-          <Link href="/sign-up" className="underline underline-offset-4 hover:text-primary">
+          <Link href="/sign-up" className="underline underline-offset-4 hover:text-primary-ink">
             Sign Up
           </Link>
         </div>

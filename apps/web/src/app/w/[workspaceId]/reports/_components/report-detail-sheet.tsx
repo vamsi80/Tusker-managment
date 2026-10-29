@@ -56,9 +56,9 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 pt-0 custom-scrollbar">
                     {/* User Header Section */}
                     <div className="flex items-center gap-3">
-                        <Avatar className="size-10 border-2 border-primary/10">
+                        <Avatar className="size-10 border-2 border-primary-ink/10">
                             <AvatarImage src={report.user?.image} />
-                            <AvatarFallback className="bg-primary/5 text-primary text-base font-bold">
+                            <AvatarFallback className="bg-primary/5 text-primary-ink text-base font-bold">
                                 {report.user?.surname?.charAt(0) || "U"}
                             </AvatarFallback>
                         </Avatar>
@@ -122,12 +122,12 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                                         {entries[currentEntryIndex].task.parentTask?.name && ` / ${entries[currentEntryIndex].task.parentTask.name}`}
                                                     </span>
                                                 </div>
-                                                <h5 className="font-normal text-md text-primary tracking-tight leading-tight">
+                                                <h5 className="font-normal text-md text-primary-ink tracking-tight leading-tight">
                                                     {entries[currentEntryIndex].task.name}
                                                 </h5>
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
+                                                <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary-ink/10">
                                                     <Clock className="size-4" />
                                                     <span>
                                                         {entries[currentEntryIndex].createdAt ? formatIST(entries[currentEntryIndex].createdAt, "h:mm:ss a") : "Time unknown"}
@@ -144,12 +144,12 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
                                                         General Activity
                                                     </span>
                                                 </div>
-                                                <h5 className="font-normal text-lg tracking-tight leading-tight text-primary italic">
+                                                <h5 className="font-normal text-lg tracking-tight leading-tight text-primary-ink italic">
                                                     Other Work
                                                 </h5>
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
+                                                <div className="flex items-center gap-2 font-normal text-sm bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary-ink/10">
                                                     <Clock className="size-4" />
                                                     <span>
                                                         {entries[currentEntryIndex].createdAt ? formatIST(entries[currentEntryIndex].createdAt, "h:mm:ss a") : "Time unknown"}
@@ -161,7 +161,7 @@ export function ReportDetailModal({ isOpen, onOpenChange, report }: ReportDetail
 
                                     <div className="bg-card rounded-xl min-h-[250px] relative overflow-hidden group/log">
                                         <div className="relative z-10">
-                                            {/* <h2 className="font-normal text-lg tracking-tight leading-tight text-primary">Description :</h2> */}
+                                            {/* <h2 className="font-normal text-lg tracking-tight leading-tight text-primary-ink">Description :</h2> */}
                                             <p className="leading-relaxed whitespace-pre-wrap text-foreground/90 font-normal">
                                                 {entries[currentEntryIndex].description || "No description provided."}
                                             </p>

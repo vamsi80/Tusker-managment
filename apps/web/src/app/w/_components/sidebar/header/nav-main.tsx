@@ -11,7 +11,7 @@ import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, Side
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition, useRef, useEffect } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DravaMark } from "@/components/shared/drava-logo";
 
 // Icon mapping to resolve string names to actual components
 const iconMap = {
@@ -68,10 +68,7 @@ export function NavMain({
   return (
     <SidebarGroup className={isPending ? "opacity-70 pointer-events-none" : ""}>
       <div className="flex items-center gap-3 px-3 py-2 mb-2">
-        <Avatar className="size-9 rounded-xl border shadow-sm">
-          <AvatarImage src="/icon.png" alt="Tusker" />
-          <AvatarFallback className="bg-primary text-primary-foreground">T</AvatarFallback>
-        </Avatar>
+        <DravaMark className="size-8" />
         <div className="flex flex-col">
           <span className="font-bold text-sm leading-none">Tusker</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mt-1">Management</span>

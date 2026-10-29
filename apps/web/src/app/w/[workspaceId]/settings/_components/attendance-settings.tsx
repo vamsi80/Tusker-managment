@@ -323,7 +323,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
 
                         <Button
                             variant="outline"
-                            className="w-full border-dashed border-2 hover:bg-primary/5 hover:border-primary/50 transition-all gap-2 h-11 font-bold rounded-xl"
+                            className="w-full border-dashed border-2 hover:bg-primary/5 hover:border-primary-ink/50 transition-all gap-2 h-11 font-bold rounded-xl"
                             onClick={() => {
                                 setPublicHolidays([...publicHolidays, { name: "New Holiday", date: new Date().toISOString() }]);
                             }}
@@ -433,7 +433,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                                                     type="button"
                                                     onClick={() => handleReverseGeocode(idx, loc.latitude, loc.longitude)}
                                                     disabled={!isAdmin || isLoading || !loc.latitude || !loc.longitude}
-                                                    className="text-[9px] font-bold uppercase tracking-tight text-primary hover:underline disabled:opacity-50 disabled:no-underline bg-transparent border-0 cursor-pointer p-0"
+                                                    className="text-[9px] font-bold uppercase tracking-tight text-primary-ink hover:underline disabled:opacity-50 disabled:no-underline bg-transparent border-0 cursor-pointer p-0"
                                                 >
                                                     Get Address
                                                 </button>
@@ -480,9 +480,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                                         </div>
                                     </div>
 
-                                    <div className="px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                                    <div className="px-2 py-1.5 rounded-lg bg-primary/5 border border-primary-ink/10">
                                         <p className="text-[10px] text-muted-foreground leading-tight italic">
-                                            <span className="font-bold text-primary not-italic">Pro Tip:</span> Paste a Google Maps URL in the search box above to instantly set coordinates.
+                                            <span className="font-bold text-primary-ink not-italic">Pro Tip:</span> Paste a Google Maps URL in the search box above to instantly set coordinates.
                                         </p>
                                     </div>
 
@@ -515,13 +515,13 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                                     radius: 100
                                 }]);
                             }}
-                            className="p-4 rounded-xl border-2 border-dashed border-muted-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all group flex flex-col items-center justify-center gap-2 min-h-[200px]"
+                            className="p-4 rounded-xl border-2 border-dashed border-muted-foreground/10 hover:border-primary-ink/50 hover:bg-primary/5 transition-all group flex flex-col items-center justify-center gap-2 min-h-[200px]"
                             disabled={!isAdmin || isLoading}
                         >
                             <div className="p-3 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                                <Plus className="size-6 text-primary" />
+                                <Plus className="size-6 text-primary-ink" />
                             </div>
-                            <span className="text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">Add New Location</span>
+                            <span className="text-sm font-bold text-muted-foreground group-hover:text-primary-ink transition-colors">Add New Location</span>
                         </button>
                     </div>
                 </div>

@@ -74,7 +74,7 @@ export function NewDMDialog({
           <div className="flex flex-col p-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="size-6 animate-spin text-primary/20" />
+                <Loader2 className="size-6 animate-spin text-primary-ink/20" />
               </div>
             ) : filteredMembers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
@@ -89,9 +89,9 @@ export function NewDMDialog({
                   disabled={isCreating}
                   className="flex items-center gap-3 p-3 rounded-2xl transition-all hover:bg-muted/60 active:scale-95 text-left group"
                 >
-                  <Avatar className="size-10 rounded-lg border border-border/10 group-hover:border-primary/20 transition-colors">
+                  <Avatar className="size-10 rounded-lg border border-border/10 group-hover:border-primary-ink/20 transition-colors">
                     <AvatarImage src={member.user.image} />
-                    <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-bold uppercase">
+                    <AvatarFallback className="rounded-lg bg-primary/10 text-primary-ink font-bold uppercase">
                       {getUserDisplayInitial(member.user)}
                     </AvatarFallback>
                   </Avatar>
@@ -104,7 +104,7 @@ export function NewDMDialog({
                     </span>
                   </div>
                   {isCreating && (
-                    <Loader2 className="ml-auto size-4 animate-spin text-primary" />
+                    <Loader2 className="ml-auto size-4 animate-spin text-primary-ink" />
                   )}
                 </button>
               ))

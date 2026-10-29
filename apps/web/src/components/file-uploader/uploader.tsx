@@ -276,8 +276,8 @@ export function Uploader({ value, onChange, fileTypeAcepted }: iAppProps) {
     return (
         <div {...getRootProps()} className={cn("relative border-2 border-dashed border-gray-400 transition-colors duration-200 ease-in-out w-full h-64",
             isDragActive
-                ? "border-primary bg-primary/10 border-solid"
-                : "border-border hover:border-primary")}
+                ? "border-primary-ink bg-primary/10 border-solid"
+                : "border-border hover:border-primary-ink")}
         >
             <CardContent className="flex items-center justify-center size-full p-4">
                 <input {...getInputProps()} />

@@ -102,7 +102,7 @@ export const ForgotPasswordForm = () => {
           <div className="text-center">
             <Link
               href="/sign-in"
-              className="inline-flex items-center text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+              className="inline-flex items-center text-sm text-muted-foreground hover:text-primary-ink underline-offset-4 hover:underline"
             >
               <ArrowLeft className="mr-2 size-4" />
               Back to Login

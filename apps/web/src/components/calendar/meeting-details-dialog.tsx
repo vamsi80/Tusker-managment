@@ -136,8 +136,8 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
                   {selectedMeeting.status.replace(/_/g, " ").toLowerCase()}
                 </Badge>
                 {selectedMeeting.project && (
-                  <Badge variant="outline" className="text-xs flex items-center gap-1 border-primary/20">
-                    <Briefcase className="size-3 text-primary" />
+                  <Badge variant="outline" className="text-xs flex items-center gap-1 border-primary-ink/20">
+                    <Briefcase className="size-3 text-primary-ink" />
                     {selectedMeeting.project.name}
                   </Badge>
                 )}
@@ -162,7 +162,7 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
           {/* Time and Duration Card */}
           <div className="p-4 rounded-xl bg-muted/40 border space-y-2">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <Calendar className="size-4 text-primary" />
+              <Calendar className="size-4 text-primary-ink" />
               <span>
                 {start.toLocaleDateString("en-US", {
                   weekday: "long",
@@ -213,7 +213,7 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
           {/* Location */}
           {selectedMeeting.location && (
             <div className="flex items-center gap-2.5 text-sm p-3 rounded-xl bg-card border">
-              <MapPin className="size-4 text-primary shrink-0" />
+              <MapPin className="size-4 text-primary-ink shrink-0" />
               <span className="text-muted-foreground">Location:</span>
               <span className="font-medium text-foreground">{selectedMeeting.location}</span>
             </div>
@@ -233,8 +233,8 @@ export function MeetingDetailsDialog({ workspaceId }: { workspaceId: string }) {
 
           {/* RSVP Selector for current user */}
           {currentAttendee && (
-            <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-primary">Your Attendance:</span>
+            <div className="p-3.5 rounded-xl bg-primary/5 border border-primary-ink/20 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-primary-ink">Your Attendance:</span>
               <div className="flex items-center gap-1">
                 {(["ACCEPTED", "TENTATIVE", "DECLINED"] as const).map((status) => (
                   <button

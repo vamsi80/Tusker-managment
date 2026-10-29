@@ -10,12 +10,12 @@ export function RenderEmptyState({ isDragActive }: { isDragActive: boolean }) {
             <div className="flex items-center mx-auto justify-center size-12 rounded-full bg-muted mb-4">
                 <CloudUploadIcon className={cn(
                     "size-6 text-muted-foreground",
-                    isDragActive && "text-primary"
+                    isDragActive && "text-primary-ink"
                 )}
                 />
             </div>
             <p className="text-base font-semibold text-foreground">
-                Drop Your files here or <span className="text-primary font-bold cursor-pointer">click to uploader</span>
+                Drop Your files here or <span className="text-primary-ink font-bold cursor-pointer">click to uploader</span>
             </p>
             <Button type="button" className="mt-4">
                 Select File

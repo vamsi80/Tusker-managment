@@ -346,7 +346,7 @@ export function CreateRfqClient({ workspaceId, indents, vendors }: CreateRfqClie
                           <X className="size-3" />
                         </Button>
                         <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
-                          <Building className="size-3 text-primary" /> Column {idx + 1}
+                          <Building className="size-3 text-primary-ink" /> Column {idx + 1}
                         </span>
                         <div className="flex flex-col pr-4">
                           <span className="text-xs font-bold text-foreground truncate">{vendorDisplayName(vendor)}</span>

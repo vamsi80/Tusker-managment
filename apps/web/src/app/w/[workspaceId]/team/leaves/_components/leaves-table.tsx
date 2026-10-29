@@ -429,7 +429,7 @@ export function LeavesTable({
                             <div className="p-8 space-y-6">
                                 <DialogHeader className="flex flex-row items-start justify-between gap-4 w-full pr-4">
                                     <div className="flex items-center gap-4">
-                                        <Avatar className="size-16 border-2 border-primary/20">
+                                        <Avatar className="size-16 border-2 border-primary-ink/20">
                                             <AvatarFallback className="text-xl font-medium">{initials}</AvatarFallback>
                                         </Avatar>
                                         <div className="text-left">
@@ -441,7 +441,7 @@ export function LeavesTable({
                                     {leave.status === "PENDING" && leave.workspaceMemberId === currentMemberId && (
                                         <div className="flex items-center gap-1">
                                             <LeaveRequestDialog workspaceId={workspaceId} initialData={leave} onSuccess={() => setIsDialogOpen(false)}>
-                                                <Button size="icon" variant="ghost" className="size-9 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                                                <Button size="icon" variant="ghost" className="size-9 rounded-full text-muted-foreground hover:text-primary-ink hover:bg-primary/10 transition-colors">
                                                     <Pencil className="size-4" />
                                                 </Button>
                                             </LeaveRequestDialog>

@@ -93,7 +93,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
             ref={setNodeRef}
             className={cn(
                 "flex-shrink-0 w-[calc(100vw-4rem)] sm:w-80 flex flex-col h-full transition-colors duration-200 rounded-2xl overflow-hidden border-2 shadow-xs",
-                isOver ? "bg-accent ring-2 ring-primary/20 border-primary/50" : "bg-white border-transparent dark:bg-card"
+                isOver ? "bg-accent ring-2 ring-primary/20 border-primary-ink/50" : "bg-white border-transparent dark:bg-card"
             )}
         >
             {/* Column Header */}
@@ -111,16 +111,16 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                             <div className={cn(
                                 "border-2 border-dashed rounded-full px-2 py-0.5 flex items-center gap-1 transition-all duration-300 animate-in fade-in zoom-in-95 shrink-0",
                                 isOver
-                                    ? "border-primary/50 bg-primary/20 scale-105 shadow-sm"
+                                    ? "border-primary-ink/50 bg-primary/20 scale-105 shadow-sm"
                                     : "border-muted-foreground/20 bg-muted/10 opacity-70"
                             )}>
                                 <Plus className={cn(
                                     "size-2.5 transition-colors",
-                                    isOver ? "text-primary" : "text-muted-foreground/60"
+                                    isOver ? "text-primary-ink" : "text-muted-foreground/60"
                                 )} />
                                 <span className={cn(
                                     "text-[8px] font-bold uppercase tracking-tight transition-colors",
-                                    isOver ? "text-primary" : "text-muted-foreground/60"
+                                    isOver ? "text-primary-ink" : "text-muted-foreground/60"
                                 )}>
                                     {isOver ? "Release" : "Drop Here"}
                                 </span>
@@ -194,7 +194,7 @@ export const KanbanColumn = React.memo(function KanbanColumn({
                     <div className={cn(
                         "flex items-center justify-center h-24 text-foreground text-sm uppercase font-medium tracking-wide rounded-xl transition-all duration-200",
                         isOver
-                            ? "bg-primary/10 border-2 border-dashed border-primary/40 text-primary scale-[1.02]"
+                            ? "bg-primary/10 border-2 border-dashed border-primary-ink/40 text-primary-ink scale-[1.02]"
                             : ""
                     )}>
                         {isOver ? "Drop here" : "No tasks found"}

@@ -312,7 +312,7 @@ export function LineItemTable({
                   >
                     <TableCell className="py-2.5 pl-3">
                       <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                        <span className="text-xs font-semibold text-foreground group-hover:text-primary-ink transition-colors">
                           {item.materialName}
                         </span>
                         {item.specifications && (

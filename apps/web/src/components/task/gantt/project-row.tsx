@@ -130,7 +130,7 @@ export function ProjectRow({
                             aria-label={isExpanded ? "Collapse Project" : "Expand Project"}
                         >
                             {isLoading ? (
-                                <div className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                <div className="size-4 animate-spin rounded-full border-2 border-primary-ink border-t-transparent" />
                             ) : isExpanded ? (
                                 <ChevronDown className="size-4 text-muted-foreground" />
                             ) : (
@@ -148,7 +148,7 @@ export function ProjectRow({
                             disabled={isLoading}
                             aria-expanded={isExpanded}
                             title={name}
-                            className="font-semibold text-sm text-foreground truncate text-left rounded cursor-pointer hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                            className="font-semibold text-sm text-foreground truncate text-left rounded cursor-pointer hover:text-primary-ink focus-visible:outline-2 focus-visible:outline-primary"
                         >
                             {name}
                         </button>

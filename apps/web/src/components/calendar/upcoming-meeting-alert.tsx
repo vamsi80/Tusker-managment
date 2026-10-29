@@ -26,7 +26,7 @@ export function UpcomingMeetingAlert() {
   const end = new Date(upcomingMeeting.endTime);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-background p-4 sm:p-5 shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+    <div className="relative overflow-hidden rounded-2xl border border-primary-ink/30 bg-gradient-to-r from-primary/10 via-primary/5 to-background p-4 sm:p-5 shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-300">
       {/* Background glow element */}
       <div className="absolute -right-10 -bottom-10 size-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -44,7 +44,7 @@ export function UpcomingMeetingAlert() {
               </Badge>
             )}
 
-            <Badge variant="outline" className="text-xs capitalize border-primary/20">
+            <Badge variant="outline" className="text-xs capitalize border-primary-ink/20">
               {upcomingMeeting.type.replace(/_/g, " ").toLowerCase()}
             </Badge>
 

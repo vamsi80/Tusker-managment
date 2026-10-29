@@ -54,7 +54,7 @@ export default function BoardClient({ data, workspaceId }: BoardClientProps) {
                                 Workspace board
                             </h1>
                             {data.isOwner && (
-                                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-all py-0.5 px-2 text-[10px] font-medium mt-1">
+                                <Badge variant="secondary" className="bg-primary/10 text-primary-ink border-primary-ink/20 hover:bg-primary/20 transition-all py-0.5 px-2 text-[10px] font-medium mt-1">
                                     admin
                                 </Badge>
                             )}
@@ -99,7 +99,7 @@ export default function BoardClient({ data, workspaceId }: BoardClientProps) {
                             placeholder="Type your note here... (e.g. Finish the UI audit, Fix auth bug)"
                             value={newNote}
                             onChange={(e) => setNewNote(e.target.value)}
-                            className="min-h-[140px] resize-none bg-muted/20 border-border/30 focus:border-primary/50 transition-all rounded-xl text-sm"
+                            className="min-h-[140px] resize-none bg-muted/20 border-border/30 focus:border-primary-ink/50 transition-all rounded-xl text-sm"
                             autoFocus
                         />
                     </div>

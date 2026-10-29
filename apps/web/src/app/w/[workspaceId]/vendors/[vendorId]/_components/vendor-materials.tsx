@@ -246,7 +246,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Open attached link"
-                  className="text-primary hover:text-primary/80"
+                  className="text-primary-ink hover:text-primary-ink/80"
                 >
                   <ExternalLink className="size-3.5" />
                 </a>
@@ -268,7 +268,7 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
             <div className="flex flex-col gap-0.5">
               <Link
                 href={`/w/${workspaceId}/procurement/indents/${row.original.indentId}`}
-                className="font-mono text-[11px] font-bold text-primary hover:underline"
+                className="font-mono text-[11px] font-bold text-primary-ink hover:underline"
               >
                 {row.original.indentRef || row.original.indentName}
               </Link>
@@ -408,9 +408,9 @@ export function VendorMaterials({ vendorId, workspaceId }: { vendorId: string; w
                                 setPopoverOpen(false);
                                 setSearchQuery("");
                               }}
-                              className="text-primary font-medium cursor-pointer"
+                              className="text-primary-ink font-medium cursor-pointer"
                             >
-                              <Plus className="mr-2 size-4 text-primary" /> Create new &quot;{searchQuery.trim()}&quot;
+                              <Plus className="mr-2 size-4 text-primary-ink" /> Create new &quot;{searchQuery.trim()}&quot;
                             </CommandItem>
                           )}
                         {existingItems.map((item) => (

@@ -86,7 +86,7 @@ export function NotificationCenter({ workspaceId, initialPeopleCount = 0 }: { wo
                 >
                     <Bell className={cn(
                         "h-[18px] w-[18px] transition-transform",
-                        isPulsing && "scale-110 text-primary"
+                        isPulsing && "scale-110 text-primary-ink"
                     )} />
                     {peopleCount > 0 && (
                         <div

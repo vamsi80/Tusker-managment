@@ -72,7 +72,7 @@ export function TeamNav({ workspaceId, isAdmin }: TeamNavProps) {
                         title={isQuerying ? "Refreshing..." : "Up to date"}
                         className="flex size-10 items-center justify-center glass rounded-full"
                     >
-                        <RefreshCw className={cn("size-4 transition-all duration-500", isQuerying ? "text-primary animate-spin" : "text-muted-foreground")} />
+                        <RefreshCw className={cn("size-4 transition-all duration-500", isQuerying ? "text-primary-ink animate-spin" : "text-muted-foreground")} />
                     </div>
                     <LeaveRequestDialog workspaceId={workspaceId}>
                         <Button variant="outline" className="uppercase tracking-wide shadow-md">

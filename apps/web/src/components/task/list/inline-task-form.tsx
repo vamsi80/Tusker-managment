@@ -127,7 +127,7 @@ export function InlineTaskForm({
                         }}
                         autoFocus
                         disabled={pending}
-                        className="h-8 border-primary/50 focus-visible:ring-primary"
+                        className="h-8 border-primary-ink/50 focus-visible:ring-primary"
                     />
                     {taskName.trim().length > 0 && (
                         <p className="text-[10px] text-muted-foreground mt-0.5 px-1">

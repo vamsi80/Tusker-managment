@@ -123,7 +123,7 @@ export function MultiSelectFilter({
                   >
                     <span
                       className={cn(
-                        "flex size-4 shrink-0 items-center justify-center rounded-sm border border-primary",
+                        "flex size-4 shrink-0 items-center justify-center rounded-sm border border-primary-ink",
                         isSelected
                           ? "bg-primary text-primary-foreground"
                           : "opacity-50 [&_svg]:invisible",

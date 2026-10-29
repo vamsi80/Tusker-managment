@@ -20,7 +20,7 @@ export function AppearanceSettings() {
             </div>
             <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-xs dark:bg-card">
                 <span className="flex items-start gap-3">
-                    <Sparkles className="mt-0.5 size-5 text-primary" />
+                    <Sparkles className="mt-0.5 size-5 text-primary-ink" />
                     <span>
                         <span className="block text-sm font-medium">Flowing light</span>
                         <span className="block text-sm text-muted-foreground">

@@ -198,7 +198,7 @@ export function DailyReportModal({ workspaceId, isOpen, onClose, onSubmitted }: 
                                                                         entry.taskId === "other" ? "opacity-100" : "opacity-0"
                                                                     )}
                                                                 />
-                                                                <span className="font-semibold text-primary">Other Work</span>
+                                                                <span className="font-semibold text-primary-ink">Other Work</span>
                                                             </CommandItem>
                                                         </CommandGroup>
                                                     </CommandList>

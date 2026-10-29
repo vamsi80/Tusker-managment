@@ -228,7 +228,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
   if (isTaskLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary-ink" />
       </div>
     );
   }
@@ -245,7 +245,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
           <div className="flex flex-col gap-2">
             {/* Project / Type Breadcrumb */}
             <div className="flex items-center gap-2 overflow-hidden">
-              <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
+              <Badge variant="secondary" className="bg-primary/10 text-primary-ink border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md shrink-0">
                 {matchedNotif.projectName || "System"}
               </Badge>
               <span className="text-muted-foreground/40 text-[10px] font-bold">/</span>
@@ -264,7 +264,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
             <div className="flex gap-3 items-start p-4 rounded-xl bg-muted/30 border border-muted/50">
               <Avatar className="size-10 shrink-0">
                 <AvatarImage src={commenterUser.image} />
-                <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                <AvatarFallback className="bg-primary/10 text-primary-ink font-medium text-sm">
                   {commenterName[0]}
                 </AvatarFallback>
               </Avatar>
@@ -287,7 +287,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
 
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4">
-        <div className="size-16 rounded-full bg-primary/5 flex items-center justify-center text-primary/30">
+        <div className="size-16 rounded-full bg-primary/5 flex items-center justify-center text-primary-ink/30">
           <MessageSquare className="size-8" />
         </div>
         <div>

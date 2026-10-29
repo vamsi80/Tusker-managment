@@ -361,7 +361,7 @@ export function InlineSubTaskForm({
                     }}
                     autoFocus
                     disabled={pending}
-                    className="h-8 w-full border-primary/50 focus-visible:ring-primary"
+                    className="h-8 w-full border-primary-ink/50 focus-visible:ring-primary"
                 />
                 {subTaskName.trim().length > 0 && (
                     <p className="text-[10px] text-muted-foreground mt-0.5 px-1 truncate">
@@ -523,7 +523,7 @@ export function InlineSubTaskForm({
                             }
                         }}
                         disabled={pending}
-                        className="h-8 w-full border-primary/30 text-center"
+                        className="h-8 w-full border-primary-ink/30 text-center"
                         placeholder="Days"
                         aria-label="Days"
                     />

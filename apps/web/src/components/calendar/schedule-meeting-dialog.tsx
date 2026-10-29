@@ -275,7 +275,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
       <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto p-6 rounded-2xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary-ink">
               <CalendarIcon className="size-5" />
             </div>
             <div>
@@ -375,7 +375,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
                   key={mins}
                   type="button"
                   onClick={() => handleDurationClick(mins)}
-                  className="text-xs px-2.5 py-0.5 rounded-md bg-background border hover:border-primary/50 text-foreground transition-colors"
+                  className="text-xs px-2.5 py-0.5 rounded-md bg-background border hover:border-primary-ink/50 text-foreground transition-colors"
                 >
                   {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
                 </button>
@@ -387,7 +387,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <Video className="size-3.5 text-primary" /> Video Call Link
+                <Video className="size-3.5 text-primary-ink" /> Video Call Link
               </Label>
               <Input
                 placeholder="e.g. meet.google.com/abc-xyz"
@@ -399,7 +399,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <MapPin className="size-3.5 text-primary" /> Physical Location
+                <MapPin className="size-3.5 text-primary-ink" /> Physical Location
               </Label>
               <Input
                 placeholder="e.g. Conference Room B or HQ"
@@ -414,7 +414,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <Briefcase className="size-3.5 text-primary" /> Associated Project
+                <Briefcase className="size-3.5 text-primary-ink" /> Associated Project
               </Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger className="h-10 rounded-xl">
@@ -466,7 +466,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
           <div className="space-y-2">
             <Label className="text-xs font-semibold flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Users className="size-3.5 text-primary" /> Invite Team Members
+                <Users className="size-3.5 text-primary-ink" /> Invite Team Members
               </span>
               <span className="text-[11px] text-muted-foreground">
                 {selectedAttendeeIds.length} selected
@@ -526,7 +526,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
                         onClick={() => toggleAttendee(userId)}
                         className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
                           isSelected
-                            ? "bg-primary/10 text-primary font-medium"
+                            ? "bg-primary/10 text-primary-ink font-medium"
                             : "hover:bg-muted text-foreground"
                         }`}
                       >
@@ -546,7 +546,7 @@ export function ScheduleMeetingDialog({ workspaceId }: { workspaceId: string }) 
                             )}
                           </div>
                         </div>
-                        {isSelected && <Check className="size-4 text-primary shrink-0" />}
+                        {isSelected && <Check className="size-4 text-primary-ink shrink-0" />}
                       </div>
                     );
                   })

@@ -21,19 +21,19 @@ export function SortableHeader({ field, label, sorts, onSortChange, className }:
         <th className={cn("text-muted-foreground h-10 px-2 text-left align-middle font-normal whitespace-nowrap bg-surface-solid", className)}>
             <button
                 onClick={() => onSortChange(field)}
-                className="flex items-center gap-1.5 hover:text-primary transition-colors group w-full"
+                className="flex items-center gap-1.5 hover:text-primary-ink transition-colors group w-full"
             >
                 <span>{label}</span>
                 <div className="flex items-center gap-0.5">
                     {currentSort ? (
                         <>
                             {currentSort.direction === "asc" ? (
-                                <ArrowUp className="size-3.5 text-primary" />
+                                <ArrowUp className="size-3.5 text-primary-ink" />
                             ) : (
-                                <ArrowDown className="size-3.5 text-primary" />
+                                <ArrowDown className="size-3.5 text-primary-ink" />
                             )}
                             {sorts.length > 1 && (
-                                <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full size-4 flex items-center justify-center">
+                                <span className="text-[10px] font-bold text-primary-ink bg-primary/10 rounded-full size-4 flex items-center justify-center">
                                     {sortIndex + 1}
                                 </span>
                             )}

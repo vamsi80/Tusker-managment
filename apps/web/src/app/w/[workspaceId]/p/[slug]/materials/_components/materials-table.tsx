@@ -167,7 +167,7 @@ function AutoCompleteInput({
                     {/* Create New Option */}
                     {searchQuery.trim() && !exactMatch && onCreateClick && (
                         <div
-                            className="px-3 py-2.5 text-xs cursor-pointer hover:bg-primary/5 text-primary flex items-center transition-colors font-semibold border-t border-border/40 bg-muted/20 mt-auto shrink-0"
+                            className="px-3 py-2.5 text-xs cursor-pointer hover:bg-primary/5 text-primary-ink flex items-center transition-colors font-semibold border-t border-border/40 bg-muted/20 mt-auto shrink-0"
                             onMouseDown={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -175,7 +175,7 @@ function AutoCompleteInput({
                                 setOpen(false);
                             }}
                         >
-                            <Plus className="mr-2 size-3 text-primary shrink-0" /> Create &quot;{searchQuery.trim()}&quot;
+                            <Plus className="mr-2 size-3 text-primary-ink shrink-0" /> Create &quot;{searchQuery.trim()}&quot;
                         </div>
                     )}
                 </PopoverContent>
@@ -374,7 +374,7 @@ export function MaterialsTable({
         switch (status) {
             case "DRAFT":
                 return (
-                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-semibold py-0 px-2 rounded-full uppercase tracking-wider">
+                    <Badge variant="outline" className="bg-primary/5 text-primary-ink border-primary-ink/10 text-[9px] font-semibold py-0 px-2 rounded-full uppercase tracking-wider">
                         Planned
                     </Badge>
                 );
@@ -410,7 +410,7 @@ export function MaterialsTable({
                     onClick={() => setShowSummary(!showSummary)}
                     className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border transition-all duration-200 ${
                         showSummary
-                            ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
+                            ? "bg-primary/10 text-primary-ink border-primary-ink/20 hover:bg-primary/15"
                             : "text-muted-foreground border-border/40 hover:bg-muted/40"
                     }`}
                 >
@@ -471,7 +471,7 @@ export function MaterialsTable({
                                                     {item.totalQuantity.toLocaleString()}
                                                 </TableCell>
                                                 <TableCell className="py-2.5 text-center">
-                                                    <Badge variant="secondary" className="bg-primary/[0.04] text-primary hover:bg-primary/[0.05] text-[10px] py-0 px-2 font-mono border border-primary/5">
+                                                    <Badge variant="secondary" className="bg-primary/[0.04] text-primary-ink hover:bg-primary/[0.05] text-[10px] py-0 px-2 font-mono border border-primary-ink/5">
                                                         {item.subtaskCount} {item.subtaskCount === 1 ? "subtask" : "subtasks"}
                                                     </Badge>
                                                 </TableCell>
@@ -480,7 +480,7 @@ export function MaterialsTable({
                                             {isRowExpanded && (
                                                 <TableRow className="bg-muted/[0.02]">
                                                     <TableCell colSpan={5} className="py-1 px-4 border-t border-border/30">
-                                                        <div className="pl-6 pr-2 py-2 flex flex-col gap-1.5 border-l-2 border-primary/10 my-1">
+                                                        <div className="pl-6 pr-2 py-2 flex flex-col gap-1.5 border-l-2 border-primary-ink/10 my-1">
                                                             {item.usages.map((usage, idx) => (
                                                                 <div key={usage.id || idx} className="flex items-center justify-between text-xs py-1 border-b border-border/20 last:border-b-0">
                                                                     <div className="flex items-center gap-1.5 min-w-0">
@@ -761,7 +761,7 @@ export function MaterialsTable({
                                                             <TableCell></TableCell>
                                                             <TableCell className="py-2">
                                                                 <div className="flex items-center gap-1.5 pl-6 min-w-0">
-                                                                    <CornerDownRight className="size-3 text-primary/40 shrink-0" />
+                                                                    <CornerDownRight className="size-3 text-primary-ink/40 shrink-0" />
                                                                     <div className="flex-1 flex flex-col gap-1">
                                                                         <AutoCompleteInput
                                                                             value={newName}
@@ -809,7 +809,7 @@ export function MaterialsTable({
                                                                 />
                                                             </TableCell>
                                                             <TableCell className="py-2">
-                                                                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-semibold py-0.5 px-2 rounded uppercase tracking-wider">
+                                                                <Badge variant="outline" className="bg-primary/5 text-primary-ink border-primary-ink/10 text-[9px] font-semibold py-0.5 px-2 rounded uppercase tracking-wider">
                                                                     Planned
                                                                 </Badge>
                                                             </TableCell>

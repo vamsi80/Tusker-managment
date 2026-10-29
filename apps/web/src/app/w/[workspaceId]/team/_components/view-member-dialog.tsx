@@ -186,7 +186,7 @@ export function ViewMemberDialog({
                 <div className="p-8 space-y-6">
                     <DialogHeader className="flex flex-row items-start justify-between gap-4 w-full pr-4">
                         <div className="flex items-center gap-4">
-                            <Avatar className="size-16 border-2 border-primary/20">
+                            <Avatar className="size-16 border-2 border-primary-ink/20">
                                 <AvatarFallback className="text-xl font-medium">{initials}</AvatarFallback>
                             </Avatar>
                             <div className="text-left">
@@ -314,7 +314,7 @@ export function ViewMemberDialog({
                                                 className="w-full text-left p-3 rounded-2xl bg-muted/30 hover:bg-muted/60 transition-colors flex items-center justify-between gap-3 group"
                                             >
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                                    <p className="text-sm font-medium truncate group-hover:text-primary-ink transition-colors">
                                                         {task.name}
                                                     </p>
                                                     {task.taskSlug && (

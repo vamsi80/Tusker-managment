@@ -20,7 +20,7 @@ export function AppLoader({ className = "", size = "md", fullPage = false }: App
         <div className={`${containerClasses} ${className}`}>
             <div className="relative">
                 <div className={`absolute inset-0 blur-xl rounded-full animate-pulse`} />
-                <Loader2 className={`${sizeClasses[size]} animate-spin text-primary relative z-10`} />
+                <Loader2 className={`${sizeClasses[size]} animate-spin text-primary-ink relative z-10`} />
             </div>
         </div>
     );

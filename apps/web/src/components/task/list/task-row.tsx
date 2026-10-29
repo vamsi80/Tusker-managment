@@ -226,7 +226,7 @@ export const TaskRow = memo(function TaskRow({
                                 }}
                                 aria-expanded={isExpanded}
                                 aria-label={isExpanded ? `Collapse ${task.name}` : `Expand ${task.name}`}
-                                className="flex min-w-0 items-center gap-2 text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+                                className="flex min-w-0 items-center gap-2 text-left transition-colors hover:text-primary-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
                             >
                                 <span className="truncate text-sm font-semibold">{task.name}</span>
                                 {subtaskCount > 0 && (

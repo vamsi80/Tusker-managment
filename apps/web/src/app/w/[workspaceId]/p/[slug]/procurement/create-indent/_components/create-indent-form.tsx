@@ -613,7 +613,7 @@ export function CreateIndentForm({
                     }}
                     className={`flex h-9 flex-1 items-center justify-center rounded-md border text-xs font-semibold transition-colors disabled:opacity-50 ${
                       isProjectRelated === option.value
-                        ? "border-primary bg-primary/10 text-primary"
+                        ? "border-primary-ink bg-primary/10 text-primary-ink"
                         : "border-input text-muted-foreground hover:bg-accent"
                     }`}
                   >
@@ -762,7 +762,7 @@ export function CreateIndentForm({
                       }}
                       className="flex items-center space-x-2 px-3 py-2 cursor-pointer hover:bg-muted text-xs"
                     >
-                      <div className={`flex h-4 w-4 items-center justify-center rounded-sm border ${approverIds.includes(owner.id) ? 'bg-primary border-primary text-primary-foreground' : 'border-primary/50'}`}>
+                      <div className={`flex h-4 w-4 items-center justify-center rounded-sm border ${approverIds.includes(owner.id) ? 'bg-primary border-primary-ink text-primary-foreground' : 'border-primary-ink/50'}`}>
                         {approverIds.includes(owner.id) && <Check className="h-3 w-3" />}
                       </div>
                       <span className="flex-1 truncate">{owner.surname || "Owner"} ({owner.email})</span>
@@ -836,7 +836,7 @@ export function CreateIndentForm({
                 className={cn(
                   "flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-xs font-medium transition-colors",
                   isSubmitting ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-accent",
-                  charge.checked && "border-primary/60 bg-primary/5"
+                  charge.checked && "border-primary-ink/60 bg-primary/5"
                 )}
               >
                 <Checkbox

@@ -42,7 +42,7 @@ export default function VendorDetailPage() {
   if (loadingVendor) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary-ink" />
         <span className="ml-2 text-sm text-muted-foreground">Loading supplier / contractor profile...</span>
       </div>
     );

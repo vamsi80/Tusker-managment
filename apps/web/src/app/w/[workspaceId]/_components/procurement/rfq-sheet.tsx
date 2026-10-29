@@ -204,7 +204,7 @@ export function RfqSheet({
                 className={cn(
                   "flex items-center gap-1.5 px-2 h-8 text-xs font-medium border-b-2 transition-colors",
                   view === "rfq"
-                    ? "border-primary text-primary"
+                    ? "border-primary-ink text-primary-ink"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -215,13 +215,13 @@ export function RfqSheet({
                 className={cn(
                   "flex items-center gap-1.5 px-2 h-8 text-xs font-medium border-b-2 transition-colors",
                   view === "quotes"
-                    ? "border-primary text-primary"
+                    ? "border-primary-ink text-primary-ink"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
                 <MessageSquare className="size-3" /> Quotes
                 {quotes.length > 0 && (
-                  <span className="ml-0.5 text-[9px] bg-primary/10 text-primary rounded-full px-1.5 font-bold">
+                  <span className="ml-0.5 text-[9px] bg-primary/10 text-primary-ink rounded-full px-1.5 font-bold">
                     {quotes.length}
                   </span>
                 )}

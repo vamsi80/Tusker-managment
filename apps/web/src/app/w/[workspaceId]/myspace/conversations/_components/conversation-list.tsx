@@ -166,7 +166,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                         <AvatarImage src={otherUser?.image} />
                         <AvatarFallback className={cn(
                           "rounded-full font-medium text-xs uppercase transition-colors",
-                          isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary"
+                          isActive ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary-ink"
                         )}>
                           {getUserDisplayInitial(otherUser)}
                         </AvatarFallback>
@@ -188,7 +188,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
                           {timeText && (
                             <span className={cn(
                               "text-[9px] whitespace-nowrap opacity-60",
-                              isActive ? "text-primary-foreground/70" : isUnread ? "font-semibold text-primary" : "text-muted-foreground"
+                              isActive ? "text-primary-foreground/70" : isUnread ? "font-semibold text-primary-ink" : "text-muted-foreground"
                             )}>
                               {timeText}
                             </span>
@@ -243,7 +243,7 @@ export function ConversationList({ conversations, isLoading }: ConversationListP
 
               {unifiedList.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center opacity-30">
-                  <MessageSquare className="size-10 mb-4 text-primary/50" />
+                  <MessageSquare className="size-10 mb-4 text-primary-ink/50" />
                   <p className="text-sm font-bold tracking-tight">No one here yet</p>
                   <p className="text-xs mt-1">Try searching for someone else.</p>
                 </div>

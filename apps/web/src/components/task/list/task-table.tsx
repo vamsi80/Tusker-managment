@@ -161,7 +161,7 @@ function TaskTable(props: TaskTableProps) {
         <div className="overflow-hidden relative">
           {logic.isLoadingFilters && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-              <Loader2 className="size-8 animate-spin text-primary" />
+              <Loader2 className="size-8 animate-spin text-primary-ink" />
             </div>
           )}
           <div ref={scrollContainerRef} className={cn("overflow-auto", props.level === "workspace" ? "max-h-[70vh]" : "max-h-[65vh]", "mt-0")}>

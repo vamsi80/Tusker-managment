@@ -10,7 +10,7 @@ import {
 import { Check, Loader2 } from "lucide-react";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../../../../../components/ui/sidebar";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DravaMark } from "@/components/shared/drava-logo";
 import { useMounted } from "@/hooks/use-mounted";
 import type { WorkspacesType } from "@tusker/core/types/workspace";
 import { apiClient } from "@tusker/api-client";
@@ -87,12 +87,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                 {isPending ? (
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 ) : (
-                  <Avatar className="size-8 rounded-none">
-                    <AvatarImage src="/icon.png" alt={selected?.name || "Workspace"} />
-                    <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                      {(selected?.name ?? selected?.id ?? "W").charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <DravaMark className="size-7" />
                 )}
 
                 {/* The workspace name doubles as the wordmark; clicking still switches workspace. */}
@@ -118,12 +113,7 @@ export const NavWorkspacesSelector: React.FC<Props> = ({ data, workspaceId }) =>
                     disabled={isPending}
                   >
                     <div className="flex flex-row items-center gap-2">
-                      <Avatar className="size-8 rounded-lg">
-                        <AvatarImage src="/icon.png" alt={ws.name || "Workspace"} />
-                        <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
-                          {(ws.name ?? ws.id ?? "W").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <DravaMark className="size-6" />
                       <div className="flex flex-col">
                         <div className="font-semibold text-muted-foreground">
                           {ws.name ?? ws.id}

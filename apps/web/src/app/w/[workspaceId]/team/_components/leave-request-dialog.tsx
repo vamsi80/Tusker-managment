@@ -127,7 +127,7 @@ export function LeaveRequestDialog({ workspaceId, children, initialData, onSucce
             <DialogContent className="sm:max-w-[425px] overflow-hidden rounded-2xl border-none shadow-2xl">
                 <DialogHeader className="bg-primary/5 p-2 pb-4">
                     <DialogTitle className="text-xl font-medium flex items-center gap-2">
-                        <Send className="size-5 text-primary" />
+                        <Send className="size-5 text-primary-ink" />
                         {initialData ? "Edit Leave Request" : "New Leave Request"}
                     </DialogTitle>
                     <DialogDescription>
@@ -137,7 +137,7 @@ export function LeaveRequestDialog({ workspaceId, children, initialData, onSucce
                 <div className="pt-2">
                     <div className="mb-4 p-3 bg-muted/30 rounded-xl border border-muted-foreground/10 flex items-center gap-3">
                         <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <UserCheck className="size-5 text-primary" />
+                            <UserCheck className="size-5 text-primary-ink" />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Reporting Manager</span>
@@ -183,7 +183,7 @@ export function LeaveRequestDialog({ workspaceId, children, initialData, onSucce
                                         <div className="flex items-center justify-between gap-2">
                                             <FormLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Select Dates</FormLabel>
                                             {selectedDays > 0 && (
-                                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary-ink">
                                                     {selectedDaysLabel}
                                                 </span>
                                             )}
@@ -218,13 +218,13 @@ export function LeaveRequestDialog({ workspaceId, children, initialData, onSucce
                                             <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-2xl overflow-hidden" align="start">
                                                 <div className="bg-background">
                                                     <div className="bg-primary/5 p-3 border-b flex items-center justify-between">
-                                                        <h4 className="text-[10px] font-medium uppercase tracking-wider text-primary">
+                                                        <h4 className="text-[10px] font-medium uppercase tracking-wider text-primary-ink">
                                                             {selectedDays > 0 ? `Selected: ${selectedDaysLabel}` : "Select Date Range"}
                                                         </h4>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="h-6 px-2 text-[10px] font-medium text-primary hover:bg-primary/10"
+                                                            className="h-6 px-2 text-[10px] font-medium text-primary-ink hover:bg-primary/10"
                                                             onClick={() => setIsCalendarOpen(false)}
                                                         >
                                                             Done

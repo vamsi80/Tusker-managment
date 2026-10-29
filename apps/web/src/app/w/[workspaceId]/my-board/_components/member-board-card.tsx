@@ -55,7 +55,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                     <div className="flex items-center gap-3">
                         <Avatar className="size-10 border border-border/50 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
                             <AvatarImage src={member.user?.image ?? ""} />
-                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold uppercase">
+                            <AvatarFallback className="bg-primary/10 text-primary-ink text-[10px] font-bold uppercase">
                                 {member.user?.surname?.[0]}
                             </AvatarFallback>
                         </Avatar>
@@ -72,7 +72,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 px-3 text-xs font-medium gap-1.5 border-border/50 hover:bg-primary/10 hover:text-primary transition-all"
+                            className="h-8 px-3 text-xs font-medium gap-1.5 border-border/50 hover:bg-primary/10 hover:text-primary-ink transition-all"
                             onClick={() => onAddNote(member.id)}
                         >
                             <Plus className="size-4" />
@@ -110,7 +110,7 @@ export function MemberBoardCard({ member, currentMemberId, isOwner, workspaceId,
                                         "flex items-start gap-3 p-3 rounded-xl border transition-all duration-300 group/item relative",
                                         isDone
                                             ? "bg-muted/10 border-transparent opacity-40grayscale-[50%]"
-                                            : "bg-accent/20 border-border/20 hover:border-primary/20 hover:bg-accent/40 shadow-sm"
+                                            : "bg-accent/20 border-border/20 hover:border-primary-ink/20 hover:bg-accent/40 shadow-sm"
                                     )}
                                 >
                                     <Checkbox

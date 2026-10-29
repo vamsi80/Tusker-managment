@@ -127,7 +127,7 @@ function TodoItem({
         onClick={() => handleToggleTodo(todo.id)}
         className={cn(
           "mt-1 shrink-0 transition-all active:scale-90",
-          todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary"
+          todo.completed ? "text-emerald-500" : "text-muted-foreground/60 hover:text-primary-ink"
         )}
       >
         {todo.completed ? <CheckCircle2 className="size-4.5" /> : <Circle className="size-4.5 stroke-[2px]" />}
@@ -158,7 +158,7 @@ function TodoItem({
                 }
               }}
             />
-            <button onClick={() => handleEditTodo(todo.id)} className="text-primary hover:text-primary/80 transition-colors">
+            <button onClick={() => handleEditTodo(todo.id)} className="text-primary-ink hover:text-primary-ink/80 transition-colors">
               <Check className="size-3.5" />
             </button>
           </div>
@@ -411,16 +411,16 @@ export function PersonalListContainer({
           {/* Column 1: Active Tasks + Input */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold uppercase tracking-widest text-primary">Ongoing</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-primary-ink">Ongoing</span>
               <div className="h-px flex-1 bg-primary/30" />
             </div>
 
             {/* Input Row */}
             <form 
               onSubmit={handleAddTodo} 
-              className="group flex items-start gap-3 py-2 px-3 transition-all mb-3 rounded-2xl border border-border bg-card/50 hover:bg-card focus-within:bg-card focus-within:border-primary/40 focus-within:shadow-[0_0_0_1px_rgba(var(--primary),0.1)]"
+              className="group flex items-start gap-3 py-2 px-3 transition-all mb-3 rounded-2xl border border-border bg-card/50 hover:bg-card focus-within:bg-card focus-within:border-primary-ink/40 focus-within:shadow-[0_0_0_1px_rgba(var(--primary),0.1)]"
             >
-              <div className="mt-1 shrink-0 text-muted-foreground/35 group-focus-within:text-primary/50 transition-colors">
+              <div className="mt-1 shrink-0 text-muted-foreground/35 group-focus-within:text-primary-ink/50 transition-colors">
                 <Circle className="size-4.5 stroke-[2px]" />
               </div>
               <textarea

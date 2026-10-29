@@ -5,7 +5,7 @@ import { Bell } from "lucide-react";
 export default function NotificationsIndexPage() {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
-      <div className="size-20 bg-primary/5 flex items-center justify-center text-primary/20">
+      <div className="size-20 bg-primary/5 flex items-center justify-center text-primary-ink/20">
         <Bell className="size-10" />
       </div>
       <div className="max-w-xs space-y-2">
