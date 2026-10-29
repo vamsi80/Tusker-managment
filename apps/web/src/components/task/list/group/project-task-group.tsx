@@ -121,7 +121,7 @@ export function ProjectTaskGroup({
     const handleSubTaskUpdated = useCallback((subTaskId: string, updatedData: any) => {
         if (onTasksChange) onTasksChange((prev: any) => prev.map((t: any) => ({
             ...t,
-            subTasks: t.subTasks ? t.subTasks.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st) : []
+            subTasks: t.subTasks?.map((st: any) => st.id === subTaskId ? { ...st, ...updatedData } : st)
         })));
         if (onSubTaskUpdated) onSubTaskUpdated(subTaskId, updatedData);
     }, [onTasksChange, onSubTaskUpdated]);

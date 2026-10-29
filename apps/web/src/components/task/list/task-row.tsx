@@ -69,7 +69,10 @@ export const TaskRow = memo(function TaskRow({
         setTask(initialTask);
     }, [initialTask]);
 
-    const subtaskCount = Math.max(task.subtaskCount || 0, (task as any)._count?.subTasks || 0);
+    // Once subtasks are loaded they're the source of truth; the server counts go stale after local add/delete.
+    const subtaskCount = task.subTasks
+        ? task.subTasks.length
+        : Math.max(task.subtaskCount || 0, (task as any)._count?.subTasks || 0);
     const rowRef = useRef<HTMLTableRowElement>(null);
 
     // Subtask fetching when expanded
