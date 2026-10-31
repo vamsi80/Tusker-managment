@@ -61,6 +61,9 @@ export default function WorkSpacePage() {
           now gets at least 22rem or the grid drops a column; min-w-0 lets a
           card shrink to its track instead of overflowing it. */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-6 items-stretch [&>*]:min-w-0">
+        <ReviewsWidget key={`reviews-${workspaceId}`} workspaceId={workspaceId} />
+        <MyTasksWidget key={`tasks-${workspaceId}`} workspaceId={workspaceId} />
+        <MeetingsWidget key={`meetings-${workspaceId}`} workspaceId={workspaceId} />
         {canBroadcast && (
           <BroadcastWidget
             key={`broadcast-${workspaceId}`}
@@ -69,9 +72,6 @@ export default function WorkSpacePage() {
             initialBroadcasts={data?.broadcasts}
           />
         )}
-        <MyTasksWidget key={`tasks-${workspaceId}`} workspaceId={workspaceId} />
-        <MeetingsWidget key={`meetings-${workspaceId}`} workspaceId={workspaceId} />
-        <ReviewsWidget key={`reviews-${workspaceId}`} workspaceId={workspaceId} />
         {canSeeWorkload && <WorkloadWidget key={`workload-${workspaceId}`} workspaceId={workspaceId} />}
         <BirthdaysWidget key={`birthdays-${workspaceId}`} workspaceId={workspaceId} />
       </div>
