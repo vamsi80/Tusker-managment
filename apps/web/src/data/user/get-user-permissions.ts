@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/require-user";
 import {
     fetchWorkspacePermissions,
@@ -18,7 +19,9 @@ async function resolveUserId(providedUserId?: string): Promise<string> {
     // If userId is provided (e.g. from a Server Action), bypass the session lookup to save ~1s
     if (providedUserId) return providedUserId;
     const session = await getSession();
-    if (!session) throw new Error("Unauthorized");
+    // A redirect, not a throw: the session cookie can outlive its session, so
+    // this runs during render, where a throw is an uncaught page crash.
+    if (!session) redirect("/sign-in");
     return session.user.id;
 }
 

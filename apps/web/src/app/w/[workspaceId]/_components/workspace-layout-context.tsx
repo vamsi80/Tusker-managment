@@ -4,6 +4,17 @@ import { createContext, useContext, ReactNode, useEffect, useCallback, useTransi
 import { WorkspaceLayoutData } from "@tusker/core/types/workspace";
 import { useWorkspaceLayoutStore, useRealtimeLayoutSync } from "@/lib/store/workspace-layout-store";
 import { resolveCapabilities } from "@tusker/core/lib/constants/capabilities";
+import { configureApiClient } from "@tusker/api-client/fetch-wrapper";
+
+// The /w/* middleware only checks that a session cookie exists, so a dead one
+// gets past it and leaves the page rendering on nothing but 401s.
+configureApiClient({
+  onUnauthorized: () => {
+    if (typeof window === "undefined") return;
+    const callbackUrl = encodeURIComponent(window.location.pathname);
+    window.location.assign(`/sign-in?callbackUrl=${callbackUrl}`);
+  },
+});
 
 // Deny-by-default while layout data is still in flight, so a slow fetch never
 // flashes UI the user may not be allowed to see.
