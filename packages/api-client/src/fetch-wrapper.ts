@@ -12,6 +12,7 @@ type AuthTokenGetter = () => string | null | undefined | Promise<string | null |
 
 let configuredBaseUrl: string | null = null;
 let getAuthToken: AuthTokenGetter | null = null;
+let onUnauthorized: (() => void) | null = null;
 
 /**
  * Point the client at an API origin, and optionally supply a bearer token.
@@ -21,16 +22,23 @@ let getAuthToken: AuthTokenGetter | null = null;
  * same-origin context and no cookie jar, so it configures both once at startup:
  *
  *   configureApiClient({ baseUrl: "https://api.example.com", getAuthToken })
+ *
+ * `onUnauthorized` runs on any 401, which the API only sends when the session
+ * is gone. The request still rejects, so callers behave as they did before.
  */
 export function configureApiClient(options: {
     baseUrl?: string;
     getAuthToken?: AuthTokenGetter;
+    onUnauthorized?: () => void;
 }) {
     if (options.baseUrl !== undefined) {
         configuredBaseUrl = options.baseUrl.replace(/\/$/, "");
     }
     if (options.getAuthToken !== undefined) {
         getAuthToken = options.getAuthToken;
+    }
+    if (options.onUnauthorized !== undefined) {
+        onUnauthorized = options.onUnauthorized;
     }
 }
 
@@ -81,6 +89,8 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
         const data = await response.json();
 
         if (!response.ok) {
+            if (response.status === 401) onUnauthorized?.();
+
             const errorMsg = data.error || data.message || `API Error: ${response.status}`;
             throw new ApiError(errorMsg, response.status);
         }
