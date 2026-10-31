@@ -50,7 +50,7 @@ export function WorkspaceSkeleton() {
                             <Skeleton className="h-10 w-48" />
                             <Skeleton className="h-4 w-96" />
                         </div>
-                        <div className="grid gap-6 grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))]">
+                        <div className="grid gap-6 grid-cols-[repeat(auto-fill,minmax(min(100%,max(22rem,calc((100%-3rem)/3))),1fr))]">
                             <Skeleton className="h-48 w-full rounded-xl" />
                             <Skeleton className="h-48 w-full rounded-xl" />
                             <Skeleton className="h-48 w-full rounded-xl" />

@@ -60,7 +60,7 @@ export default function WorkSpacePage() {
           columns squeezed each card to ~300px and text spilled out. Each card
           now gets at least 22rem or the grid drops a column; min-w-0 lets a
           card shrink to its track instead of overflowing it. */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-6 items-stretch [&>*]:min-w-0">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,max(22rem,calc((100%-3rem)/3))),1fr))] gap-6 items-stretch [&>*]:min-w-0">
         {canBroadcast && (
           <BroadcastWidget
             key={`broadcast-${workspaceId}`}
