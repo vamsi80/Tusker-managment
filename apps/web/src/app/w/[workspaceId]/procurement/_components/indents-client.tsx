@@ -345,7 +345,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       accessorKey: "indentId",
       header: "ID",
       cell: ({ row }) => (
-        <span className="font-mono text-[11px] font-bold">
+        <span className="font-medium text-muted-foreground tabular-nums">
           {row.original.indentId || "Draft"}
         </span>
       ),
@@ -355,7 +355,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       accessorFn: (row: any) => row.project?.name || "General",
       header: "Project",
       cell: ({ row }) => (
-        <span className="text-xs font-semibold text-foreground">
+        <span className="font-medium text-foreground">
           {row.original.project?.name}
         </span>
       ),
@@ -363,18 +363,18 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
     {
       accessorKey: "name",
       header: "Request Name",
-      cell: ({ row }) => <span className="text-xs text-foreground font-medium">{row.original.name}</span>,
+      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name}</span>,
     },
     {
       id: "itemsCount",
       header: "Materials",
-      cell: ({ row }) => <span className="text-xs font-mono">{row.original._count?.lineItems || 0}</span>,
+      cell: ({ row }) => <span className="tabular-nums">{row.original._count?.lineItems || 0}</span>,
     },
     {
       id: "estimatedTotal",
       header: "Approx. Value",
       cell: ({ row }) => (
-        <span className="text-xs font-mono font-semibold">
+        <span className="font-medium tabular-nums">
           {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format((row.original.estimatedTotal || 0) / 100)}
         </span>
       ),
@@ -383,7 +383,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       id: "finalTotal",
       header: "Final Value",
       cell: ({ row }) => (
-        <span className="text-xs font-mono font-semibold">
+        <span className="font-medium tabular-nums">
           {row.original.finalTotal == null
             ? "—"
             : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(row.original.finalTotal / 100)}
@@ -394,7 +394,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       id: "vendor",
       header: "Supplier / Contractor",
       cell: ({ row }) => (
-        <span className="text-xs">
+        <span>
           {vendorDisplayName(row.original.selectedVendor)}
         </span>
       ),
@@ -403,7 +403,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       id: "requestedBy",
       header: "Requested By",
       cell: ({ row }) => (
-        <span className="text-xs">
+        <span>
           {getUserDisplayName(row.original.requestedBy?.user, "Unknown user")}
         </span>
       ),
@@ -412,7 +412,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
       accessorKey: "expectedDelivery",
       header: "Expected Delivery",
       cell: ({ row }) => (
-        <span className="text-xs">
+        <span>
           {row.original.expectedDelivery
             ? format(new Date(row.original.expectedDelivery), "MMM d, yyyy")
             : "—"}
@@ -464,7 +464,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
                   variant="outline"
                   onClick={() => handleRejectIndent(ind.id)}
                   disabled={isPending}
-                  className="h-7 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
                 >
                   Reject
                 </Button>
@@ -472,7 +472,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
                   size="sm"
                   onClick={() => handleApproveIndent(ind.id)}
                   disabled={isPending}
-                  className="h-7 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {approveLabel}
                 </Button>
@@ -480,14 +480,14 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
             )}
             {canDelete && (
               <Button
-                size="sm"
+                size="icon-sm"
                 variant="outline"
                 onClick={() => handleDeleteIndent(ind.id, ind.indentId || ind.name)}
                 disabled={isPending}
                 title="Delete indent"
-                className="h-7 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50"
+                className="text-red-600 border-red-200 hover:bg-red-50"
               >
-                <Trash2 className="size-3" />
+                <Trash2 />
               </Button>
             )}
           </div>

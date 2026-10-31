@@ -70,7 +70,7 @@ export function TaskSummaryWidget({
     return (
       <div
         className={cn(
-          "flex flex-col p-5 rounded-2xl border bg-card text-card-foreground shadow-sm text-left w-full transition-colors hover:bg-accent/50",
+          "flex flex-col p-5 rounded-2xl border bg-card text-card-foreground shadow-sm text-left w-full transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary-ink/40 hover:shadow-md",
           stat.borderColor
         )}
       >

@@ -65,7 +65,7 @@ export function ProjectDashboard({ data, workspaceId }: ProjectDashboardProps) {
     : [];
 
   return (
-    <div className="flex-1 flex flex-col space-y-6 overflow-y-auto">
+    <div className="flex-1 flex flex-col space-y-6 overflow-y-auto pt-1">
       <TaskSummaryWidget
         totalCount={totalCount}
         todoCount={todoCount}
