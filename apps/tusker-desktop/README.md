@@ -37,7 +37,7 @@ Bump `version` in `package.json`, then `git tag app-vX.Y.Z && git push origin ap
 The app shares this repo's releases with the widget (`desktop-v*`) without either picking up the other's updates:
 - The app's update file is `app.yml` (`publish.channel`), never `latest.yml`, so the widget's updater can't see the app's installer.
 - The app ignores `/releases/latest` and looks up its own newest `app-v*` release (`checkForUpdates` in `electron/main.cjs`).
-- After publishing, the workflow hands "latest" back to the newest widget release, the only thing the widget's updater reads.
+- The workflow creates the app's release with `--latest=false`, so GitHub's "latest" mark (the only thing the widget's updater reads) stays on the widget's release.
 
 The Settings page links to the newest `app-v*` release.
 

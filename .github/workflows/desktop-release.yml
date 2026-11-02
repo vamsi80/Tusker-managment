@@ -36,6 +36,18 @@ jobs:
       # The desktop app is outside the pnpm workspace (see pnpm-workspace.yaml).
       - run: pnpm install --ignore-workspace --frozen-lockfile
 
+      # Create the release before electron-builder uploads: when none exists, its
+      # parallel uploads each create one (a race), leaving duplicate releases under
+      # one tag, which GitHub then refuses to edit. An existing one is reused.
+      - name: Create the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "Tusker Widget ${GITHUB_REF_NAME#desktop-v}" \
+            --notes "Tusker Widget for Windows. Download Tusker-Widget-Setup.exe below, or from Settings → Desktop apps."
+
       - run: pnpm exec electron-builder --win nsis --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

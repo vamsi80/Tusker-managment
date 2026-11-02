@@ -47,24 +47,24 @@ jobs:
       - run: pnpm exec tsc --noEmit
         working-directory: apps/tusker-desktop
 
+      # Create the release before electron-builder uploads: when none exists, its
+      # parallel uploads each create one (a race), leaving duplicate releases under
+      # one tag, which GitHub then refuses to edit. An existing one is reused.
+      # --latest=false: the widget's updater only reads /releases/latest, so that
+      # mark has to stay on the widget's release.
+      - name: Create the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "Tusker for Windows ${GITHUB_REF_NAME#app-v}" \
+            --notes "The full Tusker app for Windows. Download Tusker-Setup.exe below, or from Settings → Desktop apps." \
+            --latest=false
+
       - run: pnpm run dist --publish always
         working-directory: apps/tusker-desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_PUSHER_KEY: ${{ secrets.VITE_PUSHER_KEY }}
           VITE_PUSHER_CLUSTER: ap2
-
-      # GitHub marks the new release "latest", but the widget's updater only reads
-      # /releases/latest and needs a latest.yml there (the app ships app.yml).
-      # Hand "latest" back to the newest widget release that has one.
-      - name: Keep the widget release as "latest"
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" \
-            --jq '[.[] | select(.draft | not) | select(.tag_name | startswith("desktop-v")) | select(any(.assets[]; .name == "latest.yml"))][0].id')
-          if [ -n "$id" ] && [ "$id" != "null" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -f make_latest=true --silent
-            echo "Widget release $id is latest again"
-          fi
