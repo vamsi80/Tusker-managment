@@ -58,6 +58,10 @@ export default defineConfig({
     // The web files resolve their packages from apps/web/node_modules; one React for everything.
     dedupe: ["react", "react-dom"],
   },
+  // A string here stops Vite reading each file's nearest tsconfig.json. Otherwise the
+  // reused apps/mobile files pull in apps/mobile/tsconfig.json, which extends
+  // expo/tsconfig.base: only resolvable where the mobile app is installed (not CI).
+  esbuild: { tsconfigRaw: JSON.stringify({ compilerOptions: { target: "ES2022", useDefineForClassFields: true, jsx: "react-jsx" } }) },
   server: { fs: { allow: [repo] } },
   build: { outDir: "dist", emptyOutDir: true },
 });

@@ -59,6 +59,7 @@
       "provider": "github",
       "owner": "vamsi80",
       "repo": "Tusker-managment",
+      "tagNamePrefix": "app-v",
       "releaseType": "release",
       "channel": "app"
     }
