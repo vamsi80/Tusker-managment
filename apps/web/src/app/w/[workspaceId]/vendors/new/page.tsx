@@ -21,6 +21,7 @@ import {
 } from "@tusker/core/lib/procurement/gstin";
 
 import { countryDialCodes } from "@/lib/country-codes";
+import { BankDetailsFields, EMPTY_BANK, bankFromVendor, bankPayload, useCanSeeBank } from "../_components/bank-details-fields";
 
 export default function OnboardVendorPage() {
   const params = useParams();
@@ -47,6 +48,8 @@ export default function OnboardVendorPage() {
   const [country, setCountry] = useState("");
   const [gstDetails, setGstDetails] = useState(EMPTY_GST_DETAILS);
   const [gstLockedKeys, setGstLockedKeys] = useState<(keyof VendorGstDetails)[]>([]);
+  const [bank, setBank] = useState(EMPTY_BANK);
+  const canSeeBank = useCanSeeBank();
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -81,6 +84,7 @@ export default function OnboardVendorPage() {
           pincode: pincode.trim() || null,
           country: country || null,
           ...gstDetailsPayload(hasGst ? gstDetails : EMPTY_GST_DETAILS),
+          ...bankPayload(bank, canSeeBank),
         }),
       });
 
@@ -365,6 +369,8 @@ export default function OnboardVendorPage() {
                 </select>
               </div>
             </div>
+
+            <BankDetailsFields value={bank} onChange={setBank} />
 
             <div className="flex justify-end gap-3 border-t pt-6">
               <Button

@@ -22,6 +22,19 @@ describe("capability resolution", () => {
         }
     });
 
+    it("new procurement features start owner/admin only; indents and vendors stay open", () => {
+        const fresh = ["boq:view", "boq:edit", "boq:approve", "ratesheet:view", "ratesheet:edit", "vendors:verify", "vendors:bank"] as const;
+        for (const role of ["OWNER", "ADMIN"] as const) {
+            for (const cap of fresh) expect(resolveCapabilities(role)[cap]).toBe(true);
+        }
+        for (const role of ["MANAGER", "PROCUREMENT", "ACCOUNTS", "MEMBER", "VIEWER"] as const) {
+            const caps = resolveCapabilities(role);
+            for (const cap of fresh) expect(caps[cap]).toBe(false);
+            expect(caps["procurement:view"]).toBe(true);
+            expect(caps["vendors:view"]).toBe(true);
+        }
+    });
+
     it("applies the workspace role override over the default", () => {
         const caps = resolveCapabilities("MEMBER", { MEMBER: { "task:edit": false } });
         expect(caps["task:edit"]).toBe(false);

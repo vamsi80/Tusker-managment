@@ -22,6 +22,7 @@ import {
 } from "@tusker/core/lib/procurement/gstin";
 
 import { countryDialCodes } from "@/lib/country-codes";
+import { BankDetailsFields, EMPTY_BANK, bankFromVendor, bankPayload, useCanSeeBank } from "../../_components/bank-details-fields";
 
 export default function EditVendorPage() {
   const params = useParams();
@@ -49,6 +50,8 @@ export default function EditVendorPage() {
   const [country, setCountry] = useState("");
   const [gstDetails, setGstDetails] = useState(EMPTY_GST_DETAILS);
   const [gstLockedKeys, setGstLockedKeys] = useState<(keyof VendorGstDetails)[]>([]);
+  const [bank, setBank] = useState(EMPTY_BANK);
+  const canSeeBank = useCanSeeBank();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +97,7 @@ export default function EditVendorPage() {
         const stored = gstDetailsFromVendor(v);
         setGstDetails(stored);
         setGstLockedKeys(filledGstFields(stored));
+        setBank(bankFromVendor(v));
       } else {
         toast.error("Failed to load supplier / contractor details");
         router.push(`/w/${workspaceId}/vendors`);
@@ -136,6 +140,7 @@ export default function EditVendorPage() {
           pincode: pincode.trim() || null,
           country: country || null,
           ...gstDetailsPayload(hasGst ? gstDetails : EMPTY_GST_DETAILS),
+          ...bankPayload(bank, canSeeBank),
         }),
       });
 
@@ -197,7 +202,7 @@ export default function EditVendorPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <Loader2 className="size-8 animate-spin text-primary-ink" />
 
         <span className="ml-2 text-sm text-muted-foreground">Loading supplier / contractor details...</span>
@@ -223,8 +228,8 @@ export default function EditVendorPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card className="shadow-sm border-border/50 !py-0 !gap-0">
-          <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
+        <Card className="shadow-sm border-border/50 py-0! gap-0!">
+          <CardHeader className="border-b bg-muted/30 py-2.5 pb-2.5! px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <FileText className="size-4 text-muted-foreground" /> Company Details
             </CardTitle>
@@ -288,7 +293,7 @@ export default function EditVendorPage() {
                   <select
                     value={dialCode}
                     onChange={(e) => handleDialCodeChange(e.target.value)}
-                    className="flex h-9 w-[110px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
+                    className="flex h-9 w-27.5 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground"
                   >
                     {Object.entries(countryDialCodes).map(([cName, code]) => (
                       <option key={cName} value={code} className="bg-background text-foreground">
@@ -357,8 +362,8 @@ export default function EditVendorPage() {
           />
         )}
 
-        <Card className="shadow-sm border-border/50 !py-0 !gap-0">
-          <CardHeader className="border-b bg-muted/30 py-2.5 !pb-2.5 px-6">
+        <Card className="shadow-sm border-border/50 py-0! gap-0!">
+          <CardHeader className="border-b bg-muted/30 py-2.5 pb-2.5! px-6">
             <CardTitle className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
               <Building className="size-4 text-muted-foreground" /> Registered Business Address
             </CardTitle>
@@ -428,6 +433,8 @@ export default function EditVendorPage() {
                 </select>
               </div>
             </div>
+
+            <BankDetailsFields value={bank} onChange={setBank} />
 
             <div className="flex justify-end gap-3 border-t pt-6">
               <Button

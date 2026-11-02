@@ -6,6 +6,7 @@ import { AppError } from "@tusker/core/lib/errors/app-error";
 import { lookupGstin, VendorService } from "@tusker/core/server/services/procurement/index";
 import { validateGstin } from "@tusker/core/lib/procurement/gstin";
 import { fetchWorkspacePermissions } from "@tusker/core/permissions";
+import { can } from "@tusker/core/lib/constants/capabilities";
 import prisma from "@tusker/db";
 import { Prisma } from "@tusker/db";
 
@@ -59,7 +60,26 @@ const CreateVendorSchema = z.object({
   natureOfBusiness: GstRegistryField,
   blockStatus: GstRegistryField,
   einvoiceStatus: GstRegistryField,
+  vendorType: z.enum(["SUPPLIER", "CONTRACTOR"]).optional(),
+  // Bank details. Dropped unless the caller has the vendors:bank capability.
+  bankAccountName: OptionalVendorField,
+  bankAccountNumber: z.string().trim().regex(/^[0-9A-Za-z]{6,34}$/, "Enter a valid account number").nullable().optional().or(z.literal("")),
+  bankIfsc: z.string().trim().regex(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, "Enter a valid 11-character IFSC").nullable().optional().or(z.literal("")),
+  bankName: OptionalVendorField,
+  bankBranch: OptionalVendorField,
 });
+
+const BANK_FIELDS = ["bankAccountName", "bankAccountNumber", "bankIfsc", "bankName", "bankBranch"] as const;
+
+/** Bank details are only shown to, and only accepted from, vendors:bank holders. */
+function withoutBank<T extends Record<string, unknown>>(row: T): T {
+  const copy: Record<string, unknown> = { ...row };
+  for (const key of BANK_FIELDS) delete copy[key];
+  return copy as T;
+}
+
+const canSeeBank = async (workspaceId: string, userId: string) =>
+  can((await fetchWorkspacePermissions(workspaceId, userId)).capabilities, "vendors:bank");
 
 const UpdateVendorSchema = CreateVendorSchema.omit({ workspaceId: true }).partial().extend({
   status: z.enum(["ACTIVE", "BLACKLISTED"]).optional(),
@@ -85,6 +105,7 @@ const UpdateCapabilitySchema = z.object({
   rate: z.number().int().positive().nullable().optional(),
   quantity: z.number().int().positive().nullable().optional(),
   link: CapabilityLinkSchema,
+  tradeId: z.string().min(1).nullable().optional(),
 }).refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
 
 /**
@@ -111,6 +132,14 @@ const checkProcurementPerms = async (workspaceId: string, userId: string) => {
   }
 };
 
+/** Rate edits: the old role check, or the Rate sheet edit switch from Settings. */
+const checkRatePerms = async (workspaceId: string, userId: string) => {
+  const perms = await fetchWorkspacePermissions(workspaceId, userId);
+  if (perms.workspaceRole !== "PROCUREMENT" && !perms.isWorkspaceAdmin && !can(perms.capabilities, "ratesheet:edit")) {
+    throw AppError.Forbidden("Insufficient permissions. Requires ADMIN or PROCUREMENT role.");
+  }
+};
+
 /**
  * POST /api/v1/procurement/vendors
  * Create a new vendor
@@ -121,8 +150,9 @@ procurementVendors.post("/", zValidator("json", CreateVendorSchema), async (c) =
 
   await checkProcurementPerms(data.workspaceId, user.id);
 
-  const vendor = await VendorService.createVendor(data);
-  return c.json({ success: true, data: vendor }, 201);
+  const bank = await canSeeBank(data.workspaceId, user.id);
+  const vendor = await VendorService.createVendor(bank ? data : withoutBank(data));
+  return c.json({ success: true, data: bank ? vendor : withoutBank(vendor) }, 201);
 });
 
 /**
@@ -257,7 +287,8 @@ procurementVendors.get("/", async (c) => {
     orderBy: { createdAt: "desc" }
   });
 
-  return c.json({ success: true, data: vendors });
+  const bank = await canSeeBank(workspaceId, user.id);
+  return c.json({ success: true, data: bank ? vendors : vendors.map(withoutBank) });
 });
 
 /**
@@ -279,8 +310,37 @@ procurementVendors.get("/:id", async (c) => {
 
   if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
-  return c.json({ success: true, data: vendor });
+  const bank = await canSeeBank(workspaceId, user.id);
+  return c.json({ success: true, data: bank ? vendor : withoutBank(vendor) });
 });
+
+/**
+ * POST /api/v1/procurement/vendors/:id/verification
+ * Mark a supplier / contractor verified (or back to pending). Settings ->
+ * Permissions "Mark vendor verified".
+ */
+procurementVendors.post(
+  "/:id/verification",
+  zValidator("json", z.object({ status: z.enum(["PENDING", "VERIFIED"]) })),
+  async (c) => {
+    const user = c.get("user");
+    const workspaceId = c.req.query("w");
+    if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
+
+    const perms = await fetchWorkspacePermissions(workspaceId, user.id);
+    if (!can(perms.capabilities, "vendors:verify") || !perms.workspaceMemberId) {
+      throw AppError.Forbidden("You can't verify suppliers / contractors");
+    }
+
+    const updated = await VendorService.setVerification(
+      c.req.param("id"),
+      workspaceId,
+      c.req.valid("json").status,
+      perms.workspaceMemberId
+    );
+    return c.json({ success: true, data: can(perms.capabilities, "vendors:bank") ? updated : withoutBank(updated) });
+  }
+);
 
 /**
  * PATCH /api/v1/procurement/vendors/:id
@@ -303,7 +363,14 @@ procurementVendors.patch("/:id", zValidator("json", UpdateVendorSchema), async (
   if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
 
   const hasGst = data.hasGst ?? vendor.hasGst;
-  const { name, ...updateData } = data;
+  const bank = can(perms.capabilities, "vendors:bank");
+  const { name, ...rest } = data;
+  const updateData = bank ? rest : withoutBank(rest);
+  if (bank && updateData.bankIfsc) updateData.bankIfsc = updateData.bankIfsc.toUpperCase();
+  // An emptied field clears the column rather than storing "".
+  for (const key of BANK_FIELDS) {
+    if (updateData[key] === "") updateData[key] = null;
+  }
   const gstData = hasGst
     ? {}
     : {
@@ -329,7 +396,7 @@ procurementVendors.patch("/:id", zValidator("json", UpdateVendorSchema), async (
     },
   });
 
-  return c.json({ success: true, data: updated });
+  return c.json({ success: true, data: bank ? updated : withoutBank(updated) });
 });
 
 /**
@@ -494,6 +561,8 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   // Reference link — a photo, a quotation, a catalogue page. Restricted to
   // http(s) so nothing script-bearing can reach an anchor href.
   link: CapabilityLinkSchema,
+  // BOQ department for contractor rates.
+  tradeId: z.string().min(1).nullable().optional(),
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -502,7 +571,7 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  await checkProcurementPerms(workspaceId, user.id);
+  await checkRatePerms(workspaceId, user.id);
 
   const capability = await VendorService.addManualCapability(
     vendorId,
@@ -510,7 +579,7 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     data.materialName,
     data.unit,
     data.serviceType,
-    { rate: data.rate, link: data.link, quantity: data.quantity }
+    { rate: data.rate, link: data.link, quantity: data.quantity, tradeId: data.tradeId }
   );
 
   return c.json({ success: true, data: capability }, 201);
@@ -530,7 +599,7 @@ procurementVendors.patch(
     const workspaceId = c.req.query("w");
 
     if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
-    await checkProcurementPerms(workspaceId, user.id);
+    await checkRatePerms(workspaceId, user.id);
 
     const capability = await VendorService.updateCapability(
       capabilityId,
@@ -555,7 +624,7 @@ procurementVendors.delete("/:id/capabilities/:capId", async (c) => {
 
   if (!workspaceId) throw AppError.ValidationError("Missing workspaceId (w)");
 
-  await checkProcurementPerms(workspaceId, user.id);
+  await checkRatePerms(workspaceId, user.id);
 
   await VendorService.removeCapability(capId, workspaceId);
 

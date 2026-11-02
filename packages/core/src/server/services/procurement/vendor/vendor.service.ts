@@ -31,6 +31,11 @@ export class VendorService {
     blockStatus?: string | null;
     einvoiceStatus?: string | null;
     vendorType?: "SUPPLIER" | "CONTRACTOR";
+    bankAccountName?: string | null;
+    bankAccountNumber?: string | null;
+    bankIfsc?: string | null;
+    bankName?: string | null;
+    bankBranch?: string | null;
   }) {
     const hasGst = data.hasGst ?? Boolean(data.gstNumber?.trim());
     const clean = (value: string | null | undefined) => value?.trim() || null;
@@ -74,6 +79,11 @@ export class VendorService {
           natureOfBusiness: hasGst ? clean(data.natureOfBusiness) : null,
           blockStatus: hasGst ? clean(data.blockStatus) : null,
           einvoiceStatus: hasGst ? clean(data.einvoiceStatus) : null,
+          bankAccountName: clean(data.bankAccountName),
+          bankAccountNumber: clean(data.bankAccountNumber),
+          bankIfsc: clean(data.bankIfsc)?.toUpperCase() ?? null,
+          bankName: clean(data.bankName),
+          bankBranch: clean(data.bankBranch),
           status: "ACTIVE",
           isActive: true,
         },
@@ -130,13 +140,14 @@ export class VendorService {
     materialName: string,
     unit?: string,
     serviceType?: "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL",
-    extras?: { rate?: number | null; link?: string | null; quantity?: number | null }
+    extras?: { rate?: number | null; link?: string | null; quantity?: number | null; tradeId?: string | null }
   ) {
     const normalized = materialName.toLowerCase().trim();
     const vendor = await prisma.vendor.findFirst({
       where: { id: vendorId, workspaceId },
     });
     if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
+    await VendorService.ensureTrade(extras?.tradeId, workspaceId);
 
     const resolvedServiceType = serviceType || "SUPPLY";
 
@@ -165,6 +176,7 @@ export class VendorService {
           ...(extras?.rate === undefined ? {} : { rate: extras.rate }),
           ...(extras?.link === undefined ? {} : { link: extras.link }),
           ...(extras?.quantity === undefined ? {} : { quantity: extras.quantity }),
+          ...(extras?.tradeId === undefined ? {} : { tradeId: extras.tradeId }),
         },
         create: {
           vendorId,
@@ -177,6 +189,7 @@ export class VendorService {
           rate: extras?.rate ?? null,
           link: extras?.link ?? null,
           quantity: extras?.quantity ?? null,
+          tradeId: extras?.tradeId ?? null,
         },
         include: {
           material: {
@@ -200,12 +213,14 @@ export class VendorService {
       rate?: number | null;
       quantity?: number | null;
       link?: string | null;
+      tradeId?: string | null;
     }
   ) {
     const current = await prisma.vendorMaterialCapability.findFirst({
       where: { id: capabilityId, vendorId, workspaceId },
     });
     if (!current) throw AppError.NotFound("Supplier material not found");
+    await VendorService.ensureTrade(data.tradeId, workspaceId);
 
     const materialName = (data.materialName ?? current.materialName).trim().toLowerCase();
     if (!materialName) throw AppError.ValidationError("Material name is required");
@@ -253,6 +268,7 @@ export class VendorService {
           ...(data.rate === undefined ? {} : { rate: data.rate }),
           ...(data.quantity === undefined ? {} : { quantity: data.quantity }),
           ...(data.link === undefined ? {} : { link: data.link }),
+          ...(data.tradeId === undefined ? {} : { tradeId: data.tradeId }),
         },
         include: {
           material: {
@@ -271,6 +287,33 @@ export class VendorService {
 
     await prisma.vendorMaterialCapability.delete({
       where: { id: capabilityId },
+    });
+  }
+
+  /** A trade id from the client must belong to this workspace. */
+  private static async ensureTrade(tradeId: string | null | undefined, workspaceId: string) {
+    if (!tradeId) return;
+    const trade = await prisma.trade.findFirst({ where: { id: tradeId, workspaceId }, select: { id: true } });
+    if (!trade) throw AppError.ValidationError("Unknown department");
+  }
+
+  static async setVerification(
+    vendorId: string,
+    workspaceId: string,
+    status: "PENDING" | "VERIFIED",
+    workspaceMemberId: string
+  ) {
+    const vendor = await prisma.vendor.findFirst({ where: { id: vendorId, workspaceId }, select: { id: true } });
+    if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
+
+    const verified = status === "VERIFIED";
+    return prisma.vendor.update({
+      where: { id: vendor.id },
+      data: {
+        verificationStatus: status,
+        verifiedAt: verified ? new Date() : null,
+        verifiedById: verified ? workspaceMemberId : null,
+      },
     });
   }
 }

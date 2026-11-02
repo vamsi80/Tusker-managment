@@ -21,7 +21,14 @@ export const CAPABILITIES = [
     { id: "task:edit", label: "Edit a task", group: "Tasks" },
     { id: "task:status", label: "Change task status", group: "Tasks" },
     { id: "procurement:view", label: "See Procurement tab", group: "Procurement" },
-    { id: "vendors:view", label: "See Suppliers / Contractors", group: "Procurement" },
+    { id: "boq:view", label: "See BOQ", group: "BOQ" },
+    { id: "boq:edit", label: "Create / edit BOQ lines, zones, markup", group: "BOQ" },
+    { id: "boq:approve", label: "Approve / reject BOQ", group: "BOQ" },
+    { id: "ratesheet:view", label: "See Rate sheet", group: "Rate sheet" },
+    { id: "ratesheet:edit", label: "Add / edit rates", group: "Rate sheet" },
+    { id: "vendors:view", label: "See Suppliers / Contractors", group: "Vendors" },
+    { id: "vendors:verify", label: "Mark vendor verified", group: "Vendors" },
+    { id: "vendors:bank", label: "See vendor bank details", group: "Vendors" },
     { id: "points:award", label: "Award or deduct points", group: "Points" },
 ] as const;
 
@@ -55,19 +62,31 @@ const all = (value: boolean): CapabilityMap =>
  *  - The task capabilities are gated by PROJECT role only, never workspace role,
  *    so they start open and the project matrix keeps doing its job underneath.
  *  - Procurement/Suppliers pages shipped with no view guard at all, so they
- *    start open too. These are the rows most worth tightening first.
+ *    start open too, and indents / POs keep working as they did.
+ *  - BOQ, rate sheet, vendor verification and bank details are new and start
+ *    OWNER/ADMIN only; admins open them per role or member in Settings.
  *  - `points:award` is new and starts closed below OWNER/ADMIN/MANAGER. It has
  *    to be listed per role: the defaults are all(true) minus exceptions, so
  *    leaving a role out would let every viewer award themselves points.
  */
+const NEW_PROCUREMENT_CLOSED = {
+    "boq:view": false,
+    "boq:edit": false,
+    "boq:approve": false,
+    "ratesheet:view": false,
+    "ratesheet:edit": false,
+    "vendors:verify": false,
+    "vendors:bank": false,
+} as const;
+
 export const DEFAULT_CAPABILITIES: Record<WorkspaceRole, CapabilityMap> = {
     OWNER: all(true),
     ADMIN: all(true),
-    MANAGER: all(true),
-    PROCUREMENT: { ...all(true), "project:create": false, "points:award": false },
-    ACCOUNTS: { ...all(true), "project:create": false, "points:award": false },
-    MEMBER: { ...all(true), "project:create": false, "points:award": false },
-    VIEWER: { ...all(true), "project:create": false, "points:award": false },
+    MANAGER: { ...all(true), ...NEW_PROCUREMENT_CLOSED },
+    PROCUREMENT: { ...all(true), ...NEW_PROCUREMENT_CLOSED, "project:create": false, "points:award": false },
+    ACCOUNTS: { ...all(true), ...NEW_PROCUREMENT_CLOSED, "project:create": false, "points:award": false },
+    MEMBER: { ...all(true), ...NEW_PROCUREMENT_CLOSED, "project:create": false, "points:award": false },
+    VIEWER: { ...all(true), ...NEW_PROCUREMENT_CLOSED, "project:create": false, "points:award": false },
 };
 
 /** Narrow unknown JSON from the DB to a capability delta, dropping junk keys. */

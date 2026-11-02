@@ -23,6 +23,7 @@ import procurementIndents from "./routes/procurement-indents";
 import procurementRfq from "./routes/procurement-rfq";
 import procurementPurchaseOrders from "./routes/procurement-purchase-orders";
 import procurementItems, { procurementLookups } from "./routes/procurement-items";
+import procurementBoq from "./routes/procurement-boq";
 import projectMaterials from "./routes/project-materials";
 import materials from "./routes/materials";
 import { aiRouter } from "./routes/ai";
@@ -242,6 +243,8 @@ app.route("/procurement/purchase-orders", procurementPurchaseOrders);
 // Line-item actions addressed directly, used by the mobile procurement screens.
 app.route("/procurement/items", procurementItems);
 app.route("/procurement", procurementLookups);
+// BOQ, rate sheet, trades: each handler checks its own capability.
+app.route("/procurement", procurementBoq);
 
 // Project Materials API (Planning BOM)
 app.route("/projects", projectMaterials);

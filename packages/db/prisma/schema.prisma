@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // Vercel's Lambda runtime is rhel-openssl-3.0.x. Without it listed, a client
   // generated on a dev machine ships only that machine's engine and the
   // deployed function fails at the first query with "Query Engine not found".
@@ -13,22 +13,22 @@ datasource db {
 }
 
 model User {
-  id                  String              @id
+  id                  String                  @id
   name                String
-  email               String              @unique
-  emailVerified       Boolean             @default(false)
+  email               String                  @unique
+  emailVerified       Boolean                 @default(false)
   image               String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @default(now()) @updatedAt
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @default(now()) @updatedAt
   role                String?
-  banned              Boolean?            @default(false)
+  banned              Boolean?                @default(false)
   banReason           String?
   banExpires          DateTime?
   surname             String?
-  phoneNumber         String?             @unique
-  phoneNumberVerified Boolean             @default(false)
+  phoneNumber         String?                 @unique
+  phoneNumberVerified Boolean                 @default(false)
   pushToken           String?
-  lastActiveAt        DateTime?           @default(now())
+  lastActiveAt        DateTime?               @default(now())
   activities          Activity[]
   workspaceOwner      Workspace[]
   workspaces          WorkspaceMember[]
@@ -43,7 +43,7 @@ model User {
   messageDeletions    DirectMessageDeletion[]
   notification        notification[]
   sessions            Session[]
-  organizedMeetings   Meeting[]           @relation("MeetingOrganizer")
+  organizedMeetings   Meeting[]               @relation("MeetingOrganizer")
   meetingAttendees    MeetingAttendee[]
 
   @@map("user")
@@ -156,6 +156,8 @@ model Workspace {
   shiftSchedules         ShiftSchedule[]
   meetings               Meeting[]
   pointsEntries          PointsEntry[]
+  trades                 Trade[]
+  boqs                   Boq[]
 }
 
 /// A set of check-in/check-out times shared by every department that points at it.
@@ -235,9 +237,11 @@ model WorkspaceMember {
   memberTodos                 MemberTodo[]
   quotesReviewed              VendorQuote[]         @relation("QuoteReviewer")
   addedMaterialItems          ProjectMaterialItem[]
-  purchaseOrdersCreated       PurchaseOrder[]        @relation("POCreator")
-  pointsEntries               PointsEntry[]          @relation("PointsRecipient")
-  pointsAwarded               PointsEntry[]          @relation("PointsAwarder")
+  purchaseOrdersCreated       PurchaseOrder[]       @relation("POCreator")
+  pointsEntries               PointsEntry[]         @relation("PointsRecipient")
+  pointsAwarded               PointsEntry[]         @relation("PointsAwarder")
+  vendorsVerified             Vendor[]              @relation("VendorVerifier")
+  boqsCreated                 Boq[]                 @relation("BoqCreator")
 
   @@unique([userId, workspaceId])
   @@unique([workspaceId, employeeId])
@@ -275,6 +279,8 @@ model Project {
   tasks            Task[]
   indents          Indent[]
   materialItems    ProjectMaterialItem[]
+  boqs             Boq[]
+  boqZones         BoqZone[]
   tags             Tag[]                 @relation("ProjectTags")
   meetings         Meeting[]
 
@@ -284,21 +290,21 @@ model Project {
 }
 
 model ProjectMember {
-  id                String          @id @default(uuid())
-  projectId         String
-  createdAt         DateTime        @default(now())
-  hasAccess         Boolean         @default(false)
-  projectRole       ProjectRole     @default(MEMBER)
-  updatedAt         DateTime        @updatedAt
-  workspaceMemberId String
+  id                  String          @id @default(uuid())
+  projectId           String
+  createdAt           DateTime        @default(now())
+  hasAccess           Boolean         @default(false)
+  projectRole         ProjectRole     @default(MEMBER)
+  updatedAt           DateTime        @updatedAt
+  workspaceMemberId   String
   /// Sparse per-member deltas off DEFAULT_PROJECT_PERMISSIONS[projectRole].
   /// NULL means "pure role default".
   permissionOverrides Json?
-  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
-  assignedTasks     Task[]          @relation("TaskAssignee")
-  createdTasks      Task[]          @relation("TaskCreator")
-  reviewingTasks    Task[]          @relation("TaskReviewer")
+  project             Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceMember     WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+  assignedTasks       Task[]          @relation("TaskAssignee")
+  createdTasks        Task[]          @relation("TaskCreator")
+  reviewingTasks      Task[]          @relation("TaskReviewer")
 
   @@unique([workspaceMemberId, projectId])
   @@index([projectId, projectRole])
@@ -612,25 +618,25 @@ model conversation {
 }
 
 model direct_message {
-  id                   String                  @id @default(uuid())
-  content              String
-  createdAt            DateTime                @default(now())
-  senderId             String
-  conversationId       String
-  isDeleted            Boolean                 @default(false)
-  deletedAt            DateTime?
-  isRead               Boolean                 @default(false)
-  deliveredAt          DateTime?
-  readAt               DateTime?
-  editedAt             DateTime?
-  isForwarded          Boolean                 @default(false)
-  forwardedFromId      String?
-  updatedAt            DateTime                @default(now()) @updatedAt
-  conversation         conversation            @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user                 User                    @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  forwardedFrom        direct_message?         @relation("MessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
-  forwards             direct_message[]        @relation("MessageForwards")
-  deletedFor           DirectMessageDeletion[]
+  id              String                  @id @default(uuid())
+  content         String
+  createdAt       DateTime                @default(now())
+  senderId        String
+  conversationId  String
+  isDeleted       Boolean                 @default(false)
+  deletedAt       DateTime?
+  isRead          Boolean                 @default(false)
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  editedAt        DateTime?
+  isForwarded     Boolean                 @default(false)
+  forwardedFromId String?
+  updatedAt       DateTime                @default(now()) @updatedAt
+  conversation    conversation            @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User                    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  forwardedFrom   direct_message?         @relation("MessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  forwards        direct_message[]        @relation("MessageForwards")
+  deletedFor      DirectMessageDeletion[]
 
   @@index([conversationId])
   @@index([conversationId, updatedAt])
@@ -783,11 +789,17 @@ model VendorMaterialCapability {
   quantity          Int?
   createdAt         DateTime              @default(now())
   serviceType       CapabilityServiceType @default(SUPPLY)
+  /// BOQ department this contractor rate belongs to (carpentry, electrical...).
+  /// Null for supply rates and rows entered before trades existed.
+  tradeId           String?
   material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
   vendor            Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   workspace         Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  trade             Trade?                @relation(fields: [tradeId], references: [id], onDelete: SetNull)
+  boqLines          BoqLineItem[]
 
   @@unique([vendorId, materialName, serviceType])
+  @@index([tradeId])
   @@index([materialCatalogId])
   @@index([workspaceId, materialName])
   @@map("vendor_material_capability")
@@ -963,15 +975,27 @@ model Vendor {
   blockStatus          String?
   einvoiceStatus       String?
 
-  vendorType           VendorType   @default(SUPPLIER)
+  vendorType         VendorType                 @default(SUPPLIER)
   /// Column mapping remembered from a previous quotation import, keyed by this
   /// vendor's own header wording. Null until a user chooses to remember one.
-  quotationMapping Json?
-  workspace        Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  capabilities     VendorMaterialCapability[]
-  indents          Indent[]                   @relation("IndentVendor")
-  quotes           VendorQuote[]
-  purchaseOrders   PurchaseOrder[]
+  quotationMapping   Json?
+  /// Bank details for payment. Shown only with the vendors:bank capability.
+  bankAccountName    String?
+  bankAccountNumber  String?
+  bankIfsc           String?
+  bankName           String?
+  bankBranch         String?
+  /// PENDING | VERIFIED. Plain text, not an enum — see the search_path note on PointsEntry.
+  verificationStatus String                     @default("PENDING")
+  verifiedAt         DateTime?
+  verifiedById       String?
+  verifiedBy         WorkspaceMember?           @relation("VendorVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  workspace          Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  capabilities       VendorMaterialCapability[]
+  indents            Indent[]                   @relation("IndentVendor")
+  quotes             VendorQuote[]
+  purchaseOrders     PurchaseOrder[]
+  boqLines           BoqLineItem[]
 
   @@unique([workspaceId, vendorId])
   @@index([workspaceId])
@@ -1201,41 +1225,41 @@ enum BuyerCompany {
 /// items. Line items are copied in rather than referenced: a PO is a contract,
 /// so editing a catalogue entry or the indent behind it must not change one.
 model PurchaseOrder {
-  id              String       @id @default(uuid())
-  workspaceId     String
+  id                String       @id @default(uuid())
+  workspaceId       String
   /// WT/26-27/0063 - entity, financial year, sequence.
-  poNumber        String
-  company         BuyerCompany
-  financialYear   String
-  vendorId        String
-  indentId        String?
+  poNumber          String
+  company           BuyerCompany
+  financialYear     String
+  vendorId          String
+  indentId          String?
   /// The vendor's own quotation / PI reference, printed on the document.
-  referenceNo     String?
-  poDate          DateTime     @default(now())
-  deliveryAddress String
+  referenceNo       String?
+  poDate            DateTime     @default(now())
+  deliveryAddress   String
   /// Same state as the buying entity: tax splits CGST + SGST, otherwise IGST.
-  intraState      Boolean      @default(true)
-  subtotal        Int
+  intraState        Boolean      @default(true)
+  subtotal          Int
   /// Extras carried over from the indent and printed under the subtotal.
   /// Percentages are a share of the subtotal; transport and labour are paise.
-  exciseDutyPercent Decimal?   @db.Decimal(5, 2)
-  vatPercent        Decimal?   @db.Decimal(5, 2)
-  transportCharge   Int        @default(0)
-  labourCharge      Int        @default(0)
-  cgst            Int
-  sgst            Int
-  igst            Int
+  exciseDutyPercent Decimal?     @db.Decimal(5, 2)
+  vatPercent        Decimal?     @db.Decimal(5, 2)
+  transportCharge   Int          @default(0)
+  labourCharge      Int          @default(0)
+  cgst              Int
+  sgst              Int
+  igst              Int
   /// Grand total is rounded to the rupee; this holds the difference.
-  roundOff        Int          @default(0)
-  grandTotal      Int
-  status          POStatus     @default(ORDERED)
+  roundOff          Int          @default(0)
+  grandTotal        Int
+  status            POStatus     @default(ORDERED)
   /// Payment terms and conditions as printed, one per line. Copied from the
   /// standard set when the PO is raised, then editable per order.
-  terms           String[]
-  notes           String?
-  createdById     String
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  terms             String[]
+  notes             String?
+  createdById       String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   vendor    Vendor          @relation(fields: [vendorId], references: [id])
@@ -1281,6 +1305,104 @@ model PoSequence {
   @@map("po_sequence")
 }
 
+/// A BOQ "department": the trade a contractor rate and a BOQ line belong to
+/// (carpentry, electrical...). Separate from Department, which is an HR team.
+model Trade {
+  id           String                     @id @default(cuid())
+  workspaceId  String
+  name         String
+  sortOrder    Int                        @default(0)
+  createdAt    DateTime                   @default(now())
+  workspace    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  capabilities VendorMaterialCapability[]
+  boqLines     BoqLineItem[]
+
+  @@unique([workspaceId, name])
+  @@map("trade")
+}
+
+/// Bill of quantities for a project. A project can hold several, each revised
+/// by cloning into revision + 1 (the old one becomes SUPERSEDED), so an
+/// approved BOQ is never edited in place.
+model Boq {
+  id            String          @id @default(uuid())
+  workspaceId   String
+  projectId     String
+  name          String
+  revision      Int             @default(0)
+  /// DRAFT | SUBMITTED | APPROVED | REJECTED | SUPERSEDED (lib/procurement/boq.ts).
+  status        String          @default("DRAFT")
+  revisedFromId String?
+  createdById   String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  revisedFrom   Boq?            @relation("BoqRevision", fields: [revisedFromId], references: [id], onDelete: SetNull)
+  revisions     Boq[]           @relation("BoqRevision")
+  createdBy     WorkspaceMember @relation("BoqCreator", fields: [createdById], references: [id])
+  lines         BoqLineItem[]
+
+  @@unique([projectId, name, revision])
+  @@index([workspaceId, updatedAt(sort: Desc)])
+  @@map("boq")
+}
+
+/// A space in a project (reception, room A, canteen). Shared by every BOQ of
+/// the project so revisions keep the same zones.
+model BoqZone {
+  id        String        @id @default(cuid())
+  projectId String
+  name      String
+  sortOrder Int           @default(0)
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lines     BoqLineItem[]
+
+  @@unique([projectId, name])
+  @@map("boq_zone")
+}
+
+/// One priced BOQ line. Description, unit and rate are copied from the rate
+/// sheet when the line is added: editing the rate sheet later must not move a
+/// BOQ that has been sent out. Totals are recomputed server-side on every
+/// write via lineTotals() in lib/procurement/boq.ts. Money is paise.
+model BoqLineItem {
+  id            String                    @id @default(uuid())
+  boqId         String
+  tradeId       String
+  zoneId        String?
+  vendorId      String?
+  capabilityId  String?
+  description   String
+  unit          String
+  serviceType   CapabilityServiceType     @default(LABOUR)
+  rate          Int
+  /// Length unit the dimensions were typed in: mm | cm | m | in | ft.
+  inputUnit     String                    @default("mm")
+  length        Decimal?                  @db.Decimal(12, 3)
+  breadth       Decimal?                  @db.Decimal(12, 3)
+  depth         Decimal?                  @db.Decimal(12, 3)
+  quantity      Decimal                   @default(1) @db.Decimal(12, 3)
+  measuredQty   Decimal                   @db.Decimal(14, 4)
+  markupPercent Decimal                   @default(0) @db.Decimal(5, 2)
+  costAmount    Int
+  amount        Int
+  notes         String?
+  sortOrder     Int                       @default(0)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  boq           Boq                       @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  trade         Trade                     @relation(fields: [tradeId], references: [id])
+  zone          BoqZone?                  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  vendor        Vendor?                   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  capability    VendorMaterialCapability? @relation(fields: [capabilityId], references: [id], onDelete: SetNull)
+
+  @@index([boqId, sortOrder])
+  @@index([tradeId])
+  @@index([zoneId])
+  @@map("boq_line_item")
+}
+
 enum MeetingType {
   INTERNAL
   CLIENT
@@ -1304,7 +1426,7 @@ enum AttendeeStatus {
 }
 
 model Meeting {
-  id              String            @id @default(uuid())
+  id              String        @id @default(uuid())
   workspaceId     String
   title           String
   description     String?
@@ -1312,21 +1434,21 @@ model Meeting {
   endTime         DateTime
   location        String?
   meetingUrl      String?
-  type            MeetingType       @default(INTERNAL)
-  status          MeetingStatus     @default(SCHEDULED)
-  color           String?           @default("indigo")
-  reminderMinutes Int               @default(15)
-  isAllDay        Boolean           @default(false)
+  type            MeetingType   @default(INTERNAL)
+  status          MeetingStatus @default(SCHEDULED)
+  color           String?       @default("indigo")
+  reminderMinutes Int           @default(15)
+  isAllDay        Boolean       @default(false)
   organizerId     String
   projectId       String?
 
-  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  organizer       User              @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-  project         Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  attendees       MeetingAttendee[]
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organizer User              @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  project   Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  attendees MeetingAttendee[]
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId, startTime])
   @@index([organizerId])
@@ -1339,11 +1461,11 @@ model MeetingAttendee {
   userId    String
   status    AttendeeStatus @default(ACCEPTED)
 
-  meeting   Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([meetingId, userId])
   @@index([userId])

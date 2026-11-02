@@ -8,6 +8,7 @@ import { Plus, Truck, MoreVertical, Ban, CheckCircle, ExternalLink, Edit, Trash2
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/data-table/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -37,6 +38,9 @@ export default function VendorsPage() {
   const [loading, setLoading] = useState(true);
   const [vendorToDelete, setVendorToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [typeTab, setTypeTab] = useState<"ALL" | "SUPPLIER" | "CONTRACTOR">("ALL");
+  const shownVendors =
+    typeTab === "ALL" ? vendors : vendors.filter((v) => (v.vendorType || "SUPPLIER") === typeTab);
 
   useEffect(() => {
     fetchVendors();
@@ -201,6 +205,29 @@ export default function VendorsPage() {
       },
     },
     {
+      accessorKey: "verificationStatus",
+      header: "Verification",
+      cell: ({ row }) => {
+        const verified = row.getValue("verificationStatus") === "VERIFIED";
+        return (
+          <Badge
+            variant="outline"
+            className={
+              verified
+                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+            }
+          >
+            {verified ? "Verified" : "Pending"}
+          </Badge>
+        );
+      },
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue || filterValue.length === 0) return true;
+        return filterValue.includes((row.getValue(columnId) as string) || "PENDING");
+      },
+    },
+    {
       id: "actions",
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => {
@@ -292,8 +319,17 @@ export default function VendorsPage() {
           <DataTable
             fillViewport
             columns={columns}
-            data={vendors}
+            data={shownVendors}
             isLoading={loading}
+            toolbarLeading={
+              <Tabs value={typeTab} onValueChange={(v) => setTypeTab(v as typeof typeTab)}>
+                <TabsList>
+                  <TabsTrigger value="ALL">All</TabsTrigger>
+                  <TabsTrigger value="SUPPLIER">Suppliers</TabsTrigger>
+                  <TabsTrigger value="CONTRACTOR">Contractors</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            }
             enableGlobalFilter={true}
             searchPlaceholder="Search by name, company, GST, location..."
             onRowClick={(row) => router.push(`/w/${workspaceId}/vendors/${row.id}`)}
@@ -310,6 +346,14 @@ export default function VendorsPage() {
                 label: "Location",
                 value: "location",
                 options: locationOptions,
+              },
+              {
+                label: "Verification",
+                value: "verificationStatus",
+                options: [
+                  { label: "Verified", value: "VERIFIED" },
+                  { label: "Pending", value: "PENDING" },
+                ],
               },
             ]}
           />

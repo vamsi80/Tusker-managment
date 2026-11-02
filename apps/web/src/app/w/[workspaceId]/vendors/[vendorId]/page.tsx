@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { VendorHeader } from "./_components/vendor-header";
 import { VendorProfileInfo } from "./_components/vendor-profile-info";
 import { VendorMaterials } from "./_components/vendor-materials";
+import { VendorVerificationCard } from "./_components/vendor-verification-card";
 
 export default function VendorDetailPage() {
   const params = useParams();
@@ -41,7 +42,7 @@ export default function VendorDetailPage() {
 
   if (loadingVendor) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <Loader2 className="size-8 animate-spin text-primary-ink" />
         <span className="ml-2 text-sm text-muted-foreground">Loading supplier / contractor profile...</span>
       </div>
@@ -68,6 +69,7 @@ export default function VendorDetailPage() {
         {/* Left Column: Vendor Profile Info (Structured Address, Contact) */}
         <div className="@4xl/main:col-span-1">
           <VendorProfileInfo vendor={vendor} />
+          <VendorVerificationCard workspaceId={workspaceId} vendor={vendor} onChange={setVendor} />
         </div>
 
         {/* Right Column: what we buy from them, priced */}

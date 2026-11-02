@@ -73,6 +73,9 @@ const page = {
     po: serverPage(() => import("../../web/src/app/w/[workspaceId]/procurement/pos/[poId]/page")),
     rfqs: serverPage(() => import("../../web/src/app/w/[workspaceId]/procurement/rfqs/page")),
     rfqCreate: serverPage(() => import("../../web/src/app/w/[workspaceId]/procurement/rfqs/create/page")),
+    boqs: clientPage(() => import("../../web/src/app/w/[workspaceId]/procurement/boq/page")),
+    boq: clientPage(() => import("../../web/src/app/w/[workspaceId]/procurement/boq/[boqId]/page")),
+    rateSheet: clientPage(() => import("../../web/src/app/w/[workspaceId]/procurement/rate-sheet/page")),
     vendorsLayout: serverPage(() => import("../../web/src/app/w/[workspaceId]/vendors/layout"), { layout: true }),
 };
 
@@ -257,6 +260,9 @@ function Gate() {
                         <Route path="pos/:poId" element={<page.po />} />
                         <Route path="rfqs" element={<page.rfqs />} />
                         <Route path="rfqs/create" element={<page.rfqCreate />} />
+                        <Route path="boq" element={<page.boqs />} />
+                        <Route path="boq/:boqId" element={<page.boq />} />
+                        <Route path="rate-sheet" element={<page.rateSheet />} />
                     </Route>
                     <Route path="app-settings" element={<SettingsScreen />} />
                     <Route path="*" element={<NotFound />} />
