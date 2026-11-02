@@ -2,20 +2,18 @@ name: Tusker for Windows release
 
 # Bump "version" in apps/tusker-desktop/package.json, then push a matching tag:
 #   git tag app-v0.2.0 && git push origin app-v0.2.0
-# The installer is published to vamsi80/tusker-desktop-releases (its own repo, so
-# the widget's updater never sees it); installed apps update themselves, and the
-# Settings page links to the newest one.
+# The installer lands on this repo's GitHub Releases next to the widget's
+# (desktop-v*). Installed apps update themselves; Settings links to the newest.
 #
-# Needs two repository secrets:
-#   DESKTOP_RELEASES_TOKEN: a token with "contents: write" on tusker-desktop-releases
-#                           (the default GITHUB_TOKEN can't write to another repo)
-#   VITE_PUSHER_KEY:        the website's public NEXT_PUBLIC_PUSHER_KEY
+# Optional repository secret VITE_PUSHER_KEY (the website's public
+# NEXT_PUBLIC_PUSHER_KEY) turns on live updates; without it the app refreshes
+# on focus instead.
 on:
   push:
     tags: ["app-v*"]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   windows:
@@ -45,8 +43,6 @@ jobs:
       # The app itself is outside the pnpm workspace (see pnpm-workspace.yaml).
       - run: pnpm install --ignore-workspace --frozen-lockfile
         working-directory: apps/tusker-desktop
-      - run: node node_modules/electron/install.js
-        working-directory: apps/tusker-desktop
 
       - run: pnpm exec tsc --noEmit
         working-directory: apps/tusker-desktop
@@ -54,6 +50,21 @@ jobs:
       - run: pnpm run dist --publish always
         working-directory: apps/tusker-desktop
         env:
-          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_PUSHER_KEY: ${{ secrets.VITE_PUSHER_KEY }}
           VITE_PUSHER_CLUSTER: ap2
+
+      # GitHub marks the new release "latest", but the widget's updater only reads
+      # /releases/latest and needs a latest.yml there (the app ships app.yml).
+      # Hand "latest" back to the newest widget release that has one.
+      - name: Keep the widget release as "latest"
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" \
+            --jq '[.[] | select(.draft | not) | select(.tag_name | startswith("desktop-v")) | select(any(.assets[]; .name == "latest.yml"))][0].id')
+          if [ -n "$id" ] && [ "$id" != "null" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -f make_latest=true --silent
+            echo "Widget release $id is latest again"
+          fi

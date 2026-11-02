@@ -8,6 +8,8 @@ const path = require("path");
 const DEFAULT_BASE = process.env.TUSKER_API_BASE || "https://tusker-managment.vercel.app";
 const DEV_URL = process.env.VITE_DEV_SERVER_URL; // set by scripts/dev.mjs
 const ICON = path.join(__dirname, "..", "icon.png");
+const RELEASES_REPO = "vamsi80/Tusker-managment";
+const RELEASE_TAG_PREFIX = "app-v";
 
 let config = {};
 let win;
@@ -64,6 +66,31 @@ function showWindow() {
 }
 
 const openExternal = (url) => /^https?:\/\//.test(url) && shell.openExternal(url);
+
+// The widget releases from this repo too. electron-updater's GitHub provider only
+// reads /releases/latest, which may be a widget release, so find our own newest
+// app-v* release and point the generic provider at it. Our update file is app.yml
+// (package.json publish.channel), which the widget's updater never looks for.
+async function checkForUpdates() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=30`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!res.ok) return;
+    const release = (await res.json()).find(
+      (r) => !r.draft && !r.prerelease && r.tag_name.startsWith(RELEASE_TAG_PREFIX) && r.assets.some((a) => a.name === "app.yml"),
+    );
+    if (!release) return;
+    autoUpdater.setFeedURL({
+      provider: "generic",
+      url: `https://github.com/${RELEASES_REPO}/releases/download/${release.tag_name}`,
+      channel: "app", // via the feed, not autoUpdater.channel, which would also allow downgrades
+    });
+    await autoUpdater.checkForUpdatesAndNotify();
+  } catch (err) {
+    console.error("[updater]", err.message);
+  }
+}
 
 ipcMain.handle("request", async (_e, pathname, opts) => {
   try {
@@ -148,14 +175,11 @@ app.whenReady().then(() => {
   else win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   win.once("ready-to-show", () => win.show());
 
-  // Updates come from GitHub Releases in their own repo (see package.json
-  // "publish"): electron-updater reads /releases/latest with no tag filter, so
-  // sharing the widget's repo would cross the two apps' updates.
+  // Updates come from this repo's app-v* GitHub Releases (see checkForUpdates).
   if (app.isPackaged) {
     autoUpdater.on("error", (err) => console.error("[updater]", err.message));
-    const check = () => autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-    check();
-    setInterval(check, 4 * 60 * 60_000);
+    checkForUpdates();
+    setInterval(checkForUpdates, 4 * 60 * 60_000);
   }
 });
 

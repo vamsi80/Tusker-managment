@@ -1,7 +1,7 @@
 {
   "name": "@tusker/tusker-desktop",
   "productName": "Tusker",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Tusker for Windows: the full app, in sync with the website and the mobile app.",
   "main": "electron/main.cjs",
@@ -58,8 +58,9 @@
     "publish": {
       "provider": "github",
       "owner": "vamsi80",
-      "repo": "tusker-desktop-releases",
-      "releaseType": "release"
+      "repo": "Tusker-managment",
+      "releaseType": "release",
+      "channel": "app"
     }
   },
   "pnpm": {

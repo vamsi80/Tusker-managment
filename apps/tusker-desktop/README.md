@@ -32,9 +32,13 @@ Nothing in `apps/web` or `apps/mobile` is modified by this app; it only reads fr
 
 ## Release
 
-1. One-time setup: create the public repo `vamsi80/tusker-desktop-releases`, then add repo secrets `DESKTOP_RELEASES_TOKEN` (contents: write on that repo) and `VITE_PUSHER_KEY`.
-2. Bump `version` in `package.json`, then `git tag app-vX.Y.Z && git push origin app-vX.Y.Z`. `.github/workflows/app-release.yml` builds and publishes.
+Bump `version` in `package.json`, then `git tag app-vX.Y.Z && git push origin app-vX.Y.Z`. `.github/workflows/app-release.yml` builds and publishes to this repo's GitHub Releases. Optional: a `VITE_PUSHER_KEY` repo secret turns on live updates.
 
-Releases need their own repo: `electron-updater` reads a repo's `/releases/latest` with no tag filter, so sharing the widget's repo would let one app install the other as an "update". The Settings page links to the newest `app-v*` release in that repo.
+The app shares this repo's releases with the widget (`desktop-v*`) without either picking up the other's updates:
+- The app's update file is `app.yml` (`publish.channel`), never `latest.yml`, so the widget's updater can't see the app's installer.
+- The app ignores `/releases/latest` and looks up its own newest `app-v*` release (`checkForUpdates` in `electron/main.cjs`).
+- After publishing, the workflow hands "latest" back to the newest widget release, the only thing the widget's updater reads.
+
+The Settings page links to the newest `app-v*` release.
 
 Local installer without publishing: `pnpm app-desktop:build`, output in `release/`.

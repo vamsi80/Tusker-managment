@@ -2,13 +2,11 @@ import type { LucideIcon } from "lucide-react";
 import { Download, LayoutDashboard, MonitorSmartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Each app publishes to GitHub Releases (electron-builder "publish"). They need
-// separate repos: electron-updater reads a repo's /releases/latest with no tag
-// filter, so sharing one would let the widget "update" itself into the full app.
-// The widget's repo also holds non-widget releases, so its link is resolved by
-// tag prefix rather than a releases/latest/download URL.
+// Both apps publish to this repo's GitHub Releases, told apart by tag prefix
+// (desktop-v* widget, app-v* full app). A releases/latest/download link can't be
+// used: "latest" is whichever app released last.
 const WIDGET_RELEASES = { repo: "vamsi80/Tusker-managment", tagPrefix: "desktop-v" };
-const APP_RELEASES = { repo: "vamsi80/tusker-desktop-releases", tagPrefix: "app-v" };
+const APP_RELEASES = { repo: "vamsi80/Tusker-managment", tagPrefix: "app-v" };
 
 type Release = {
     tag_name: string;
