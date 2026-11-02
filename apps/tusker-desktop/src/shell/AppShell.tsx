@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router";
-import { Bell, CheckSquare, LayoutDashboard, LogOut, WifiOff } from "lucide-react";
+import { Bell, CheckSquare, LayoutDashboard, LogOut, Settings, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Select,
@@ -16,6 +16,7 @@ const NAV = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
     { to: "/tasks", label: "Tasks", icon: CheckSquare },
     { to: "/notifications", label: "Notifications", icon: Bell, badge: "unread" as const },
+    { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 /**

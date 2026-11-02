@@ -1,6 +1,6 @@
 // Main process: owns the window, the session token and every network request.
 // Ported from apps/desktop/main.js (the widget), which has run this way since 0.1.0.
-const { app, BrowserWindow, ipcMain, shell, Notification, safeStorage } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, Notification, safeStorage } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const fs = require("fs");
 const path = require("path");
@@ -67,30 +67,113 @@ function showWindow() {
 
 const openExternal = (url) => /^https?:\/\//.test(url) && shell.openExternal(url);
 
+// ─── Updates ────────────────────────────────────────────────────────────────
+// Nothing downloads until the person says yes in the prompt below.
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+/** idle | checking | none | available | downloading | ready | error | dev; mirrored to Settings. */
+let updateState = { state: "idle" };
+let declinedVersion = null; // automatic checks don't ask twice about the same version
+let checking = false;
+
+function setUpdateState(next) {
+  updateState = next;
+  win?.webContents.send("updates:status", next);
+  win?.setProgressBar(next.state === "downloading" ? Math.max(0.01, (next.percent ?? 0) / 100) : -1);
+}
+
+autoUpdater.on("download-progress", (p) => setUpdateState({ ...updateState, state: "downloading", percent: Math.round(p.percent) }));
+autoUpdater.on("error", (err) => console.error("[updater]", err.message));
+
 // The widget releases from this repo too. electron-updater's GitHub provider only
 // reads /releases/latest, which may be a widget release, so find our own newest
 // app-v* release and point the generic provider at it. Our update file is app.yml
 // (package.json publish.channel), which the widget's updater never looks for.
-async function checkForUpdates() {
+async function pointFeedAtNewestRelease() {
+  const res = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=30`, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!res.ok) throw new Error(`GitHub answered ${res.status}. Try again in a while.`);
+  const release = (await res.json()).find(
+    (r) => !r.draft && !r.prerelease && r.tag_name.startsWith(RELEASE_TAG_PREFIX) && r.assets.some((a) => a.name === "app.yml"),
+  );
+  if (!release) return false;
+  autoUpdater.setFeedURL({
+    provider: "generic",
+    url: `https://github.com/${RELEASES_REPO}/releases/download/${release.tag_name}`,
+    channel: "app", // via the feed, not autoUpdater.channel, which would also allow downgrades
+  });
+  return true;
+}
+
+/**
+ * Looks for a newer version and, if there is one, asks whether to download and
+ * install it now. `manual` (the Settings button) also reports "up to date" and
+ * errors, and asks again about a version that was turned down before.
+ */
+async function checkForUpdates({ manual = false } = {}) {
+  if (!app.isPackaged) {
+    setUpdateState({ state: "dev" });
+    return updateState;
+  }
+  if (checking) return updateState;
+  checking = true;
+  setUpdateState({ state: "checking" });
   try {
-    const res = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=30`, {
-      headers: { Accept: "application/vnd.github+json" },
+    const result = (await pointFeedAtNewestRelease()) ? await autoUpdater.checkForUpdates() : null;
+    const version = result?.updateInfo?.version;
+    if (!result?.isUpdateAvailable || !version) {
+      setUpdateState({ state: "none" });
+      if (manual) {
+        await dialog.showMessageBox(win, {
+          type: "info",
+          title: "No updates",
+          message: "You're up to date",
+          detail: `Tusker ${app.getVersion()} is the latest version.`,
+        });
+      }
+      return updateState;
+    }
+
+    if (!manual && version === declinedVersion) {
+      setUpdateState({ state: "available", version });
+      return updateState;
+    }
+    const { response } = await dialog.showMessageBox(win, {
+      type: "info",
+      title: "Update available",
+      buttons: ["Download and install", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+      message: `Tusker ${version} is available`,
+      detail: `You have version ${app.getVersion()}. Would you like to download and install it now? Tusker restarts when it's ready.`,
     });
-    if (!res.ok) return;
-    const release = (await res.json()).find(
-      (r) => !r.draft && !r.prerelease && r.tag_name.startsWith(RELEASE_TAG_PREFIX) && r.assets.some((a) => a.name === "app.yml"),
-    );
-    if (!release) return;
-    autoUpdater.setFeedURL({
-      provider: "generic",
-      url: `https://github.com/${RELEASES_REPO}/releases/download/${release.tag_name}`,
-      channel: "app", // via the feed, not autoUpdater.channel, which would also allow downgrades
-    });
-    await autoUpdater.checkForUpdatesAndNotify();
+    if (response !== 0) {
+      declinedVersion = version;
+      setUpdateState({ state: "available", version });
+      return updateState;
+    }
+
+    setUpdateState({ state: "downloading", version, percent: 0 });
+    await autoUpdater.downloadUpdate();
+    setUpdateState({ state: "ready", version });
+    autoUpdater.quitAndInstall(true, true); // install silently, then reopen Tusker
+    return updateState;
   } catch (err) {
-    console.error("[updater]", err.message);
+    setUpdateState({ state: "error", message: err.message });
+    if (manual) {
+      await dialog.showMessageBox(win, { type: "error", title: "Update check failed", message: "Couldn't check for updates", detail: err.message });
+    }
+    return updateState;
+  } finally {
+    checking = false;
   }
 }
+
+ipcMain.handle("updates:check", () => checkForUpdates({ manual: true }));
+ipcMain.handle("updates:state", () => ({ ...updateState, current: app.getVersion() }));
 
 ipcMain.handle("request", async (_e, pathname, opts) => {
   try {
@@ -175,11 +258,11 @@ app.whenReady().then(() => {
   else win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   win.once("ready-to-show", () => win.show());
 
-  // Updates come from this repo's app-v* GitHub Releases (see checkForUpdates).
+  // Updates come from this repo's app-v* GitHub Releases: checked at launch and
+  // every 4 hours, and from Settings → Check for updates.
   if (app.isPackaged) {
-    autoUpdater.on("error", (err) => console.error("[updater]", err.message));
-    checkForUpdates();
-    setInterval(checkForUpdates, 4 * 60 * 60_000);
+    win.once("ready-to-show", () => checkForUpdates());
+    setInterval(() => checkForUpdates(), 4 * 60 * 60_000);
   }
 });
 

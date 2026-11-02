@@ -9,6 +9,7 @@ import { SignInScreen } from "~/screens/SignInScreen";
 import { DashboardScreen } from "~/screens/DashboardScreen";
 import { TasksScreen } from "~/screens/TasksScreen";
 import { NotificationsScreen } from "~/screens/NotificationsScreen";
+import { SettingsScreen } from "~/screens/SettingsScreen";
 
 export function App() {
     return (
@@ -58,6 +59,7 @@ function WorkspaceGate() {
                 <Route index element={<DashboardScreen />} />
                 <Route path="tasks" element={<TasksScreen />} />
                 <Route path="notifications" element={<NotificationsScreen />} />
+                <Route path="settings" element={<SettingsScreen />} />
                 <Route path="*" element={<DashboardScreen />} />
             </Route>
         </Routes>

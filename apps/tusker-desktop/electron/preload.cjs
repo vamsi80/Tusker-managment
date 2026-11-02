@@ -10,6 +10,13 @@ contextBridge.exposeInMainWorld("tusker", {
   signOut: call("signOut"),
   notify: call("notify"),
   open: call("open"),
+  checkForUpdates: call("updates:check"),
+  updateState: call("updates:state"),
+  onUpdateStatus: (cb) => {
+    const listener = (_e, status) => cb(status);
+    ipcRenderer.on("updates:status", listener);
+    return () => ipcRenderer.removeListener("updates:status", listener);
+  },
   onSession: (cb) => {
     const listener = (_e, signedIn) => cb(signedIn);
     ipcRenderer.on("session", listener);
