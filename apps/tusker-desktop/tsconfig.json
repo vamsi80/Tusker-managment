@@ -42,6 +42,9 @@
       "@tusker/core/*": [
         "../../packages/core/src/*"
       ],
+      "@tusker/db": [
+        "../../packages/db/src/index.ts"
+      ],
       "@mobile/api/*": [
         "../mobile/src/api/*"
       ],

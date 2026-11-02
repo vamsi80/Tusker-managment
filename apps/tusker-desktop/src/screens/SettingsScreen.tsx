@@ -10,7 +10,8 @@ const subscribeOnline = (cb: () => void) => {
         window.removeEventListener("offline", cb);
     };
 };
-const useOnline = () => useSyncExternalStore(subscribeOnline, () => navigator.onLine);
+/** False while the computer has no network connection. */
+export const useOnline = () => useSyncExternalStore(subscribeOnline, () => navigator.onLine);
 
 const STATUS_TEXT: Record<UpdateStatus["state"], (s: UpdateStatus) => string> = {
     idle: () => "",
@@ -22,8 +23,12 @@ const STATUS_TEXT: Record<UpdateStatus["state"], (s: UpdateStatus) => string> = 
     dev: () => "Updates work in the installed app, not in development.",
 };
 
-/** App-level settings for the desktop app. */
-export function SettingsScreen() {
+/**
+ * This app's version, update status and Check for updates. Shown in the
+ * website's Settings page (in place of its "Desktop apps" download card), styled
+ * like that page's other cards.
+ */
+export function AppUpdatesCard() {
     const online = useOnline();
     const [version, setVersion] = useState("");
     const [status, setStatus] = useState<UpdateStatus>({ state: "idle" });
@@ -39,32 +44,35 @@ export function SettingsScreen() {
     const busy = status.state === "checking" || status.state === "downloading" || status.state === "ready";
 
     return (
-        <>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-xs dark:bg-card">
+            <span className="min-w-0 flex-1 basis-64">
+                <span className="block text-sm font-medium">Tusker for Windows{version && ` · version ${version}`}</span>
+                <span className="block text-sm text-muted-foreground" aria-live="polite">
+                    {STATUS_TEXT[status.state](status) || "Updates download on their own and install when you close Tusker."}
+                </span>
+            </span>
+            <Button
+                variant="outline"
+                className="shrink-0"
+                disabled={busy || !online}
+                title={online ? undefined : "Checking for updates needs a connection"}
+                onClick={() => window.tusker.checkForUpdates()}
+            >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Check for updates
+            </Button>
+        </div>
+    );
+}
+
+/** Standalone page (/w/:workspaceId/app-settings), e.g. if the website's Settings can't load. */
+export function SettingsScreen() {
+    return (
+        <div className="flex max-w-3xl flex-col gap-6">
             <div>
-                <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">Settings</h1>
+                <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">App settings</h1>
                 <p className="mt-1 text-sm text-foreground/80">Settings for Tusker on this computer.</p>
             </div>
-
-            <section className="flex max-w-3xl flex-col gap-3">
-                <h2 className="text-base font-semibold">App</h2>
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-card p-4 shadow-xs">
-                    <span className="min-w-0 flex-1 basis-64">
-                        <span className="block text-sm font-medium">Tusker for Windows{version && ` · version ${version}`}</span>
-                        <span className="block text-sm text-muted-foreground" aria-live="polite">
-                            {STATUS_TEXT[status.state](status) || "Updates download on their own and install when you close Tusker."}
-                        </span>
-                    </span>
-                    <Button
-                        variant="outline"
-                        className="shrink-0"
-                        disabled={busy || !online}
-                        title={online ? undefined : "Checking for updates needs a connection"}
-                        onClick={() => window.tusker.checkForUpdates()}
-                    >
-                        {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Check for updates
-                    </Button>
-                </div>
-            </section>
-        </>
+            <AppUpdatesCard />
+        </div>
     );
 }

@@ -12,7 +12,8 @@ import { REFRESH_EVENT } from "./navigation";
 
 type ServerProps = { params: Promise<Record<string, string>>; searchParams: Promise<Record<string, string>>; children?: ReactNode };
 // Each page declares its own props (some require children); they all receive ServerProps.
-type ServerComponent = (props: any) => ReactNode | Promise<ReactNode>;
+// (Some only redirect and return nothing.)
+type ServerComponent = (props: any) => unknown;
 type Loader = () => Promise<{ default: ServerComponent }>;
 
 export function PageSpinner() {
@@ -44,8 +45,8 @@ class PageBoundary extends Component<{ children: ReactNode; resetKey: string }, 
     }
 }
 
-function Resolved({ promise }: { promise: Promise<ReactNode> }) {
-    return <>{use(promise)}</>;
+function Resolved({ promise }: { promise: Promise<unknown> }) {
+    return <>{use(promise) as ReactNode}</>;
 }
 
 /** A route element for a server page (`layout` passes <Outlet/> as its children). */
