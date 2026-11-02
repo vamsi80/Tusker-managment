@@ -1,3 +1,32 @@
+import { memberChanges, memberUpdateSummary, type MemberChange } from "../../../lib/notification-copy";
+
+const parseMeta = (raw: unknown): any => {
+  if (!raw) return {};
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * Who changed whom, and what, for a MEMBER_UPDATED notification. New rows store
+ * it; older ones are rebuilt from the stored delta, the looked-up member name
+ * and the actor at the front of the old body ("System updated a member's role").
+ */
+function memberUpdateView(dn: any, memberNames: Map<string, string>) {
+  const meta = parseMeta(dn.metadata);
+  const changes: MemberChange[] = Array.isArray(meta.changes) ? meta.changes : memberChanges(meta);
+  const actorName: string =
+    meta.actorName || String(dn.body || "").split(" updated ")[0].split(" joined ")[0].trim() || "Someone";
+  if (String(dn.body || "").includes(" joined the workspace")) {
+    return { actorName, subjectName: actorName, changes: [], body: dn.body as string, joined: true };
+  }
+  const subjectName: string = meta.subjectName || memberNames.get(dn.entityId) || "a member";
+  return { actorName, subjectName, changes, body: `${actorName} updated ${memberUpdateSummary(subjectName, changes)}` };
+}
+
 export class CommentMapper {
   /**
    * Group comments and activities into notifications
@@ -5,7 +34,7 @@ export class CommentMapper {
   /**
    * Group comments and activities into notifications
    */
-  static toNotifications(comments: any[], activities: any[], limit: number, directNotifications: any[] = [], taskMap: Map<string, any> = new Map()) {
+  static toNotifications(comments: any[], activities: any[], limit: number, directNotifications: any[] = [], taskMap: Map<string, any> = new Map(), memberNames: Map<string, string> = new Map()) {
     const groupedMap = new Map();
 
     // 1. Process Task Comments
@@ -88,6 +117,8 @@ export class CommentMapper {
         const projectName = taskObj?.project?.name || "Workspace";
         const parentTaskName = taskObj?.parentTask?.name || null;
         const taskSlug = taskObj?.taskSlug || null;
+        const memberUpdate = dn.type === "MEMBER_UPDATED" ? memberUpdateView(dn, memberNames) : null;
+        const actorName: string | undefined = memberUpdate?.actorName || parseMeta(dn.metadata).actorName;
 
         groupedMap.set(id, {
           id: dn.id,
@@ -101,13 +132,15 @@ export class CommentMapper {
           projectName,
           parentTaskName,
           type: dn.type,
+          memberUpdate,
           latestComment: {
-            content: dn.body, // John Doe created a task / updated status...
+            content: memberUpdate?.body ?? dn.body, // John Doe created a task / updated status...
             createdAt: dn.createdAt,
             user: {
-              name: dn.user?.surname || dn.user?.name || "System",
-              surname: dn.user?.surname || "",
-              image: dn.user?.image || null
+              // dn.user is the recipient; older rows have nothing better.
+              name: actorName || dn.user?.surname || dn.user?.name || "System",
+              surname: actorName ? "" : dn.user?.surname || "",
+              image: actorName ? null : dn.user?.image || null
             }
           },
           count: 1,

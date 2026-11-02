@@ -127,3 +127,54 @@ export function leaveNotificationBody(params: {
                 : `${subjectName} withdrew their ${kind}leave request${forRange}`;
     }
 }
+
+/**
+ * Member-update copy. The audit delta holds every key of the update payload
+ * (ids, timestamps...), so only fields a person would recognise are named.
+ * A key absent from the old snapshot has no `from` and was never compared.
+ */
+const MEMBER_FIELDS: [key: string, label: string][] = [
+    ["workspaceRole", "role"],
+    ["designation", "designation"],
+    ["reportToName", "reporting manager"],
+    ["departmentName", "department"],
+    ["name", "name"],
+    ["surname", "display name"],
+    ["email", "email"],
+    ["phoneNumber", "phone number"],
+];
+
+export type MemberChange = { field: string; label: string; from: string; to: string };
+
+const ROLE_KEYS = new Set(["workspaceRole"]);
+const showValue = (field: string, value: unknown) => {
+    const text = typeof value === "string" ? value.trim() : value == null ? "" : String(value);
+    if (!text) return "none";
+    return ROLE_KEYS.has(field) ? text.charAt(0) + text.slice(1).toLowerCase() : text;
+};
+
+export function memberChanges(delta: Record<string, { from?: unknown; to?: unknown }> | null | undefined): MemberChange[] {
+    if (!delta || typeof delta !== "object") return [];
+    const changes: MemberChange[] = [];
+    for (const [field, label] of MEMBER_FIELDS) {
+        const entry = delta[field];
+        if (!entry || typeof entry !== "object" || !("from" in entry) || entry.from === undefined) continue;
+        const from = showValue(field, entry.from);
+        const to = showValue(field, entry.to);
+        if (from !== to) changes.push({ field, label, from, to });
+    }
+    return changes;
+}
+
+const listOf = (items: string[]) =>
+    items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+
+/** "Vibu's role, designation and reporting manager" — what goes after "updated". */
+export function memberUpdateSummary(subjectName: string, changes: MemberChange[]) {
+    return changes.length ? `${subjectName}'s ${listOf(changes.map((c) => c.label))}` : `${subjectName}'s details`;
+}
+
+/** "Vibu's role was changed from Manager to Member by System." */
+export function memberChangeSentence(subjectName: string, change: MemberChange, actorName?: string | null) {
+    return `${subjectName}'s ${change.label} was changed from ${change.from} to ${change.to}${actorName ? ` by ${actorName}` : ""}.`;
+}

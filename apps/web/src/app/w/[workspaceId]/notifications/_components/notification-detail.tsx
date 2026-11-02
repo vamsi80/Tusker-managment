@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { cn, toTitleCase } from "@/lib/utils";
+import { memberChangeSentence, type MemberChange } from "@tusker/core/lib/notification-copy";
 
 interface NotificationDetailProps {
   notificationId: string;
@@ -77,6 +78,10 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
 
   const isPoints = matchedNotif?.entityType === "PointsEntry";
 
+  // A member update points at a WorkspaceMember, not a task.
+  const memberUpdate: { actorName: string; subjectName: string; changes: MemberChange[]; joined?: boolean } | null =
+    matchedNotif?.memberUpdate ?? null;
+
   useEffect(() => {
     if (indentId) router.replace(`/w/${workspaceId}/procurement/indents/${indentId}`);
     else if (isPoints) router.replace(`/w/${workspaceId}/team/points`);
@@ -91,7 +96,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
 
   // 1. Fetch Task by slug or ID
   useEffect(() => {
-    if (indentId || !taskRef) {
+    if (indentId || memberUpdate || !taskRef) {
       // isTaskLoading starts true and gates the whole view behind a spinner.
       setIsTaskLoading(false);
       return;
@@ -122,7 +127,7 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     return () => {
       active = false;
     };
-  }, [workspaceId, taskRef, indentId]);
+  }, [workspaceId, taskRef, indentId, memberUpdate]);
 
   // 2. Fetch Project Members once we have task details
   useEffect(() => {
@@ -229,6 +234,55 @@ export function NotificationDetail({ notificationId }: NotificationDetailProps) 
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="size-8 animate-spin text-primary-ink" />
+      </div>
+    );
+  }
+
+  if (!task && memberUpdate && matchedNotif) {
+    const when = matchedNotif.latestComment?.createdAt ? new Date(matchedNotif.latestComment.createdAt) : null;
+    return (
+      <div className="flex flex-col h-full bg-background overflow-y-auto p-6 space-y-6">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-primary/10 text-primary-ink border-none text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider rounded-md">
+              Workspace
+            </Badge>
+            <span className="text-muted-foreground/40 text-[10px] font-bold">/</span>
+            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">Member updated</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-medium leading-tight text-foreground">
+            {matchedNotif.latestComment?.content}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {memberUpdate.joined ? "Joined" : "Updated by"}{" "}
+            {!memberUpdate.joined && <span className="font-medium text-foreground">{memberUpdate.actorName}</span>}
+            {when && <> · {formatDistanceToNow(when, { addSuffix: true })}</>}
+          </p>
+        </div>
+
+        <div className="border-t pt-6 space-y-3">
+          {memberUpdate.joined ? (
+            <p className="text-sm text-muted-foreground">{memberUpdate.actorName} accepted the invitation and joined the workspace.</p>
+          ) : memberUpdate.changes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {memberUpdate.subjectName}&apos;s details were updated by {memberUpdate.actorName}. No role, designation, manager or department change was recorded.
+            </p>
+          ) : (
+            memberUpdate.changes.map((change) => (
+              <div key={change.field} className="rounded-xl border border-muted/50 bg-muted/30 p-4 space-y-2">
+                <p className="text-sm text-foreground/90">
+                  {memberChangeSentence(memberUpdate.subjectName, change, memberUpdate.actorName)}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground w-36">{change.label}</span>
+                  <span className="rounded-md bg-background px-2 py-0.5 line-through text-muted-foreground">{change.from}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="rounded-md bg-primary/10 px-2 py-0.5 font-medium text-primary-ink">{change.to}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     );
   }

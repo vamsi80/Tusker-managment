@@ -5,6 +5,8 @@ import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import {
   LEAVE_TITLES,
   leaveNotificationBody,
+  memberChanges,
+  memberUpdateSummary,
   type LeaveAction,
 } from "./notification-copy";
 
@@ -214,7 +216,17 @@ export async function recordActivity(options: RecordActivityOptions) {
 
       if (action === "MEMBER_INVITED") actionLabel = "invited a new member";
       if (action === "MEMBER_REMOVED") actionLabel = "removed a member";
-      if (action === "MEMBER_UPDATED") actionLabel = "updated a member's role";
+      // Named member and changed fields, e.g. "updated Vibu's role and
+      // designation". No old snapshot means the invite-acceptance path.
+      const memberSubject =
+        newData?.surname?.trim() || newData?.name?.trim() || "a member";
+      const memberDelta =
+        action === "MEMBER_UPDATED" && oldData ? memberChanges(metadata) : [];
+      if (action === "MEMBER_UPDATED") {
+        actionLabel = oldData
+          ? `updated ${memberUpdateSummary(memberSubject, memberDelta)}`
+          : "joined the workspace";
+      }
       if (action === "WORKSPACE_UPDATED")
         actionLabel = "updated workspace info";
       if (action === "TASK_CREATED")
@@ -318,7 +330,17 @@ export async function recordActivity(options: RecordActivityOptions) {
             senderName: userName,
             content: dmContent,
           }
-        : metadata || {};
+        : action === "MEMBER_UPDATED" && oldData
+          ? {
+              ...(metadata || {}),
+              // Read by the notification detail: who did it, to whom, what changed.
+              actorName: userName,
+              subjectName: memberSubject,
+              changes: memberDelta,
+            }
+          : // The notification row's user is the recipient, so the list needs
+            // the actor's name stored to show who did it.
+            { ...(metadata || {}), actorName: userName };
 
       // Leave copy is written whole rather than as `${userName} ${actionLabel}`,
       // because the subject is not always the actor.

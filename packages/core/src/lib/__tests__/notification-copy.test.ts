@@ -81,3 +81,40 @@ describe("leaveNotificationBody", () => {
         })).toBe("Vamsi approved Priya's leave");
     });
 });
+
+import { memberChanges, memberUpdateSummary, memberChangeSentence } from "../notification-copy";
+
+describe("member update copy", () => {
+    // The shape stored on a real notification: the whole payload diffed, so
+    // ids and timestamps sit next to the fields that actually changed.
+    const delta = {
+        id: { to: "m-1" },
+        status: { to: "Verified" },
+        reportToId: { from: "a", to: "b" },
+        designation: { from: "EHS Manager", to: "EHS Lead" },
+        reportToName: { from: "Varun ", to: "Avneesh" },
+        workspaceRole: { from: "MANAGER", to: "MEMBER" },
+    };
+
+    it("names only recognisable fields, tidied", () => {
+        expect(memberChanges(delta)).toEqual([
+            { field: "workspaceRole", label: "role", from: "Manager", to: "Member" },
+            { field: "designation", label: "designation", from: "EHS Manager", to: "EHS Lead" },
+            { field: "reportToName", label: "reporting manager", from: "Varun", to: "Avneesh" },
+        ]);
+    });
+
+    it("summarises for the list and spells out each change for the detail", () => {
+        const changes = memberChanges(delta);
+        expect(memberUpdateSummary("Vibu", changes)).toBe("Vibu's role, designation and reporting manager");
+        expect(memberUpdateSummary("Vibu", changes.slice(0, 1))).toBe("Vibu's role");
+        expect(memberUpdateSummary("Vibu", [])).toBe("Vibu's details");
+        expect(memberChangeSentence("Vibu", changes[0], "System")).toBe("Vibu's role was changed from Manager to Member by System.");
+    });
+
+    it("treats empty values as none and ignores junk", () => {
+        expect(memberChanges({ departmentName: { from: null, to: "Design" } })[0]).toMatchObject({ from: "none", to: "Design" });
+        expect(memberChanges(null)).toEqual([]);
+        expect(memberChanges({ workspaceRole: { to: "ADMIN" } })).toEqual([]);
+    });
+});

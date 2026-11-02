@@ -50,16 +50,16 @@ export function NotificationListItem({ notif, isRead, isActive, onClick }: Notif
           "flex items-center gap-1 text-[9px] uppercase tracking-wider truncate",
           isActive ? "text-primary-foreground/75" : "text-muted-foreground/60"
         )}>
-          <span className="truncate max-w-[80px]">{toTitleCase(notif.projectName)}</span>
+          <span className="truncate max-w-20">{toTitleCase(notif.projectName)}</span>
           <span>/</span>
           {notif.parentTaskName && (
             <>
-              <span className="truncate max-w-[65px]">{toTitleCase(notif.parentTaskName)}</span>
+              <span className="truncate max-w-16.25">{toTitleCase(notif.parentTaskName)}</span>
               <span>/</span>
             </>
           )}
           <span className={cn(
-            "truncate max-w-[120px] font-semibold",
+            "truncate max-w-30 font-semibold",
             isActive ? "text-primary-foreground" : "text-foreground"
           )}>
             {toTitleCase(notif.taskName)}

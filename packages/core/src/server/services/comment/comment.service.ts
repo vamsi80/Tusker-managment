@@ -287,12 +287,28 @@ export class CommentService {
       tasks.forEach(t => taskMap.set(t.id, t));
     }
 
+    // Member-update notifications written before the member's name was stored
+    // only carry the WorkspaceMember id; look the names up so they still read
+    // "System updated Vibu's role" rather than "a member's role".
+    const memberIds = directNotifications
+      .filter((dn: any) => dn.type === "MEMBER_UPDATED" && dn.entityId && !(dn.metadata as any)?.subjectName)
+      .map((dn: any) => dn.entityId as string);
+    const memberNames = new Map<string, string>();
+    if (memberIds.length > 0) {
+      const db = await import("@tusker/db").then(m => m.default);
+      const members = await db.workspaceMember.findMany({
+        where: { id: { in: [...new Set(memberIds)] } },
+        select: { id: true, user: { select: { name: true, surname: true } } },
+      });
+      members.forEach(m => memberNames.set(m.id, m.user?.surname?.trim() || m.user?.name?.trim() || ""));
+    }
+
     const commentMap = new Map();
     [...unreadComments, ...recentComments].forEach(c => commentMap.set(c.id, c));
     const comments = Array.from(commentMap.values())
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    return CommentMapper.toNotifications(comments, activities, limit, directNotifications, taskMap);
+    return CommentMapper.toNotifications(comments, activities, limit, directNotifications, taskMap, memberNames);
   }
 
   /**
