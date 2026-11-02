@@ -102,8 +102,10 @@ export default defineConfig(({ mode }) => {
             { find: /^~\//, replacement: `${src}/` },
             { find: /^@\//, replacement: `${web}/` },
         ],
-        // The web files resolve their packages from apps/web/node_modules; one React for everything.
-        dedupe: ["react", "react-dom"],
+        // The web files resolve their packages from apps/web/node_modules. These must be
+        // one copy for the website's components and this app's providers alike (React
+        // itself; the theme and toast providers from the website's root layout).
+        dedupe: ["react", "react-dom", "next-themes", "sonner"],
     },
     // A string here stops Vite reading each file's nearest tsconfig.json (apps/mobile's
     // extends expo/tsconfig.base, only resolvable where the mobile app is installed).

@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/sonner";
 import { Loader2, WifiOff } from "lucide-react";
 import { workspacesApi } from "@mobile/api/workspaces";
 import { AuthProvider, useAuth } from "~/providers/AuthProvider";
@@ -74,13 +76,17 @@ const page = {
     vendorsLayout: serverPage(() => import("../../web/src/app/w/[workspaceId]/vendors/layout"), { layout: true }),
 };
 
+/** The website's root layout (apps/web/src/app/layout.tsx): theme and toasts around every page. */
 export function App() {
     return (
-        <AuthProvider>
-            <HashRouter>
-                <Gate />
-            </HashRouter>
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <AuthProvider>
+                <HashRouter>
+                    <Gate />
+                </HashRouter>
+            </AuthProvider>
+            <Toaster closeButton position="top-right" />
+        </ThemeProvider>
     );
 }
 

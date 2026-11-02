@@ -2,9 +2,11 @@
 @import "../../web/src/app/globals.css";
 @import "@fontsource-variable/inter";
 
-/* The classes to generate: this app's files, plus the UI kit shared from apps/web. */
+/* The classes to generate: this app's files and all of apps/web, whose pages,
+   frame and components the app runs. (Scanning only the UI kit left the pages'
+   own layout classes out: grids collapsed to one column, padding went missing.) */
 @source "./";
-@source "../../web/src/components/ui";
+@source "../../web/src";
 
 /* next/font sets these on the website; here they are plain @font-faces. */
 @font-face {
