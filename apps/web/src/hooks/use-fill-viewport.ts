@@ -40,6 +40,12 @@ export function useFillViewport(
 
         const main = box.closest("main");
         const fit = () => {
+            // An open Radix select / menu / dialog scroll-locks the page with
+            // body[data-scroll-locked] { overflow: hidden }. Measured then, no
+            // scroller is found and the box comes out PROBE px tall: the table
+            // spills off screen with nothing left to scroll. Skip; the lock
+            // lifting refits (lockObserver below).
+            if (document.body.hasAttribute("data-scroll-locked")) return;
             if ((main?.clientWidth ?? window.innerWidth) < minWidth) {
                 box.style[property] = "";
                 return;
@@ -65,20 +71,35 @@ export function useFillViewport(
             box.style.maxHeight = "";
 
             // ponytail: 240px floor so short screens still show a few rows; the page scrolls then.
-            box.style[property] = `${Math.max(240, visible - top - below)}px`;
+            // Floored: a fractional height can overflow the page by a sub-pixel,
+            // flashing a scrollbar that resizes everything and refits again.
+            box.style[property] = `${Math.floor(Math.max(240, visible - top - below))}px`;
             inner.forEach((el, i) => (el.scrollTop = positions[i]));
+        };
+
+        // At most once a frame: fit forces layout, and a refit that resizes an
+        // observed element must not re-enter within the same frame.
+        let frame = 0;
+        const schedule = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(fit);
         };
 
         fit();
         // Content above or below changing size resizes body's children (body
         // itself is fixed at 100% when it is the scroller).
-        const observer = new ResizeObserver(fit);
+        const observer = new ResizeObserver(schedule);
         // main too: collapsing the sidebar resizes it without a window resize.
         [document.body, ...Array.from(document.body.children), ...(main ? [main] : [])].forEach((el) => observer.observe(el));
-        window.addEventListener("resize", fit);
+        // Fit again once a select / menu / dialog closes and unlocks scrolling.
+        const lockObserver = new MutationObserver(schedule);
+        lockObserver.observe(document.body, { attributes: true, attributeFilter: ["data-scroll-locked"] });
+        window.addEventListener("resize", schedule);
         return () => {
+            cancelAnimationFrame(frame);
             observer.disconnect();
-            window.removeEventListener("resize", fit);
+            lockObserver.disconnect();
+            window.removeEventListener("resize", schedule);
             box.style[property] = "";
         };
     }, [ref, enabled, property, minWidth]);
