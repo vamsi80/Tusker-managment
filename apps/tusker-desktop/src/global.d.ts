@@ -10,7 +10,7 @@ interface Window {
         signOut(): Promise<void>;
         notify(title: string, body?: string): Promise<void>;
         open(url: string): Promise<void>;
-        /** Settings → Check for updates: asks to download and install when a newer version exists. */
+        /** Settings → Check for updates: a newer version downloads on its own and installs on close. */
         checkForUpdates(): Promise<UpdateStatus>;
         updateState(): Promise<UpdateStatus & { current: string }>;
         onUpdateStatus(cb: (status: UpdateStatus) => void): () => void;
@@ -21,7 +21,7 @@ interface Window {
 
 /** electron/main.cjs updateState. */
 type UpdateStatus = {
-    state: "idle" | "checking" | "none" | "available" | "downloading" | "ready" | "error" | "dev";
+    state: "idle" | "checking" | "none" | "downloading" | "ready" | "error" | "dev";
     version?: string;
     percent?: number;
     message?: string;

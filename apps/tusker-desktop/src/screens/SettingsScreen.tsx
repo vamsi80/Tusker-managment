@@ -7,9 +7,8 @@ const STATUS_TEXT: Record<UpdateStatus["state"], (s: UpdateStatus) => string> = 
     idle: () => "",
     checking: () => "Checking for updates…",
     none: () => "You're on the latest version.",
-    available: (s) => `Version ${s.version} is available.`,
     downloading: (s) => `Downloading version ${s.version}… ${s.percent ?? 0}%`,
-    ready: (s) => `Installing version ${s.version}. Tusker will restart.`,
+    ready: (s) => `Version ${s.version} is ready. It installs the next time you close Tusker.`,
     error: (s) => `Couldn't check for updates: ${s.message}`,
     dev: () => "Updates work in the installed app, not in development.",
 };
@@ -43,7 +42,7 @@ export function SettingsScreen() {
                     <span className="min-w-0 flex-1 basis-64">
                         <span className="block text-sm font-medium">Tusker for Windows{version && ` · version ${version}`}</span>
                         <span className="block text-sm text-muted-foreground" aria-live="polite">
-                            {STATUS_TEXT[status.state](status) || "Updates are checked when Tusker starts and every few hours."}
+                            {STATUS_TEXT[status.state](status) || "Updates download on their own and install when you close Tusker."}
                         </span>
                     </span>
                     <Button
