@@ -40,4 +40,26 @@ describe("zValidator", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, data: { name: "Mahadev Steel" } });
   });
+
+  it("reads the body when the desktop app's doubled Content-Type arrives", async () => {
+    // Desktop <= 1.2.2 sent the header twice; fetch joins the two like this,
+    // and the stock validator then validated {} ("expected string, received undefined").
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "content-type": "application/json, application/json" },
+      body: JSON.stringify({ name: "Main BOQ" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, data: { name: "Main BOQ" } });
+  });
+
+  it("answers malformed JSON with 400, not 500", async () => {
+    const res = await new Hono()
+      .onError((err: any, c) => c.json({ error: err.message }, err.status ?? err.statusCode ?? 500))
+      .post("/", zValidator("json", z.object({ name: z.string() })), (c) => c.json({}))
+      .request("/", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{not json" });
+
+    expect(res.status).toBe(400);
+  });
 });

@@ -41,14 +41,18 @@ function setToken(token) {
 async function request(pathname, { method = "GET", body, headers = {} } = {}) {
   if (typeof pathname !== "string" || !pathname.startsWith("/api/v1/")) throw new Error("Only /api/v1/ paths are allowed");
   const token = getToken();
+  // One spelling per header: the page's headers arrive lower-cased, and mixing
+  // "Content-Type" with "content-type" makes fetch send both, merged into
+  // "application/json, application/json", which the API doesn't read as JSON.
+  const pageHeaders = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
   const res = await fetch(base() + pathname, {
     method,
     headers: {
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      Accept: "application/json",
-      ...headers,
-      Origin: new URL(base()).origin,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      accept: "application/json",
+      ...pageHeaders,
+      origin: new URL(base()).origin,
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
     // The website's code (via the page's fetch bridge) sends bodies already serialised.
     body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
