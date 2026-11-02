@@ -1,14 +1,24 @@
 name: Desktop widget release
 
-# Bump "version" in apps/desktop/package.json, then push a matching tag:
-#   git tag desktop-v0.2.0 && git push origin desktop-v0.2.0
-# The installer lands on GitHub Releases; installed widgets update themselves.
+# Releases happen on their own: bump "version" in apps/desktop/package.json and
+# push to main. If there's no release for that version yet, this builds the
+# installer, tags the commit desktop-v<version> and publishes it to GitHub
+# Releases; installed widgets update themselves. Pushes that don't change the
+# version do nothing. "Run workflow" on the Actions page does the same check by hand.
 on:
   push:
-    tags: ["desktop-v*"]
+    branches: [main]
+    paths:
+      - apps/desktop/package.json
+      - .github/workflows/desktop-release.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
 
 jobs:
   windows:
@@ -19,35 +29,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # No "version" input: pnpm comes from "packageManager" in the root
-      # package.json, and the action fails when both are set.
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Check tag matches package version
-        shell: bash
-        run: |
-          version=$(node -p "require('./package.json').version")
-          [ "desktop-v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != desktop-v$version"; exit 1; }
-
-      # The desktop app is outside the pnpm workspace (see pnpm-workspace.yaml).
-      - run: pnpm install --ignore-workspace --frozen-lockfile
-
-      # Create the release before electron-builder uploads: when none exists, its
-      # parallel uploads each create one (a race), leaving duplicate releases under
-      # one tag, which GitHub then refuses to edit. An existing one is reused.
-      - name: Create the GitHub release
+      - name: Is this version released yet?
+        id: version
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag \
-            --title "Tusker Widget ${GITHUB_REF_NAME#desktop-v}" \
+          version=$(node -p "require('./package.json').version")
+          tag="desktop-v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -q '^latest.yml$'; then
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "$tag is already released; nothing to do."
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Releasing $tag."
+          fi
+
+      # No "version" input: pnpm comes from "packageManager" in the root
+      # package.json, and the action fails when both are set.
+      - if: steps.version.outputs.release == 'true'
+        uses: pnpm/action-setup@v4
+
+      - if: steps.version.outputs.release == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The desktop app is outside the pnpm workspace (see pnpm-workspace.yaml).
+      - if: steps.version.outputs.release == 'true'
+        run: pnpm install --ignore-workspace --frozen-lockfile
+
+      # Create the release (and its tag, on this commit) before electron-builder
+      # uploads: when none exists, its parallel uploads each create one (a race),
+      # leaving duplicate releases under one tag. An existing one is reused.
+      - name: Create the GitHub release
+        if: steps.version.outputs.release == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" \
+            --title "Tusker Widget $VERSION" \
             --notes "Tusker Widget for Windows. Download Tusker-Widget-Setup.exe below, or from Settings → Desktop apps."
 
-      - run: pnpm exec electron-builder --win nsis --publish always
+      - if: steps.version.outputs.release == 'true'
+        run: pnpm exec electron-builder --win nsis --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

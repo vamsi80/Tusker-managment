@@ -36,7 +36,7 @@ Most changes need nothing here: the next build picks them up. Run this app's `ty
 
 ## Release
 
-Bump `version` in `package.json`, push to `main`, then `git tag app-vX.Y.Z && git push origin app-vX.Y.Z`. `.github/workflows/app-release.yml` builds and publishes to this repo's GitHub Releases. Optional: a `VITE_PUSHER_KEY` repo secret turns on live updates. If the release uses new routes in `apps/api`, let the push to `main` deploy them first.
+Bump `version` in `package.json` and push to `main`; that's all. `.github/workflows/app-release.yml` sees a version with no release yet, builds the installer, tags the commit `app-vX.Y.Z` and publishes it to this repo's GitHub Releases. Pushes that don't change the version do nothing; **Run workflow** on the Actions page repeats the check by hand. The widget (`apps/desktop`) releases the same way. Optional: a `VITE_PUSHER_KEY` repo secret turns on live updates. If the release uses new routes in `apps/api`, let the push to `main` deploy them first.
 
 The app shares this repo's releases with the widget (`desktop-v*`) without either picking up the other's updates:
 - The app's update file is `app.yml` (`publish.channel`), never `latest.yml`, so the widget's updater can't see the app's installer.
