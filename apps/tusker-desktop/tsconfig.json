@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -10,22 +14,68 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
     "paths": {
-      "@/components/ui/*": ["../web/src/components/ui/*"],
-      "@/lib/utils": ["../web/src/lib/utils.ts"],
-      "@/hooks/*": ["../web/src/hooks/*"],
-      "@tusker/core/*": ["../../packages/core/src/*"],
-      "@mobile/api/*": ["../mobile/src/api/*"],
-      "~/*": ["./src/*"],
-      "react-native": ["./src/type-stubs/react-native.d.ts"],
-      "@react-native-async-storage/async-storage": ["./src/type-stubs/async-storage.d.ts"],
-      "expo-secure-store": ["./src/type-stubs/expo-secure-store.d.ts"],
-      "react": ["./node_modules/@types/react"],
-      "react/*": ["./node_modules/@types/react/*"],
-      "react-dom": ["./node_modules/@types/react-dom"],
-      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+      "next/navigation": [
+        "./src/next/navigation.ts"
+      ],
+      "next/link": [
+        "./src/next/link.tsx"
+      ],
+      "next/dynamic": [
+        "./src/next/dynamic.tsx"
+      ],
+      "next/image": [
+        "./src/next/image.tsx"
+      ],
+      "@tusker/api-client": [
+        "../../packages/api-client/src/index.ts"
+      ],
+      "@tusker/api-client/*": [
+        "../../packages/api-client/src/*"
+      ],
+      "@tusker/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@tusker/core/*": [
+        "../../packages/core/src/*"
+      ],
+      "@mobile/api/*": [
+        "../mobile/src/api/*"
+      ],
+      "~/*": [
+        "./src/*"
+      ],
+      "@/*": [
+        "../web/src/*"
+      ],
+      "react-native": [
+        "./src/type-stubs/react-native.d.ts"
+      ],
+      "@react-native-async-storage/async-storage": [
+        "./src/type-stubs/async-storage.d.ts"
+      ],
+      "expo-secure-store": [
+        "./src/type-stubs/expo-secure-store.d.ts"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom"
+      ],
+      "react-dom/*": [
+        "./node_modules/@types/react-dom/*"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

@@ -4,7 +4,7 @@ interface Window {
         request(
             path: string,
             opts: { method?: string; body?: unknown; headers?: Record<string, string> },
-        ): Promise<{ ok: boolean; status: number; text: string; error?: string }>;
+        ): Promise<{ ok: boolean; status: number; text: string; contentType?: string | null; authToken?: string | null; error?: string }>;
         session(): Promise<{ signedIn: boolean; base: string }>;
         signIn(email: string, password: string): Promise<{ ok: boolean; error?: string }>;
         signOut(): Promise<void>;

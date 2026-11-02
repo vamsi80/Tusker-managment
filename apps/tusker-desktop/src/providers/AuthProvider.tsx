@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { ApiError, request } from "~/api/client";
-import { persister, queryClient } from "~/lib/query";
-import { stopRealtime } from "~/lib/realtime";
+import { clearApiCache } from "~/next/fetch-bridge";
 
 export type SessionUser = { id: string; name: string; surname?: string | null; email: string; image?: string | null };
 
@@ -32,10 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // sign-in on this PC never sees their data.
     const clearSession = useCallback(async () => {
         setState({ status: "signedOut" });
-        stopRealtime();
         localStorage.removeItem(USER_KEY);
-        queryClient.clear();
-        await persister.removeClient();
+        await clearApiCache();
     }, []);
 
     const load = useCallback(async () => {

@@ -50,12 +50,19 @@ async function request(pathname, { method = "GET", body, headers = {} } = {}) {
       Origin: new URL(base()).origin,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    // The website's code (via the page's fetch bridge) sends bodies already serialised.
+    body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
   });
   const text = await res.text();
   if (res.status === 401 && token && !pathname.startsWith("/api/v1/auth/")) setToken(null);
-  return { ok: res.ok, status: res.status, text, authToken: res.headers.get("set-auth-token") };
+  return {
+    ok: res.ok,
+    status: res.status,
+    text,
+    contentType: res.headers.get("content-type"),
+    authToken: res.headers.get("set-auth-token"),
+  };
 }
 
 function showWindow() {

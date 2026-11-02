@@ -1,7 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useOnline } from "~/lib/query";
+
+const subscribeOnline = (cb: () => void) => {
+    window.addEventListener("online", cb);
+    window.addEventListener("offline", cb);
+    return () => {
+        window.removeEventListener("online", cb);
+        window.removeEventListener("offline", cb);
+    };
+};
+const useOnline = () => useSyncExternalStore(subscribeOnline, () => navigator.onLine);
 
 const STATUS_TEXT: Record<UpdateStatus["state"], (s: UpdateStatus) => string> = {
     idle: () => "",
