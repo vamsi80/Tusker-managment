@@ -4,6 +4,7 @@ import { zValidator } from "../validator";
 import { HonoVariables } from "../types";
 import prisma from "@tusker/db";
 import { AppError } from "@tusker/core/lib/errors/app-error";
+import { ACTIVE_MEMBER } from "@tusker/core/lib/constants/member-status";
 import { fetchWorkspacePermissions } from "@tusker/core/permissions";
 import { timeString } from "@tusker/core/lib/zodSchemas";
 import {
@@ -66,8 +67,9 @@ workspaceAdmin.get("/:workspaceId/departments", async (c) => {
             name: true,
             shiftScheduleId: true,
             shiftSchedule: { select: { id: true, name: true } },
-            _count: { select: { members: true } },
+            _count: { select: { members: { where: ACTIVE_MEMBER } } },
             members: {
+                where: ACTIVE_MEMBER,
                 select: {
                     id: true,
                     designation: true,

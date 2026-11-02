@@ -97,5 +97,5 @@ jobs:
         working-directory: apps/tusker-desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_PUSHER_KEY: ${{ secrets.VITE_PUSHER_KEY }}
+          VITE_PUSHER_KEY: ${{ secrets.VITE_PUSHER_KEY || '0203f5f8bc12eb473338' }}
           VITE_PUSHER_CLUSTER: ap2

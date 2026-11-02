@@ -7,7 +7,8 @@ import { randomUUID } from "crypto";
 import { unstableCache } from "../../../lib/cache/next-cache";
 import { CacheTags } from "../../../data/cache-tags";
 import { AttendanceStatus, WorkspaceRole } from "@tusker/db";
-import { addDateOnlyDays, dateOnlyFromParts, floorToUTCDay, getISTDateOnly, toDateOnly } from "../../../lib/date-utils";
+import { ACTIVE_MEMBER } from "../../../lib/constants/member-status";
+import { addDateOnlyDays, calendarDayKey, dateOnlyFromParts, floorToUTCDay, getISTDateOnly, toDateOnly } from "../../../lib/date-utils";
 import { AttendanceRepository } from "./attendance.repository";
 import { AttendanceEvents } from "./attendance.events";
 import { resolveShiftTimes } from "./resolve-shift-times";
@@ -357,9 +358,24 @@ export class AttendanceService {
     static async reconcileAttendance(workspaceId: string, date: Date) {
         const dateOnly = getISTDateOnly(date);
 
+        // Do not mark absences on Sundays (weekly off)
+        if (dateOnly.getUTCDay() === 0) {
+            return { count: 0, reason: "SUNDAY" };
+        }
+
+        // Do not mark absences on workspace public holidays
+        const holiday = (prisma as any).public_holiday?.findFirst ? await (prisma as any).public_holiday.findFirst({
+            where: { workspaceId, date: dateOnly },
+            select: { id: true, name: true }
+        }) : null;
+        if (holiday) {
+            return { count: 0, reason: "PUBLIC_HOLIDAY", holidayName: holiday.name };
+        }
+
         const members = await prisma.workspaceMember.findMany({
             where: {
                 workspaceId,
+                ...ACTIVE_MEMBER,
                 workspaceRole: { in: [WorkspaceRole.MEMBER, WorkspaceRole.ADMIN, WorkspaceRole.MANAGER] }
             }
         });
@@ -468,6 +484,7 @@ export class AttendanceService {
 
                 // Owners and admins don't keep attendance, so they never appear here.
                 where.WorkspaceMember = {
+                    ...(filters?.memberId ? {} : ACTIVE_MEMBER),
                     workspaceRole: { notIn: [WorkspaceRole.OWNER, WorkspaceRole.ADMIN] },
                 };
                 if (filters?.search || departmentWhere) {
@@ -549,14 +566,42 @@ export class AttendanceService {
                     // Stable sort: within a day, stored rows keep the repository's
                     // check-in order and leave rows follow them.
                     const combined = [...records, ...syntheticRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                    return { data: combined.slice(skip, skip + pageSize), totalCount: combined.length };
+
+                    const holidays = (prisma as any).public_holiday?.findMany ? await (prisma as any).public_holiday.findMany({
+                        where: {
+                            workspaceId,
+                            ...(startDate ? { date: { gte: startDate } } : {}),
+                            ...(Number.isFinite(visibleThrough) ? { date: { lte: new Date(visibleThrough) } } : {}),
+                        },
+                        select: { date: true, name: true }
+                    }) : [];
+                    const holidayMap = new Map<string, string>(holidays.map((h: { date: Date; name: string }) => [calendarDayKey(h.date), h.name]));
+                    const enrichRecords = (items: any[]) => items.map(r => {
+                        const holidayName = holidayMap.get(calendarDayKey(r.date));
+                        return holidayName ? { ...r, holidayName, isHoliday: true } : r;
+                    });
+
+                    return { data: enrichRecords(combined.slice(skip, skip + pageSize)), totalCount: combined.length };
                 }
 
-                const [records, totalCount] = await Promise.all([
+                const [records, totalCount, holidays] = await Promise.all([
                     AttendanceRepository.getWorkspaceRecords(where, skip, pageSize),
-                    AttendanceRepository.countRecords(where)
+                    AttendanceRepository.countRecords(where),
+                    (prisma as any).public_holiday?.findMany ? (prisma as any).public_holiday.findMany({
+                        where: {
+                            workspaceId,
+                            ...(startDate ? { date: { gte: startDate } } : {}),
+                            ...(Number.isFinite(visibleThrough) ? { date: { lte: new Date(visibleThrough) } } : {}),
+                        },
+                        select: { date: true, name: true }
+                    }) : Promise.resolve([]),
                 ]);
-                return { data: records, totalCount };
+                const holidayMap = new Map<string, string>(holidays.map((h: { date: Date; name: string }) => [calendarDayKey(h.date), h.name]));
+                const enriched = records.map((r: any) => {
+                    const holidayName = holidayMap.get(calendarDayKey(r.date));
+                    return holidayName ? { ...r, holidayName, isHoliday: true } : r;
+                });
+                return { data: enriched, totalCount };
             },
             [`attendance-${workspaceId}-${actorId}-${startDate?.toISOString()}-${endDate?.toISOString()}-${filters?.memberId}-${filters?.status}-${filters?.departmentId}-${filters?.search}-${page}-${pageSize}`],
             {
@@ -714,7 +759,7 @@ export class AttendanceService {
      */
     static async exportMonthlyAttendance(workspaceId: string, year: number, month: number) {
         const members = await prisma.workspaceMember.findMany({
-            where: { workspaceId },
+            where: { workspaceId, ...ACTIVE_MEMBER },
             include: {
                 user: { select: { name: true, surname: true } },
                 department: { select: { name: true } }
@@ -733,6 +778,15 @@ export class AttendanceService {
                 date: { gte: startDate, lte: endDate }
             }
         });
+
+        // Get public holidays in the month
+        const holidays = (prisma as any).public_holiday?.findMany ? await (prisma as any).public_holiday.findMany({
+            where: {
+                workspaceId,
+                date: { gte: startDate, lte: endDate }
+            }
+        }) : [];
+        const holidayMap = new Map<string, string>(holidays.map((h: { date: Date; name: string }) => [calendarDayKey(h.date), h.name]));
 
         // Get all approved leaves overlapping with the month
         const leaves = await (prisma as any).leave_request.findMany({
@@ -819,12 +873,17 @@ export class AttendanceService {
                     totalLate++;
                 }
 
+                const holidayName = holidayMap.get(calendarDayKey(currentDate));
+
                 let status = "";
                 if (attendance && attendance.status !== "ABSENT" && attendance.status !== "ON_LEAVE") {
                     status = "Present";
                     totalPresent++;
                 } else if (isSunday) {
                     status = "Sunday";
+                    totalWeeklyOff++;
+                } else if (holidayName) {
+                    status = holidayName;
                     totalWeeklyOff++;
                 } else if (onLeave) {
                     status = "Approved Leave";
@@ -907,9 +966,9 @@ export class AttendanceService {
         const dateOnly = new Date(date);
         dateOnly.setUTCHours(0, 0, 0, 0);
 
-        const [members, attendanceRecords, leaveRequests] = await Promise.all([
+        const [members, attendanceRecords, leaveRequests, holiday] = await Promise.all([
             prisma.workspaceMember.findMany({
-                where: { workspaceId },
+                where: { workspaceId, ...ACTIVE_MEMBER },
                 include: {
                     user: {
                         select: { id: true, name: true, surname: true, email: true, image: true },
@@ -925,6 +984,10 @@ export class AttendanceService {
                     endDate: { gte: dateOnly },
                 },
             }),
+            (prisma as any).public_holiday?.findFirst ? (prisma as any).public_holiday.findFirst({
+                where: { workspaceId, date: dateOnly },
+                select: { name: true }
+            }) : Promise.resolve(null)
         ]);
 
         return members.map((member) => {
@@ -932,6 +995,7 @@ export class AttendanceService {
             const leave = leaveRequests.find((l) => l.workspaceMemberId === member.id);
             return {
                 member,
+                holidayName: holiday?.name ?? null,
                 attendance:
                     attendance ??
                     (leave ? { status: AttendanceStatus.ON_LEAVE, date: dateOnly } : null),

@@ -81,7 +81,7 @@ export default defineConfig(({ mode }) => {
         "process.env": JSON.stringify({
             NODE_ENV: mode === "production" ? "production" : "development",
             NEXT_PUBLIC_APP_URL: "https://tusker-managment.vercel.app",
-            NEXT_PUBLIC_PUSHER_KEY: env.VITE_PUSHER_KEY ?? "",
+            NEXT_PUBLIC_PUSHER_KEY: env.VITE_PUSHER_KEY || "0203f5f8bc12eb473338",
             NEXT_PUBLIC_PUSHER_CLUSTER: env.VITE_PUSHER_CLUSTER ?? "ap2",
         }),
     },

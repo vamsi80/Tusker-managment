@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { CacheTags } from "@tusker/core/data/cache-tags";
+import { ACTIVE_MEMBER } from "@tusker/core/lib/constants/member-status";
 import prisma from "@tusker/db";
 
 export type DepartmentMember = {
@@ -50,8 +51,9 @@ export const getWorkspaceDepartments = cache(async (workspaceId: string) => {
                         name: true,
                         shiftScheduleId: true,
                         shiftSchedule: { select: { id: true, name: true } },
-                        _count: { select: { members: true } },
+                        _count: { select: { members: { where: ACTIVE_MEMBER } } },
                         members: {
+                            where: ACTIVE_MEMBER,
                             select: {
                                 id: true,
                                 designation: true,

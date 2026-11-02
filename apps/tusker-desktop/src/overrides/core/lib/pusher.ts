@@ -6,7 +6,7 @@
  */
 import PusherClient from "pusher-js";
 
-const key = (import.meta.env.VITE_PUSHER_KEY ?? "").trim();
+const key = (import.meta.env.VITE_PUSHER_KEY || "0203f5f8bc12eb473338").trim();
 const cluster = (import.meta.env.VITE_PUSHER_CLUSTER ?? "ap2").trim();
 
 export const pusherServer = null;

@@ -454,6 +454,7 @@ export class WorkspaceService {
       // 4. Invalidate caches
       await invalidateUserWorkspaces(authUserId);
       await invalidateWorkspaceMembers(workspaceId);
+      await invalidateWorkspaceDepartments(workspaceId);
       await invalidateUserPermissions(authUserId, workspaceId);
 
       // 5. Send Invitation Email (Refactored to include token)
@@ -1179,7 +1180,7 @@ export class WorkspaceService {
         // 6. Deactivate. Nothing above this line deleted anything.
         await tx.workspaceMember.update({
           where: { id: memberId },
-          data: { deactivatedAt: new Date() },
+          data: { deactivatedAt: new Date(), departmentId: null },
         });
 
         return { movedCount: submitted.size, vacatedCount: vacated.size };
@@ -1225,6 +1226,7 @@ export class WorkspaceService {
     try {
       await invalidateUserWorkspaces(target.userId);
       await invalidateWorkspaceMembers(workspaceId);
+      await invalidateWorkspaceDepartments(workspaceId);
       await invalidateUserPermissions(target.userId, workspaceId);
     } catch (cacheErr) {
       console.error("[deactivateMember] cache invalidation failed:", cacheErr);

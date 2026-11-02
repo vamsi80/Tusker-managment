@@ -60,7 +60,7 @@ function LocationLink({ lat, lng, address, otherLocation }: { lat: number | null
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className={cn("block max-w-[160px] truncate text-sm hover:underline", otherLocation ? "text-destructive" : "text-primary-ink")}
+            className={cn("block max-w-40 truncate text-sm hover:underline", otherLocation ? "text-destructive" : "text-primary-ink")}
             title={address || `Raw coordinates: ${lat}, ${lng}`}
         >
             {otherLocation ? "Other Location" : (address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
@@ -337,7 +337,7 @@ export function AttendanceTable({
                             <span className="font-medium text-sm text-foreground">
                                 {user.surname}
                             </span>
-                            <span className="text-[10px] text-muted-foreground/80 truncate max-w-[140px]">
+                            <span className="text-[10px] text-muted-foreground/80 truncate max-w-35">
                                 {user.email}
                             </span>
                         </div>
@@ -384,7 +384,7 @@ export function AttendanceTable({
         {
             accessorKey: "date",
             header: "Date",
-            meta: { className: "min-w-[100px]" },
+            meta: { className: "min-w-25" },
             cell: ({ row }) => {
                 if (!mounted) return "...";
                 // A calendar day, not an instant — render it from its UTC parts.
@@ -425,8 +425,9 @@ export function AttendanceTable({
             meta: { className: "min-w-[110px]" },
             cell: ({ row }) => {
                 const isSunday = new Date(row.original.date).getDay() === 0;
-                const s = row.original.status === "ABSENT" && isSunday
-                    ? { tone: "muted" as const, label: "Sunday" }
+                const isHoliday = Boolean((row.original as any).holidayName || (row.original as any).isHoliday);
+                const s = row.original.status === "ABSENT" && (isSunday || isHoliday)
+                    ? { tone: "muted" as const, label: isHoliday ? ((row.original as any).holidayName || "Holiday") : "Sunday" }
                     : ATTENDANCE_STATUS[row.original.status] ?? { tone: "muted" as const, label: row.original.status };
                 return (
                     <div className="flex items-center gap-2">
@@ -444,7 +445,7 @@ export function AttendanceTable({
                 const notes = row.original.checkInNotes;
                 if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="max-w-[150px] truncate text-xs font-medium text-foreground/60" title={notes}>
+                    <div className="max-w-37.5 truncate text-xs font-medium text-foreground/60" title={notes}>
                         {notes}
                     </div>
                 );
@@ -458,7 +459,7 @@ export function AttendanceTable({
                 const notes = row.original.checkOutNotes;
                 if (!notes) return <div className="text-xs text-muted-foreground italic">—</div>;
                 return (
-                    <div className="max-w-[150px] truncate text-xs font-medium text-foreground/60" title={notes}>
+                    <div className="max-w-37.5 truncate text-xs font-medium text-foreground/60" title={notes}>
                         {notes}
                     </div>
                 );
@@ -470,10 +471,11 @@ export function AttendanceTable({
         const counts = { present: 0, late: 0, halfDay: 0, absent: 0, leave: 0, total: records.length };
         records.forEach(r => {
             const isSunday = new Date(r.date).getDay() === 0;
+            const isHoliday = Boolean((r as any).holidayName || (r as any).isHoliday);
             if (r.status === "PRESENT") counts.present++;
             if (r.status === "LATE") counts.late++;
             if (r.status === "HALF_DAY") counts.halfDay++;
-            if (r.status === "ABSENT" && !isSunday) counts.absent++;
+            if (r.status === "ABSENT" && !isSunday && !isHoliday) counts.absent++;
             if (r.status === "ON_LEAVE") counts.leave++;
         });
         return counts;
@@ -612,7 +614,7 @@ export function AttendanceTable({
                                 <Button variant="outline" size="icon" onClick={() => setDownloadDate(subMonths(downloadDate, 1))}>
                                     <ChevronLeft className="size-4" />
                                 </Button>
-                                <span className="font-medium text-sm min-w-[100px] text-center">
+                                <span className="font-medium text-sm min-w-25 text-center">
                                     {format(downloadDate, "MMMM yyyy")}
                                 </span>
                                 <Button variant="outline" size="icon" onClick={() => setDownloadDate(addMonths(downloadDate, 1))}>
@@ -651,7 +653,7 @@ export function AttendanceTable({
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                    className="w-[calc(100vw-2rem)] sm:w-[500px] p-0 overflow-hidden rounded-xl border-none shadow-2xl shadow-black/20"
+                    className="w-[calc(100vw-2rem)] sm:w-125 p-0 overflow-hidden rounded-xl border-none shadow-2xl shadow-black/20"
                     align="end"
                     side="bottom"
                     sideOffset={8}
@@ -841,7 +843,7 @@ export function AttendanceTable({
                         </Button>
                         <Button
                             onClick={handleApplyFilters}
-                            className="flex-[2] font-medium text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                            className="flex-2 font-medium text-sm h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
                         >
                             Apply Filters
                         </Button>
@@ -868,7 +870,7 @@ export function AttendanceTable({
                 <Button variant="outline" size="icon-sm" className="shadow-sm" onClick={() => handleMonthChange('prev')}>
                     <ChevronLeft className="size-4" />
                 </Button>
-                <span className="font-heading text-xl font-bold tracking-tight min-w-[170px] text-center">
+                <span className="font-heading text-xl font-bold tracking-tight min-w-42.5 text-center">
                     {format(selectedDate, "MMMM yyyy")}
                 </span>
                 <Button variant="outline" size="icon-sm" className="shadow-sm" onClick={() => handleMonthChange('next')}>
@@ -910,13 +912,13 @@ export function AttendanceTable({
             manualFiltering={true}
             // Only the rows scroll; headings, toolbar and pagination stay on screen.
             fillViewport
-            isCustomRow={(row: any) => row.status === "ABSENT" && new Date(row.date).getDay() === 0}
+            isCustomRow={(row: any) => row.status === "ABSENT" && (new Date(row.date).getDay() === 0 || Boolean(row.holidayName || row.isHoliday))}
             renderCustomRow={(row: any, columnsLength) => {
                 const user = row.WorkspaceMember?.user;
                 const initials = user?.surname?.[0]?.toUpperCase() || "?";
 
                 return (
-                    <TableCell colSpan={columnsLength} className="p-0 bg-muted/40 relative h-[56px]">
+                    <TableCell colSpan={columnsLength} className="p-0 bg-muted/40 relative h-14">
                         <div className="absolute inset-0 flex items-center justify-between px-4 w-full">
                             <div className="flex items-center gap-3 opacity-60">
                                 <Avatar className="size-8">
@@ -925,7 +927,7 @@ export function AttendanceTable({
                                 <span className="font-medium text-sm text-foreground">{user?.surname || "Unknown Member"}</span>
                             </div>
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="font-semibold tracking-[0.3em] uppercase text-xs text-muted-foreground/50">Sunday</span>
+                                <span className="font-semibold tracking-[0.3em] uppercase text-xs text-muted-foreground/50">{row.holidayName || (row.isHoliday ? "Holiday" : "Sunday")}</span>
                             </div>
                         </div>
                     </TableCell>
