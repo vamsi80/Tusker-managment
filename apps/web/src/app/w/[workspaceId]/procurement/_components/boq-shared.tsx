@@ -50,6 +50,32 @@ export function useTrades(workspaceId: string) {
   return { trades, addTrade, reload };
 }
 
+/** Rate-sheet category (parentId null) or subcategory. tradeId null = material list. */
+export type RateGroup = { id: string; name: string; tradeId: string | null; parentId: string | null; sortOrder: number };
+
+export function useRateGroups(workspaceId: string) {
+  const [groups, setGroups] = useState<RateGroup[]>([]);
+  const reload = useCallback(
+    () =>
+      apiJson<RateGroup[]>(`/api/v1/procurement/rate-groups?w=${workspaceId}`)
+        .then(setGroups)
+        .catch((e) => toastError(e, "Could not load categories")),
+    [workspaceId]
+  );
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  return { groups, reload };
+}
+
+/** "Category › Subcategory" for a rate's group, looked up in the loaded list. */
+export function groupPath(groups: RateGroup[], groupId: string | null | undefined) {
+  const group = groups.find((g) => g.id === groupId);
+  if (!group) return "";
+  const parent = group.parentId ? groups.find((g) => g.id === group.parentId) : null;
+  return parent ? `${parent.name} › ${group.name}` : group.name;
+}
+
 /** Units a rate is commonly quoted in, plus the workspace's own catalogue. */
 const BOQ_UNITS = [
   { abbreviation: "nos", name: "Numbers" },

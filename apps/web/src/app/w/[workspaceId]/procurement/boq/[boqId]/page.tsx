@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Copy, Loader2, MapPin, Pencil, Plus, Send, Trash2, Undo2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Copy, Loader2, MapPin, Pencil, Plus, RefreshCw, Send, Trash2, Undo2, XCircle } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -116,6 +116,22 @@ export default function BoqDetailPage() {
       router.push(`/w/${workspaceId}/procurement/boq`);
     } catch (e) {
       toastError(e, "Could not delete the BOQ");
+      setBusy(false);
+    }
+  };
+
+  /** Pull every rate-sheet line up to today's rates. Rate edits already do this live; this catches older drafts. */
+  const refreshRates = async () => {
+    setBusy(true);
+    try {
+      const { updated } = await apiJson<{ updated: number }>(`/api/v1/procurement/boq/${boqId}/refresh-rates?w=${workspaceId}`, {
+        method: "POST",
+      });
+      toast.success(updated ? `${updated} line${updated === 1 ? "" : "s"} moved to today's rates` : "Already on today's rates");
+      await load();
+    } catch (e) {
+      toastError(e, "Could not refresh rates");
+    } finally {
       setBusy(false);
     }
   };
@@ -255,6 +271,17 @@ export default function BoqDetailPage() {
           <Button variant="outline" size="sm" onClick={() => setZonesOpen(true)}>
             <MapPin className="mr-1.5 size-4" /> Zones ({zones.length})
           </Button>
+          {editable && boq.lines.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshRates}
+              disabled={busy}
+              title="Re-copy item names, units and rates from the rate sheet"
+            >
+              <RefreshCw className="mr-1.5 size-4" /> Refresh rates
+            </Button>
+          )}
           {editable && (
             <Button size="sm" onClick={() => setLineDialog({ line: null })}>
               <Plus className="mr-1.5 size-4" /> Add line
@@ -333,7 +360,10 @@ export default function BoqDetailPage() {
                         {qty(l.measuredQty)} {l.unit}
                       </TableCell>
                       <TableCell className="text-right tabular-nums whitespace-nowrap">{formatPaise(l.rate)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatPaise(l.costAmount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatPaise(l.costAmount)}
+                        {l.wastagePercent > 0 && <div className="text-xs text-muted-foreground">incl. {l.wastagePercent}% wastage</div>}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{l.markupPercent}%</TableCell>
                       <TableCell className="text-right tabular-nums font-medium">{formatPaise(l.amount)}</TableCell>
                       {editable && (

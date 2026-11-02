@@ -27,9 +27,13 @@ export type BoqLineData = {
     breadth?: number | null;
     depth?: number | null;
     quantity?: number;
+    wastagePercent?: number;
     markupPercent?: number;
     notes?: string | null;
 };
+
+/** The client or an open transaction: reprice runs inside the rate writer's transaction. */
+type Db = Prisma.TransactionClient | typeof prisma;
 
 const lineInclude = {
     trade: { select: { id: true, name: true } },
@@ -50,6 +54,7 @@ const serializeLine = (l: LineRow) => ({
     quantity: Number(l.quantity),
     measuredQty: Number(l.measuredQty),
     markupPercent: Number(l.markupPercent),
+    wastagePercent: Number(l.wastagePercent),
 });
 
 export class BoqService {
@@ -91,6 +96,7 @@ export class BoqService {
             include: {
                 vendor: { select: { id: true, name: true, companyName: true, vendorType: true, verificationStatus: true } },
                 trade: { select: { id: true, name: true } },
+                group: { select: { id: true, name: true, parentId: true } },
             },
             orderBy: [{ materialName: "asc" }],
         });
@@ -218,7 +224,14 @@ export class BoqService {
         workspaceId: string,
         projectId: string,
         data: BoqLineData,
-        current?: { description: string; unit: string; rate: number; vendorId: string | null; serviceType: LineRow["serviceType"] }
+        current?: {
+            description: string;
+            unit: string;
+            rate: number;
+            vendorId: string | null;
+            serviceType: LineRow["serviceType"];
+            wastagePercent: Prisma.Decimal | number;
+        }
     ) {
         const trade = await prisma.trade.findFirst({ where: { id: data.tradeId, workspaceId }, select: { id: true } });
         if (!trade) throw AppError.ValidationError("Choose a department");
@@ -241,6 +254,7 @@ export class BoqService {
                 rate: cap.rate ?? 0,
                 vendorId: cap.vendorId,
                 serviceType: cap.serviceType,
+                wastagePercent: cap.wastagePercent,
             };
         } else if (data.vendorId) {
             const vendor = await prisma.vendor.findFirst({ where: { id: data.vendorId, workspaceId }, select: { id: true } });
@@ -255,6 +269,8 @@ export class BoqService {
         const inputUnit = data.inputUnit && data.inputUnit in LENGTH_UNITS ? data.inputUnit : "mm";
         const quantity = data.quantity ?? 1;
         const markupPercent = data.markupPercent ?? 0;
+        const wastagePercent = data.wastagePercent ?? Number(snapshot?.wastagePercent ?? 0);
+        if (wastagePercent < 0 || wastagePercent > 100) throw AppError.ValidationError("Wastage must be between 0 and 100%");
 
         const totals = lineTotals({
             rate,
@@ -264,6 +280,7 @@ export class BoqService {
             breadth: data.breadth,
             depth: data.depth,
             quantity,
+            wastagePercent,
             markupPercent,
         });
 
@@ -281,6 +298,7 @@ export class BoqService {
             breadth: data.breadth ?? null,
             depth: data.depth ?? null,
             quantity,
+            wastagePercent,
             markupPercent,
             notes: data.notes?.trim() || null,
             ...totals,
@@ -319,6 +337,7 @@ export class BoqService {
             depth: data.depth !== undefined ? data.depth : num(current.depth),
             quantity: data.quantity ?? Number(current.quantity),
             markupPercent: data.markupPercent ?? Number(current.markupPercent),
+            wastagePercent: data.wastagePercent ?? Number(current.wastagePercent),
             notes: data.notes !== undefined ? data.notes : current.notes,
         };
         // Picking a different rate-sheet row re-copies its description, unit and rate.
@@ -328,6 +347,7 @@ export class BoqService {
             if (data.unit === undefined) merged.unit = undefined;
             if (data.rate === undefined) merged.rate = undefined;
             if (data.vendorId === undefined) merged.vendorId = undefined;
+            if (data.wastagePercent === undefined) merged.wastagePercent = undefined;
         }
 
         const resolved = await BoqService.resolveLine(
@@ -341,10 +361,163 @@ export class BoqService {
         return serializeLine(line);
     }
 
+    /**
+     * Re-copy name, unit and rate from the rate sheet onto every DRAFT BOQ line
+     * priced from these rows, and recompute. Submitted, approved and superseded
+     * BOQs keep the prices they were sent with. Every rate writer calls this
+     * inside its own transaction. Returns how many lines changed.
+     */
+    static async repriceCapabilities(db: Db, capabilityIds: string[], boqId?: string) {
+        if (!capabilityIds.length) return 0;
+        const lines = await db.boqLineItem.findMany({
+            where: { capabilityId: { in: capabilityIds }, boq: { status: "DRAFT" }, ...(boqId ? { boqId } : {}) },
+            include: { capability: { select: { materialName: true, unit: true, rate: true } } },
+        });
+        const touched = new Set<string>();
+        let changed = 0;
+        // ponytail: one UPDATE per changed line; fine for a few hundred draft lines, batch with raw SQL if it grows.
+        for (const line of lines) {
+            if (!line.capability) continue;
+            const next = {
+                description: line.capability.materialName,
+                unit: line.capability.unit ?? "nos",
+                rate: line.capability.rate ?? 0,
+            };
+            if (next.description === line.description && next.unit === line.unit && next.rate === line.rate) continue;
+            const totals = lineTotals({
+                rate: next.rate,
+                rateUnit: next.unit,
+                inputUnit: line.inputUnit as LengthUnit,
+                length: num(line.length),
+                breadth: num(line.breadth),
+                depth: num(line.depth),
+                quantity: Number(line.quantity),
+                wastagePercent: Number(line.wastagePercent),
+                markupPercent: Number(line.markupPercent),
+            });
+            await db.boqLineItem.update({ where: { id: line.id }, data: { ...next, ...totals } });
+            touched.add(line.boqId);
+            changed++;
+        }
+        if (touched.size) {
+            await db.boq.updateMany({ where: { id: { in: [...touched] } }, data: { updatedAt: new Date() } });
+        }
+        return changed;
+    }
+
+    /** "Refresh rates" on a draft: pull every rate-sheet line up to today's rates. */
+    static async refreshRates(workspaceId: string, boqId: string) {
+        await BoqService.draftBoq(workspaceId, boqId);
+        const lines = await prisma.boqLineItem.findMany({
+            where: { boqId, capabilityId: { not: null } },
+            select: { capabilityId: true },
+        });
+        const ids = [...new Set(lines.map((l) => l.capabilityId!))];
+        return prisma.$transaction((tx) => BoqService.repriceCapabilities(tx, ids, boqId));
+    }
+
     static async deleteLine(workspaceId: string, boqId: string, lineId: string) {
         await BoqService.draftBoq(workspaceId, boqId);
         const { count } = await prisma.boqLineItem.deleteMany({ where: { id: lineId, boqId } });
         if (!count) throw AppError.NotFound("BOQ line not found");
+    }
+
+    // Rate groups (rate-sheet categories / subcategories) --------------------
+
+    /** Flat list; the client nests subcategories under their parentId. */
+    static async listRateGroups(workspaceId: string) {
+        return prisma.rateGroup.findMany({
+            where: { workspaceId },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        });
+    }
+
+    private static async rateGroupNameFree(
+        workspaceId: string,
+        tradeId: string | null,
+        parentId: string | null,
+        name: string,
+        exceptId?: string
+    ) {
+        const clash = await prisma.rateGroup.findFirst({
+            where: {
+                workspaceId,
+                tradeId,
+                parentId,
+                name: { equals: name, mode: "insensitive" },
+                ...(exceptId ? { id: { not: exceptId } } : {}),
+            },
+            select: { id: true },
+        });
+        if (clash) throw AppError.Conflict(parentId ? "That category already has a subcategory with this name" : "A category with this name already exists");
+    }
+
+    /** A parent must be a category (one level deep) in this workspace. */
+    private static async rateCategory(workspaceId: string, id: string) {
+        const parent = await prisma.rateGroup.findFirst({ where: { id, workspaceId } });
+        if (!parent) throw AppError.ValidationError("Unknown category");
+        if (parent.parentId) throw AppError.ValidationError("Subcategories can't have subcategories");
+        return parent;
+    }
+
+    static async createRateGroup(
+        workspaceId: string,
+        data: { name: string; tradeId?: string | null; parentId?: string | null }
+    ) {
+        const name = data.name.trim();
+        if (!name) throw AppError.ValidationError("Name is required");
+        let tradeId = data.tradeId ?? null;
+        const parentId = data.parentId ?? null;
+        if (parentId) {
+            tradeId = (await BoqService.rateCategory(workspaceId, parentId)).tradeId; // a subcategory lives in its parent's list
+        } else if (tradeId) {
+            const trade = await prisma.trade.findFirst({ where: { id: tradeId, workspaceId }, select: { id: true } });
+            if (!trade) throw AppError.ValidationError("Unknown department");
+        }
+        await BoqService.rateGroupNameFree(workspaceId, tradeId, parentId, name);
+        const last = await prisma.rateGroup.aggregate({ where: { workspaceId, tradeId, parentId }, _max: { sortOrder: true } });
+        return prisma.rateGroup.create({
+            data: { workspaceId, tradeId, parentId, name, sortOrder: (last._max.sortOrder ?? -1) + 1 },
+        });
+    }
+
+    /** Rename, reorder, or move a subcategory (its rates go with it) to another category in the same list. */
+    static async updateRateGroup(
+        workspaceId: string,
+        id: string,
+        data: { name?: string; parentId?: string; sortOrder?: number }
+    ) {
+        const group = await prisma.rateGroup.findFirst({ where: { id, workspaceId } });
+        if (!group) throw AppError.NotFound("Category not found");
+
+        let parentId = group.parentId;
+        if (data.parentId !== undefined && data.parentId !== group.parentId) {
+            if (!group.parentId) throw AppError.ValidationError("Only a subcategory can be moved");
+            const target = await BoqService.rateCategory(workspaceId, data.parentId);
+            if (target.tradeId !== group.tradeId) throw AppError.ValidationError("Move it to a category in the same list");
+            parentId = target.id;
+        }
+        const name = data.name === undefined ? group.name : data.name.trim();
+        if (!name) throw AppError.ValidationError("Name is required");
+        if (name !== group.name || parentId !== group.parentId) {
+            await BoqService.rateGroupNameFree(workspaceId, group.tradeId, parentId, name, id);
+        }
+        const moved = parentId !== group.parentId;
+        let sortOrder = data.sortOrder;
+        if (sortOrder === undefined && moved) {
+            const last = await prisma.rateGroup.aggregate({ where: { parentId }, _max: { sortOrder: true } });
+            sortOrder = (last._max.sortOrder ?? -1) + 1;
+        }
+        return prisma.rateGroup.update({
+            where: { id },
+            data: { name, parentId, ...(sortOrder === undefined ? {} : { sortOrder }) },
+        });
+    }
+
+    /** Subcategories go with their category; the rates in them just become ungrouped. */
+    static async deleteRateGroup(workspaceId: string, id: string) {
+        const { count } = await prisma.rateGroup.deleteMany({ where: { id, workspaceId } });
+        if (!count) throw AppError.NotFound("Category not found");
     }
 
     // Zones ------------------------------------------------------------------

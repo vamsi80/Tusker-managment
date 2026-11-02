@@ -106,6 +106,9 @@ const UpdateCapabilitySchema = z.object({
   quantity: z.number().int().positive().nullable().optional(),
   link: CapabilityLinkSchema,
   tradeId: z.string().min(1).nullable().optional(),
+  // Rate-sheet category / subcategory and default BOQ wastage (10 = 10%).
+  groupId: z.string().min(1).nullable().optional(),
+  wastagePercent: z.number().min(0).max(100).optional(),
 }).refine((data) => Object.keys(data).length > 0, "Provide at least one field to update");
 
 /**
@@ -563,6 +566,8 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
   link: CapabilityLinkSchema,
   // BOQ department for contractor rates.
   tradeId: z.string().min(1).nullable().optional(),
+  groupId: z.string().min(1).nullable().optional(),
+  wastagePercent: z.number().min(0).max(100).optional(),
 })), async (c) => {
   const user = c.get("user");
   const vendorId = c.req.param("id");
@@ -579,7 +584,14 @@ procurementVendors.post("/:id/capabilities", zValidator("json", z.object({
     data.materialName,
     data.unit,
     data.serviceType,
-    { rate: data.rate, link: data.link, quantity: data.quantity, tradeId: data.tradeId }
+    {
+      rate: data.rate,
+      link: data.link,
+      quantity: data.quantity,
+      tradeId: data.tradeId,
+      groupId: data.groupId,
+      wastagePercent: data.wastagePercent,
+    }
   );
 
   return c.json({ success: true, data: capability }, 201);

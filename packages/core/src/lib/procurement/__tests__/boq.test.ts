@@ -26,6 +26,15 @@ describe("BOQ line maths", () => {
         expect(lineTotals({ rate: 10_000, rateUnit: "sqft", inputUnit: "ft", length: 2, breadth: 2, quantity: 3 }).measuredQty).toBe(12);
     });
 
+    it("adds wastage to the cost before markup", () => {
+        // 8 sqft @ Rs 100 = Rs 800, +10% wastage = Rs 880, +25% markup = Rs 1,100
+        const t = lineTotals({ rate: 10_000, rateUnit: "sqft", inputUnit: "ft", length: 4, breadth: 2, wastagePercent: 10, markupPercent: 25 });
+        expect(t.measuredQty).toBe(8);
+        expect(t.costAmount).toBe(88_000);
+        expect(t.amount).toBe(110_000);
+        expect(lineTotals({ rate: 50_000, rateUnit: "nos", quantity: 2, wastagePercent: 0 }).costAmount).toBe(100_000);
+    });
+
     it("asks only for the dimensions the unit needs", () => {
         expect(dimensionsFor("nos")).toEqual({ length: false, breadth: false, depth: false });
         expect(dimensionsFor("rmt")).toEqual({ length: true, breadth: false, depth: false });

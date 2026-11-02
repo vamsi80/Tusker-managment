@@ -6,6 +6,7 @@
  * The unit decides how many dimensions a line needs (0-3) and how big one unit
  * is, so dimensions typed in any length unit are converted before multiplying:
  *   measuredQty = quantity x (L x B x D, each converted to the rate's side length)
+ *   costAmount  = rate x measuredQty x (1 + wastage%), amount = cost x (1 + markup%)
  * Money is paise, matching the rest of procurement.
  */
 
@@ -68,6 +69,8 @@ export type BoqLineInput = {
     breadth?: number | null;
     depth?: number | null;
     quantity?: number | null;
+    /** Extra material/labour lost in cutting etc., added to cost before markup. */
+    wastagePercent?: number | null;
     markupPercent?: number | null;
 };
 
@@ -82,7 +85,7 @@ export function lineTotals(line: BoqLineInput) {
     for (const value of sides) measured *= ((value ?? 0) * toMetres) / side;
     const measuredQty = round4(measured);
 
-    const costAmount = Math.round(line.rate * measuredQty);
+    const costAmount = Math.round(line.rate * measuredQty * (1 + (line.wastagePercent ?? 0) / 100));
     const amount = Math.round(costAmount * (1 + (line.markupPercent ?? 0) / 100));
     return { measuredQty, costAmount, amount };
 }

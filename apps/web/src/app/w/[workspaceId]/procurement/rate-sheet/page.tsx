@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, FolderTree, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,11 @@ import { can } from "@tusker/core/lib/constants/capabilities";
 import { formatPaise } from "@tusker/core/lib/procurement/purchase-order";
 import { vendorDisplayName } from "@tusker/core/lib/procurement/vendor-name";
 import { useWorkspaceLayout } from "@/app/w/[workspaceId]/_components/workspace-layout-context";
-import { NoAccess, apiJson, toastError, useRateUnits, useTrades } from "../_components/boq-shared";
+import { NoAccess, apiJson, groupPath, toastError, useRateGroups, useRateUnits, useTrades } from "../_components/boq-shared";
+import { RateGroupsDialog } from "./_components/rate-groups-dialog";
+
+// Radix Select can't hold an empty value.
+const NONE = "__none__";
 
 type Kind = "material" | "labour" | "labour_material";
 const SERVICE: Record<Kind, "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL"> = {
@@ -35,11 +39,35 @@ interface RateRow {
   link: string | null;
   tradeId: string | null;
   trade: { id: string; name: string } | null;
+  groupId: string | null;
+  /** Prisma Decimal, serialised as a string. */
+  wastagePercent: string | number;
   vendor: { id: string; name: string; companyName: string | null; vendorType: string; verificationStatus: string };
 }
 
-type Draft = { id?: string; vendorId: string; materialName: string; unit: string; rate: string; tradeId: string; link: string };
-const EMPTY_DRAFT: Draft = { vendorId: "", materialName: "", unit: "nos", rate: "", tradeId: "", link: "" };
+type Draft = {
+  id?: string;
+  vendorId: string;
+  materialName: string;
+  unit: string;
+  rate: string;
+  tradeId: string;
+  link: string;
+  categoryId: string;
+  subcategoryId: string;
+  wastage: string;
+};
+const EMPTY_DRAFT: Draft = {
+  vendorId: "",
+  materialName: "",
+  unit: "nos",
+  rate: "",
+  tradeId: "",
+  link: "",
+  categoryId: NONE,
+  subcategoryId: NONE,
+  wastage: "",
+};
 const NEW_TRADE = "__new__";
 
 const isHttpLink = (link: string | null) => /^https?:\/\//i.test(link || "");
@@ -61,6 +89,9 @@ export default function RateSheetPage() {
   const [vendors, setVendors] = useState<any[]>([]);
   const { trades, addTrade } = useTrades(workspaceId);
   const units = useRateUnits(workspaceId);
+  const { groups, reload: reloadGroups } = useRateGroups(workspaceId);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [groupsOpen, setGroupsOpen] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
@@ -97,10 +128,41 @@ export default function RateSheetPage() {
     );
   }, [vendors, isContractor]);
 
+  // Categories belong to one list: the material list (null) or one department.
+  // "All departments" spans several lists, so it gets no category filter.
+  const listTradeId: string | null | undefined = !isContractor ? null : tradeFilter !== "all" ? tradeFilter : undefined;
+  const categoriesOf = (tradeId: string | null | undefined) =>
+    tradeId === undefined ? [] : groups.filter((g) => g.tradeId === tradeId && !g.parentId);
+  const listCategories = categoriesOf(listTradeId);
+  const activeCategory = listCategories.some((c) => c.id === categoryFilter) ? categoryFilter : "all";
+  const shownRows =
+    activeCategory === "all"
+      ? rows
+      : rows.filter((r) => r.groupId === activeCategory || groups.find((g) => g.id === r.groupId)?.parentId === activeCategory);
+
+  // The dialog's list follows the department picked in it.
+  const draftTradeId: string | null | undefined = !isContractor
+    ? null
+    : draft.tradeId && draft.tradeId !== NEW_TRADE
+      ? draft.tradeId
+      : undefined;
+  const draftCategories = categoriesOf(draftTradeId);
+  const draftSubcategories = groups.filter((g) => g.parentId === draft.categoryId);
+
   const openAdd = () => {
-    setDraft({ ...EMPTY_DRAFT, tradeId: isContractor && tradeFilter !== "all" ? tradeFilter : "" });
+    setDraft({
+      ...EMPTY_DRAFT,
+      tradeId: isContractor && tradeFilter !== "all" ? tradeFilter : "",
+      categoryId: activeCategory !== "all" ? activeCategory : NONE,
+    });
     setNewTradeName("");
     setDialogOpen(true);
+  };
+
+  const splitGroup = (groupId: string | null) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return { categoryId: NONE, subcategoryId: NONE };
+    return group.parentId ? { categoryId: group.parentId, subcategoryId: group.id } : { categoryId: group.id, subcategoryId: NONE };
   };
 
   const openEdit = (row: RateRow) => {
@@ -112,6 +174,8 @@ export default function RateSheetPage() {
       rate: row.rate != null ? String(row.rate / 100) : "",
       tradeId: row.tradeId || "",
       link: row.link || "",
+      ...splitGroup(row.groupId),
+      wastage: Number(row.wastagePercent) ? String(Number(row.wastagePercent)) : "",
     });
     setNewTradeName("");
     setDialogOpen(true);
@@ -122,6 +186,8 @@ export default function RateSheetPage() {
     if (!draft.materialName.trim()) return toast.error("Enter the item name");
     const rupees = Number(draft.rate);
     if (!draft.rate || !Number.isFinite(rupees) || rupees <= 0) return toast.error("Enter a rate above zero");
+    const wastage = Number(draft.wastage || 0);
+    if (!Number.isFinite(wastage) || wastage < 0 || wastage > 100) return toast.error("Wastage must be between 0 and 100%");
 
     setSaving(true);
     try {
@@ -139,6 +205,9 @@ export default function RateSheetPage() {
         rate: Math.round(rupees * 100),
         link: draft.link.trim() || null,
         tradeId: isContractor ? tradeId : null,
+        // A department created just now has no categories yet.
+        groupId: draftTradeId === undefined ? null : [draft.subcategoryId, draft.categoryId].find((id) => id !== NONE) ?? null,
+        wastagePercent: wastage,
       };
       const base = `/api/v1/procurement/vendors/${draft.vendorId}/capabilities`;
       if (draft.id) {
@@ -198,6 +267,12 @@ export default function RateSheetPage() {
           } as ColumnDef<RateRow>,
         ]
       : []),
+    {
+      id: "category",
+      accessorFn: (r) => groupPath(groups, r.groupId),
+      header: "Category",
+      cell: ({ getValue }) => (getValue() as string) || <span className="text-muted-foreground">—</span>,
+    },
     { accessorKey: "unit", header: "Unit", cell: ({ row }) => row.original.unit || "—" },
     {
       accessorKey: "rate",
@@ -205,6 +280,16 @@ export default function RateSheetPage() {
       cell: ({ row }) => (
         <div className="text-right tabular-nums">
           {row.original.rate != null ? `${formatPaise(row.original.rate)} / ${row.original.unit || "unit"}` : "—"}
+        </div>
+      ),
+    },
+    {
+      id: "wastage",
+      accessorFn: (r) => Number(r.wastagePercent),
+      header: () => <div className="text-right">Wastage</div>,
+      cell: ({ row }) => (
+        <div className="text-right tabular-nums">
+          {Number(row.original.wastagePercent) ? `${Number(row.original.wastagePercent)}%` : <span className="text-muted-foreground">—</span>}
         </div>
       ),
     },
@@ -275,12 +360,32 @@ export default function RateSheetPage() {
             </Select>
           </>
         )}
+        {listTradeId !== undefined && listCategories.length > 0 && (
+          <Select value={activeCategory} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {listCategories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {listTradeId !== undefined && canEdit && (
+          <Button variant="outline" size="sm" onClick={() => setGroupsOpen(true)}>
+            <FolderTree className="mr-2 size-4" /> Categories
+          </Button>
+        )}
       </div>
 
       <DataTable
         fillViewport
         columns={columns}
-        data={rows}
+        data={shownRows}
         isLoading={loading}
         enableGlobalFilter
         searchPlaceholder="Search item, supplier, contractor..."
@@ -318,7 +423,7 @@ export default function RateSheetPage() {
             {isContractor && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Department</label>
-                <Select value={draft.tradeId} onValueChange={(v) => setDraft({ ...draft, tradeId: v })}>
+                <Select value={draft.tradeId} onValueChange={(v) => setDraft({ ...draft, tradeId: v, categoryId: NONE, subcategoryId: NONE })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Carpentry, electrical..." />
                   </SelectTrigger>
@@ -334,6 +439,47 @@ export default function RateSheetPage() {
                 {draft.tradeId === NEW_TRADE && (
                   <Input value={newTradeName} onChange={(e) => setNewTradeName(e.target.value)} placeholder="Department name" />
                 )}
+              </div>
+            )}
+
+            {draftCategories.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+                  <Select value={draft.categoryId} onValueChange={(v) => setDraft({ ...draft, categoryId: v, subcategoryId: NONE })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>None</SelectItem>
+                      {draftCategories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Subcategory</label>
+                  <Select
+                    value={draft.subcategoryId}
+                    onValueChange={(v) => setDraft({ ...draft, subcategoryId: v })}
+                    disabled={draftSubcategories.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>None</SelectItem>
+                      {draftSubcategories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 
@@ -369,6 +515,21 @@ export default function RateSheetPage() {
             </div>
 
             <div className="space-y-2">
+              <label className="text-sm font-medium">Wastage % (optional)</label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                inputMode="decimal"
+                value={draft.wastage}
+                onChange={(e) => setDraft({ ...draft, wastage: e.target.value })}
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">Added to the cost of BOQ lines that use this rate, before markup.</p>
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium">Reference link (optional)</label>
               <Input value={draft.link} onChange={(e) => setDraft({ ...draft, link: e.target.value })} placeholder="https://..." />
             </div>
@@ -385,6 +546,18 @@ export default function RateSheetPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {listTradeId !== undefined && (
+        <RateGroupsDialog
+          open={groupsOpen}
+          onOpenChange={setGroupsOpen}
+          workspaceId={workspaceId}
+          tradeId={listTradeId}
+          listLabel={isContractor ? `Contractor list · ${trades.find((t) => t.id === listTradeId)?.name ?? "Department"}` : "Material list"}
+          groups={groups}
+          onChanged={reloadGroups}
+        />
+      )}
     </div>
   );
 }

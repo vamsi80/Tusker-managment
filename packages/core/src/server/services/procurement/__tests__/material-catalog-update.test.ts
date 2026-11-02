@@ -11,6 +11,8 @@ const dbMocks = vi.hoisted(() => {
       updateMany: vi.fn(),
     },
     unitOfMeasure: { findFirst: vi.fn() },
+    boqLineItem: { findMany: vi.fn(async () => []), update: vi.fn() },
+    boq: { updateMany: vi.fn() },
     $transaction: vi.fn(async (callback: (tx: any) => Promise<unknown>) => callback(db)),
   };
   return db;

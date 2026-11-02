@@ -19,7 +19,9 @@ const dbMocks = vi.hoisted(() => {
     notification: { createMany: vi.fn() },
     indent: { update: vi.fn(), deleteMany: vi.fn() },
     indentLineItem: { update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
-    vendorMaterialCapability: { upsert: vi.fn() },
+    vendorMaterialCapability: { upsert: vi.fn(async () => ({ id: "cap-1" })) },
+    boqLineItem: { findMany: vi.fn(async () => []), update: vi.fn() },
+    boq: { updateMany: vi.fn() },
     $transaction: vi.fn(async (callback: any) => callback(db)),
   };
   return db;

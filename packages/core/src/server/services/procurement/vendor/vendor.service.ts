@@ -2,6 +2,7 @@ import prisma from "@tusker/db";
 import { AppError } from "../../../../lib/errors/app-error";
 import { ensureMaterialCatalog } from "../material-catalog.service";
 import { nextVendorId } from "../procurement-entity-id";
+import { BoqService } from "../boq/boq.service";
 
 export class VendorService {
   
@@ -140,7 +141,14 @@ export class VendorService {
     materialName: string,
     unit?: string,
     serviceType?: "SUPPLY" | "LABOUR" | "LABOUR_WITH_MATERIAL",
-    extras?: { rate?: number | null; link?: string | null; quantity?: number | null; tradeId?: string | null }
+    extras?: {
+      rate?: number | null;
+      link?: string | null;
+      quantity?: number | null;
+      tradeId?: string | null;
+      groupId?: string | null;
+      wastagePercent?: number;
+    }
   ) {
     const normalized = materialName.toLowerCase().trim();
     const vendor = await prisma.vendor.findFirst({
@@ -148,6 +156,7 @@ export class VendorService {
     });
     if (!vendor) throw AppError.NotFound("Supplier / contractor not found");
     await VendorService.ensureTrade(extras?.tradeId, workspaceId);
+    await VendorService.ensureGroup(extras?.groupId, workspaceId);
 
     const resolvedServiceType = serviceType || "SUPPLY";
 
@@ -177,6 +186,8 @@ export class VendorService {
           ...(extras?.link === undefined ? {} : { link: extras.link }),
           ...(extras?.quantity === undefined ? {} : { quantity: extras.quantity }),
           ...(extras?.tradeId === undefined ? {} : { tradeId: extras.tradeId }),
+          ...(extras?.groupId === undefined ? {} : { groupId: extras.groupId }),
+          ...(extras?.wastagePercent === undefined ? {} : { wastagePercent: extras.wastagePercent }),
         },
         create: {
           vendorId,
@@ -190,6 +201,8 @@ export class VendorService {
           link: extras?.link ?? null,
           quantity: extras?.quantity ?? null,
           tradeId: extras?.tradeId ?? null,
+          groupId: extras?.groupId ?? null,
+          wastagePercent: extras?.wastagePercent ?? 0,
         },
         include: {
           material: {
@@ -198,6 +211,8 @@ export class VendorService {
         },
       });
 
+      // Re-adding is how a rate gets corrected, so draft BOQs follow it.
+      await BoqService.repriceCapabilities(tx, [capability.id]);
       return capability;
     });
   }
@@ -214,6 +229,8 @@ export class VendorService {
       quantity?: number | null;
       link?: string | null;
       tradeId?: string | null;
+      groupId?: string | null;
+      wastagePercent?: number;
     }
   ) {
     const current = await prisma.vendorMaterialCapability.findFirst({
@@ -221,6 +238,7 @@ export class VendorService {
     });
     if (!current) throw AppError.NotFound("Supplier material not found");
     await VendorService.ensureTrade(data.tradeId, workspaceId);
+    await VendorService.ensureGroup(data.groupId, workspaceId);
 
     const materialName = (data.materialName ?? current.materialName).trim().toLowerCase();
     if (!materialName) throw AppError.ValidationError("Material name is required");
@@ -258,7 +276,7 @@ export class VendorService {
         source: "VENDOR",
       });
 
-      return tx.vendorMaterialCapability.update({
+      const updated = await tx.vendorMaterialCapability.update({
         where: { id: capabilityId },
         data: {
           materialName,
@@ -269,6 +287,8 @@ export class VendorService {
           ...(data.quantity === undefined ? {} : { quantity: data.quantity }),
           ...(data.link === undefined ? {} : { link: data.link }),
           ...(data.tradeId === undefined ? {} : { tradeId: data.tradeId }),
+          ...(data.groupId === undefined ? {} : { groupId: data.groupId }),
+          ...(data.wastagePercent === undefined ? {} : { wastagePercent: data.wastagePercent }),
         },
         include: {
           material: {
@@ -276,6 +296,8 @@ export class VendorService {
           },
         },
       });
+      await BoqService.repriceCapabilities(tx, [capabilityId]);
+      return updated;
     });
   }
 
@@ -288,6 +310,13 @@ export class VendorService {
     await prisma.vendorMaterialCapability.delete({
       where: { id: capabilityId },
     });
+  }
+
+  /** A rate-group id from the client must belong to this workspace. */
+  private static async ensureGroup(groupId: string | null | undefined, workspaceId: string) {
+    if (!groupId) return;
+    const group = await prisma.rateGroup.findFirst({ where: { id: groupId, workspaceId }, select: { id: true } });
+    if (!group) throw AppError.ValidationError("Unknown category");
   }
 
   /** A trade id from the client must belong to this workspace. */

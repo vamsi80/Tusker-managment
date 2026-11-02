@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatPaise } from "@tusker/core/lib/procurement/purchase-order";
 import { vendorDisplayName } from "@tusker/core/lib/procurement/vendor-name";
 import { LENGTH_UNIT_OPTIONS, dimensionsFor, lineTotals, type LengthUnit } from "@tusker/core/lib/procurement/boq";
-import { apiJson, toastError, type Trade } from "../../_components/boq-shared";
+import { apiJson, toastError, useRateGroups, type Trade } from "../../_components/boq-shared";
 
 export interface BoqLine {
   id: string;
@@ -29,6 +29,7 @@ export interface BoqLine {
   quantity: number;
   measuredQty: number;
   markupPercent: number;
+  wastagePercent: number;
   costAmount: number;
   amount: number;
   notes: string | null;
@@ -45,6 +46,9 @@ interface RateRow {
   rate: number | null;
   serviceType: string;
   tradeId: string | null;
+  groupId: string | null;
+  /** Prisma Decimal, serialised as a string. */
+  wastagePercent: string | number;
   vendor: { id: string; name: string; companyName: string | null };
 }
 
@@ -63,12 +67,14 @@ interface Props {
 }
 
 const NO_ZONE = "__none__";
+const ANY_GROUP = "__any__";
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
 const str = (v: number | null | undefined) => (v == null ? "" : String(v));
 
 /**
- * Department -> contractor (from the rate sheet's contractor list) -> item ->
- * dimensions the item's unit needs -> markup. Totals preview with the same
+ * Department -> (category, to narrow the list) -> contractor (from the rate
+ * sheet's contractor list) -> item -> dimensions the item's unit needs ->
+ * wastage and markup. Totals preview with the same
  * lineTotals() the API saves with.
  */
 export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, zones, line, defaults, onSaved }: Props) {
@@ -86,6 +92,9 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
   const [depth, setDepth] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [markup, setMarkup] = useState("0");
+  const [wastage, setWastage] = useState("0");
+  const [groupId, setGroupId] = useState(ANY_GROUP);
+  const { groups } = useRateGroups(workspaceId);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -115,10 +124,22 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
     setDepth(str(line?.depth));
     setQuantity(line ? String(line.quantity) : "1");
     setMarkup(line ? String(line.markupPercent) : "0");
+    setWastage(line ? String(line.wastagePercent ?? 0) : "0");
+    setGroupId(ANY_GROUP);
     setNotes(line?.notes ?? "");
   }, [open, line, defaults]);
 
-  const tradeRates = useMemo(() => rates.filter((r) => r.tradeId === tradeId), [rates, tradeId]);
+  // Categories of this department, each followed by its subcategories.
+  const tradeGroups = useMemo(() => {
+    const categories = groups.filter((g) => g.tradeId === tradeId && !g.parentId);
+    return categories.flatMap((c) => [c, ...groups.filter((g) => g.parentId === c.id)]);
+  }, [groups, tradeId]);
+  const tradeRates = useMemo(() => {
+    const inTrade = rates.filter((r) => r.tradeId === tradeId);
+    if (groupId === ANY_GROUP) return inTrade;
+    const inGroup = new Set([groupId, ...groups.filter((g) => g.parentId === groupId).map((g) => g.id)]);
+    return inTrade.filter((r) => r.groupId && inGroup.has(r.groupId));
+  }, [rates, tradeId, groupId, groups]);
   const contractors = useMemo(() => {
     const seen = new Map<string, RateRow["vendor"]>();
     for (const r of tradeRates) seen.set(r.vendorId, r.vendor);
@@ -141,13 +162,17 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
     breadth: num(breadth),
     depth: num(depth),
     quantity: Number(quantity) || 0,
+    wastagePercent: Number(wastage) || 0,
     markupPercent: Number(markup) || 0,
   });
 
   const pickItem = (id: string) => {
     setCapabilityId(id);
     const row = rates.find((r) => r.id === id);
-    if (row) setRate(row.rate != null ? String(row.rate / 100) : "");
+    if (row) {
+      setRate(row.rate != null ? String(row.rate / 100) : "");
+      setWastage(String(Number(row.wastagePercent) || 0));
+    }
   };
 
   const save = async () => {
@@ -156,6 +181,8 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
     const missing = (dims.length && !num(length)) || (dims.breadth && !num(breadth)) || (dims.depth && !num(depth));
     if (missing) return toast.error(`Enter the ${[dims.length && "length", dims.breadth && "breadth", dims.depth && "depth"].filter(Boolean).join(", ")}`);
     if (!(Number(quantity) > 0)) return toast.error("Quantity must be above zero");
+    const wastagePercent = Number(wastage) || 0;
+    if (wastagePercent < 0 || wastagePercent > 100) return toast.error("Wastage must be between 0 and 100%");
 
     const body = {
       tradeId,
@@ -169,6 +196,7 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
       depth: dims.depth ? num(depth) : null,
       quantity: Number(quantity),
       markupPercent: Number(markup) || 0,
+      wastagePercent,
       notes: notes.trim() || null,
     };
 
@@ -202,6 +230,7 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
               value={tradeId}
               onValueChange={(v) => {
                 setTradeId(v);
+                setGroupId(ANY_GROUP);
                 setVendorId("");
                 setCapabilityId("");
               }}
@@ -236,6 +265,32 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
             </Select>
           </div>
 
+          {tradeGroups.length > 0 && (
+            <div className="space-y-2 sm:col-span-2">
+              <label className="text-sm font-medium">Category</label>
+              <Select
+                value={groupId}
+                onValueChange={(v) => {
+                  setGroupId(v);
+                  setVendorId("");
+                  setCapabilityId("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ANY_GROUP}>All categories</SelectItem>
+                  {tradeGroups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      <span className={g.parentId ? "pl-4 text-muted-foreground" : "font-medium"}>{g.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Contractor</label>
             <Select
@@ -247,7 +302,17 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
               disabled={!tradeId || loadingRates}
             >
               <SelectTrigger>
-                <SelectValue placeholder={loadingRates ? "Loading..." : contractors.length ? "Choose a contractor" : "No contractor rates for this department"} />
+                <SelectValue
+                  placeholder={
+                    loadingRates
+                      ? "Loading..."
+                      : contractors.length
+                        ? "Choose a contractor"
+                        : groupId === ANY_GROUP
+                          ? "No contractor rates for this department"
+                          : "No contractor rates in this category"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {contractors.map((v) => (
@@ -328,10 +393,14 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-[1fr_1fr_2fr]">
           <div className="space-y-2">
             <label className="text-sm font-medium">Quantity</label>
             <Input type="number" min="0" step="any" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Wastage %</label>
+            <Input type="number" min="0" max="100" step="0.5" inputMode="decimal" value={wastage} onChange={(e) => setWastage(e.target.value)} />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Notes (optional)</label>
@@ -347,7 +416,7 @@ export function BoqLineDialog({ open, onOpenChange, workspaceId, boqId, trades, 
             </div>
           </div>
           <div>
-            <div className="text-muted-foreground">Cost</div>
+            <div className="text-muted-foreground">Cost{Number(wastage) ? ` (incl. ${Number(wastage)}% wastage)` : ""}</div>
             <div className="font-medium tabular-nums">{formatPaise(preview.costAmount)}</div>
           </div>
           <div>

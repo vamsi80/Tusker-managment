@@ -157,6 +157,7 @@ model Workspace {
   meetings               Meeting[]
   pointsEntries          PointsEntry[]
   trades                 Trade[]
+  rateGroups             RateGroup[]
   boqs                   Boq[]
 }
 
@@ -792,14 +793,20 @@ model VendorMaterialCapability {
   /// BOQ department this contractor rate belongs to (carpentry, electrical...).
   /// Null for supply rates and rows entered before trades existed.
   tradeId           String?
+  /// Category or subcategory on the rate sheet. Grouping only: never priced.
+  groupId           String?
+  /// Default wastage copied onto a BOQ line when this rate is picked (10 = 10%).
+  wastagePercent    Decimal               @default(0) @db.Decimal(5, 2)
   material          MaterialCatalog?      @relation(fields: [materialCatalogId], references: [id], onDelete: SetNull)
   vendor            Vendor                @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   workspace         Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   trade             Trade?                @relation(fields: [tradeId], references: [id], onDelete: SetNull)
+  group             RateGroup?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
   boqLines          BoqLineItem[]
 
   @@unique([vendorId, materialName, serviceType])
   @@index([tradeId])
+  @@index([groupId])
   @@index([materialCatalogId])
   @@index([workspaceId, materialName])
   @@map("vendor_material_capability")
@@ -1316,9 +1323,33 @@ model Trade {
   workspace    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   capabilities VendorMaterialCapability[]
   boqLines     BoqLineItem[]
+  rateGroups   RateGroup[]
 
   @@unique([workspaceId, name])
   @@map("trade")
+}
+
+/// Rate-sheet grouping: a category (parentId null) or a subcategory (parentId
+/// set, one level deep). tradeId null = the material list. Names are unique
+/// per parent, case-insensitively, checked in BoqService (NULLs defeat
+/// a DB unique here).
+model RateGroup {
+  id           String                     @id @default(cuid())
+  workspaceId  String
+  tradeId      String?
+  parentId     String?
+  name         String
+  sortOrder    Int                        @default(0)
+  createdAt    DateTime                   @default(now())
+  workspace    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  trade        Trade?                     @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  parent       RateGroup?                 @relation("RateGroupTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     RateGroup[]                @relation("RateGroupTree")
+  capabilities VendorMaterialCapability[]
+
+  @@index([workspaceId, tradeId])
+  @@index([parentId])
+  @@map("rate_group")
 }
 
 /// Bill of quantities for a project. A project can hold several, each revised
@@ -1367,35 +1398,37 @@ model BoqZone {
 /// BOQ that has been sent out. Totals are recomputed server-side on every
 /// write via lineTotals() in lib/procurement/boq.ts. Money is paise.
 model BoqLineItem {
-  id            String                    @id @default(uuid())
-  boqId         String
-  tradeId       String
-  zoneId        String?
-  vendorId      String?
-  capabilityId  String?
-  description   String
-  unit          String
-  serviceType   CapabilityServiceType     @default(LABOUR)
-  rate          Int
+  id             String                    @id @default(uuid())
+  boqId          String
+  tradeId        String
+  zoneId         String?
+  vendorId       String?
+  capabilityId   String?
+  description    String
+  unit           String
+  serviceType    CapabilityServiceType     @default(LABOUR)
+  rate           Int
   /// Length unit the dimensions were typed in: mm | cm | m | in | ft.
-  inputUnit     String                    @default("mm")
-  length        Decimal?                  @db.Decimal(12, 3)
-  breadth       Decimal?                  @db.Decimal(12, 3)
-  depth         Decimal?                  @db.Decimal(12, 3)
-  quantity      Decimal                   @default(1) @db.Decimal(12, 3)
-  measuredQty   Decimal                   @db.Decimal(14, 4)
-  markupPercent Decimal                   @default(0) @db.Decimal(5, 2)
-  costAmount    Int
-  amount        Int
-  notes         String?
-  sortOrder     Int                       @default(0)
-  createdAt     DateTime                  @default(now())
-  updatedAt     DateTime                  @updatedAt
-  boq           Boq                       @relation(fields: [boqId], references: [id], onDelete: Cascade)
-  trade         Trade                     @relation(fields: [tradeId], references: [id])
-  zone          BoqZone?                  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  vendor        Vendor?                   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  capability    VendorMaterialCapability? @relation(fields: [capabilityId], references: [id], onDelete: SetNull)
+  inputUnit      String                    @default("mm")
+  length         Decimal?                  @db.Decimal(12, 3)
+  breadth        Decimal?                  @db.Decimal(12, 3)
+  depth          Decimal?                  @db.Decimal(12, 3)
+  quantity       Decimal                   @default(1) @db.Decimal(12, 3)
+  measuredQty    Decimal                   @db.Decimal(14, 4)
+  markupPercent  Decimal                   @default(0) @db.Decimal(5, 2)
+  /// Added to the cost before markup (10 = 10%). Defaults from the rate sheet.
+  wastagePercent Decimal                   @default(0) @db.Decimal(5, 2)
+  costAmount     Int
+  amount         Int
+  notes          String?
+  sortOrder      Int                       @default(0)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  boq            Boq                       @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  trade          Trade                     @relation(fields: [tradeId], references: [id])
+  zone           BoqZone?                  @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  vendor         Vendor?                   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  capability     VendorMaterialCapability? @relation(fields: [capabilityId], references: [id], onDelete: SetNull)
 
   @@index([boqId, sortOrder])
   @@index([tradeId])

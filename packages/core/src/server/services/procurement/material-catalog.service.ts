@@ -1,6 +1,7 @@
 import { AppError } from "../../../lib/errors/app-error";
 import prisma from "@tusker/db";
 import { nextMaterialId } from "./procurement-entity-id";
+import { BoqService } from "./boq/boq.service";
 
 type EnsureMaterialCatalogInput = {
   workspaceId: string;
@@ -149,6 +150,11 @@ export async function updateMaterialCatalog(
         where: { materialCatalogId: current.id },
         data: { materialName: name.toLowerCase() },
       });
+      // Draft BOQ lines carry the name as their description.
+      await BoqService.repriceCapabilities(
+        tx,
+        current.vendorCapabilities.map((capability: any) => capability.id)
+      );
     }
 
     return updated;

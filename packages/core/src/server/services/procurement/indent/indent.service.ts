@@ -6,6 +6,7 @@ import { pusherServer } from "../../../../lib/pusher";
 import { getUserDisplayName } from "../../../../lib/user-display-name";
 import { INDENT_STATUS_LABELS } from "../../../../lib/procurement/status-filters";
 import { IndentRepository } from "./indent.repository";
+import { BoqService } from "../boq/boq.service";
 import {
   resolveProjectPermissions,
   canProject,
@@ -857,7 +858,7 @@ export class IndentService {
         for (const item of indent.lineItems) {
           const materialName = item.materialName.toLowerCase().trim();
           const rate = rateByItemId.get(item.id)!;
-          await tx.vendorMaterialCapability.upsert({
+          const capability = await tx.vendorMaterialCapability.upsert({
             where: {
               vendorId_materialName_serviceType: {
                 vendorId: awardedVendorId,
@@ -877,6 +878,7 @@ export class IndentService {
               rate,
             },
           });
+          await BoqService.repriceCapabilities(tx, [capability.id]);
         }
       }
 

@@ -48,6 +48,7 @@ const LineSchema = z.object({
   depth: Dimension,
   quantity: z.number().positive().max(1_000_000).optional(),
   markupPercent: z.number().min(0).max(1000).optional(),
+  wastagePercent: z.number().min(0).max(100).optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
 });
 
@@ -74,6 +75,45 @@ procurementBoq.get("/rate-sheet", async (c) => {
   }
   const data = await BoqService.rateSheet(workspaceId, kind as any, c.req.query("tradeId") || undefined);
   return c.json({ success: true, data });
+});
+
+// Rate groups (rate-sheet categories / subcategories) -------------------------
+
+procurementBoq.get("/rate-groups", async (c) => {
+  const { workspaceId } = await requireAny(c, "ratesheet:view", "boq:view");
+  return c.json({ success: true, data: await BoqService.listRateGroups(workspaceId) });
+});
+
+procurementBoq.post(
+  "/rate-groups",
+  zValidator("json", z.object({
+    name: Name,
+    tradeId: z.string().min(1).nullable().optional(),
+    parentId: z.string().min(1).nullable().optional(),
+  })),
+  async (c) => {
+    const { workspaceId } = await requireAny(c, "ratesheet:edit");
+    return c.json({ success: true, data: await BoqService.createRateGroup(workspaceId, c.req.valid("json")) }, 201);
+  }
+);
+
+procurementBoq.patch(
+  "/rate-groups/:id",
+  zValidator("json", z.object({
+    name: Name.optional(),
+    parentId: z.string().min(1).optional(),
+    sortOrder: z.number().int().min(0).max(100_000).optional(),
+  })),
+  async (c) => {
+    const { workspaceId } = await requireAny(c, "ratesheet:edit");
+    return c.json({ success: true, data: await BoqService.updateRateGroup(workspaceId, c.req.param("id"), c.req.valid("json")) });
+  }
+);
+
+procurementBoq.delete("/rate-groups/:id", async (c) => {
+  const { workspaceId } = await requireAny(c, "ratesheet:edit");
+  await BoqService.deleteRateGroup(workspaceId, c.req.param("id"));
+  return c.json({ success: true });
 });
 
 // Zones (registered before /boq/:id so "zones" is never read as an id) -------
@@ -148,6 +188,11 @@ procurementBoq.post(
 procurementBoq.post("/boq/:id/revise", async (c) => {
   const { workspaceId, memberId } = await requireAny(c, "boq:edit");
   return c.json({ success: true, data: await BoqService.reviseBoq(workspaceId, c.req.param("id"), memberId) }, 201);
+});
+
+procurementBoq.post("/boq/:id/refresh-rates", async (c) => {
+  const { workspaceId } = await requireAny(c, "boq:edit");
+  return c.json({ success: true, data: { updated: await BoqService.refreshRates(workspaceId, c.req.param("id")) } });
 });
 
 procurementBoq.post("/boq/:id/lines", zValidator("json", LineSchema), async (c) => {
