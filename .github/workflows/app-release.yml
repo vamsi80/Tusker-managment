@@ -1,0 +1,59 @@
+name: Tusker for Windows release
+
+# Bump "version" in apps/tusker-desktop/package.json, then push a matching tag:
+#   git tag app-v0.2.0 && git push origin app-v0.2.0
+# The installer is published to vamsi80/tusker-desktop-releases (its own repo, so
+# the widget's updater never sees it); installed apps update themselves, and the
+# Settings page links to the newest one.
+#
+# Needs two repository secrets:
+#   DESKTOP_RELEASES_TOKEN: a token with "contents: write" on tusker-desktop-releases
+#                           (the default GITHUB_TOKEN can't write to another repo)
+#   VITE_PUSHER_KEY:        the website's public NEXT_PUBLIC_PUSHER_KEY
+on:
+  push:
+    tags: ["app-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No "version" input: pnpm comes from "packageManager" in the root
+      # package.json, and the action fails when both are set.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check tag matches package version
+        shell: bash
+        working-directory: apps/tusker-desktop
+        run: |
+          version=$(node -p "require('./package.json').version")
+          [ "app-v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME != app-v$version"; exit 1; }
+
+      # The app imports the website's UI kit and @tusker/core from source, which
+      # resolve their packages from the workspace installs.
+      - run: pnpm install --frozen-lockfile
+
+      # The app itself is outside the pnpm workspace (see pnpm-workspace.yaml).
+      - run: pnpm install --ignore-workspace --frozen-lockfile
+        working-directory: apps/tusker-desktop
+      - run: node node_modules/electron/install.js
+        working-directory: apps/tusker-desktop
+
+      - run: pnpm exec tsc --noEmit
+        working-directory: apps/tusker-desktop
+
+      - run: pnpm run dist --publish always
+        working-directory: apps/tusker-desktop
+        env:
+          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
+          VITE_PUSHER_KEY: ${{ secrets.VITE_PUSHER_KEY }}
+          VITE_PUSHER_CLUSTER: ap2

@@ -1,0 +1,43 @@
+/* The website's theme, used as-is: same tokens, light/dark, utilities. */
+@import "../../web/src/app/globals.css";
+@import "@fontsource-variable/inter";
+
+/* The classes to generate: this app's files, plus the UI kit shared from apps/web. */
+@source "./";
+@source "../../web/src/components/ui";
+
+/* next/font sets these on the website; here they are plain @font-faces. */
+@font-face {
+  font-family: "Archivo Expanded";
+  src: url("../../web/src/assets/fonts/ArchivoExpanded-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Archivo Expanded";
+  src: url("../../web/src/assets/fonts/ArchivoExpanded-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Archivo Expanded";
+  src: url("../../web/src/assets/fonts/ArchivoExpanded-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Archivo Expanded";
+  src: url("../../web/src/assets/fonts/ArchivoExpanded-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --font-inter: "Inter Variable";
+  --font-archivo-expanded: "Archivo Expanded";
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}

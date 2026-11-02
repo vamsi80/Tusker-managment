@@ -7,3 +7,5 @@ packages:
   # The desktop widget keeps its own install too, so `pnpm install` at the
   # root doesn't download the ~100 MB Electron binary for everyone.
   - "!apps/desktop"
+  # Tusker for Windows (Electron) installs on its own for the same reason.
+  - "!apps/tusker-desktop"

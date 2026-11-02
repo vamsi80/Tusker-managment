@@ -1,0 +1,71 @@
+{
+  "name": "@tusker/tusker-desktop",
+  "productName": "Tusker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tusker for Windows: the full app, in sync with the website and the mobile app.",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "dist": "vite build && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@fontsource-variable/inter": "^5.2.5",
+    "@tailwindcss/vite": "^4.1.0",
+    "@tanstack/query-async-storage-persister": "^5.83.0",
+    "@tanstack/react-query": "^5.83.0",
+    "@tanstack/react-query-persist-client": "^5.83.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "date-fns": "^4.1.0",
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3",
+    "idb-keyval": "^6.2.1",
+    "lucide-react": "^0.544.0",
+    "pusher-js": "^8.4.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router": "^7.6.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.8.0",
+    "vite": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.thewhitetusker.desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**",
+      "dist/**",
+      "icon.png"
+    ],
+    "win": {
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Tusker-Setup.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "vamsi80",
+      "repo": "tusker-desktop-releases",
+      "releaseType": "release"
+    }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  }
+}
