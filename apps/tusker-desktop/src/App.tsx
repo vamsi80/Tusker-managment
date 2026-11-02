@@ -140,6 +140,8 @@ function Gate() {
                     <Route path="vendors/new" element={<page.vendorNew />} />
                     <Route path="vendors/:vendorId" element={<page.vendor />} />
                     <Route path="vendors/:vendorId/edit" element={<page.vendorEdit />} />
+                    {/* Until the website's Settings page is ported, its sidebar link opens the app's own settings (updates). */}
+                    <Route path="settings" element={<SettingsScreen />} />
                     <Route path="app-settings" element={<SettingsScreen />} />
                     <Route path="*" element={<ComingSoon />} />
                 </Route>
