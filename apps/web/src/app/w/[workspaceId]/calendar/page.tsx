@@ -18,12 +18,13 @@ export default function CalendarPage() {
   // The shell grows with its content, so flex-1 alone never capped this page and
   // the whole document scrolled. useFillViewport sizes it to end where the
   // screen does, the same bottom gap as every page; the lg:h calc is only the
-  // first-paint fallback. Below lg the agenda stacks under the calendar, so the
-  // page scrolls there by design.
+  // first-paint fallback. Below 56rem of content (not viewport: the sidebar
+  // takes ~18rem) the agenda stacks under the calendar, so the page scrolls
+  // there by design.
   const pageRef = useRef<HTMLDivElement>(null);
-  useFillViewport(pageRef, { property: "height", minWidth: 1024 });
+  useFillViewport(pageRef, { property: "height", minWidth: 896 });
   return (
-    <div ref={pageRef} className="flex flex-1 min-h-0 flex-col gap-5 overflow-hidden lg:h-[calc(100svh-9rem)] animate-in fade-in duration-300">
+    <div ref={pageRef} className="flex flex-1 min-h-0 flex-col gap-5 overflow-hidden @4xl/main:h-[calc(100svh-9rem)] animate-in fade-in duration-300">
       <PageHeader
         className="shrink-0"
         title="Schedule & Meetings"
@@ -41,12 +42,13 @@ export default function CalendarPage() {
         <UpcomingMeetingAlert />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-1 gap-5 flex-1 min-h-0">
-        <div className="lg:col-span-8 xl:col-span-9 flex flex-col min-h-0 surface p-4 sm:p-5">
+      {/* Fixed-width agenda: a 12-col split shrank the calendar first on laptops. */}
+      <div className="grid grid-cols-1 @4xl/main:grid-cols-[minmax(0,1fr)_18rem] @4xl/main:grid-rows-1 gap-5 flex-1 min-h-0">
+        <div className="flex flex-col min-h-0 surface p-4 sm:p-5">
           <CalendarDashboard workspaceId={workspaceId} />
         </div>
 
-        <div className="lg:col-span-4 xl:col-span-3 flex flex-col min-h-0 surface p-4 sm:p-5">
+        <div className="flex flex-col min-h-0 surface p-4 sm:p-5">
           <TodayAgendaWidget />
         </div>
       </div>

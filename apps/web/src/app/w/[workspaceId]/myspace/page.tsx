@@ -19,7 +19,7 @@ export default function MySpaceInfoPage() {
     return (
       <div className="w-full space-y-6 px-2">
         <Skeleton className="h-40 w-full rounded-3xl" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 @3xl/main:grid-cols-2 @4xl/main:grid-cols-4 gap-4">
           <Skeleton className="h-24 rounded-2xl" />
           <Skeleton className="h-24 rounded-2xl" />
           <Skeleton className="h-24 rounded-2xl" />
@@ -55,7 +55,7 @@ export default function MySpaceInfoPage() {
         </CardHeader>
         
         <CardContent className="px-0 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 @3xl/main:grid-cols-2 @4xl/main:grid-cols-4 gap-4">
             <div className="p-5 rounded-2xl bg-card border flex items-center gap-4 hover:shadow-sm transition-shadow">
               <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                 <Mail className="size-5 text-primary-ink" />

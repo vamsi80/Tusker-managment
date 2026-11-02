@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getWorkspaceTagsWithCount } from "@/data/tag/get-tags";
 import { TagsManager } from "./_components/tag/tags-manager";
 import { AppearanceSettings } from "./_components/appearance-settings";
+import { DesktopWidgetSettings } from "./_components/desktop-widget-settings";
 import { getWorkspacePermissions } from "@/data/user/get-user-permissions";
 import { AppLoader } from "@/components/shared/app-loader";
 
@@ -31,6 +32,7 @@ async function SettingsContent({ workspaceId }: { workspaceId: string }) {
     return (
         <div className="space-y-6">
             <AppearanceSettings />
+            <DesktopWidgetSettings />
             <TagsManager
                 workspaceId={workspaceId}
                 tags={tags}

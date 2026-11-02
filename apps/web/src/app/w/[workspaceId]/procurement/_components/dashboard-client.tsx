@@ -197,9 +197,9 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1 pt-1 xl:overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1 pt-1 @6xl/main:overflow-hidden">
       {/* Stats row */}
-      <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 @6xl/main:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
 
@@ -226,8 +226,8 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
         })}
       </div>
 
-      <div className="grid min-h-0 shrink-0 grid-cols-1 gap-4 xl:flex-1 xl:grid-cols-2">
-        <section className="flex h-72 min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm xl:h-auto">
+      <div className="grid min-h-0 shrink-0 grid-cols-1 gap-4 @6xl/main:flex-1 @6xl/main:grid-cols-2">
+        <section className="flex h-72 min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm @6xl/main:h-auto">
           <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3">
             <div className="flex items-center gap-2">
               <CalendarDays className="size-4 text-primary-ink" />
@@ -242,7 +242,7 @@ export function DashboardClient({ workspaceId }: DashboardClientProps) {
           </div>
         </section>
 
-        <section className="flex h-72 min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm xl:h-auto">
+        <section className="flex h-72 min-h-0 flex-col overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm @6xl/main:h-auto">
           <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3">
             <div className="flex items-center gap-2">
               <AlertCircle className="size-4 text-red-500" />

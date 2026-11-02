@@ -22,8 +22,8 @@ export function NotificationsShell({ sidebar, children }: NotificationsShellProp
       {/* Sidebar Panel */}
       <div
         className={cn(
-          "w-full lg:w-80 border-r flex flex-col shrink-0 bg-muted/10",
-          notificationId ? "hidden lg:flex" : "flex"
+          "w-full @4xl/main:w-80 border-r flex flex-col shrink-0 bg-muted/10",
+          notificationId ? "hidden @4xl/main:flex" : "flex"
         )}
       >
         {sidebar}
@@ -33,7 +33,7 @@ export function NotificationsShell({ sidebar, children }: NotificationsShellProp
       <div
         className={cn(
           "flex-1 flex flex-col min-w-0 bg-background relative",
-          notificationId ? "flex" : "hidden lg:flex"
+          notificationId ? "flex" : "hidden @4xl/main:flex"
         )}
       >
         {children}

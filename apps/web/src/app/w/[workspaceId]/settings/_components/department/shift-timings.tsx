@@ -51,7 +51,7 @@ export function ShiftTimings({ workspaceId, schedules, isWorkspaceAdmin }: {
                     No shift timings found for this workspace.
                 </p>
             ) : (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 @4xl/main:grid-cols-2">
                     {schedules.map((schedule) => (
                         <ScheduleCard
                             key={schedule.id}
@@ -138,12 +138,12 @@ function ScheduleCard({ workspaceId, schedule, isWorkspaceAdmin }: {
 
             <div className="divide-y divide-border">
                 {rows.map((r) => (
-                    <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-2">
+                    <div key={r.id} className="flex flex-col @3xl/main:flex-row @3xl/main:items-center justify-between gap-3 p-2">
                         <Label className="text-base font-normal flex items-center gap-2 leading-none">
                             {r.icon}
                             {r.label}
                         </Label>
-                        <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                        <div className="flex flex-wrap items-center gap-3 @3xl/main:justify-end">
                             <div className={cn("px-2 py-1 rounded-md border text-[10px] font-black uppercase tracking-tighter shrink-0", r.hintClass)}>
                                 {r.hint}
                             </div>

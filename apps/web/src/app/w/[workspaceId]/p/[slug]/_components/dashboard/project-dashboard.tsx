@@ -75,7 +75,7 @@ export function ProjectDashboard({ data, workspaceId }: ProjectDashboardProps) {
         showAbsent={hasFullAccess}
       />
 
-      <div className={`grid grid-cols-1 ${hasFullAccess ? "md:grid-cols-2" : ""} gap-6`}>
+      <div className={`grid grid-cols-1 ${hasFullAccess ? "@3xl/main:grid-cols-2" : ""} gap-6`}>
         <DueThisWeekWidget
           dueThisWeek={dueThisWeek}
           weekStart={new Date(weekStart)}

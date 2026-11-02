@@ -110,7 +110,7 @@ export function TagsManager({ workspaceId, tags, isWorkspaceAdmin = false }: Tag
                         </div>
                     ) : (
                         // Alphabetical, split into up to five columns of white cards.
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(100%,14rem),1fr))]">
                             {chunk(
                                 [...tags].sort((x, y) => x.name.localeCompare(y.name)),
                                 Math.ceil(tags.length / 5)

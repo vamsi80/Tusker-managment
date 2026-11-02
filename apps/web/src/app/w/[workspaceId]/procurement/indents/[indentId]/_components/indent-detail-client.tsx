@@ -909,7 +909,7 @@ export function IndentDetailClient({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 @3xl/main:grid-cols-3 gap-5">
         {/* Left column: Indent metadata info */}
         <div className="flex flex-col gap-4">
           {/* Project Details */}
@@ -1044,7 +1044,7 @@ export function IndentDetailClient({
         </div>
 
         {/* Right 2 columns: Items Details table */}
-        <div className="md:col-span-2 flex flex-col gap-4">
+        <div className="@3xl/main:col-span-2 flex flex-col gap-4">
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">

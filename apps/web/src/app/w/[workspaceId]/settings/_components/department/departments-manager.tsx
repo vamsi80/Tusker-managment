@@ -197,7 +197,7 @@ export function DepartmentsManager({ workspaceId, departments, schedules, isWork
                                                     </p>
                                                 </div>
                                             ) : (
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,14rem),1fr))] gap-2">
                                                     {members.map((member) => {
                                                         const displayName = member.user.surname || member.user.name || member.user.email || "Member";
                                                         const initials = (member.user.name?.[0] || member.user.email?.[0] || "?").toUpperCase();

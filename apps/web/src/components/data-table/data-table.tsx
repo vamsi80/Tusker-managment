@@ -341,7 +341,7 @@ export function DataTable<TData, TValue>({
                                     <Button
                                         variant="ghost"
                                         onClick={() => table.resetColumnFilters()}
-                                        className="h-8 px-2 lg:px-3"
+                                        className="h-8 px-2 @4xl/main:px-3"
                                     >
                                         Reset
                                         <X className="ml-2 size-4" />
@@ -578,7 +578,7 @@ export function DataTable<TData, TValue>({
                         <div className="flex items-center gap-2">
                             <Button
                                 variant="outline"
-                                className="hidden size-8 p-0 lg:flex"
+                                className="hidden size-8 p-0 @4xl/main:flex"
                                 onClick={() => table.setPageIndex(0)}
                                 disabled={!table.getCanPreviousPage()}
                             >
@@ -640,7 +640,7 @@ export function DataTable<TData, TValue>({
                             </Button>
                             <Button
                                 variant="outline"
-                                className="hidden size-8 p-0 lg:flex"
+                                className="hidden size-8 p-0 @4xl/main:flex"
                                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                                 disabled={!table.getCanNextPage()}
                             >

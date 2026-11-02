@@ -43,7 +43,7 @@ export function GstRegistrationFields({ value, onChange, lockedKeys }: GstRegist
         </CardDescription>
       </CardHeader>
       <CardContent className="p-6">
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid @3xl/main:grid-cols-3 gap-6">
           {FIELDS.map((field) => {
             const isLocked = locked.has(field.key);
             return (

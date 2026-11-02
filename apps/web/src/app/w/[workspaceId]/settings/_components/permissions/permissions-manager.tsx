@@ -253,7 +253,7 @@ export function PermissionsManager({ workspaceId, viewerRole, roleOverrides, mem
                                     )}
                                 </div>
 
-                                <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-x-6 gap-y-2 grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))]">
                                     {CAPABILITIES.map((capability) => {
                                         const overridden = member.overrides[capability.id] !== undefined;
                                         return (

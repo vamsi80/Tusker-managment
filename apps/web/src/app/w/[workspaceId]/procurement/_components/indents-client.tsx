@@ -671,7 +671,7 @@ export function IndentsClient({ workspaceId }: IndentsClientProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 @3xl/main:grid-cols-3 @6xl/main:grid-cols-5">
           <div className="min-w-0 space-y-1">
             <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
             <MultiSelectFilter

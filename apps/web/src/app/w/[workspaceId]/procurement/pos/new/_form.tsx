@@ -251,7 +251,7 @@ export function CreatePurchaseOrderForm() {
         <CardHeader>
           <CardTitle className="text-base">Purchase order details</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 @3xl/main:grid-cols-2">
           <div className="grid gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">Buying entity</label>
             <Select value={company} onValueChange={(value) => setCompany(value as CompanyCode)}>

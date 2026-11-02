@@ -118,7 +118,7 @@ export function WorkspaceInfoForm({ workspace }: WorkspaceInfoFormProps) {
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 @3xl/main:grid-cols-2 gap-6">
                     {/* General & Legal Info */}
                     <Card>
                         <CardHeader>

@@ -142,7 +142,7 @@ export default function WorkspaceProjectsPage() {
   if (isLoading) {
     return (
       <div className="space-y-8 px-2 py-4">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col @3xl/main:flex-row justify-between items-start @3xl/main:items-center gap-4">
           <div className="space-y-2">
             <Skeleton className="h-10 w-48 rounded-xl" />
             <Skeleton className="h-5 w-72 rounded-md" />
@@ -154,7 +154,7 @@ export default function WorkspaceProjectsPage() {
           <Skeleton className="h-9 w-24 rounded-lg" />
           <Skeleton className="h-9 w-24 rounded-lg" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 @4xl/main:grid-cols-2 gap-4">
           <Skeleton className="h-20 rounded-xl" />
           <Skeleton className="h-20 rounded-xl" />
           <Skeleton className="h-20 rounded-xl" />
@@ -167,7 +167,7 @@ export default function WorkspaceProjectsPage() {
   return (
     <div className="w-full space-y-8 px-2 py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/40 pb-6">
+      <div className="flex flex-col @3xl/main:flex-row justify-between items-start @3xl/main:items-center gap-4 border-b border-border/40 pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Projects</h1>
@@ -233,7 +233,7 @@ export default function WorkspaceProjectsPage() {
       </div>
 
       {/* Filter and Search Row */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+      <div className="flex flex-col @3xl/main:flex-row gap-4 items-stretch @3xl/main:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4.5 text-muted-foreground/60" />
@@ -257,7 +257,7 @@ export default function WorkspaceProjectsPage() {
         </div>
 
         {/* Custom Tab Filters */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/40 self-start md:self-auto overflow-x-auto scrollbar-none max-w-full">
+        <div className="flex flex-wrap gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/40 self-start @3xl/main:self-auto overflow-x-auto scrollbar-none max-w-full">
           <button
             onClick={() => setSelectedRoleFilters([])}
             className={cn(
@@ -306,7 +306,7 @@ export default function WorkspaceProjectsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 @4xl/main:grid-cols-2 gap-4">
           {filteredProjects.map((proj: any) => {
             const roleDetails = getRoleDetails(proj, isWorkspaceAdmin);
             const projectColor = proj.color || "#3b82f6"; // Fallback blue
@@ -365,7 +365,7 @@ export default function WorkspaceProjectsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="hidden md:inline text-xs text-muted-foreground/60 font-semibold group-hover:text-foreground transition-colors">
+                    <span className="hidden @3xl/main:inline text-xs text-muted-foreground/60 font-semibold group-hover:text-foreground transition-colors">
                       View tasks
                     </span>
                     <div

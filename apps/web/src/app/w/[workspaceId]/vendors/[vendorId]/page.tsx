@@ -64,14 +64,14 @@ export default function VendorDetailPage() {
       {/* Page Header */}
       <VendorHeader name={vendor.name} status={vendor.status} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 @4xl/main:grid-cols-3 gap-6">
         {/* Left Column: Vendor Profile Info (Structured Address, Contact) */}
-        <div className="lg:col-span-1">
+        <div className="@4xl/main:col-span-1">
           <VendorProfileInfo vendor={vendor} />
         </div>
 
         {/* Right Column: what we buy from them, priced */}
-        <div className="lg:col-span-2">
+        <div className="@4xl/main:col-span-2">
           <VendorMaterials vendorId={vendorId} workspaceId={workspaceId} />
         </div>
       </div>

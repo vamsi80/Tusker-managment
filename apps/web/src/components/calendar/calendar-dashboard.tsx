@@ -144,7 +144,10 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-4">
       {/* Calendar Control Bar */}
-      <div className="shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      {/* flex-wrap, not a viewport breakpoint: the card is far narrower than the
+          viewport (sidebar + agenda), so a lg:flex-row squeezed both groups into
+          one row and wrapped the title onto two lines. */}
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
         {/* Today, then prev/next flanking the period they move */}
         <div className="flex items-center gap-2.5">
           <Button
@@ -166,7 +169,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center min-w-[190px]">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center whitespace-nowrap min-w-[190px]">
               {headerTitle}
             </h2>
             <Button
@@ -182,7 +185,7 @@ export function CalendarDashboard({ workspaceId }: { workspaceId: string }) {
         </div>
 
         {/* Center: Search and Filters */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           {/* Search */}
           <div className="relative w-full sm:w-44">
             <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

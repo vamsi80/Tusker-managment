@@ -37,10 +37,10 @@ export function MaterialsFilters({
     const hasActiveFilters = searchQuery !== "" || selectedTasks.length > 0 || selectedStatuses.length > 0 || selectedUnits.length > 0;
 
     return (
-        <div className="bg-card/45 p-0 flex flex-col md:flex-row gap-3 items-center justify-between transition-all duration-300 hover:shadow-md">
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+        <div className="bg-card/45 p-0 flex flex-col @3xl/main:flex-row gap-3 items-center justify-between transition-all duration-300 hover:shadow-md">
+            <div className="flex flex-wrap items-center gap-3 w-full @3xl/main:w-auto flex-1">
                 {/* Search Input */}
-                <div className="relative w-full md:w-72">
+                <div className="relative w-full @3xl/main:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-hover:text-primary-ink" />
                     <Input
                         placeholder="Search materials or tasks..."
@@ -51,7 +51,7 @@ export function MaterialsFilters({
                 </div>
 
                 {/* Parent Task Selector */}
-                <div className="w-full md:w-48">
+                <div className="w-full @3xl/main:w-48">
                     <MultiSelectFilter
                         selected={selectedTasks}
                         onChange={onTasksChange}
@@ -63,7 +63,7 @@ export function MaterialsFilters({
                 </div>
 
                 {/* Material Status Selector */}
-                <div className="w-full md:w-40">
+                <div className="w-full @3xl/main:w-40">
                     <MultiSelectFilter
                         selected={selectedStatuses}
                         onChange={onStatusesChange}
@@ -75,7 +75,7 @@ export function MaterialsFilters({
                 </div>
 
                 {/* Material Unit Selector */}
-                <div className="w-full md:w-36">
+                <div className="w-full @3xl/main:w-36">
                     <MultiSelectFilter
                         selected={selectedUnits}
                         onChange={onUnitsChange}
@@ -92,7 +92,7 @@ export function MaterialsFilters({
                 <Button
                     onClick={onReset}
                     variant="ghost"
-                    className="h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all rounded-lg shrink-0 px-3 w-full md:w-auto flex items-center justify-center gap-1.5"
+                    className="h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all rounded-lg shrink-0 px-3 w-full @3xl/main:w-auto flex items-center justify-center gap-1.5"
                 >
                     <RotateCcw className="size-3.5" />
                     Reset Filters

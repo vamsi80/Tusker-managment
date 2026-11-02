@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "./workspace-sidebar";
 import { SiteHeader } from "./header/site-header";
 import { WorkspaceClientProviders } from "@/app/w/[workspaceId]/_components/workspace-client-providers";
@@ -25,6 +25,41 @@ export function WorkspaceShell({ children, workspaceId, initialData }: Workspace
       <WorkspaceShellContent>{children}</WorkspaceShellContent>
     </WorkspaceLayoutProvider>
   );
+}
+
+/**
+ * Gmail/Outlook behaviour: between tablet and 1280px the nav drops to its icon
+ * rail so the page gets the ~16rem back; widening again restores what it was.
+ * A manual toggle while narrow sticks, since this only acts when the width
+ * crosses the line. Reads the sidebar through a ref: setOpen changes identity
+ * on every toggle, and re-running the effect would undo a manual expand.
+ */
+function AutoCollapseSidebar() {
+  const sidebar = useSidebar();
+  const latest = useRef(sidebar);
+  useEffect(() => {
+    latest.current = sidebar;
+  });
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px) and (max-width: 1279px)");
+    let restore: boolean | null = null;
+    const apply = () => {
+      const { open, setOpen } = latest.current;
+      if (mql.matches) {
+        if (restore === null) restore = open;
+        setOpen(false);
+      } else if (restore !== null) {
+        setOpen(restore);
+        restore = null;
+      }
+    };
+    apply();
+    mql.addEventListener("change", apply);
+    return () => mql.removeEventListener("change", apply);
+  }, []);
+
+  return null;
 }
 
 function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
@@ -58,6 +93,7 @@ function WorkspaceShellContent({ children }: { children: React.ReactNode }) {
         }
       >
         <AppBackground />
+        <AutoCollapseSidebar />
         <AppSidebar />
 
         <SidebarInset className="relative flex min-h-svh flex-1 flex-col bg-transparent transition-all duration-300">

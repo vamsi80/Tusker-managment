@@ -111,7 +111,7 @@ function TodoItem({
           {...listeners}
           className={cn(
             "mt-1.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/45 hover:text-muted-foreground transition-opacity select-none touch-none",
-            isDragging ? "opacity-100" : "opacity-70 lg:opacity-0 lg:group-hover:opacity-100"
+            isDragging ? "opacity-100" : "opacity-70 @4xl/main:opacity-0 @4xl/main:group-hover:opacity-100"
           )}
           style={{
             WebkitUserSelect: "none",
@@ -407,7 +407,7 @@ export function PersonalListContainer({
           <Loader2 className="size-6 animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 h-full">
+        <div className="grid grid-cols-1 @4xl/main:grid-cols-2 gap-12 h-full">
           {/* Column 1: Active Tasks + Input */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-4">

@@ -363,7 +363,7 @@ export function ChatPanel({
           <div className="flex items-center gap-3">
             <Link
               href={`/w/${workspaceId}/myspace/conversations`}
-              className="-ml-2 rounded-full p-1 hover:bg-muted lg:hidden"
+              className="-ml-2 rounded-full p-1 hover:bg-muted @4xl/main:hidden"
             >
               <ArrowLeft className="size-5" />
             </Link>

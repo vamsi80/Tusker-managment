@@ -206,9 +206,9 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                 isWorkspaceAdmin={isAdmin}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="grid grid-cols-1 @4xl/main:grid-cols-12 gap-4">
                 {/* Left Side: Attendance Rules */}
-                <div className="lg:col-span-8 space-y-6">
+                <div className="@4xl/main:col-span-8 space-y-6">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
                             <Clock className="size-4" />
@@ -223,7 +223,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                         {/* In-line Settings Rows */}
                         <div className="divide-y divide-border rounded-lg border bg-card/30 backdrop-blur-md overflow-hidden shadow-sm">
                             {rows.map((r) => (
-                                <div key={r.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-2 hover:bg-muted/20 transition-colors">
+                                <div key={r.id} className="flex flex-col @3xl/main:flex-row @3xl/main:items-center justify-between gap-4 p-2 hover:bg-muted/20 transition-colors">
                                     <div className="space-y-1">
                                         <Label className="text-base font-normal flex items-center gap-2 leading-none">
                                             {r.icon}
@@ -234,7 +234,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                                         </p>
                                     </div>
 
-                                    <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                                    <div className="flex flex-wrap items-center gap-3 @3xl/main:justify-end">
                                         <div className={cn("px-2 py-1 rounded-md border text-[10px] font-black uppercase tracking-tighter shrink-0", r.hintClass)}>
                                             {r.hint}
                                         </div>
@@ -258,7 +258,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                 </div>
 
                 {/* Right Side: Public Holidays */}
-                <div className="lg:col-span-4 space-y-6">
+                <div className="@4xl/main:col-span-4 space-y-6">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
                             <CalendarIcon className="size-4" />
@@ -336,7 +336,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                 </div>
 
                 {/* Locations Section */}
-                <div className="lg:col-span-12 space-y-6 pt-4">
+                <div className="@4xl/main:col-span-12 space-y-6 pt-4">
                     <div className="flex flex-col gap-1">
                         <CardTitle className="text-xl flex items-center gap-2">
                             <MapPin className="size-4" />
@@ -347,7 +347,7 @@ export function AttendanceSettings({ workspaceId, initialData, isAdmin, schedule
                         </CardDescription>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3 gap-4">
                         {attendanceLocations.map((loc, idx) => (
                             <div key={idx} className="p-4 rounded-xl border bg-card/30 backdrop-blur-md shadow-sm space-y-4 relative group animate-in fade-in zoom-in duration-300">
                                 <Button

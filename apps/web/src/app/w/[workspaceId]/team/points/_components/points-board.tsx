@@ -46,11 +46,11 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
     // The same right-side task panel the calendar opens, from a history line.
     const { openSubTaskSheet } = useSubTaskSheetActions();
 
-    // Side by side (lg), both columns fill the screen and each list scrolls on its
+    // Side by side (56rem of content), both columns fill the screen and each list scrolls on its
     // own, so the page doesn't. Stacked on smaller screens, each list is 60vh.
     // Waits for summary: before it loads, the grid isn't rendered.
     const gridRef = useRef<HTMLDivElement>(null);
-    useFillViewport(gridRef, { enabled: !!summary, property: "height", minWidth: 1024 });
+    useFillViewport(gridRef, { enabled: !!summary, property: "height", minWidth: 896 });
 
     const loadSummary = useCallback(() => {
         apiClient.points.getSummary(workspaceId).then(setSummary).catch((e) => toast.error(e.message));
@@ -112,7 +112,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                 )}
             </div>
 
-            <div ref={gridRef} className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div ref={gridRef} className="grid gap-4 @4xl/main:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 {/* Leaderboard */}
                 <section className="flex flex-col rounded-2xl bg-white/60 p-4 dark:bg-card/60">
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide">
@@ -138,7 +138,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                     ) : (
                         // Fills the box (sized by gridRef). contain:size keeps the list's
                         // own length from stretching the box.
-                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
+                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] @4xl/main:min-h-0">
                             {ranked.map((m) => (
                                 <li key={m.memberId}>
                                     <button
@@ -192,7 +192,7 @@ export function PointsBoard({ workspaceId }: { workspaceId: string }) {
                     ) : (
                         // Same as the leaderboard list: fills the box and scrolls on its own;
                         // "Load more" stays pinned below it.
-                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] lg:min-h-0">
+                        <ul className="-mr-2 flex min-h-[60vh] flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain pr-2 [contain:size] @4xl/main:min-h-0">
                             {entries.map((e) => (
                                 <li
                                     key={e.id}

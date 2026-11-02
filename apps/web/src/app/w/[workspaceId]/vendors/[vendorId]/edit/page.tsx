@@ -206,7 +206,8 @@ export default function EditVendorPage() {
   }
 
   return (
-    <div className="space-y-6">
+    // Readable width: two-column fields ran ~770px each on a 1920 screen.
+    <div className="space-y-6 max-w-5xl">
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -216,7 +217,7 @@ export default function EditVendorPage() {
         >
           <ArrowLeft className="size-5" />
         </Button>
-        <h1 className="text-2xl font-normal leading-tight tracking-tighter md:text-2xl text-foreground">
+        <h1 className="text-2xl font-normal leading-tight tracking-tighter @3xl/main:text-2xl text-foreground">
           Edit Supplier / Contractor Profile
         </h1>
       </div>
@@ -230,7 +231,7 @@ export default function EditVendorPage() {
             <CardDescription>Enter primary registry and identification details.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
                   Category
@@ -246,7 +247,7 @@ export default function EditVendorPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 border-t pt-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6 border-t pt-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
                   Supplier / Contractor Name
@@ -267,7 +268,7 @@ export default function EditVendorPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 border-t pt-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6 border-t pt-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
                   <User className="size-4 text-muted-foreground" /> Contact Person Name
@@ -305,7 +306,7 @@ export default function EditVendorPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90 flex items-center gap-1.5">
                   <Mail className="size-4 text-muted-foreground" /> Email Address
@@ -364,7 +365,7 @@ export default function EditVendorPage() {
             <CardDescription>Update the legal and physical location of the supplier / contractor.</CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90">Address Line 1</label>
                 <Input
@@ -383,7 +384,7 @@ export default function EditVendorPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90">City / Town</label>
                 <Input
@@ -402,7 +403,7 @@ export default function EditVendorPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid @3xl/main:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground/90">PIN / ZIP Code</label>
                 <Input

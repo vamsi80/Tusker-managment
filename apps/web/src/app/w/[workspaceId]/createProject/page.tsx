@@ -254,7 +254,7 @@ export default function CreateProjectPage() {
                     })}
                     className="space-y-6"
                 >
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                    <div className="grid grid-cols-1 @4xl/main:grid-cols-2 gap-10">
                         {/* Basic Info Section */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 text-primary-ink font-semibold">
@@ -678,7 +678,7 @@ export default function CreateProjectPage() {
                         </div>
 
                         {!form.watch("isInternal") && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 @3xl/main:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="companyName"

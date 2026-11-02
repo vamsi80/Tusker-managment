@@ -61,9 +61,9 @@ async function LeavesContent({ workspaceId }: { workspaceId: string }) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-y-4 rounded-full bg-muted px-6 py-4 shadow-inner md:grid-cols-4 md:divide-x md:divide-border max-md:rounded-2xl">
+                <div className="grid grid-cols-2 gap-y-4 rounded-full bg-muted px-6 py-4 shadow-inner @3xl/main:grid-cols-4 @3xl/main:divide-x @3xl/main:divide-border @max-3xl/main:rounded-2xl">
                     {facts.map((f) => (
-                        <div key={f.label} className="md:px-6">
+                        <div key={f.label} className="@3xl/main:px-6">
                             <p className="text-sm text-muted-foreground">{f.label}</p>
                             <p className="font-medium capitalize">{f.value || "—"}</p>
                         </div>

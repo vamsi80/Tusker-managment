@@ -22,7 +22,9 @@ function scrollParent(box: HTMLElement): HTMLElement {
  * calc(100vh - Npx) guess, because what sits above differs per page.
  *
  * - property "maxHeight" caps it (a short table stays short), "height" fills.
- * - minWidth: below this screen width the size is cleared (stacked mobile layouts).
+ * - minWidth: below this content width the size is cleared (stacked layouts).
+ *   Measured on <main>, not the window: the sidebar eats ~18rem, so a window
+ *   check locked the height while the page's @container/main layout had stacked.
  */
 export function useFillViewport(
     ref: React.RefObject<HTMLElement | null>,
@@ -36,8 +38,9 @@ export function useFillViewport(
         const box = ref.current;
         if (!enabled || !box) return;
 
+        const main = box.closest("main");
         const fit = () => {
-            if (window.innerWidth < minWidth) {
+            if ((main?.clientWidth ?? window.innerWidth) < minWidth) {
                 box.style[property] = "";
                 return;
             }
@@ -70,7 +73,8 @@ export function useFillViewport(
         // Content above or below changing size resizes body's children (body
         // itself is fixed at 100% when it is the scroller).
         const observer = new ResizeObserver(fit);
-        [document.body, ...Array.from(document.body.children)].forEach((el) => observer.observe(el));
+        // main too: collapsing the sidebar resizes it without a window resize.
+        [document.body, ...Array.from(document.body.children), ...(main ? [main] : [])].forEach((el) => observer.observe(el));
         window.addEventListener("resize", fit);
         return () => {
             observer.disconnect();

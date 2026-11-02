@@ -22,8 +22,8 @@ export function ConversationShell({ sidebar, children }: ConversationShellProps)
       {/* Sidebar Panel */}
       <div
         className={cn(
-          "w-full lg:w-80 border-r flex flex-col shrink-0 bg-muted/10",
-          conversationId ? "hidden lg:flex" : "flex"
+          "w-full @4xl/main:w-80 border-r flex flex-col shrink-0 bg-muted/10",
+          conversationId ? "hidden @4xl/main:flex" : "flex"
         )}
       >
         {sidebar}
@@ -33,7 +33,7 @@ export function ConversationShell({ sidebar, children }: ConversationShellProps)
       <div
         className={cn(
           "flex-1 flex flex-col min-w-0 relative",
-          conversationId ? "flex" : "hidden lg:flex"
+          conversationId ? "flex" : "hidden @4xl/main:flex"
         )}
       >
         {children}

@@ -62,7 +62,7 @@ export function TaskSummaryWidget({
   ];
 
   const colClass = showAbsent
-    ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
+    ? "grid grid-cols-1 sm:grid-cols-2 @3xl/main:grid-cols-4 gap-4"
     : "grid grid-cols-1 sm:grid-cols-3 gap-4";
 
   const card = (stat: (typeof stats)[number] | { label: string; value: number; icon: typeof UserMinus; color: string; bgColor: string; borderColor: string }) => {
