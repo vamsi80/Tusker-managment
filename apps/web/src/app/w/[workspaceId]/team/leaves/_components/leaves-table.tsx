@@ -287,7 +287,7 @@ export function LeavesTable({
             accessorKey: "reason",
             header: "Reason",
             cell: ({ row }) => (
-                <div className="max-w-[200px] truncate text-sm text-muted-foreground group relative">
+                <div className="max-w-50 truncate text-sm text-muted-foreground group relative">
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -420,7 +420,7 @@ export function LeavesTable({
             />
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
+                <DialogContent className="sm:max-w-125 rounded-3xl border-none shadow-2xl overflow-hidden p-0">
                     {selectedLeave && (() => {
                         const leave = selectedLeave;
                         const initials = (leave.name?.[0] || leave.surname?.[0])?.toUpperCase() || "?";

@@ -257,7 +257,7 @@ export function DataTable<TData, TValue>({
                                         Filters
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-[200px]">
+                                <DropdownMenuContent align="start" className="w-50">
                                     {filterFields.map((field) => {
                                         const column = table.getColumn(field.value);
                                         if (!column) return null;
@@ -266,7 +266,7 @@ export function DataTable<TData, TValue>({
                                                 <DropdownMenuSubTrigger>
                                                     {field.label}
                                                 </DropdownMenuSubTrigger>
-                                                <DropdownMenuSubContent className="w-[200px]">
+                                                <DropdownMenuSubContent className="w-50">
                                                     {field.options?.map((option) => {
                                                         const filterValue = column.getFilterValue();
                                                         const isSelected = Array.isArray(filterValue)
@@ -361,7 +361,7 @@ export function DataTable<TData, TValue>({
                                         Columns
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-[200px]">
+                                <DropdownMenuContent align="end" className="w-50">
                                     {table
                                         .getAllColumns()
                                         .filter((column) => column.getCanHide())
@@ -554,7 +554,7 @@ export function DataTable<TData, TValue>({
                                     table.setPageSize(Number(value));
                                 }}
                             >
-                                <SelectTrigger size="sm" className="w-[76px]">
+                                <SelectTrigger size="sm" className="w-19">
                                     <SelectValue placeholder={table.getState().pagination.pageSize} />
                                 </SelectTrigger>
                                 <SelectContent side="top">
@@ -568,7 +568,7 @@ export function DataTable<TData, TValue>({
                         </div>
 
                         {/* Page Count Info */}
-                        <div className="flex w-[100px] items-center justify-center text-sm text-muted-foreground whitespace-nowrap">
+                        <div className="flex w-25 items-center justify-center text-sm text-muted-foreground whitespace-nowrap">
                             Page {table.getState().pagination.pageIndex + 1} of{" "}
                             {table.getPageCount()}
                         </div>
